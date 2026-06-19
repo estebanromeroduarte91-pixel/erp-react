@@ -1,28 +1,48 @@
 import { useAuth } from '@/context/AuthContext'
+import { useLocation } from 'react-router-dom'
+
+const ROUTE_TITLES: Record<string, string> = {
+  '/dashboard': 'Dashboard',
+  '/taller': 'Taller',
+  '/inventario': 'Inventario',
+  '/ventas': 'Ventas',
+  '/contactos': 'Contactos',
+  '/contabilidad': 'Contabilidad',
+  '/estadisticas': 'Estadísticas',
+  '/config': 'Configuración',
+}
 
 export function Topbar() {
-  const { empresaNombre, nombre, rol, logout } = useAuth()
+  const { logout } = useAuth()
+  const { pathname } = useLocation()
+  const title = ROUTE_TITLES[pathname] ?? 'ERP'
 
   return (
-    <header className="fixed top-0 left-64 right-0 z-20 h-14 bg-white border-b border-gray-200 flex items-center px-6 gap-4">
-      <h1 className="flex-1 text-sm font-semibold text-gray-700 truncate">{empresaNombre}</h1>
+    <header style={{
+      position: 'fixed', top: 0, left: 'var(--sidebar-w)', right: 0, zIndex: 50,
+      height: 58, background: '#fff',
+      borderBottom: '1px solid var(--gray-100)',
+      padding: '0 24px',
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+    }}>
+      <h2 style={{ fontSize: 17, fontWeight: 700, color: 'var(--gray-800)', letterSpacing: '-.015em', margin: 0 }}>
+        {title}
+      </h2>
 
-      <div className="flex items-center gap-3">
-        <div className="text-right hidden sm:block">
-          <p className="text-xs font-medium text-gray-800 leading-none">{nombre}</p>
-          <p className="text-xs text-gray-400 mt-0.5 capitalize">{rol}</p>
-        </div>
-
-        <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-bold select-none">
-          {nombre.charAt(0).toUpperCase() || '?'}
-        </div>
-
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
         <button
           onClick={logout}
           title="Cerrar sesión"
-          className="ml-1 p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition"
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: 32, height: 32, borderRadius: 8, border: 'none',
+            background: 'transparent', cursor: 'pointer',
+            color: 'var(--gray-400)', transition: 'all .15s',
+          }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--gray-50)'; (e.currentTarget as HTMLElement).style.color = 'var(--gray-600)' }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--gray-400)' }}
         >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round"
               d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h6a2 2 0 012 2v1" />
           </svg>

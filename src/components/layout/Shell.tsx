@@ -4,12 +4,11 @@ import { Topbar } from './Topbar'
 
 export function Shell({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div style={{ minHeight: '100vh', background: 'var(--gray-50)' }}>
       <Sidebar />
       <Topbar />
-      {/* El contenido empieza debajo del topbar (h-14) y a la derecha del sidebar (w-64) */}
-      <main className="ml-64 pt-14 min-h-screen">
-        <div className="p-6">{children}</div>
+      <main style={{ marginLeft: 'var(--sidebar-w)', paddingTop: 58, minHeight: '100vh' }}>
+        <div style={{ padding: 24 }}>{children}</div>
       </main>
     </div>
   )

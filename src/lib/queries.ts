@@ -3,7 +3,7 @@ import { useEffect } from 'react'
 import { supabase } from './supabase'
 import { dbGet, dbSet } from './db'
 import { useAuth } from '@/context/AuthContext'
-import type { Orden, Cliente, Producto, Bodega, Movimiento, Proveedor, Venta, MetodoPago, Caja, CajaSesion, Gasto, GastoCat, CuentaContable, Asiento, SeguimientoConfig, SmtpConfig, MsgTemplates, Cargo, UserProfile, UserConfig, PendingInvite, EmailDomain } from '@/types'
+import type { Orden, Cliente, Producto, Bodega, Movimiento, Proveedor, Venta, MetodoPago, Caja, CajaSesion, Gasto, GastoCat, CuentaContable, Asiento, SeguimientoConfig, SmtpConfig, MsgTemplates, Cargo, UserProfile, UserConfig, PendingInvite, EmailDomain, OC, OCLogEntry } from '@/types'
 
 // ── Órdenes de Taller ─────────────────────────────────────────
 
@@ -603,6 +603,60 @@ export function useGuardarEmailDomain() {
   return useMutation({
     mutationFn: (domain: EmailDomain | null) => dbSet(empresaId!, 'tp_email_domain', domain),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['tp_email_domain', empresaId] }),
+  })
+}
+
+// ── Compras / Órdenes de Compra ───────────────────────────────
+
+export function useOCs() {
+  const { empresaId } = useAuth()
+  return useQuery({
+    queryKey: ['ocs', empresaId],
+    queryFn: () => dbGet<OC[] | string>(empresaId!, 'ocs'),
+    enabled: !!empresaId,
+    select: (data) => parseArr<OC>(data as OC[] | string | null),
+  })
+}
+
+export function useGuardarOCs() {
+  const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (ocs: OC[]) => dbSet(empresaId!, 'ocs', ocs),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['ocs', empresaId] }),
+  })
+}
+
+export function useOCLog() {
+  const { empresaId } = useAuth()
+  return useQuery({
+    queryKey: ['oc_log', empresaId],
+    queryFn: () => dbGet<OCLogEntry[] | string>(empresaId!, 'oc_log'),
+    enabled: !!empresaId,
+    select: (data) => parseArr<OCLogEntry>(data as OCLogEntry[] | string | null),
+  })
+}
+
+export function useGuardarOCLog() {
+  const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (log: OCLogEntry[]) => dbSet(empresaId!, 'oc_log', log),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['oc_log', empresaId] }),
+  })
+}
+
+export function useIncrementarContadorOC() {
+  const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async () => {
+      const cfg = (await dbGet<Record<string, unknown>>(empresaId!, 'cfg')) ?? {}
+      const next = ((cfg.ocCounter as number | undefined) ?? 0) + 1
+      await dbSet(empresaId!, 'cfg', { ...cfg, ocCounter: next })
+      return next
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['cfg', empresaId] }),
   })
 }
 

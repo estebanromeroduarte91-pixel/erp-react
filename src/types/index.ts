@@ -315,6 +315,66 @@ export interface PendingInvite {
   created_at: string
 }
 
+// ── Compras / Órdenes de Compra ───────────────────────────────
+
+export type EstadoOC = 'borrador' | 'parcial' | 'recibida' | 'confirmada' | 'cancelada'
+
+export interface OCItem {
+  id: string
+  producto_id: string
+  producto_nombre: string
+  cantidad: number
+  precio_neto: number
+  precio_iva: number
+  precio_unitario: number
+  subtotal: number
+  bodega_id: string
+  bodega_nombre: string
+}
+
+export interface OCRecepcionItem {
+  prod_item_id: string
+  producto_id: string
+  producto_nombre: string
+  cantidad: number
+}
+
+export interface OCRecepcion {
+  id: string
+  fecha: string
+  bodega_id: string
+  bodega_nombre: string
+  notas?: string
+  items: OCRecepcionItem[]
+}
+
+export interface OC {
+  id: string
+  numero: string
+  estado: EstadoOC
+  proveedor_id: string
+  proveedor_nombre: string
+  fecha: string
+  fecha_entrega?: string
+  bodega_id?: string
+  bodega_nombre?: string
+  notas?: string
+  items: OCItem[]
+  total: number
+  fecha_creacion: string
+  recepciones?: OCRecepcion[]
+  folio_factura?: string
+  metodo_pago?: string
+  fecha_recepcion?: string
+  fecha_primera_recepcion?: string
+  fecha_confirmacion?: string
+}
+
+export interface OCLogEntry extends OC {
+  _eliminada_en: string
+  _eliminada_ts: number
+}
+
 // ── Dominio de email (Resend) ─────────────────────────────────
 export type DominioStatus = 'verified' | 'pending' | 'not_started' | 'failed' | 'temporary_failure'
 

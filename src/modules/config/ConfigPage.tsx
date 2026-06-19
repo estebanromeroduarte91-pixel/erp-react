@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { SeguimientoTab } from './SeguimientoTab'
 import { ChecklistConfigTab } from './ChecklistConfigTab'
 import { MensajesTab } from './MensajesTab'
@@ -11,7 +12,16 @@ import { AccesosTab } from './AccesosTab'
 type Tab = 'seguimiento' | 'checklist' | 'mensajes' | 'terminos' | 'smtp' | 'dominio' | 'cargos' | 'accesos'
 
 export function ConfigPage() {
-  const [tab, setTab] = useState<Tab>('seguimiento')
+  const [searchParams] = useSearchParams()
+  const [tab, setTab] = useState<Tab>(() => {
+    const t = searchParams.get('tab')
+    return (t as Tab) ?? 'seguimiento'
+  })
+
+  useEffect(() => {
+    const t = searchParams.get('tab')
+    if (t) setTab(t as Tab)
+  }, [searchParams])
 
   const tabs: { key: Tab; label: string }[] = [
     { key: 'seguimiento', label: 'Seguimiento' },
