@@ -49,6 +49,20 @@ function fmtFecha(iso: string) {
   }
 }
 
+// Días que la orden lleva en el taller
+function ordenAge(o: Orden): number {
+  if (!o.fecha) return 0
+  const d = new Date(o.fecha)
+  if (isNaN(d.getTime())) return 0
+  return Math.max(0, Math.floor((Date.now() - d.getTime()) / (1000 * 60 * 60 * 24)))
+}
+
+function ageLabel(age: number): string {
+  if (age === 0) return 'Hoy'
+  if (age === 1) return '1 día'
+  return `${age} días`
+}
+
 export function TallerPage() {
   const [searchParams] = useSearchParams()
   const [tallerTab, setTallerTab] = useState<TallerTab>(() => resolveTallerTab(searchParams.get('tab')))
@@ -294,14 +308,27 @@ export function TallerPage() {
                     const derivedTsl = isDerived
                       ? (traslados ?? []).find((t) => t.order_id === o.id && t.estado !== 'retornado')
                       : null
+                    const activa = o.status !== 'Entregado'
+                    const age = ordenAge(o)
+                    const rowTint = activa ? (age > 14 ? 'bg-red-50/60' : age > 7 ? 'bg-amber-50/60' : '') : ''
+                    const ageChip = !activa
+                      ? 'bg-gray-100 text-gray-500'
+                      : age > 14 ? 'bg-red-100 text-red-700'
+                      : age > 7 ? 'bg-amber-100 text-amber-700'
+                      : 'bg-gray-100 text-gray-500'
                     return (
                       <tr
                         key={o.id}
                         onClick={() => setDetalle(o)}
-                        className="hover:bg-blue-50/40 transition-colors cursor-pointer"
+                        className={`${rowTint} hover:bg-blue-50/40 transition-colors cursor-pointer`}
                       >
                         <td className="px-4 py-3 font-mono font-semibold text-gray-700">#{o.num}</td>
-                        <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{fmtFecha(o.fecha)}</td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span className="text-gray-500">{fmtFecha(o.fecha)}</span>
+                          <span className={`ml-2 inline-block text-[11px] font-semibold rounded-full px-2 py-0.5 ${ageChip}`}>
+                            {activa ? ageLabel(age) : 'Entregado'}
+                          </span>
+                        </td>
                         <td className="px-4 py-3">
                           <p className="font-medium text-gray-800">{o.nombre}</p>
                           {o.tel && <p className="text-xs text-gray-400">{o.tel}</p>}

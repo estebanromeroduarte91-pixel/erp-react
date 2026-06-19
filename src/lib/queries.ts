@@ -3,7 +3,7 @@ import { useEffect } from 'react'
 import { supabase } from './supabase'
 import { dbGet, dbSet } from './db'
 import { useAuth } from '@/context/AuthContext'
-import type { Orden, Cliente, Producto, Bodega, Movimiento, Proveedor, Venta, MetodoPago, Caja, CajaSesion, Gasto, GastoCat, CuentaContable, Asiento, SeguimientoConfig, SmtpConfig, MsgTemplates, Cargo, UserProfile, UserConfig, PendingInvite, EmailDomain, OC, OCLogEntry, Categoria, Kit, Traslado, TecnicoExterno } from '@/types'
+import type { Orden, Cliente, Producto, Bodega, Movimiento, Proveedor, Venta, MetodoPago, Caja, CajaSesion, Gasto, GastoCat, CuentaContable, Asiento, SeguimientoConfig, SmtpConfig, MsgTemplates, Cargo, UserProfile, UserConfig, PendingInvite, EmailDomain, OC, OCLogEntry, Categoria, Kit, Traslado, TecnicoExterno, Equipo } from '@/types'
 
 // ── Órdenes de Taller ─────────────────────────────────────────
 
@@ -863,5 +863,26 @@ export function useGuardarTecnicosExternos() {
   return useMutation({
     mutationFn: (tecnicos: TecnicoExterno[]) => dbSet(empresaId!, 'tp_tecnicos', tecnicos),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['tp_tecnicos', empresaId] }),
+  })
+}
+
+// ── Catálogo de equipos del taller (tp_equipos) ───────────────
+
+export function useEquipos() {
+  const { empresaId } = useAuth()
+  return useQuery({
+    queryKey: ['tp_equipos', empresaId],
+    queryFn: () => dbGet<Equipo[] | string>(empresaId!, 'tp_equipos'),
+    enabled: !!empresaId,
+    select: (data) => parseArr<Equipo>(data as Equipo[] | string | null),
+  })
+}
+
+export function useGuardarEquipos() {
+  const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (equipos: Equipo[]) => dbSet(empresaId!, 'tp_equipos', equipos),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['tp_equipos', empresaId] }),
   })
 }

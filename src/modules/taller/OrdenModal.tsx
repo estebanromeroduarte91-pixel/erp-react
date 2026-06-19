@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { useGuardarOrden, useClientes, useGuardarClientes, useProductos, useChecklist } from '@/lib/queries'
 import { Money } from '@/components/shared/Money'
+import { EquipoSelector } from './EquipoSelector'
+import { PatternLockModal } from './PatternLockModal'
+import { QrFotosModal } from './QrFotosModal'
 import type { Orden, EstadoOrden, Repuesto, Producto, CheckItem } from '@/types'
 
 const ESTADOS_OT: EstadoOrden[] = ['Chequeo', 'Reparación', 'Listo', 'Entregado', 'No reparable']
@@ -19,14 +22,14 @@ function nextNum(ordenes: Orden[]): string {
 
 interface FormData {
   nombre: string; tel: string; email: string; rut: string
-  modelo: string; serie: string; color: string; pin: string
+  modelo: string; serie: string; color: string; pin: string; pinType: 'text' | 'pattern'
   estadoFisico: string; trabajo: string; tecnico: string
   presup: string; costo: string; status: EstadoOrden; fechaEstimada: string
 }
 
 const EMPTY: FormData = {
   nombre: '', tel: '', email: '', rut: '', modelo: '', serie: '',
-  color: '', pin: '', estadoFisico: '', trabajo: '', tecnico: '',
+  color: '', pin: '', pinType: 'text', estadoFisico: '', trabajo: '', tecnico: '',
   presup: '', costo: '', status: 'Chequeo', fechaEstimada: '',
 }
 
@@ -41,7 +44,8 @@ export function OrdenModal({ orden, ordenes, onClose }: Props) {
     orden ? {
       nombre: orden.nombre ?? '', tel: orden.tel ?? '', email: orden.email ?? '',
       rut: orden.rut ?? '', modelo: orden.modelo ?? '', serie: orden.serie ?? '',
-      color: orden.color ?? '', pin: orden.pin ?? '', estadoFisico: orden.estadoFisico ?? '',
+      color: orden.color ?? '', pin: orden.pin ?? '', pinType: orden.pinType ?? 'text',
+      estadoFisico: orden.estadoFisico ?? '',
       trabajo: orden.trabajo ?? '', tecnico: orden.tecnico ?? '',
       presup: String(orden.presup ?? ''), costo: String(orden.costo ?? ''),
       status: orden.status ?? 'Chequeo', fechaEstimada: orden.fechaEstimada ?? '',
@@ -59,6 +63,53 @@ export function OrdenModal({ orden, ordenes, onClose }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [error, setError] = useState('')
   const [guardando, setGuardando] = useState(false)
+  const [showPattern, setShowPattern] = useState(false)
+  const [showQr, setShowQr] = useState(false)
+  // ID efectivo de la orden en la BD. En edición = orden.id. En "nueva", se genera
+  // un borrador la primera vez que se pide el QR para que las fotos tengan dónde llegar.
+  const [draftId, setDraftId] = useState<string | null>(orden?.id ?? null)
+  const [creandoBorrador, setCreandoBorrador] = useState(false)
+
+  // Orden fresca desde la lista (se actualiza por realtime cuando llegan fotos del iPhone)
+  const ordenLive = draftId ? ordenes.find((o) => o.id === draftId) : null
+  const livePhotosLen = ordenLive?.photosIngreso?.length ?? 0
+  useEffect(() => {
+    const live = ordenLive?.photosIngreso
+    if (live && live.length !== fotos.length) setFotos(live)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [livePhotosLen])
+
+  // Crea (una sola vez) un borrador en la BD para que el QR de fotos pueda enlazarlas
+  // de inmediato mientras se completa la orden. Devuelve el id del borrador.
+  async function asegurarBorrador(): Promise<string | null> {
+    if (draftId) return draftId
+    if (!form.nombre.trim() && !form.modelo.trim()) {
+      setError('Ingresa el cliente o el equipo antes de generar el QR')
+      return null
+    }
+    setError('')
+    setCreandoBorrador(true)
+    const id = Date.now().toString()
+    const draft: Orden = {
+      id,
+      num: nextNum(ordenes),
+      fecha: new Date().toISOString(),
+      ...form,
+      repuestos,
+      checkIngreso,
+      photosIngreso: fotos,
+      _draft: true,
+    }
+    await guardar.mutateAsync([draft, ...ordenes])
+    setDraftId(id)
+    setCreandoBorrador(false)
+    return id
+  }
+
+  async function abrirQr() {
+    const id = await asegurarBorrador()
+    if (id) setShowQr(true)
+  }
 
   // Autocomplete cliente
   const [acClientes, setAcClientes] = useState<typeof clientes>([])
@@ -102,6 +153,10 @@ export function OrdenModal({ orden, ordenes, onClose }: Props) {
   }
 
   function set(field: keyof FormData, val: string) {
+    setForm((f) => ({ ...f, [field]: val }))
+  }
+
+  function set2<K extends keyof FormData>(field: K, val: FormData[K]) {
     setForm((f) => ({ ...f, [field]: val }))
   }
 
@@ -182,12 +237,15 @@ export function OrdenModal({ orden, ordenes, onClose }: Props) {
     checkFinal._apagado = checkApagado
     checkFinal._mojado = checkMojado
 
-    if (isEditing) {
-      nuevasOrdenes = ordenes.map((o) =>
-        o.id === orden!.id
-          ? { ...o, ...form, repuestos, checkIngreso: checkFinal, photosIngreso: fotos }
-          : o
-      )
+    if (draftId) {
+      // Edición, o finalización de un borrador creado para el QR. Quita el flag _draft.
+      const existe = ordenes.some((o) => o.id === draftId)
+      const actualizada = (base: Orden): Orden => ({
+        ...base, ...form, repuestos, checkIngreso: checkFinal, photosIngreso: fotos, _draft: false,
+      })
+      nuevasOrdenes = existe
+        ? ordenes.map((o) => (o.id === draftId ? actualizada(o) : o))
+        : [actualizada({ id: draftId, num: nextNum(ordenes), fecha: ahora } as Orden), ...ordenes]
     } else {
       const nuevaOrden: Orden = {
         id: Date.now().toString(),
@@ -199,7 +257,10 @@ export function OrdenModal({ orden, ordenes, onClose }: Props) {
         photosIngreso: fotos,
       }
       nuevasOrdenes = [nuevaOrden, ...ordenes]
+    }
 
+    // Crea el cliente si es la primera vez que se guarda de verdad (no en re-edición)
+    if (!isEditing) {
       const lista = clientes ?? []
       const yaExiste = lista.find(
         (c) => (form.rut && c.rut === form.rut) ||
@@ -279,11 +340,39 @@ export function OrdenModal({ orden, ordenes, onClose }: Props) {
             <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Datos del equipo</h4>
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2">
-                <Field label="Modelo / Equipo *" value={form.modelo} onChange={(v) => set('modelo', v)} placeholder="Ej: iPhone 14 Pro Max" />
+                <label className="text-xs font-medium text-gray-600 mb-1 block">Modelo / Equipo *</label>
+                <EquipoSelector value={form.modelo} onChange={(v) => set('modelo', v)} />
               </div>
               <Field label="N° Serie / IMEI" value={form.serie} onChange={(v) => set('serie', v)} placeholder="C8QH2XXXXXX" />
               <Field label="Color" value={form.color} onChange={(v) => set('color', v)} placeholder="Negro, Blanco..." />
-              <Field label="Contraseña / PIN" value={form.pin} onChange={(v) => set('pin', v)} placeholder="Ej: 1234" />
+              {/* Contraseña / Patrón */}
+              <div>
+                <label className="text-xs font-medium text-gray-600 mb-1 block">Contraseña / Patrón</label>
+                <div className="flex gap-1 mb-1.5">
+                  <button type="button" onClick={() => set2('pinType', 'text')}
+                    className={['flex-1 text-xs font-medium py-1.5 rounded-lg border transition',
+                      form.pinType === 'text' ? 'border-blue-400 bg-blue-50 text-blue-700' : 'border-gray-200 bg-gray-50 text-gray-500'].join(' ')}>
+                    Clave / PIN
+                  </button>
+                  <button type="button" onClick={() => set2('pinType', 'pattern')}
+                    className={['flex-1 text-xs font-medium py-1.5 rounded-lg border transition',
+                      form.pinType === 'pattern' ? 'border-blue-400 bg-blue-50 text-blue-700' : 'border-gray-200 bg-gray-50 text-gray-500'].join(' ')}>
+                    Patrón
+                  </button>
+                </div>
+                {form.pinType === 'text' ? (
+                  <input value={form.pin} onChange={(e) => set('pin', e.target.value)} placeholder="Ej: 1234 (solo si aplica)"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+                ) : (
+                  <button type="button" onClick={() => setShowPattern(true)}
+                    className="w-full flex items-center justify-between border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 hover:border-blue-400 transition">
+                    <span className={form.pin.startsWith('Patrón:') ? 'text-gray-800' : 'text-gray-400'}>
+                      {form.pin.startsWith('Patrón:') ? form.pin : 'Sin patrón definido'}
+                    </span>
+                    <span className="text-xs text-blue-600 font-medium">Dibujar</span>
+                  </button>
+                )}
+              </div>
               <div>
                 <label className="text-xs font-medium text-gray-600 mb-1 block">Estado</label>
                 <select value={form.status} onChange={(e) => set('status', e.target.value)}
@@ -458,15 +547,26 @@ export function OrdenModal({ orden, ordenes, onClose }: Props) {
               <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">
                 Fotos de ingreso ({fotos.length}/6)
               </h4>
-              {fotos.length < 6 && (
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="text-xs font-semibold text-blue-600 border border-blue-200 rounded-lg px-3 py-1.5 hover:bg-blue-50 transition"
-                >
-                  + Agregar fotos
+              <div className="flex items-center gap-2">
+                {/* QR para subir fotos desde iPhone — crea un borrador al vuelo si la orden es nueva */}
+                <button type="button" onClick={abrirQr} disabled={creandoBorrador}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5 hover:bg-blue-100 disabled:opacity-60 transition">
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" />
+                    <rect x="3" y="14" width="7" height="7" rx="1" /><path d="M14 14h3v3h-3zM17 17v3M14 17h.01" />
+                  </svg>
+                  {creandoBorrador ? 'Preparando…' : 'QR iPhone'}
                 </button>
-              )}
+                {fotos.length < 6 && (
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="text-xs font-semibold text-blue-600 border border-blue-200 rounded-lg px-3 py-1.5 hover:bg-blue-50 transition"
+                  >
+                    + Agregar fotos
+                  </button>
+                )}
+              </div>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -527,6 +627,22 @@ export function OrdenModal({ orden, ordenes, onClose }: Props) {
           </button>
         </div>
       </div>
+
+      {/* Modal patrón de desbloqueo */}
+      {showPattern && (
+        <PatternLockModal
+          initial={form.pin.startsWith('Patrón:')
+            ? form.pin.replace('Patrón:', '').trim().split('-').map(Number).filter((n) => !isNaN(n))
+            : []}
+          onSave={(seq) => { set('pin', `Patrón: ${seq.join('-')}`); setShowPattern(false) }}
+          onClose={() => setShowPattern(false)}
+        />
+      )}
+
+      {/* Modal QR fotos iPhone */}
+      {showQr && draftId && (
+        <QrFotosModal ordenId={draftId} tipo="ingreso" onClose={() => setShowQr(false)} />
+      )}
     </div>
   )
 }

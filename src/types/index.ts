@@ -21,6 +21,12 @@ export interface Repuesto {
   precio: number
 }
 
+export interface Inspeccion {
+  fotos: string[]
+  notas: string
+  fecha: string
+}
+
 export interface Orden {
   id: string
   num: string           // string con ceros: '0001', '0002'...
@@ -46,6 +52,27 @@ export interface Orden {
   photosIngreso?: string[]
   branchId?: string
   _draft?: boolean
+  // Inspección / salida / cierre (mismos campos que el ERP vanilla)
+  inspeccion?: Inspeccion
+  photosSalida?: string[]
+  checkSalida?: CheckItem[]
+  observSalida?: string
+  obs?: string
+  photosTraslado?: string[]
+  aprobacion_estado?: 'pendiente' | 'aprobado' | 'rechazado'
+  aprobacion_token?: string
+  deliveredAt?: string
+  updatedAt?: string
+  createdAt?: string
+}
+
+// ── Catálogo de equipos del taller (tp_equipos) ──────────────
+export interface Equipo {
+  id: string
+  marca?: string
+  modelo?: string
+  categoria?: string    // 'Teléfono' | 'Tablet' | 'Notebook' | ...
+  descripcion?: string
 }
 
 // ── Inventario ────────────────────────────────────────────────
