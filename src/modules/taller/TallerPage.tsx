@@ -134,12 +134,26 @@ export function TallerPage() {
   return (
     <div>
       {/* Encabezado */}
-      <div className="flex items-center justify-between mb-5">
-        <div>
+      <div className="flex flex-wrap items-center gap-3 mb-5">
+        <div className="mr-auto">
           <h2 className="text-xl font-bold text-gray-900">Taller</h2>
           <p className="text-sm text-gray-400 mt-0.5">{ordenes?.length ?? 0} órdenes en total</p>
         </div>
-        {tallerTab === 'ordenes' && (
+        {tallerTab === 'ordenes' && (<>
+          {/* Buscador arriba a la derecha */}
+          <div className="relative">
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
+              fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              placeholder="Buscar cliente, N°, RUT, equipo..."
+              className="pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-blue-400 w-64"
+            />
+          </div>
           <button
             onClick={abrirNueva}
             className="inline-flex items-center gap-2 bg-blue-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 transition"
@@ -149,7 +163,7 @@ export function TallerPage() {
             </svg>
             Nueva orden
           </button>
-        )}
+        </>)}
       </div>
 
       {/* Tabs de sección */}
@@ -215,46 +229,27 @@ export function TallerPage() {
           />
         </div>
 
-        {/* Filtros */}
-        <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4 flex flex-wrap gap-3 items-center">
-          <div className="relative flex-1 min-w-48">
-            <svg
-              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
-              fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+        {/* Pipeline de filtros */}
+        <div className="flex flex-wrap items-center gap-1 mb-4 border-b border-gray-200 pb-3">
+          {ESTADOS.map((e) => (
+            <button
+              key={e.value}
+              onClick={() => setFiltroEstado(e.value)}
+              className={[
+                'inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition',
+                filtroEstado === e.value
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200',
+              ].join(' ')}
             >
-              <path strokeLinecap="round" strokeLinejoin="round"
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            <input
-              type="text"
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-              placeholder="Buscar cliente, N°, equipo..."
-              className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:border-blue-400"
-            />
-          </div>
-
-          <div className="flex flex-wrap gap-1">
-            {ESTADOS.map((e) => (
-              <button
-                key={e.value}
-                onClick={() => setFiltroEstado(e.value)}
-                className={[
-                  'px-3 py-1.5 text-xs font-medium rounded-lg transition',
-                  filtroEstado === e.value
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200',
-                ].join(' ')}
-              >
-                {e.label}
-                {e.value === 'Derivado' && stats.derivadas > 0 && (
-                  <span className={`ml-1.5 inline-flex items-center justify-center w-4 h-4 rounded-full text-[10px] font-bold ${filtroEstado === 'Derivado' ? 'bg-white/30' : 'bg-orange-200 text-orange-800'}`}>
-                    {stats.derivadas}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
+              {e.label}
+              {e.value === 'Derivado' && stats.derivadas > 0 && (
+                <span className={`inline-flex items-center justify-center w-4 h-4 rounded-full text-[10px] font-bold ${filtroEstado === 'Derivado' ? 'bg-white/30 text-white' : 'bg-orange-200 text-orange-800'}`}>
+                  {stats.derivadas}
+                </span>
+              )}
+            </button>
+          ))}
         </div>
 
         {/* Banner archivo si está en "Entregado" */}
