@@ -3,7 +3,7 @@ import { useEffect } from 'react'
 import { supabase } from './supabase'
 import { dbGet, dbSet } from './db'
 import { useAuth } from '@/context/AuthContext'
-import type { Orden, Cliente, Producto, Bodega, Movimiento, Proveedor, Venta, MetodoPago, Caja, CajaSesion, Gasto, GastoCat, CuentaContable, Asiento, SeguimientoConfig, SmtpConfig, MsgTemplates, Cargo, UserProfile, UserConfig, PendingInvite, EmailDomain, OC, OCLogEntry } from '@/types'
+import type { Orden, Cliente, Producto, Bodega, Movimiento, Proveedor, Venta, MetodoPago, Caja, CajaSesion, Gasto, GastoCat, CuentaContable, Asiento, SeguimientoConfig, SmtpConfig, MsgTemplates, Cargo, UserProfile, UserConfig, PendingInvite, EmailDomain, OC, OCLogEntry, Categoria, Kit } from '@/types'
 
 // ── Órdenes de Taller ─────────────────────────────────────────
 
@@ -603,6 +603,48 @@ export function useGuardarEmailDomain() {
   return useMutation({
     mutationFn: (domain: EmailDomain | null) => dbSet(empresaId!, 'tp_email_domain', domain),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['tp_email_domain', empresaId] }),
+  })
+}
+
+// ── Kits de Equipos ───────────────────────────────────────────
+
+export function useKits() {
+  const { empresaId } = useAuth()
+  return useQuery({
+    queryKey: ['kits', empresaId],
+    queryFn: () => dbGet<Kit[] | string>(empresaId!, 'kits'),
+    enabled: !!empresaId,
+    select: (data) => parseArr<Kit>(data as Kit[] | string | null),
+  })
+}
+
+export function useGuardarKits() {
+  const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (kits: Kit[]) => dbSet(empresaId!, 'kits', kits),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['kits', empresaId] }),
+  })
+}
+
+// ── Categorías de productos ───────────────────────────────────
+
+export function useCategorias() {
+  const { empresaId } = useAuth()
+  return useQuery({
+    queryKey: ['cats_db', empresaId],
+    queryFn: () => dbGet<Categoria[] | string>(empresaId!, 'cats_db'),
+    enabled: !!empresaId,
+    select: (data) => parseArr<Categoria>(data as Categoria[] | string | null),
+  })
+}
+
+export function useGuardarCategorias() {
+  const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (cats: Categoria[]) => dbSet(empresaId!, 'cats_db', cats),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['cats_db', empresaId] }),
   })
 }
 

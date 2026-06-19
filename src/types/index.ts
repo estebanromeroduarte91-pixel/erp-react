@@ -315,6 +315,21 @@ export interface PendingInvite {
   created_at: string
 }
 
+// ── Kits de Equipos ──────────────────────────────────────────
+export interface KitComponente {
+  id: string
+  nombre: string
+  cantidad: number
+}
+
+export interface Kit {
+  id: string
+  nombre: string
+  categoria?: string
+  componentes: KitComponente[]
+  fecha_creacion?: string
+}
+
 // ── Compras / Órdenes de Compra ───────────────────────────────
 
 export type EstadoOC = 'borrador' | 'parcial' | 'recibida' | 'confirmada' | 'cancelada'

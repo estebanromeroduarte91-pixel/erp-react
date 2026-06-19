@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useOrdenes } from '@/lib/queries'
 import { EstadoBadge } from '@/components/shared/Badge'
 import { Money } from '@/components/shared/Money'
@@ -6,6 +7,30 @@ import { Spinner } from '@/components/shared/Spinner'
 import { OrdenModal } from './OrdenModal'
 import { OrdenDetalle } from './OrdenDetalle'
 import type { EstadoOrden, Orden } from '@/types'
+
+type TallerTab = 'ordenes' | 'equipos' | 'settings'
+
+const TALLER_TABS: { id: TallerTab; label: string }[] = [
+  { id: 'ordenes',  label: 'Órdenes' },
+  { id: 'equipos',  label: 'Equipos' },
+  { id: 'settings', label: 'Configuración' },
+]
+
+function resolveTallerTab(param: string | null): TallerTab {
+  if (param === 'equipos')  return 'equipos'
+  if (param === 'settings') return 'settings'
+  return 'ordenes'
+}
+
+function TabPlaceholder({ icon, titulo, desc }: { icon: string; titulo: string; desc: string }) {
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 py-20 text-center">
+      <div className="text-5xl mb-4">{icon}</div>
+      <p className="text-lg font-bold text-gray-600 mb-2">{titulo}</p>
+      <p className="text-sm text-gray-400 max-w-xs mx-auto">{desc}</p>
+    </div>
+  )
+}
 
 const ESTADOS: { value: EstadoOrden | 'todos'; label: string }[] = [
   { value: 'todos',         label: 'Todos' },
@@ -33,6 +58,13 @@ function fmtFecha(iso: string) {
 }
 
 export function TallerPage() {
+  const [searchParams] = useSearchParams()
+  const [tallerTab, setTallerTab] = useState<TallerTab>(() => resolveTallerTab(searchParams.get('tab')))
+
+  useEffect(() => {
+    setTallerTab(resolveTallerTab(searchParams.get('tab')))
+  }, [searchParams])
+
   const { data: ordenes, isLoading, error } = useOrdenes()
   const [filtroEstado, setFiltroEstado] = useState<EstadoOrden | 'todos'>('todos')
   const [busqueda, setBusqueda] = useState('')
@@ -91,16 +123,40 @@ export function TallerPage() {
           <h2 className="text-xl font-bold text-gray-900">Taller</h2>
           <p className="text-sm text-gray-400 mt-0.5">{ordenes?.length ?? 0} órdenes en total</p>
         </div>
-        <button
-          onClick={abrirNueva}
-          className="inline-flex items-center gap-2 bg-blue-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 transition"
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-          </svg>
-          Nueva orden
-        </button>
+        {tallerTab === 'ordenes' && (
+          <button
+            onClick={abrirNueva}
+            className="inline-flex items-center gap-2 bg-blue-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 transition"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+            Nueva orden
+          </button>
+        )}
       </div>
+
+      {/* Tabs de sección */}
+      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-5 w-fit">
+        {TALLER_TABS.map(t => (
+          <button key={t.id} onClick={() => setTallerTab(t.id)}
+            className={[
+              'px-4 py-1.5 text-sm font-medium rounded-lg transition',
+              tallerTab === t.id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700',
+            ].join(' ')}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tallerTab === 'equipos' && (
+        <TabPlaceholder icon="📱" titulo="Base de equipos" desc="Administra la base de datos de modelos de equipos y accesorios soportados." />
+      )}
+      {tallerTab === 'settings' && (
+        <TabPlaceholder icon="⚙️" titulo="Configuración de taller" desc="Los ajustes del taller (checklist de ingreso, mensajes y seguimiento) se encuentran en Configuración → pestaña correspondiente." />
+      )}
+
+      {tallerTab === 'ordenes' && (<>
 
       {/* Filtros */}
       <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4 flex flex-wrap gap-3 items-center">
@@ -215,6 +271,7 @@ export function TallerPage() {
           onEditar={(o) => abrirEditar(o)}
         />
       )}
+      </>)}
     </div>
   )
 }

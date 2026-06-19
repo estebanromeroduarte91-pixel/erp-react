@@ -1,11 +1,17 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { ClientesTab } from './ClientesTab'
 import { ProveedoresTab } from './ProveedoresTab'
 
 type Tab = 'clientes' | 'proveedores'
 
 export function ContactosPage() {
-  const [tab, setTab] = useState<Tab>('clientes')
+  const [searchParams] = useSearchParams()
+  const [tab, setTab] = useState<Tab>(() => searchParams.get('tab') === 'proveedores' ? 'proveedores' : 'clientes')
+
+  useEffect(() => {
+    setTab(searchParams.get('tab') === 'proveedores' ? 'proveedores' : 'clientes')
+  }, [searchParams])
 
   return (
     <div>

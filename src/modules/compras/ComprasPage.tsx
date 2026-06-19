@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useLocation } from 'react-router-dom'
 import {
   useOCs, useGuardarOCs, useOCLog, useGuardarOCLog,
   useIncrementarContadorOC, useProductos, useBodegas,
@@ -757,10 +758,30 @@ const FILTRO_TABS: { key: FiltroTab; label: string }[] = [
 ]
 
 export function ComprasPage() {
+  const location = useLocation()
   const [filtro, setFiltro] = useState<FiltroTab>('todas')
   const [modal, setModal] = useState<ModalState>({ type: 'none' })
   const [search, setSearch] = useState('')
   const [toast, setToast] = useState<string | null>(null)
+
+  // Auto-open new OC modal when navigated from Kits tab
+  useEffect(() => {
+    const state = location.state as { kitItems?: OCItem[]; kitNombre?: string } | null
+    if (state?.kitItems?.length) {
+      const kitOC: Partial<OC> = {
+        items: state.kitItems,
+        proveedor_id: '',
+        proveedor_nombre: '',
+        bodega_id: '',
+        bodega_nombre: '',
+        fecha: new Date().toISOString().split('T')[0],
+        notas: state.kitNombre ? `Kit: ${state.kitNombre}` : '',
+      }
+      setModal({ type: 'nueva', oc: kitOC as OC })
+      // Clear state so reopening the page doesn't re-trigger
+      window.history.replaceState({}, '')
+    }
+  }, [location.state])
 
   const { data: rawOcs = [] } = useOCs()
   const { data: log = [] } = useOCLog()
