@@ -502,7 +502,6 @@ export function OrdenModal({ orden, ordenes, onClose }: Props) {
               </div>
               <Field label="Técnico asignado" value={form.tecnico} onChange={(v) => set('tecnico', v)} placeholder="Nombre del técnico" />
               <Field label="Presupuesto estimado ($)" type="number" value={form.presup} onChange={(v) => set('presup', v)} placeholder="0" />
-              <Field label="Costo real ($)" type="number" value={form.costo} onChange={(v) => set('costo', v)} placeholder="0" />
             </div>
           </section>
 
