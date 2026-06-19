@@ -84,11 +84,6 @@ export function OrdenModal({ orden, ordenes, onClose }: Props) {
   // de inmediato mientras se completa la orden. Devuelve el id del borrador.
   async function asegurarBorrador(): Promise<string | null> {
     if (draftId) return draftId
-    if (!clienteSeleccionado && !form.modelo.trim()) {
-      setError('Ingresa el cliente o el equipo antes de generar el QR')
-      return null
-    }
-    setError('')
     setCreandoBorrador(true)
     const id = Date.now().toString()
     const draft: Orden = {
