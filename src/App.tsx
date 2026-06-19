@@ -11,7 +11,6 @@ import { DashboardPage } from '@/modules/dashboard/DashboardPage'
 import { EstadisticasPage } from '@/modules/estadisticas/EstadisticasPage'
 import { ConfigPage } from '@/modules/config/ConfigPage'
 import { ComprasPage } from '@/modules/compras/ComprasPage'
-import { PlaceholderPage } from '@/modules/PlaceholderPage'
 import { Spinner } from '@/components/shared/Spinner'
 
 function AppRoutes() {

@@ -142,7 +142,7 @@ function NavGroupItem({ item }: { item: NavGroup }) {
           padding: '8px 12px', cursor: 'pointer', width: '100%', border: 'none', background: 'none',
           color: isParentActive ? 'var(--primary-dark)' : 'var(--gray-600)',
           backgroundColor: isParentActive ? 'var(--primary-light)' : 'transparent',
-          borderRadius: 8, margin: '1px 6px', width: 'calc(100% - 12px)',
+          borderRadius: 8, margin: '1px 6px',
           fontSize: 13.5, fontWeight: 600, transition: 'all .15s', textAlign: 'left',
         }}
         onMouseEnter={e => { if (!isParentActive) { (e.currentTarget as HTMLElement).style.background = 'var(--gray-50)'; (e.currentTarget as HTMLElement).style.color = 'var(--gray-800)' } }}
