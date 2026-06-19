@@ -87,7 +87,8 @@ export function TallerPage() {
           o.nombre?.toLowerCase().includes(q) ||
           String(o.num).includes(q) ||
           o.modelo?.toLowerCase().includes(q) ||
-          o.tel?.includes(q),
+          o.tel?.includes(q) ||
+          o.rut?.toLowerCase().includes(q),
       )
     }
     return r
