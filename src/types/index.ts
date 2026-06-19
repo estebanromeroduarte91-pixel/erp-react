@@ -33,6 +33,7 @@ export interface Orden {
   fecha: string         // ISO string
   status: EstadoOrden   // 'Chequeo' | 'Reparación' | 'Listo' | 'Entregado'
   nombre: string        // nombre del cliente
+  apellido?: string
   tel?: string          // teléfono (campo "tel", no "telefono")
   email?: string
   rut?: string

@@ -21,14 +21,14 @@ function nextNum(ordenes: Orden[]): string {
 }
 
 interface FormData {
-  nombre: string; tel: string; email: string; rut: string
+  nombre: string; apellido: string; tel: string; email: string; rut: string
   modelo: string; serie: string; color: string; pin: string; pinType: 'text' | 'pattern'
   estadoFisico: string; trabajo: string; tecnico: string
   presup: string; costo: string; status: EstadoOrden; fechaEstimada: string
 }
 
 const EMPTY: FormData = {
-  nombre: '', tel: '', email: '', rut: '', modelo: '', serie: '',
+  nombre: '', apellido: '', tel: '', email: '', rut: '', modelo: '', serie: '',
   color: '', pin: '', pinType: 'text', estadoFisico: '', trabajo: '', tecnico: '',
   presup: '', costo: '', status: 'Chequeo', fechaEstimada: '',
 }
