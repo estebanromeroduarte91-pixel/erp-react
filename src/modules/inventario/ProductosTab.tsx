@@ -41,10 +41,10 @@ export function ProductosTab() {
 
   const lista = useMemo(() => {
     let r = productos ?? []
-    if (filtroBodega) r = r.filter(p => filtroBodega in (p.stock_sucursales ?? {}))
-    if (filtroCat)    r = r.filter(p => p.categoria === filtroCat)
-    if (filtroSub)    r = r.filter(p => p.subcategoria === filtroSub)
-    if (bajosStock)   r = r.filter(p => {
+    // filtroBodega solo cambia la columna de stock visible, no filtra productos
+    if (filtroCat)  r = r.filter(p => p.categoria === filtroCat)
+    if (filtroSub)  r = r.filter(p => p.subcategoria === filtroSub)
+    if (bajosStock) r = r.filter(p => {
       const st = filtroBodega ? stockSucursal(p, filtroBodega) : stockTotal(p)
       return st <= (p.stock_min ?? 0)
     })
