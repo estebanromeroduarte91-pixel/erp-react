@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useSearchParams } from 'react-router-dom'
+import { KitsTab } from './KitsTab'
 import {
   useOCs, useGuardarOCs, useOCLog, useGuardarOCLog,
   useIncrementarContadorOC, useProductos, useBodegas,
@@ -757,14 +758,27 @@ const FILTRO_TABS: { key: FiltroTab; label: string }[] = [
   { key: 'cancelada',  label: 'Cancelada' },
 ]
 
+type Section = 'ocs' | 'kits'
+
+function resolveSection(param: string | null): Section {
+  return param === 'kits' ? 'kits' : 'ocs'
+}
+
 export function ComprasPage() {
   const location = useLocation()
+  const [searchParams] = useSearchParams()
+  const [section, setSection] = useState<Section>(() => resolveSection(searchParams.get('section')))
+
+  useEffect(() => {
+    setSection(resolveSection(searchParams.get('section')))
+  }, [searchParams])
+
   const [filtro, setFiltro] = useState<FiltroTab>('todas')
   const [modal, setModal] = useState<ModalState>({ type: 'none' })
   const [search, setSearch] = useState('')
   const [toast, setToast] = useState<string | null>(null)
 
-  // Auto-open new OC modal when navigated from Kits tab
+  // Auto-open new OC modal when navigated from Kits (e.g. "Crear OC" button)
   useEffect(() => {
     const state = location.state as { kitItems?: OCItem[]; kitNombre?: string } | null
     if (state?.kitItems?.length) {
@@ -777,8 +791,8 @@ export function ComprasPage() {
         fecha: new Date().toISOString().split('T')[0],
         notas: state.kitNombre ? `Kit: ${state.kitNombre}` : '',
       }
+      setSection('ocs')
       setModal({ type: 'nueva', oc: kitOC as OC })
-      // Clear state so reopening the page doesn't re-trigger
       window.history.replaceState({}, '')
     }
   }, [location.state])
@@ -908,13 +922,38 @@ export function ComprasPage() {
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: 'var(--gray-800)' }}>Compras / Órdenes de Compra</h2>
-        <button onClick={() => setModal({ type: 'nueva' })}
-          style={{ padding: '9px 18px', background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 14 }}>
-          ➕ Nueva OC
-        </button>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: 'var(--gray-800)' }}>Compras</h2>
+        {section === 'ocs' && (
+          <button onClick={() => setModal({ type: 'nueva' })}
+            style={{ padding: '9px 18px', background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 14 }}>
+            ➕ Nueva OC
+          </button>
+        )}
       </div>
+
+      {/* Section tabs */}
+      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-5 w-fit">
+        {([
+          { id: 'ocs',  label: 'Órdenes de Compra' },
+          { id: 'kits', label: 'Kits / Equipos' },
+        ] as { id: Section; label: string }[]).map(s => (
+          <button key={s.id} onClick={() => setSection(s.id)}
+            className={[
+              'px-4 py-1.5 text-sm font-medium rounded-lg transition',
+              section === s.id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700',
+            ].join(' ')}>
+            {s.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Kits section */}
+      {section === 'kits' && <KitsTab />}
+
+      {/* OCs section */}
+      {section === 'ocs' && (<>
 
       <div style={{ background: '#fff', borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,.06)', border: '1px solid var(--gray-100)', overflow: 'hidden' }}>
         {/* Filter tabs */}
@@ -1096,6 +1135,7 @@ export function ComprasPage() {
           onEditar={() => setModal({ type: 'nueva', oc: modalOC })}
         />
       )}
+      </>)}
     </div>
   )
 }

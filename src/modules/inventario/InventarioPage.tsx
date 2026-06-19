@@ -4,21 +4,17 @@ import { ProductosTab } from './ProductosTab'
 import { BodegasTab } from './BodegasTab'
 import { MovimientosTab } from './MovimientosTab'
 import { CategoriasTab } from './CategoriasTab'
-import { KitsTab } from './KitsTab'
-
-type Tab = 'productos' | 'categorias' | 'kits' | 'bodegas' | 'movimientos'
+type Tab = 'productos' | 'categorias' | 'bodegas' | 'movimientos'
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'productos',   label: 'Productos' },
   { id: 'categorias',  label: 'Categorías' },
-  { id: 'kits',        label: 'Kits / Equipos' },
   { id: 'bodegas',     label: 'Bodegas / Sucursales' },
   { id: 'movimientos', label: 'Movimientos' },
 ]
 
 function resolveTab(param: string | null): Tab {
   if (param === 'categorias') return 'categorias'
-  if (param === 'kits')       return 'kits'
   if (param === 'bodegas')    return 'bodegas'
   if (param === 'movimientos') return 'movimientos'
   return 'productos'
@@ -52,7 +48,6 @@ export function InventarioPage() {
 
       {tab === 'productos'   && <ProductosTab />}
       {tab === 'categorias'  && <CategoriasTab />}
-      {tab === 'kits'        && <KitsTab />}
       {tab === 'bodegas'     && <BodegasTab />}
       {tab === 'movimientos' && <MovimientosTab />}
     </div>
