@@ -42,7 +42,8 @@ export function OrdenModal({ orden, ordenes, onClose }: Props) {
 
   const [form, setForm] = useState<FormData>(() =>
     orden ? {
-      nombre: orden.nombre ?? '', tel: orden.tel ?? '', email: orden.email ?? '',
+      nombre: orden.nombre ?? '', apellido: orden.apellido ?? '',
+      tel: orden.tel ?? '', email: orden.email ?? '',
       rut: orden.rut ?? '', modelo: orden.modelo ?? '', serie: orden.serie ?? '',
       color: orden.color ?? '', pin: orden.pin ?? '', pinType: orden.pinType ?? 'text',
       estadoFisico: orden.estadoFisico ?? '',
@@ -83,7 +84,7 @@ export function OrdenModal({ orden, ordenes, onClose }: Props) {
   // de inmediato mientras se completa la orden. Devuelve el id del borrador.
   async function asegurarBorrador(): Promise<string | null> {
     if (draftId) return draftId
-    if (!form.nombre.trim() && !form.modelo.trim()) {
+    if (!clienteSeleccionado && !form.modelo.trim()) {
       setError('Ingresa el cliente o el equipo antes de generar el QR')
       return null
     }
@@ -111,9 +112,26 @@ export function OrdenModal({ orden, ordenes, onClose }: Props) {
     if (id) setShowQr(true)
   }
 
-  // Autocomplete cliente
-  const [acClientes, setAcClientes] = useState<typeof clientes>([])
-  const acRef = useRef<HTMLDivElement>(null)
+  // Buscador de cliente
+  const [busquedaCliente, setBusquedaCliente] = useState('')
+  const [clienteAbierto, setClienteAbierto] = useState(false)
+  const [showNuevoCliente, setShowNuevoCliente] = useState(false)
+  const [nuevoCliente, setNuevoCliente] = useState({ nombre: '', apellido: '', tel: '', email: '', rut: '' })
+  const clienteRef = useRef<HTMLDivElement>(null)
+
+  const clienteSeleccionado = form.nombre.trim() || form.apellido.trim()
+
+  const clientesFiltrados = busquedaCliente.trim()
+    ? (clientes ?? []).filter((c) => {
+        const q = busquedaCliente.toLowerCase()
+        return (
+          c.nombre.toLowerCase().includes(q) ||
+          (c.apellido ?? '').toLowerCase().includes(q) ||
+          (c.rut ?? '').toLowerCase().includes(q) ||
+          (c.tel ?? '').includes(q)
+        )
+      }).slice(0, 6)
+    : (clientes ?? []).slice(0, 6)
 
   // Inicializa checklist cuando cargan los labels del servidor
   useEffect(() => {
@@ -160,26 +178,74 @@ export function OrdenModal({ orden, ordenes, onClose }: Props) {
     setForm((f) => ({ ...f, [field]: val }))
   }
 
-  function onNombreChange(val: string) {
-    set('nombre', val)
-    if (!val.trim()) { setAcClientes([]); return }
-    const q = val.toLowerCase()
-    setAcClientes(
-      (clientes ?? [])
-        .filter((c) => `${c.nombre} ${c.apellido ?? ''}`.toLowerCase().includes(q) || c.tel?.includes(q))
-        .slice(0, 6)
-    )
-  }
-
   function selectCliente(c: NonNullable<typeof clientes>[number]) {
     setForm((f) => ({
       ...f,
-      nombre: `${c.nombre} ${c.apellido ?? ''}`.trim(),
+      nombre: c.nombre,
+      apellido: c.apellido ?? '',
       tel: c.tel ?? f.tel,
       email: c.email ?? f.email,
       rut: c.rut ?? f.rut,
     }))
-    setAcClientes([])
+    setBusquedaCliente('')
+    setClienteAbierto(false)
+  }
+
+  function limpiarCliente() {
+    setForm((f) => ({ ...f, nombre: '', apellido: '', tel: '', email: '', rut: '' }))
+    setBusquedaCliente('')
+  }
+
+  const [errorNuevoCliente, setErrorNuevoCliente] = useState('')
+  const [clienteDuplicado, setClienteDuplicado] = useState<NonNullable<typeof clientes>[number] | null>(null)
+
+  async function handleCrearCliente() {
+    if (!nuevoCliente.nombre.trim()) return
+    setErrorNuevoCliente('')
+    setClienteDuplicado(null)
+
+    if (nuevoCliente.rut.trim()) {
+      const rutNorm = nuevoCliente.rut.trim().toLowerCase().replace(/\s/g, '')
+      const existe = (clientes ?? []).find(
+        (c) => c.rut && c.rut.toLowerCase().replace(/\s/g, '') === rutNorm
+      )
+      if (existe) {
+        setClienteDuplicado(existe)
+        setErrorNuevoCliente(`El RUT ya está registrado a nombre de ${existe.nombre} ${existe.apellido ?? ''}.`)
+        return
+      }
+    }
+
+    const ahora = new Date().toISOString()
+    const nuevo = {
+      id: `cli-tp-${Date.now()}`,
+      nombre: nuevoCliente.nombre.trim(),
+      apellido: nuevoCliente.apellido.trim(),
+      rut: nuevoCliente.rut.trim(),
+      tel: nuevoCliente.tel.trim(),
+      email: nuevoCliente.email.trim(),
+      fecha_creacion: ahora,
+    }
+    await guardarClientes.mutateAsync([...(clientes ?? []), nuevo])
+    setForm((f) => ({
+      ...f,
+      nombre: nuevo.nombre,
+      apellido: nuevo.apellido,
+      tel: nuevo.tel,
+      email: nuevo.email,
+      rut: nuevo.rut,
+    }))
+    setNuevoCliente({ nombre: '', apellido: '', tel: '', email: '', rut: '' })
+    setShowNuevoCliente(false)
+  }
+
+  function usarClienteExistente() {
+    if (!clienteDuplicado) return
+    selectCliente(clienteDuplicado)
+    setNuevoCliente({ nombre: '', apellido: '', tel: '', email: '', rut: '' })
+    setErrorNuevoCliente('')
+    setClienteDuplicado(null)
+    setShowNuevoCliente(false)
   }
 
   // ── Repuestos ──────────────────────────────────────────────
@@ -216,7 +282,7 @@ export function OrdenModal({ orden, ordenes, onClose }: Props) {
   // Cierra dropdowns al clicar afuera
   useEffect(() => {
     function onClick(e: MouseEvent) {
-      if (acRef.current && !acRef.current.contains(e.target as Node)) setAcClientes([])
+      if (clienteRef.current && !clienteRef.current.contains(e.target as Node)) setClienteAbierto(false)
       if (repRef.current && !repRef.current.contains(e.target as Node)) setRepOpen(false)
     }
     document.addEventListener('mousedown', onClick)
@@ -224,7 +290,7 @@ export function OrdenModal({ orden, ordenes, onClose }: Props) {
   }, [])
 
   async function handleGuardar() {
-    if (!form.nombre.trim()) { setError('El nombre del cliente es requerido'); return }
+    if (!clienteSeleccionado) { setError('Selecciona o crea un cliente'); return }
     if (!form.modelo.trim()) { setError('El equipo / modelo es requerido'); return }
     setError('')
     setGuardando(true)
@@ -264,13 +330,13 @@ export function OrdenModal({ orden, ordenes, onClose }: Props) {
       const lista = clientes ?? []
       const yaExiste = lista.find(
         (c) => (form.rut && c.rut === form.rut) ||
-          `${c.nombre} ${c.apellido ?? ''}`.trim().toLowerCase() === form.nombre.toLowerCase()
+          (c.nombre.toLowerCase() === form.nombre.toLowerCase() &&
+           (c.apellido ?? '').toLowerCase() === form.apellido.toLowerCase())
       )
       if (!yaExiste) {
-        const partes = form.nombre.split(' ')
         await guardarClientes.mutateAsync([...lista, {
-          id: `cli-tp-${Date.now()}`, nombre: partes[0],
-          apellido: partes.slice(1).join(' '), rut: form.rut,
+          id: `cli-tp-${Date.now()}`, nombre: form.nombre.trim(),
+          apellido: form.apellido.trim(), rut: form.rut,
           email: form.email, tel: form.tel, fecha_creacion: ahora,
         }])
       }
@@ -308,30 +374,69 @@ export function OrdenModal({ orden, ordenes, onClose }: Props) {
           {/* ── Cliente ── */}
           <section>
             <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Datos del cliente</h4>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="relative col-span-2" ref={acRef}>
-                <label className="text-xs font-medium text-gray-600 mb-1 block">Nombre completo *</label>
-                <input
-                  value={form.nombre}
-                  onChange={(e) => onNombreChange(e.target.value)}
-                  placeholder="Ej: Juan Pérez"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400"
-                />
-                {acClientes && acClientes.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 z-10 bg-white border border-gray-200 rounded-xl shadow-lg mt-1 overflow-hidden">
-                    {acClientes.map((c) => (
-                      <button key={c.id} onMouseDown={() => selectCliente(c)}
-                        className="w-full text-left px-4 py-2.5 text-sm hover:bg-blue-50 transition-colors">
-                        <span className="font-medium text-gray-800">{c.nombre} {c.apellido}</span>
-                        {c.tel && <span className="text-gray-400 ml-2 text-xs">{c.tel}</span>}
-                      </button>
-                    ))}
+            <div className="relative" ref={clienteRef}>
+              {clienteSeleccionado ? (
+                /* Cliente seleccionado: muestra chip con nombre y botón para limpiar */
+                <div className="flex items-center gap-2 border border-blue-200 bg-blue-50 rounded-lg px-3 py-2">
+                  <svg className="w-4 h-4 text-blue-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                  <div className="flex-1 min-w-0">
+                    <span className="text-sm font-medium text-blue-800">
+                      {[form.nombre, form.apellido].filter(Boolean).join(' ')}
+                    </span>
+                    {(form.rut || form.tel) && (
+                      <span className="text-xs text-blue-500 ml-2">
+                        {[form.rut, form.tel].filter(Boolean).join(' · ')}
+                      </span>
+                    )}
                   </div>
-                )}
-              </div>
-              <Field label="Teléfono" value={form.tel} onChange={(v) => set('tel', v)} placeholder="+56 9 XXXX XXXX" />
-              <Field label="Correo electrónico" type="email" value={form.email} onChange={(v) => set('email', v)} placeholder="correo@ejemplo.com" />
-              <Field label="RUT" value={form.rut} onChange={(v) => set('rut', v)} placeholder="12.345.678-9" />
+                  <button type="button" onClick={limpiarCliente}
+                    className="text-blue-400 hover:text-blue-700 p-0.5 flex-shrink-0">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              ) : (
+                /* Sin cliente: buscador + botón + */
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
+                      fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    <input
+                      value={busquedaCliente}
+                      onChange={(e) => { setBusquedaCliente(e.target.value); setClienteAbierto(true) }}
+                      onFocus={() => setClienteAbierto(true)}
+                      placeholder="Buscar por nombre, apellido o RUT…"
+                      className="w-full border border-gray-200 rounded-lg pl-9 pr-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400"
+                    />
+                    {clienteAbierto && (
+                      <div className="absolute top-full left-0 right-0 z-10 bg-white border border-gray-200 rounded-xl shadow-lg mt-1 overflow-hidden">
+                        {clientesFiltrados.length === 0 ? (
+                          <p className="text-xs text-gray-400 text-center py-4">Sin resultados</p>
+                        ) : (
+                          clientesFiltrados.map((c) => (
+                            <button key={c.id} onMouseDown={() => selectCliente(c)}
+                              className="w-full text-left px-4 py-2.5 text-sm hover:bg-blue-50 transition-colors flex items-center justify-between">
+                              <span className="font-medium text-gray-800">{c.nombre} {c.apellido}</span>
+                              <span className="text-gray-400 text-xs">{c.rut ?? c.tel}</span>
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <button type="button" onClick={() => setShowNuevoCliente(true)}
+                    className="w-9 h-9 rounded-lg bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center flex-shrink-0 transition">
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                    </svg>
+                  </button>
+                </div>
+              )}
             </div>
           </section>
 
@@ -627,6 +732,83 @@ export function OrdenModal({ orden, ordenes, onClose }: Props) {
           </button>
         </div>
       </div>
+
+      {/* Modal nuevo cliente */}
+      {showNuevoCliente && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4"
+          onClick={(e) => e.target === e.currentTarget && setShowNuevoCliente(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+            <div className="flex items-start justify-between px-5 py-4 border-b border-gray-100">
+              <div>
+                <h3 className="text-base font-bold text-gray-900">Nuevo cliente</h3>
+                <p className="text-xs text-gray-400 mt-0.5">Los datos quedan en el directorio de clientes</p>
+              </div>
+              <button onClick={() => setShowNuevoCliente(false)} className="text-gray-400 hover:text-gray-600 p-1">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="px-5 py-4 space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-gray-600 mb-1 block">Nombre *</label>
+                  <input value={nuevoCliente.nombre} onChange={(e) => setNuevoCliente((n) => ({ ...n, nombre: e.target.value }))}
+                    placeholder="Juan" autoFocus
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-600 mb-1 block">Apellido</label>
+                  <input value={nuevoCliente.apellido} onChange={(e) => setNuevoCliente((n) => ({ ...n, apellido: e.target.value }))}
+                    placeholder="Pérez"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-gray-600 mb-1 block">RUT</label>
+                  <input value={nuevoCliente.rut} onChange={(e) => setNuevoCliente((n) => ({ ...n, rut: e.target.value }))}
+                    placeholder="12.345.678-9"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-600 mb-1 block">Teléfono</label>
+                  <input value={nuevoCliente.tel} onChange={(e) => setNuevoCliente((n) => ({ ...n, tel: e.target.value }))}
+                    placeholder="+56 9 XXXX XXXX"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-600 mb-1 block">Correo electrónico</label>
+                <input type="email" value={nuevoCliente.email} onChange={(e) => setNuevoCliente((n) => ({ ...n, email: e.target.value }))}
+                  placeholder="correo@ejemplo.com"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+              </div>
+            </div>
+            {errorNuevoCliente && (
+              <div className="mx-5 mb-1 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
+                <p className="text-xs font-medium text-amber-800">{errorNuevoCliente}</p>
+                {clienteDuplicado && (
+                  <button onClick={usarClienteExistente}
+                    className="mt-1.5 text-xs font-semibold text-amber-700 underline underline-offset-2 hover:text-amber-900">
+                    Usar este cliente para la orden
+                  </button>
+                )}
+              </div>
+            )}
+            <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-gray-100 bg-gray-50">
+              <button onClick={() => { setShowNuevoCliente(false); setErrorNuevoCliente(''); setClienteDuplicado(null) }}
+                className="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-100 transition">
+                Cancelar
+              </button>
+              <button onClick={handleCrearCliente} disabled={!nuevoCliente.nombre.trim()}
+                className="px-5 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition">
+                Crear cliente
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal patrón de desbloqueo */}
       {showPattern && (
