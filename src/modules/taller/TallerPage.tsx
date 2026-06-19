@@ -1,44 +1,36 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { useOrdenes } from '@/lib/queries'
+import { useOrdenes, useTraslados } from '@/lib/queries'
 import { EstadoBadge } from '@/components/shared/Badge'
 import { Money } from '@/components/shared/Money'
 import { Spinner } from '@/components/shared/Spinner'
 import { OrdenModal } from './OrdenModal'
 import { OrdenDetalle } from './OrdenDetalle'
+import { TrasladosTab } from './TrasladosTab'
 import type { EstadoOrden, Orden } from '@/types'
 
-type TallerTab = 'ordenes' | 'equipos' | 'settings'
+type TallerTab = 'ordenes' | 'derivados' | 'settings'
 
 const TALLER_TABS: { id: TallerTab; label: string }[] = [
-  { id: 'ordenes',  label: 'Órdenes' },
-  { id: 'equipos',  label: 'Equipos' },
-  { id: 'settings', label: 'Configuración' },
+  { id: 'ordenes',   label: 'Órdenes' },
+  { id: 'derivados', label: 'Derivados' },
+  { id: 'settings',  label: 'Configuración' },
 ]
 
 function resolveTallerTab(param: string | null): TallerTab {
-  if (param === 'equipos')  return 'equipos'
-  if (param === 'settings') return 'settings'
+  if (param === 'derivados') return 'derivados'
+  if (param === 'settings')  return 'settings'
   return 'ordenes'
 }
 
-function TabPlaceholder({ icon, titulo, desc }: { icon: string; titulo: string; desc: string }) {
-  return (
-    <div className="bg-white rounded-xl border border-gray-200 py-20 text-center">
-      <div className="text-5xl mb-4">{icon}</div>
-      <p className="text-lg font-bold text-gray-600 mb-2">{titulo}</p>
-      <p className="text-sm text-gray-400 max-w-xs mx-auto">{desc}</p>
-    </div>
-  )
-}
-
-const ESTADOS: { value: EstadoOrden | 'todos'; label: string }[] = [
-  { value: 'todos',         label: 'Todos' },
-  { value: 'Chequeo',       label: 'Chequeo' },
-  { value: 'Reparación',    label: 'Reparación' },
-  { value: 'Listo',         label: 'Listos' },
-  { value: 'Entregado',     label: 'Entregados' },
-  { value: 'No reparable',  label: 'No reparables' },
+const ESTADOS: { value: EstadoOrden | 'todos' | 'Derivado'; label: string }[] = [
+  { value: 'todos',        label: 'Todos' },
+  { value: 'Chequeo',      label: 'Chequeo' },
+  { value: 'Reparación',   label: 'Reparación' },
+  { value: 'Listo',        label: 'Listos' },
+  { value: 'Derivado',     label: '🔄 Derivados' },
+  { value: 'Entregado',    label: 'Entregados' },
+  { value: 'No reparable', label: 'No reparables' },
 ]
 
 export function totalOrden(o: Orden): number {
@@ -66,15 +58,28 @@ export function TallerPage() {
   }, [searchParams])
 
   const { data: ordenes, isLoading, error } = useOrdenes()
-  const [filtroEstado, setFiltroEstado] = useState<EstadoOrden | 'todos'>('todos')
+  const { data: traslados } = useTraslados()
+  const [filtroEstado, setFiltroEstado] = useState<EstadoOrden | 'todos' | 'Derivado'>('todos')
   const [busqueda, setBusqueda] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [editando, setEditando] = useState<Orden | null>(null)
   const [detalle, setDetalle] = useState<Orden | null>(null)
 
+  // IDs de órdenes con traslados activos (no retornados)
+  const derivadoIds = useMemo(
+    () => new Set((traslados ?? []).filter((t) => t.estado !== 'retornado' && t.order_id).map((t) => t.order_id!)),
+    [traslados],
+  )
+
   const lista = useMemo(() => {
     let r = ordenes ?? []
-    if (filtroEstado !== 'todos') r = r.filter((o) => o.status === filtroEstado)
+    if (filtroEstado === 'todos') {
+      r = r.filter((o) => o.status !== 'Entregado')
+    } else if (filtroEstado === 'Derivado') {
+      r = r.filter((o) => o.status !== 'Entregado' && derivadoIds.has(o.id))
+    } else {
+      r = r.filter((o) => o.status === filtroEstado)
+    }
     if (busqueda.trim()) {
       const q = busqueda.toLowerCase()
       r = r.filter(
@@ -86,7 +91,18 @@ export function TallerPage() {
       )
     }
     return r
-  }, [ordenes, filtroEstado, busqueda])
+  }, [ordenes, filtroEstado, busqueda, derivadoIds])
+
+  // Stats
+  const stats = useMemo(() => {
+    const all = ordenes ?? []
+    return {
+      abiertas:  all.filter((o) => o.status !== 'Entregado').length,
+      listos:    all.filter((o) => o.status === 'Listo').length,
+      entregadas: all.filter((o) => o.status === 'Entregado').length,
+      derivadas:  derivadoIds.size,
+    }
+  }, [ordenes, derivadoIds])
 
   function abrirNueva() {
     setEditando(null)
@@ -149,129 +165,227 @@ export function TallerPage() {
         ))}
       </div>
 
-      {tallerTab === 'equipos' && (
-        <TabPlaceholder icon="📱" titulo="Base de equipos" desc="Administra la base de datos de modelos de equipos y accesorios soportados." />
-      )}
+      {tallerTab === 'derivados' && <TrasladosTab />}
+
       {tallerTab === 'settings' && (
-        <TabPlaceholder icon="⚙️" titulo="Configuración de taller" desc="Los ajustes del taller (checklist de ingreso, mensajes y seguimiento) se encuentran en Configuración → pestaña correspondiente." />
+        <div className="bg-white rounded-xl border border-gray-200 py-20 text-center">
+          <div className="text-5xl mb-4">⚙️</div>
+          <p className="text-lg font-bold text-gray-600 mb-2">Configuración de taller</p>
+          <p className="text-sm text-gray-400 max-w-xs mx-auto">
+            Los ajustes del taller (checklist de ingreso, mensajes y seguimiento) se encuentran en{' '}
+            <strong>Configuración</strong> → pestaña correspondiente.
+          </p>
+        </div>
       )}
 
       {tallerTab === 'ordenes' && (<>
 
-      {/* Filtros */}
-      <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4 flex flex-wrap gap-3 items-center">
-        <div className="relative flex-1 min-w-48">
-          <svg
-            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
-            fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
-          >
-            <path strokeLinecap="round" strokeLinejoin="round"
-              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-          <input
-            type="text"
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-            placeholder="Buscar cliente, N°, equipo..."
-            className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:border-blue-400"
+        {/* Stats cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+          <StatCard
+            icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>}
+            iconBg="bg-amber-100 text-amber-700"
+            label="Órdenes abiertas"
+            value={stats.abiertas}
+            onClick={() => setFiltroEstado('todos')}
+          />
+          <StatCard
+            icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
+            iconBg="bg-green-100 text-green-700"
+            label="Listos para entregar"
+            value={stats.listos}
+            valueColor="text-green-700"
+            onClick={() => setFiltroEstado('Listo')}
+          />
+          <StatCard
+            icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>}
+            iconBg="bg-orange-100 text-orange-700"
+            label="Derivados (activos)"
+            value={stats.derivadas}
+            valueColor="text-orange-700"
+            onClick={() => setFiltroEstado('Derivado')}
+          />
+          <StatCard
+            icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+            iconBg="bg-purple-100 text-purple-700"
+            label="Órdenes entregadas"
+            value={stats.entregadas}
+            valueColor="text-purple-700"
+            onClick={() => setFiltroEstado('Entregado')}
           />
         </div>
 
-        <div className="flex flex-wrap gap-1">
-          {ESTADOS.map((e) => (
-            <button
-              key={e.value}
-              onClick={() => setFiltroEstado(e.value)}
-              className={[
-                'px-3 py-1.5 text-xs font-medium rounded-lg transition',
-                filtroEstado === e.value
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200',
-              ].join(' ')}
+        {/* Filtros */}
+        <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4 flex flex-wrap gap-3 items-center">
+          <div className="relative flex-1 min-w-48">
+            <svg
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
+              fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
             >
-              {e.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Tabla */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        {lista.length === 0 ? (
-          <div className="py-16 text-center text-gray-400 text-sm">
-            {busqueda || filtroEstado !== 'todos'
-              ? 'Sin resultados para ese filtro'
-              : 'No hay órdenes todavía'}
+              <path strokeLinecap="round" strokeLinejoin="round"
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              placeholder="Buscar cliente, N°, equipo..."
+              className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:border-blue-400"
+            />
           </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-100 bg-gray-50">
-                  <th className="text-left px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wide">N°</th>
-                  <th className="text-left px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wide">Fecha</th>
-                  <th className="text-left px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wide">Cliente</th>
-                  <th className="text-left px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wide">Equipo</th>
-                  <th className="text-left px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wide">Estado</th>
-                  <th className="text-right px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wide">Precio</th>
-                  <th className="px-4 py-3" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {lista.map((o) => (
-                  <tr
-                    key={o.id}
-                    onClick={() => setDetalle(o)}
-                    className="hover:bg-blue-50/40 transition-colors cursor-pointer"
-                  >
-                    <td className="px-4 py-3 font-mono font-semibold text-gray-700">#{o.num}</td>
-                    <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{fmtFecha(o.fecha)}</td>
-                    <td className="px-4 py-3">
-                      <p className="font-medium text-gray-800">{o.nombre}</p>
-                      {o.tel && <p className="text-xs text-gray-400">{o.tel}</p>}
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">{o.modelo || '—'}</td>
-                    <td className="px-4 py-3">
-                      <EstadoBadge estado={o.status} />
-                    </td>
-                    <td className="px-4 py-3 text-right font-semibold text-gray-800">
-                      <Money value={totalOrden(o)} />
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <button
-                        onClick={(e) => { e.stopPropagation(); abrirEditar(o) }}
-                        className="text-xs text-blue-600 hover:underline font-medium"
-                      >
-                        Editar
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+
+          <div className="flex flex-wrap gap-1">
+            {ESTADOS.map((e) => (
+              <button
+                key={e.value}
+                onClick={() => setFiltroEstado(e.value)}
+                className={[
+                  'px-3 py-1.5 text-xs font-medium rounded-lg transition',
+                  filtroEstado === e.value
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200',
+                ].join(' ')}
+              >
+                {e.label}
+                {e.value === 'Derivado' && stats.derivadas > 0 && (
+                  <span className={`ml-1.5 inline-flex items-center justify-center w-4 h-4 rounded-full text-[10px] font-bold ${filtroEstado === 'Derivado' ? 'bg-white/30' : 'bg-orange-200 text-orange-800'}`}>
+                    {stats.derivadas}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Banner archivo si está en "Entregado" */}
+        {filtroEstado === 'Entregado' && (
+          <div className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 mb-4 text-sm text-gray-500">
+            <svg className="w-4 h-4 flex-shrink-0 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <polyline points="21 8 21 21 3 21 3 8" /><rect x="1" y="3" width="22" height="5" /><line x1="10" y1="12" x2="14" y2="12" />
+            </svg>
+            <span>Historial — estas órdenes ya fueron entregadas.</span>
+            <button onClick={() => setFiltroEstado('todos')} className="ml-auto text-blue-600 text-xs font-medium hover:underline">
+              ← Volver al activo
+            </button>
           </div>
         )}
-      </div>
 
-      {/* Modal nueva / editar orden */}
-      {modalOpen && (
-        <OrdenModal
-          orden={editando}
-          ordenes={ordenes ?? []}
-          onClose={() => setModalOpen(false)}
-        />
-      )}
+        {/* Tabla */}
+        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          {lista.length === 0 ? (
+            <div className="py-16 text-center text-gray-400 text-sm">
+              {busqueda || filtroEstado !== 'todos'
+                ? 'Sin resultados para ese filtro'
+                : 'No hay órdenes todavía'}
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-100 bg-gray-50">
+                    <th className="text-left px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wide">N°</th>
+                    <th className="text-left px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wide">Fecha</th>
+                    <th className="text-left px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wide">Cliente</th>
+                    <th className="text-left px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wide">Equipo</th>
+                    <th className="text-left px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wide">Estado</th>
+                    <th className="text-right px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wide">Precio</th>
+                    <th className="px-4 py-3" />
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {lista.map((o) => {
+                    const isDerived = derivadoIds.has(o.id)
+                    const derivedTsl = isDerived
+                      ? (traslados ?? []).find((t) => t.order_id === o.id && t.estado !== 'retornado')
+                      : null
+                    return (
+                      <tr
+                        key={o.id}
+                        onClick={() => setDetalle(o)}
+                        className="hover:bg-blue-50/40 transition-colors cursor-pointer"
+                      >
+                        <td className="px-4 py-3 font-mono font-semibold text-gray-700">#{o.num}</td>
+                        <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{fmtFecha(o.fecha)}</td>
+                        <td className="px-4 py-3">
+                          <p className="font-medium text-gray-800">{o.nombre}</p>
+                          {o.tel && <p className="text-xs text-gray-400">{o.tel}</p>}
+                        </td>
+                        <td className="px-4 py-3 text-gray-600">{o.modelo || '—'}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center flex-wrap gap-1.5">
+                            <EstadoBadge estado={o.status} />
+                            {isDerived && (
+                              <span className="inline-flex items-center gap-1 bg-amber-100 text-amber-800 rounded-full px-2 py-0.5 text-xs font-semibold">
+                                🔄 {derivedTsl?.tecnico ?? 'Derivado'}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-right font-semibold text-gray-800">
+                          <Money value={totalOrden(o)} />
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); abrirEditar(o) }}
+                            className="text-xs text-blue-600 hover:underline font-medium"
+                          >
+                            Editar
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
 
-      {/* Drawer de detalle */}
-      {detalle && (
-        <OrdenDetalle
-          orden={detalle}
-          ordenes={ordenes ?? []}
-          onClose={() => setDetalle(null)}
-          onEditar={(o) => abrirEditar(o)}
-        />
-      )}
+        {/* Modal nueva / editar orden */}
+        {modalOpen && (
+          <OrdenModal
+            orden={editando}
+            ordenes={ordenes ?? []}
+            onClose={() => setModalOpen(false)}
+          />
+        )}
+
+        {/* Drawer de detalle */}
+        {detalle && (
+          <OrdenDetalle
+            orden={detalle}
+            ordenes={ordenes ?? []}
+            onClose={() => setDetalle(null)}
+            onEditar={(o) => abrirEditar(o)}
+          />
+        )}
       </>)}
     </div>
+  )
+}
+
+function StatCard({
+  icon, iconBg, label, value, valueColor = 'text-gray-900', onClick,
+}: {
+  icon: React.ReactNode
+  iconBg: string
+  label: string
+  value: number
+  valueColor?: string
+  onClick?: () => void
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="bg-white rounded-xl border border-gray-200 p-4 flex items-start gap-3 text-left hover:shadow-sm transition w-full"
+    >
+      <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${iconBg}`}>
+        {icon}
+      </div>
+      <div>
+        <div className={`text-2xl font-bold ${valueColor}`}>{value}</div>
+        <div className="text-xs text-gray-500 mt-0.5 leading-tight">{label}</div>
+      </div>
+    </button>
   )
 }

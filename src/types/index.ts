@@ -315,6 +315,35 @@ export interface PendingInvite {
   created_at: string
 }
 
+// ── Traslados (derivaciones a técnicos externos) ─────────────
+export type EstadoTraslado = 'enviado' | 'en-revision' | 'listo' | 'con-problema' | 'retornado'
+
+export interface TecnicoExterno {
+  id: string
+  nombre: string
+  telefono?: string
+  email?: string
+  notas?: string
+}
+
+export interface Traslado {
+  id: string
+  numero: number
+  equipo: string
+  cliente?: string
+  order_id?: string
+  tecnico: string
+  tecnico_tel?: string
+  condicion?: 'enciende' | 'apagado' | string
+  precio_acordado?: number
+  estado: EstadoTraslado
+  fecha_envio?: string
+  fecha_retorno_est?: string
+  fecha_retorno_real?: string
+  motivo?: string
+  notas?: string
+}
+
 // ── Kits de Equipos ──────────────────────────────────────────
 export interface KitComponente {
   id: string

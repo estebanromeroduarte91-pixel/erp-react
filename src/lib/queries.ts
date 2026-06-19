@@ -3,7 +3,7 @@ import { useEffect } from 'react'
 import { supabase } from './supabase'
 import { dbGet, dbSet } from './db'
 import { useAuth } from '@/context/AuthContext'
-import type { Orden, Cliente, Producto, Bodega, Movimiento, Proveedor, Venta, MetodoPago, Caja, CajaSesion, Gasto, GastoCat, CuentaContable, Asiento, SeguimientoConfig, SmtpConfig, MsgTemplates, Cargo, UserProfile, UserConfig, PendingInvite, EmailDomain, OC, OCLogEntry, Categoria, Kit } from '@/types'
+import type { Orden, Cliente, Producto, Bodega, Movimiento, Proveedor, Venta, MetodoPago, Caja, CajaSesion, Gasto, GastoCat, CuentaContable, Asiento, SeguimientoConfig, SmtpConfig, MsgTemplates, Cargo, UserProfile, UserConfig, PendingInvite, EmailDomain, OC, OCLogEntry, Categoria, Kit, Traslado, TecnicoExterno } from '@/types'
 
 // ── Órdenes de Taller ─────────────────────────────────────────
 
@@ -823,5 +823,45 @@ export function useCancelarInvitacion() {
       if (error) throw error
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['pending_invites', empresaId] }),
+  })
+}
+
+// ── Traslados (derivaciones a técnicos externos) ──────────────
+
+export function useTraslados() {
+  const { empresaId } = useAuth()
+  return useQuery({
+    queryKey: ['traslados', empresaId],
+    queryFn: () => dbGet<Traslado[] | string>(empresaId!, 'traslados'),
+    enabled: !!empresaId,
+    select: (data) => parseArr<Traslado>(data as Traslado[] | string | null),
+  })
+}
+
+export function useGuardarTraslados() {
+  const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (traslados: Traslado[]) => dbSet(empresaId!, 'traslados', traslados),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['traslados', empresaId] }),
+  })
+}
+
+export function useTecnicosExternos() {
+  const { empresaId } = useAuth()
+  return useQuery({
+    queryKey: ['tp_tecnicos', empresaId],
+    queryFn: () => dbGet<TecnicoExterno[] | string>(empresaId!, 'tp_tecnicos'),
+    enabled: !!empresaId,
+    select: (data) => parseArr<TecnicoExterno>(data as TecnicoExterno[] | string | null),
+  })
+}
+
+export function useGuardarTecnicosExternos() {
+  const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (tecnicos: TecnicoExterno[]) => dbSet(empresaId!, 'tp_tecnicos', tecnicos),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['tp_tecnicos', empresaId] }),
   })
 }
