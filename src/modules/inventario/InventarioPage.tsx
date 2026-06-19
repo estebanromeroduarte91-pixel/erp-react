@@ -1,0 +1,44 @@
+import { useState } from 'react'
+import { ProductosTab } from './ProductosTab'
+import { BodegasTab } from './BodegasTab'
+import { MovimientosTab } from './MovimientosTab'
+
+type Tab = 'productos' | 'bodegas' | 'movimientos'
+
+const TABS: { id: Tab; label: string }[] = [
+  { id: 'productos',    label: 'Productos' },
+  { id: 'bodegas',      label: 'Bodegas / Sucursales' },
+  { id: 'movimientos',  label: 'Movimientos' },
+]
+
+export function InventarioPage() {
+  const [tab, setTab] = useState<Tab>('productos')
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-5">
+        <h2 className="text-xl font-bold text-gray-900">Inventario</h2>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-5 w-fit">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            className={[
+              'px-4 py-1.5 text-sm font-medium rounded-lg transition',
+              tab === t.id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700',
+            ].join(' ')}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'productos'   && <ProductosTab />}
+      {tab === 'bodegas'     && <BodegasTab />}
+      {tab === 'movimientos' && <MovimientosTab />}
+    </div>
+  )
+}

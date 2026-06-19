@@ -1,0 +1,109 @@
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import type { Session } from '@supabase/supabase-js'
+import { supabase } from '@/lib/supabase'
+
+type Rol = 'admin' | 'encargado' | 'tecnico' | 'vendedor' | string
+
+interface AuthState {
+  session: Session | null
+  empresaId: string | null
+  empresaNombre: string
+  rol: Rol
+  nombre: string
+  cargando: boolean
+}
+
+interface AuthContextValue extends AuthState {
+  login: (email: string, password: string) => Promise<string | null>
+  logout: () => Promise<void>
+}
+
+const AuthContext = createContext<AuthContextValue | null>(null)
+
+const ESTADO_INICIAL: AuthState = {
+  session: null,
+  empresaId: null,
+  empresaNombre: '',
+  rol: 'admin',
+  nombre: '',
+  cargando: true,
+}
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [estado, setEstado] = useState<AuthState>(ESTADO_INICIAL)
+
+  // Carga el perfil de la empresa para un usuario autenticado (equivale a _iniciarApp)
+  async function cargarPerfil(session: Session) {
+    const user = session.user
+    const { data: perfil } = await supabase
+      .from('user_profiles')
+      .select('empresa_id,role,nombre,activo')
+      .eq('id', user.id)
+      .maybeSingle()
+
+    if (perfil?.empresa_id) {
+      const { data: emp } = await supabase
+        .from('empresas')
+        .select('nombre')
+        .eq('id', perfil.empresa_id)
+        .maybeSingle()
+      setEstado({
+        session,
+        empresaId: perfil.empresa_id,
+        empresaNombre: emp?.nombre || 'TallerPro',
+        rol: perfil.role || 'tecnico',
+        nombre: perfil.nombre || user.email || '',
+        cargando: false,
+      })
+    } else {
+      // Flujo de propietario: la empresa se busca por owner_id
+      const { data: emp } = await supabase
+        .from('empresas')
+        .select('id,nombre')
+        .eq('owner_id', user.id)
+        .maybeSingle()
+      setEstado({
+        session,
+        empresaId: emp?.id || null,
+        empresaNombre: emp?.nombre || 'TallerPro',
+        rol: 'admin',
+        nombre: emp?.nombre || user.email || '',
+        cargando: false,
+      })
+    }
+  }
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) cargarPerfil(data.session)
+      else setEstado({ ...ESTADO_INICIAL, cargando: false })
+    })
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) cargarPerfil(session)
+      else setEstado({ ...ESTADO_INICIAL, cargando: false })
+    })
+    return () => sub.subscription.unsubscribe()
+  }, [])
+
+  async function login(email: string, password: string): Promise<string | null> {
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) {
+      if (error.message.includes('Invalid login')) return 'Email o contraseña incorrectos'
+      return error.message
+    }
+    return null
+  }
+
+  async function logout() {
+    await supabase.auth.signOut()
+  }
+
+  return <AuthContext.Provider value={{ ...estado, login, logout }}>{children}</AuthContext.Provider>
+}
+
+// eslint-disable-next-line react-refresh/only-export-components
+export function useAuth() {
+  const ctx = useContext(AuthContext)
+  if (!ctx) throw new Error('useAuth debe usarse dentro de <AuthProvider>')
+  return ctx
+}
