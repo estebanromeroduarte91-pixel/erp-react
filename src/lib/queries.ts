@@ -155,6 +155,15 @@ export function useMovimientos() {
   })
 }
 
+export function useGuardarMovimientos() {
+  const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (movs: Movimiento[]) => dbSet(empresaId!, 'mov_inventario', movs),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['mov_inventario', empresaId] }),
+  })
+}
+
 // ── Clientes ──────────────────────────────────────────────────
 
 function parseArr<T>(data: T[] | string | null): T[] {

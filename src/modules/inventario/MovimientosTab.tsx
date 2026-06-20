@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react'
-import { useMovimientos } from '@/lib/queries'
+import { useState, useMemo, useEffect } from 'react'
+import { useMovimientos, useGuardarMovimientos } from '@/lib/queries'
 import { Spinner } from '@/components/shared/Spinner'
 
 const TIPO_LABEL: Record<string, string> = {
@@ -58,8 +58,23 @@ function ProductoPills({ productos }: { productos: { producto_nombre?: string; c
 
 export function MovimientosTab() {
   const { data: movimientos, isLoading } = useMovimientos()
+  const guardarMovimientos = useGuardarMovimientos()
   const [filtroTipo, setFiltroTipo] = useState('')
   const [busqueda, setBusqueda] = useState('')
+
+  // Corrige automáticamente referencias históricas con prefijo duplicado (OC-OC- → OC-)
+  useEffect(() => {
+    if (!movimientos?.length) return
+    const necesitaFix = movimientos.some(m => m.referencia?.startsWith('OC-OC-'))
+    if (!necesitaFix) return
+    const corregidos = movimientos.map(m => ({
+      ...m,
+      referencia: m.referencia?.startsWith('OC-OC-')
+        ? m.referencia.replace('OC-OC-', 'OC-')
+        : m.referencia,
+    }))
+    void guardarMovimientos.mutateAsync(corregidos)
+  }, [movimientos]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const lista = useMemo(() => {
     let r = movimientos ?? []
