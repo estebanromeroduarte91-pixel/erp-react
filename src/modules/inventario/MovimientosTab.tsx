@@ -5,11 +5,55 @@ import { Spinner } from '@/components/shared/Spinner'
 const TIPO_LABEL: Record<string, string> = {
   entrada: 'Entrada', salida: 'Salida', ajuste: 'Ajuste', traslado: 'Traslado',
 }
-const TIPO_COLOR: Record<string, string> = {
-  entrada:  'bg-green-100 text-green-700',
-  salida:   'bg-red-100 text-red-700',
-  ajuste:   'bg-yellow-100 text-yellow-800',
-  traslado: 'bg-blue-100 text-blue-700',
+
+const TIPO_STYLE: Record<string, { bg: string; text: string; icon: React.ReactNode }> = {
+  entrada: {
+    bg: 'bg-[#EAF3DE]', text: 'text-[#27500A]',
+    icon: <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m0 0l-4-4m4 4l4-4" /></svg>,
+  },
+  salida: {
+    bg: 'bg-[#FCEBEB]', text: 'text-[#791F1F]',
+    icon: <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 20V4m0 0l-4 4m4-4l4 4" /></svg>,
+  },
+  ajuste: {
+    bg: 'bg-[#FAEEDA]', text: 'text-[#633806]',
+    icon: <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>,
+  },
+  traslado: {
+    bg: 'bg-[#E6F1FB]', text: 'text-[#0C447C]',
+    icon: <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>,
+  },
+}
+
+const PILLS_MAX = 3
+
+function ProductoPills({ productos }: { productos: { producto_nombre?: string; cantidad: number }[] }) {
+  const [expanded, setExpanded] = useState(false)
+  const visible = expanded ? productos : productos.slice(0, PILLS_MAX)
+  const resto = productos.length - PILLS_MAX
+
+  return (
+    <div className="flex flex-wrap gap-1 items-center">
+      {visible.map((p, i) => (
+        <span key={i} className="inline-flex items-center text-[11px] text-gray-600 bg-gray-50 border border-gray-100 rounded-md px-2 py-0.5 whitespace-nowrap">
+          {p.producto_nombre}
+          <span className="text-gray-400 ml-1.5">×{p.cantidad}</span>
+        </span>
+      ))}
+      {!expanded && resto > 0 && (
+        <button onClick={() => setExpanded(true)}
+          className="text-[11px] text-blue-600 border border-blue-200 bg-blue-50 rounded-md px-2 py-0.5 hover:bg-blue-100 transition">
+          +{resto} más
+        </button>
+      )}
+      {expanded && productos.length > PILLS_MAX && (
+        <button onClick={() => setExpanded(false)}
+          className="text-[11px] text-gray-400 border border-gray-200 rounded-md px-2 py-0.5 hover:bg-gray-100 transition">
+          Ver menos
+        </button>
+      )}
+    </div>
+  )
 }
 
 export function MovimientosTab() {
@@ -35,8 +79,8 @@ export function MovimientosTab() {
 
   return (
     <div>
-      {/* Filtros */}
-      <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4 flex flex-wrap gap-3 items-center">
+      {/* Toolbar */}
+      <div className="flex flex-wrap gap-2 items-center mb-4">
         <div className="relative flex-1 min-w-48">
           <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
             fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -44,56 +88,66 @@ export function MovimientosTab() {
           </svg>
           <input type="text" value={busqueda} onChange={(e) => setBusqueda(e.target.value)}
             placeholder="Buscar producto, referencia..."
-            className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:border-blue-400" />
+            className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-blue-400" />
         </div>
         <select value={filtroTipo} onChange={(e) => setFiltroTipo(e.target.value)}
-          className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-gray-50 focus:outline-none focus:border-blue-400">
+          className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-blue-400 text-gray-600">
           <option value="">Todos los tipos</option>
           {Object.entries(TIPO_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
       </div>
 
       {/* Tabla */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
         {lista.length === 0 ? (
           <p className="text-center text-sm text-gray-400 py-16">Sin movimientos registrados</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-100 bg-gray-50">
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Fecha</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Tipo</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Productos</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Referencia</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Usuario</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {lista.map((m) => (
-                  <tr key={m.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-4 py-3 text-gray-500 whitespace-nowrap">
-                      {m.fecha} {m.hora && <span className="text-gray-400 text-xs">{m.hora}</span>}
+          <table className="w-full text-sm" style={{ tableLayout: 'fixed' }}>
+            <colgroup>
+              <col style={{ width: '130px' }} />
+              <col style={{ width: '90px' }} />
+              <col />
+              <col style={{ width: '120px' }} />
+              <col style={{ width: '150px' }} />
+            </colgroup>
+            <thead>
+              <tr className="border-b border-gray-100">
+                <th className="text-left px-4 py-2.5 text-[11px] font-medium text-gray-400 uppercase tracking-wider">Fecha</th>
+                <th className="text-left px-4 py-2.5 text-[11px] font-medium text-gray-400 uppercase tracking-wider">Tipo</th>
+                <th className="text-left px-4 py-2.5 text-[11px] font-medium text-gray-400 uppercase tracking-wider">Productos</th>
+                <th className="text-left px-4 py-2.5 text-[11px] font-medium text-gray-400 uppercase tracking-wider">Referencia</th>
+                <th className="text-left px-4 py-2.5 text-[11px] font-medium text-gray-400 uppercase tracking-wider">Usuario</th>
+              </tr>
+            </thead>
+            <tbody>
+              {lista.map((m) => {
+                const estilo = TIPO_STYLE[m.tipo]
+                return (
+                  <tr key={m.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/60 transition-colors">
+                    <td className="px-4 py-3 align-top">
+                      <div className="text-[13px] text-gray-700">{m.fecha}</div>
+                      {m.hora && <div className="text-[11px] text-gray-400 mt-0.5">{m.hora}</div>}
                     </td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${TIPO_COLOR[m.tipo] ?? 'bg-gray-100 text-gray-600'}`}>
+                    <td className="px-4 py-3 align-top">
+                      <span className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-md ${estilo?.bg ?? 'bg-gray-100'} ${estilo?.text ?? 'text-gray-600'}`}>
+                        {estilo?.icon}
                         {TIPO_LABEL[m.tipo] ?? m.tipo}
                       </span>
                     </td>
-                    <td className="px-4 py-3">
-                      {m.productos.map((p, i) => (
-                        <p key={i} className="text-xs text-gray-700">
-                          {p.producto_nombre} <span className="text-gray-400">×{p.cantidad}</span>
-                        </p>
-                      ))}
+                    <td className="px-4 py-3 align-top">
+                      <ProductoPills productos={m.productos} />
                     </td>
-                    <td className="px-4 py-3 text-gray-500 text-xs">{m.referencia || '—'}</td>
-                    <td className="px-4 py-3 text-gray-500 text-xs">{m.usuario || '—'}</td>
+                    <td className="px-4 py-3 align-top">
+                      <span className="text-[12px] text-gray-500 font-mono">{m.referencia || '—'}</span>
+                    </td>
+                    <td className="px-4 py-3 align-top">
+                      <span className="text-[12px] text-gray-500">{m.usuario || '—'}</span>
+                    </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                )
+              })}
+            </tbody>
+          </table>
         )}
       </div>
     </div>
