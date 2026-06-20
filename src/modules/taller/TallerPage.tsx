@@ -23,11 +23,6 @@ const CONFIG_TABS: { id: TallerConfigTab; label: string }[] = [
   { id: 'terminos',       label: 'Términos' },
 ]
 
-const TALLER_TABS: { id: TallerTab; label: string }[] = [
-  { id: 'ordenes',   label: 'Órdenes' },
-  { id: 'derivados', label: 'Derivados' },
-  { id: 'settings',  label: 'Configuración' },
-]
 
 function resolveTallerTab(param: string | null): TallerTab {
   if (param === 'derivados') return 'derivados'
@@ -35,14 +30,12 @@ function resolveTallerTab(param: string | null): TallerTab {
   return 'ordenes'
 }
 
-const ESTADOS: { value: EstadoOrden | 'todos' | 'Derivado'; label: string }[] = [
-  { value: 'todos',        label: 'Todos' },
-  { value: 'Chequeo',      label: 'Chequeo' },
-  { value: 'Reparación',   label: 'Reparación' },
-  { value: 'Listo',        label: 'Listos' },
-  { value: 'Derivado',     label: '🔄 Derivados' },
-  { value: 'Entregado',    label: 'Entregados' },
-  { value: 'No reparable', label: 'No reparables' },
+const ESTADOS_MAIN: { value: EstadoOrden | 'todos' | 'Derivado'; label: string }[] = [
+  { value: 'todos',      label: 'Todos' },
+  { value: 'Chequeo',    label: 'Chequeo' },
+  { value: 'Reparación', label: 'Reparación' },
+  { value: 'Listo',      label: 'Listos' },
+  { value: 'Derivado',   label: '🔄 Derivados' },
 ]
 
 export function totalOrden(o: Orden): number {
@@ -168,7 +161,6 @@ export function TallerPage() {
           <p className="text-sm text-gray-400 mt-0.5">{ordenes?.length ?? 0} órdenes en total</p>
         </div>
         {tallerTab === 'ordenes' && (<>
-          {/* Buscador arriba a la derecha */}
           <div className="relative">
             <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
               fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -194,18 +186,6 @@ export function TallerPage() {
         </>)}
       </div>
 
-      {/* Tabs de sección */}
-      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-5 w-fit">
-        {TALLER_TABS.map(t => (
-          <button key={t.id} onClick={() => setTallerTab(t.id)}
-            className={[
-              'px-4 py-1.5 text-sm font-medium rounded-lg transition',
-              tallerTab === t.id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700',
-            ].join(' ')}>
-            {t.label}
-          </button>
-        ))}
-      </div>
 
       {tallerTab === 'derivados' && <TrasladosTab />}
 
@@ -266,27 +246,45 @@ export function TallerPage() {
           />
         </div>
 
-        {/* Pipeline de filtros */}
-        <div className="flex flex-wrap items-center gap-1 mb-4 border-b border-gray-200 pb-3">
-          {ESTADOS.map((e) => (
+        {/* Filtros */}
+        <div className="flex items-center gap-1 mb-4 border-b border-gray-200 pb-3">
+          <div className="flex flex-wrap items-center gap-1 flex-1">
+            {ESTADOS_MAIN.map((e) => (
+              <button
+                key={e.value}
+                onClick={() => setFiltroEstado(e.value)}
+                className={[
+                  'inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition',
+                  filtroEstado === e.value
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200',
+                ].join(' ')}
+              >
+                {e.label}
+                {e.value === 'Derivado' && stats.derivadas > 0 && (
+                  <span className={`inline-flex items-center justify-center w-4 h-4 rounded-full text-[10px] font-bold ${filtroEstado === 'Derivado' ? 'bg-white/30 text-white' : 'bg-orange-200 text-orange-800'}`}>
+                    {stats.derivadas}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+          <div className="pl-3 border-l border-gray-200 ml-1">
             <button
-              key={e.value}
-              onClick={() => setFiltroEstado(e.value)}
+              onClick={() => setFiltroEstado('Entregado')}
               className={[
                 'inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition',
-                filtroEstado === e.value
+                filtroEstado === 'Entregado'
                   ? 'bg-blue-600 text-white shadow-sm'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200',
+                  : 'bg-gray-100 text-gray-500 hover:bg-gray-200',
               ].join(' ')}
             >
-              {e.label}
-              {e.value === 'Derivado' && stats.derivadas > 0 && (
-                <span className={`inline-flex items-center justify-center w-4 h-4 rounded-full text-[10px] font-bold ${filtroEstado === 'Derivado' ? 'bg-white/30 text-white' : 'bg-orange-200 text-orange-800'}`}>
-                  {stats.derivadas}
-                </span>
-              )}
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/>
+              </svg>
+              Entregados
             </button>
-          ))}
+          </div>
         </div>
 
         {/* Banner archivo si está en "Entregado" */}
