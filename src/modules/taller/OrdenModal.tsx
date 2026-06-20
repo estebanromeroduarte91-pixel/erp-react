@@ -1,5 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
-import { useGuardarOrden, useClientes, useGuardarClientes, useProductos, useChecklist } from '@/lib/queries'
+import { useGuardarOrden, useClientes, useGuardarClientes, useProductos, useChecklist, useUserProfiles, useMsgTemplates, useSeguimientoConfig } from '@/lib/queries'
+import { useAuth } from '@/context/AuthContext'
+import { supabase } from '@/lib/supabase'
+import { dbGet } from '@/lib/db'
+import { sendEmail } from '@/lib/email'
 import { Money } from '@/components/shared/Money'
 import { EquipoSelector } from './EquipoSelector'
 import { PatternLockModal } from './PatternLockModal'
@@ -33,12 +37,30 @@ const EMPTY: FormData = {
   presup: '', costo: '', status: 'Chequeo', fechaEstimada: '',
 }
 
+// Capitaliza la primera letra de cada palabra (nombres) o solo del string (textos libres)
+function capWords(s: string) {
+  return s.replace(/\b\w/g, c => c.toUpperCase())
+}
+function capFirst(s: string) {
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}
+
+// Interpola variables {{nombre}}, {{modelo}}, etc. en un template de mensaje
+function rellenarTemplate(tpl: string, vars: Record<string, string>): string {
+  return tpl.replace(/\{\{(\w+)\}\}/g, (_, k) => vars[k] ?? '')
+}
+
 export function OrdenModal({ orden, ordenes, onClose }: Props) {
+  const { empresaId } = useAuth()
   const guardar = useGuardarOrden()
   const { data: clientes } = useClientes()
   const guardarClientes = useGuardarClientes()
   const { data: productos } = useProductos()
   const { data: checklistLabels } = useChecklist()
+  const { data: usuarios = [] } = useUserProfiles()
+  const { data: msgTemplates } = useMsgTemplates()
+  const { data: segCfg } = useSeguimientoConfig()
+  const usuariosActivos = usuarios.filter(u => u.activo)
 
   const [form, setForm] = useState<FormData>(() =>
     orden ? {
@@ -71,14 +93,23 @@ export function OrdenModal({ orden, ordenes, onClose }: Props) {
   const [draftId, setDraftId] = useState<string | null>(orden?.id ?? null)
   const [creandoBorrador, setCreandoBorrador] = useState(false)
 
-  // Orden fresca desde la lista (se actualiza por realtime cuando llegan fotos del iPhone)
-  const ordenLive = draftId ? ordenes.find((o) => o.id === draftId) : null
-  const livePhotosLen = ordenLive?.photosIngreso?.length ?? 0
+  // Suscripción directa al draft para sincronizar fotos del iPhone vía QR.
+  // useOrdenes filtra _draft, por eso se usa una suscripción propia aquí.
   useEffect(() => {
-    const live = ordenLive?.photosIngreso
-    if (live && live.length !== fotos.length) setFotos(live)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [livePhotosLen])
+    if (!draftId || !empresaId) return
+    const channel = supabase
+      .channel(`draft-fotos-${draftId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'erp_data',
+        filter: `empresa_id=eq.${empresaId}` },
+        async () => {
+          const raw = await dbGet<Orden[] | string>(empresaId, 'tp_orders')
+          const arr: Orden[] = typeof raw === 'string' ? JSON.parse(raw) : (raw ?? [])
+          const draft = arr.find(o => o.id === draftId)
+          if (draft?.photosIngreso) setFotos(draft.photosIngreso)
+        })
+      .subscribe()
+    return () => { void supabase.removeChannel(channel) }
+  }, [draftId, empresaId])
 
   // Crea (una sola vez) un borrador en la BD para que el QR de fotos pueda enlazarlas
   // de inmediato mientras se completa la orden. Devuelve el id del borrador.
@@ -334,6 +365,27 @@ export function OrdenModal({ orden, ordenes, onClose }: Props) {
     }
 
     await guardar.mutateAsync(nuevasOrdenes)
+
+    // Email de ingreso (solo al crear, no al editar)
+    if (!isEditing && form.email && empresaId) {
+      const tpl = msgTemplates?.ingreso_email
+      if (tpl) {
+        const num = draftId
+          ? (nuevasOrdenes.find(o => o.id === draftId)?.num ?? '')
+          : (nuevasOrdenes[0]?.num ?? '')
+        const vars = {
+          nombre: form.nombre,
+          modelo: form.modelo,
+          orden: num,
+          sucursal: segCfg?.nombreTaller ?? '',
+          horario: segCfg?.horario ?? '',
+          fecha_estimada: form.fechaEstimada ?? '',
+        }
+        const html = rellenarTemplate(tpl, vars).replace(/\n/g, '<br>')
+        void sendEmail(empresaId, form.email, `Ingreso de equipo #${num}`, html)
+      }
+    }
+
     setGuardando(false)
     onClose()
   }
@@ -440,7 +492,7 @@ export function OrdenModal({ orden, ordenes, onClose }: Props) {
                 <EquipoSelector value={form.modelo} onChange={(v) => set('modelo', v)} />
               </div>
               <Field label="N° Serie / IMEI" value={form.serie} onChange={(v) => set('serie', v)} placeholder="C8QH2XXXXXX" />
-              <Field label="Color" value={form.color} onChange={(v) => set('color', v)} placeholder="Negro, Blanco..." />
+              <Field label="Color" value={form.color} onChange={(v) => set('color', v)} placeholder="Negro, Blanco…" autoCapitalize="words" onBlur={(v) => set('color', capWords(v))} />
               {/* Contraseña / Patrón */}
               <div>
                 <label className="text-xs font-medium text-gray-600 mb-1 block">Contraseña / Patrón</label>
@@ -479,10 +531,12 @@ export function OrdenModal({ orden, ordenes, onClose }: Props) {
               <div className="col-span-2">
                 <label className="text-xs font-medium text-gray-600 mb-1 block">Estado físico del equipo</label>
                 <textarea value={form.estadoFisico} onChange={(e) => set('estadoFisico', e.target.value)}
+                  onBlur={(e) => set('estadoFisico', capFirst(e.target.value))}
+                  autoCapitalize="sentences"
                   placeholder="Rayones, grietas, daños visibles..." rows={2}
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400 resize-none" />
               </div>
-              <Field label="Fecha estimada de entrega" type="date" value={form.fechaEstimada} onChange={(v) => set('fechaEstimada', v)} />
+              <DateField label="Fecha estimada de entrega" value={form.fechaEstimada} onChange={(v) => set('fechaEstimada', v)} />
             </div>
           </section>
 
@@ -493,10 +547,25 @@ export function OrdenModal({ orden, ordenes, onClose }: Props) {
               <div className="col-span-2">
                 <label className="text-xs font-medium text-gray-600 mb-1 block">Descripción del trabajo</label>
                 <textarea value={form.trabajo} onChange={(e) => set('trabajo', e.target.value)}
+                  onBlur={(e) => set('trabajo', capFirst(e.target.value))}
+                  autoCapitalize="sentences"
                   placeholder="Ej: Cambio de pantalla, reparación de conector de carga..." rows={3}
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400 resize-none" />
               </div>
-              <Field label="Técnico asignado" value={form.tecnico} onChange={(v) => set('tecnico', v)} placeholder="Nombre del técnico" />
+              <div>
+                <label className="text-xs font-medium text-gray-600 mb-1 block">Técnico asignado</label>
+                {usuariosActivos.length > 0 ? (
+                  <select value={form.tecnico} onChange={(e) => set('tecnico', e.target.value)}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
+                    <option value="">Sin asignar</option>
+                    {usuariosActivos.map(u => <option key={u.id} value={u.nombre}>{u.nombre}</option>)}
+                  </select>
+                ) : (
+                  <input value={form.tecnico} onChange={(e) => set('tecnico', e.target.value)}
+                    placeholder="Nombre del técnico"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+                )}
+              </div>
               <Field label="Presupuesto estimado ($)" type="number" value={form.presup} onChange={(v) => set('presup', v)} placeholder="0" />
             </div>
           </section>
@@ -743,13 +812,15 @@ export function OrdenModal({ orden, ordenes, onClose }: Props) {
                 <div>
                   <label className="text-xs font-medium text-gray-600 mb-1 block">Nombre *</label>
                   <input value={nuevoCliente.nombre} onChange={(e) => setNuevoCliente((n) => ({ ...n, nombre: e.target.value }))}
-                    placeholder="Juan" autoFocus
+                    onBlur={(e) => setNuevoCliente(n => ({ ...n, nombre: capWords(e.target.value) }))}
+                    placeholder="Juan" autoFocus autoCapitalize="words" autoCorrect="on"
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
                 </div>
                 <div>
                   <label className="text-xs font-medium text-gray-600 mb-1 block">Apellido</label>
                   <input value={nuevoCliente.apellido} onChange={(e) => setNuevoCliente((n) => ({ ...n, apellido: e.target.value }))}
-                    placeholder="Pérez"
+                    onBlur={(e) => setNuevoCliente(n => ({ ...n, apellido: capWords(e.target.value) }))}
+                    placeholder="Pérez" autoCapitalize="words" autoCorrect="on"
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
                 </div>
               </div>
@@ -818,14 +889,35 @@ export function OrdenModal({ orden, ordenes, onClose }: Props) {
   )
 }
 
-function Field({ label, value, onChange, placeholder, type = 'text' }: {
+function Field({ label, value, onChange, placeholder, type = 'text', autoCapitalize, onBlur }: {
   label: string; value: string; onChange: (v: string) => void; placeholder?: string; type?: string
+  autoCapitalize?: string; onBlur?: (v: string) => void
 }) {
   return (
     <div>
       <label className="text-xs font-medium text-gray-600 mb-1 block">{label}</label>
-      <input type={type} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
+      <input type={type} value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={onBlur ? (e) => onBlur(e.target.value) : undefined}
+        placeholder={placeholder}
+        autoCapitalize={autoCapitalize}
+        autoCorrect="on"
         className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+    </div>
+  )
+}
+
+function DateField({ label, value, onChange }: {
+  label: string; value: string; onChange: (v: string) => void
+}) {
+  const ref = useRef<HTMLInputElement>(null)
+  return (
+    <div>
+      <label className="text-xs font-medium text-gray-600 mb-1 block">{label}</label>
+      <div className="relative cursor-pointer" onClick={() => ref.current?.showPicker?.()}>
+        <input ref={ref} type="date" value={value} onChange={(e) => onChange(e.target.value)}
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400 cursor-pointer" />
+      </div>
     </div>
   )
 }
