@@ -7,9 +7,21 @@ import { Spinner } from '@/components/shared/Spinner'
 import { OrdenModal } from './OrdenModal'
 import { OrdenDetalle } from './OrdenDetalle'
 import { TrasladosTab } from './TrasladosTab'
+import { SeguimientoTab } from '@/modules/config/SeguimientoTab'
+import { ChecklistConfigTab } from '@/modules/config/ChecklistConfigTab'
+import { MensajesTab } from '@/modules/config/MensajesTab'
+import { TerminosTab } from '@/modules/config/TerminosTab'
 import type { EstadoOrden, Orden } from '@/types'
 
 type TallerTab = 'ordenes' | 'derivados' | 'settings'
+type TallerConfigTab = 'seguimiento' | 'checklist' | 'notificaciones' | 'terminos'
+
+const CONFIG_TABS: { id: TallerConfigTab; label: string }[] = [
+  { id: 'seguimiento',    label: 'Seguimiento' },
+  { id: 'checklist',      label: 'Checklist' },
+  { id: 'notificaciones', label: 'Notificaciones' },
+  { id: 'terminos',       label: 'Términos' },
+]
 
 const TALLER_TABS: { id: TallerTab; label: string }[] = [
   { id: 'ordenes',   label: 'Órdenes' },
@@ -73,6 +85,7 @@ export function TallerPage() {
 
   const { data: ordenes, isLoading, error } = useOrdenes()
   const { data: traslados } = useTraslados()
+  const [configTab, setConfigTab] = useState<TallerConfigTab>('seguimiento')
   const [filtroEstado, setFiltroEstado] = useState<EstadoOrden | 'todos' | 'Derivado'>('todos')
   const [busqueda, setBusqueda] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
@@ -197,13 +210,22 @@ export function TallerPage() {
       {tallerTab === 'derivados' && <TrasladosTab />}
 
       {tallerTab === 'settings' && (
-        <div className="bg-white rounded-xl border border-gray-200 py-20 text-center">
-          <div className="text-5xl mb-4">⚙️</div>
-          <p className="text-lg font-bold text-gray-600 mb-2">Configuración de taller</p>
-          <p className="text-sm text-gray-400 max-w-xs mx-auto">
-            Los ajustes del taller (checklist de ingreso, mensajes y seguimiento) se encuentran en{' '}
-            <strong>Configuración</strong> → pestaña correspondiente.
-          </p>
+        <div>
+          <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-6 w-fit flex-wrap">
+            {CONFIG_TABS.map(t => (
+              <button key={t.id} onClick={() => setConfigTab(t.id)}
+                className={[
+                  'px-4 py-1.5 text-sm font-medium rounded-lg transition',
+                  configTab === t.id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700',
+                ].join(' ')}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+          {configTab === 'seguimiento'    && <SeguimientoTab />}
+          {configTab === 'checklist'      && <ChecklistConfigTab />}
+          {configTab === 'notificaciones' && <MensajesTab />}
+          {configTab === 'terminos'       && <TerminosTab />}
         </div>
       )}
 

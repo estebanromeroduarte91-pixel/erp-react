@@ -1,21 +1,17 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { SeguimientoTab } from './SeguimientoTab'
-import { ChecklistConfigTab } from './ChecklistConfigTab'
-import { MensajesTab } from './MensajesTab'
-import { TerminosTab } from './TerminosTab'
 import { SmtpTab } from './SmtpTab'
 import { DominioTab } from './DominioTab'
 import { CargosTab } from './CargosTab'
 import { AccesosTab } from './AccesosTab'
 
-type Tab = 'seguimiento' | 'checklist' | 'mensajes' | 'terminos' | 'smtp' | 'dominio' | 'cargos' | 'accesos'
+type Tab = 'dominio' | 'smtp' | 'cargos' | 'accesos'
 
 export function ConfigPage() {
   const [searchParams] = useSearchParams()
   const [tab, setTab] = useState<Tab>(() => {
     const t = searchParams.get('tab')
-    return (t as Tab) ?? 'seguimiento'
+    return (t as Tab) ?? 'dominio'
   })
 
   useEffect(() => {
@@ -24,14 +20,10 @@ export function ConfigPage() {
   }, [searchParams])
 
   const tabs: { key: Tab; label: string }[] = [
-    { key: 'seguimiento', label: 'Seguimiento' },
-    { key: 'checklist',   label: 'Checklist' },
-    { key: 'mensajes',    label: 'Mensajes' },
-    { key: 'terminos',    label: 'Términos' },
-    { key: 'dominio',     label: 'Dominio' },
-    { key: 'smtp',        label: 'SMTP' },
-    { key: 'cargos',      label: 'Cargos' },
-    { key: 'accesos',     label: 'Accesos' },
+    { key: 'dominio', label: 'Dominio' },
+    { key: 'smtp',    label: 'SMTP' },
+    { key: 'cargos',  label: 'Cargos' },
+    { key: 'accesos', label: 'Accesos' },
   ]
 
   return (
@@ -52,14 +44,10 @@ export function ConfigPage() {
         ))}
       </div>
 
-      {tab === 'seguimiento' && <SeguimientoTab />}
-      {tab === 'checklist'   && <ChecklistConfigTab />}
-      {tab === 'mensajes'    && <MensajesTab />}
-      {tab === 'terminos'    && <TerminosTab />}
-      {tab === 'dominio'     && <DominioTab />}
-      {tab === 'smtp'        && <SmtpTab />}
-      {tab === 'cargos'      && <CargosTab />}
-      {tab === 'accesos'     && <AccesosTab />}
+      {tab === 'dominio'  && <DominioTab />}
+      {tab === 'smtp'     && <SmtpTab />}
+      {tab === 'cargos'   && <CargosTab />}
+      {tab === 'accesos'  && <AccesosTab />}
     </div>
   )
 }
