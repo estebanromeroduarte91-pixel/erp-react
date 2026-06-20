@@ -7,13 +7,14 @@ import { Spinner } from '@/components/shared/Spinner'
 import { OrdenModal } from './OrdenModal'
 import { OrdenDetalle } from './OrdenDetalle'
 import { TrasladosTab } from './TrasladosTab'
+import { EquiposTab } from './EquiposTab'
 import { SeguimientoTab } from '@/modules/config/SeguimientoTab'
 import { ChecklistConfigTab } from '@/modules/config/ChecklistConfigTab'
 import { MensajesTab } from '@/modules/config/MensajesTab'
 import { TerminosTab } from '@/modules/config/TerminosTab'
 import type { EstadoOrden, Orden } from '@/types'
 
-type TallerTab = 'ordenes' | 'derivados' | 'settings'
+type TallerTab = 'ordenes' | 'derivados' | 'equipos' | 'settings'
 type TallerConfigTab = 'seguimiento' | 'checklist' | 'notificaciones' | 'terminos'
 
 const CONFIG_TABS: { id: TallerConfigTab; label: string }[] = [
@@ -26,6 +27,7 @@ const CONFIG_TABS: { id: TallerConfigTab; label: string }[] = [
 
 function resolveTallerTab(param: string | null): TallerTab {
   if (param === 'derivados') return 'derivados'
+  if (param === 'equipos')   return 'equipos'
   if (param === 'settings')  return 'settings'
   return 'ordenes'
 }
@@ -188,6 +190,7 @@ export function TallerPage() {
 
 
       {tallerTab === 'derivados' && <TrasladosTab />}
+      {tallerTab === 'equipos'   && <EquiposTab />}
 
       {tallerTab === 'settings' && (
         <div>
