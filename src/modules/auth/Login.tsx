@@ -1,8 +1,10 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 
 export function Login() {
   const { login } = useAuth()
+  const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -19,6 +21,7 @@ export function Login() {
     const err = await login(email, password)
     setCargando(false)
     if (err) setError(err)
+    else navigate('/dashboard', { replace: true })
   }
 
   return (
