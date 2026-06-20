@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef } from 'react'
 import * as XLSX from 'xlsx'
-import { useEquipos, useGuardarEquipos, useCatEquipo, useMarcasEquipo } from '@/lib/queries'
+import { useEquipos, useGuardarEquipos, useCatEquipo, useMarcasEquipo, useGuardarMarcasEquipo } from '@/lib/queries'
 import { Spinner } from '@/components/shared/Spinner'
 import type { Equipo } from '@/types'
 
@@ -19,14 +19,30 @@ const CAT_COLORS: Record<string, string> = {
 
 interface EquipoForm { marca: string; modelo: string; categoria: string; descripcion: string }
 
+interface MarcaInfo {
+  raw: string       // como viene en el Excel
+  normalizada: string  // como quedará guardada
+  enCatalogo: boolean
+  count: number
+}
+
+function normalizarMarca(raw: string, catalogo: string[]): string {
+  const t = raw.trim()
+  const match = catalogo.find(m => m.toLowerCase() === t.toLowerCase())
+  if (match) return match
+  return t.replace(/\b\w/g, c => c.toUpperCase())
+}
+
 export function EquiposTab() {
   const { data: equipos, isLoading } = useEquipos()
   const { data: categorias = [] } = useCatEquipo()
   const { data: marcas = [] } = useMarcasEquipo()
   const guardar = useGuardarEquipos()
+  const guardarMarcas = useGuardarMarcasEquipo()
 
   const [busqueda, setBusqueda] = useState('')
   const [filtroCat, setFiltroCat] = useState('')
+  const [filtroMarca, setFiltroMarca] = useState('')
 
   const [modal, setModal] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
@@ -34,12 +50,23 @@ export function EquiposTab() {
 
   const [importModal, setImportModal] = useState(false)
   const [importPreview, setImportPreview] = useState<Equipo[]>([])
+  const [importMarcas, setImportMarcas] = useState<MarcaInfo[]>([])
+  const [agregarNuevas, setAgregarNuevas] = useState(true)
   const [importError, setImportError] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
 
+  // Pills de marcas — solo marcas que tienen equipos
+  const marcasPills = useMemo(() => {
+    const all = equipos ?? []
+    const conteo: Record<string, number> = {}
+    all.forEach(e => { if (e.marca) conteo[e.marca] = (conteo[e.marca] ?? 0) + 1 })
+    return Object.entries(conteo).sort((a, b) => b[1] - a[1])
+  }, [equipos])
+
   const lista = useMemo(() => {
     let r = equipos ?? []
-    if (filtroCat) r = r.filter(e => e.categoria === filtroCat)
+    if (filtroMarca) r = r.filter(e => e.marca === filtroMarca)
+    if (filtroCat)   r = r.filter(e => e.categoria === filtroCat)
     if (busqueda.trim()) {
       const q = busqueda.toLowerCase()
       r = r.filter(e =>
@@ -49,13 +76,9 @@ export function EquiposTab() {
       )
     }
     return r
-  }, [equipos, busqueda, filtroCat])
+  }, [equipos, filtroMarca, filtroCat, busqueda])
 
-  function abrirNuevo() {
-    setEditId(null)
-    setForm(EMPTY_FORM)
-    setModal(true)
-  }
+  function abrirNuevo() { setEditId(null); setForm(EMPTY_FORM); setModal(true) }
 
   function abrirEditar(e: Equipo) {
     setEditId(e.id)
@@ -65,7 +88,6 @@ export function EquiposTab() {
 
   async function guardarEquipo() {
     if (!form.modelo.trim()) return
-    const all = equipos ?? []
     const datos: Equipo = {
       id: editId ?? Date.now().toString(),
       marca: form.marca.trim(),
@@ -73,7 +95,7 @@ export function EquiposTab() {
       categoria: form.categoria,
       descripcion: form.descripcion.trim() || undefined,
     }
-    const nueva = editId ? all.map(e => e.id === editId ? datos : e) : [...all, datos]
+    const nueva = editId ? (equipos ?? []).map(e => e.id === editId ? datos : e) : [...(equipos ?? []), datos]
     await guardar.mutateAsync(nueva)
     setModal(false)
   }
@@ -92,6 +114,7 @@ export function EquiposTab() {
         const ws = wb.Sheets[wb.SheetNames[0]]
         const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: '' })
         if (!rows.length) { setImportError('Archivo vacío'); return }
+
         const headers = Object.keys(rows[0]).map(h => h.toLowerCase().trim())
         const find = (keys: string[]) => keys.find(k => headers.includes(k))
         const cols = {
@@ -106,14 +129,32 @@ export function EquiposTab() {
         const parsed: Equipo[] = rows
           .map(row => ({
             id: '',
-            marca: get(row, cols.marca),
+            marca: normalizarMarca(get(row, cols.marca), marcas),
             modelo: get(row, cols.modelo),
             categoria: get(row, cols.categoria) || 'Teléfono',
             descripcion: get(row, cols.descripcion) || undefined,
           }))
           .filter(e => e.marca && e.modelo)
+
         if (!parsed.length) { setImportError('No se encontraron equipos válidos (requiere columnas Marca y Modelo)'); return }
+
+        // Analizar marcas detectadas
+        const rawPorMarca: Record<string, string> = {}
+        rows.forEach(row => {
+          const raw = get(row, cols.marca)
+          if (raw) rawPorMarca[normalizarMarca(raw, marcas)] = raw
+        })
+        const conteoMarcas: Record<string, number> = {}
+        parsed.forEach(e => { if (e.marca) conteoMarcas[e.marca] = (conteoMarcas[e.marca] ?? 0) + 1 })
+        const marcasInfo: MarcaInfo[] = Object.entries(conteoMarcas).map(([norm, count]) => ({
+          raw: rawPorMarca[norm] ?? norm,
+          normalizada: norm,
+          enCatalogo: marcas.some(m => m.toLowerCase() === norm.toLowerCase()),
+          count,
+        }))
+
         setImportPreview(parsed)
+        setImportMarcas(marcasInfo)
       } catch (err) {
         setImportError(`Error al leer el archivo: ${(err as Error).message}`)
       }
@@ -124,8 +165,13 @@ export function EquiposTab() {
   async function confirmarImport() {
     const nuevos = importPreview.map(e => ({ ...e, id: `eq-${Date.now()}-${Math.random().toString(36).slice(2)}` }))
     await guardar.mutateAsync([...(equipos ?? []), ...nuevos])
+    if (agregarNuevas) {
+      const marcasNuevas = importMarcas.filter(m => !m.enCatalogo).map(m => m.normalizada)
+      if (marcasNuevas.length) await guardarMarcas.mutateAsync([...marcas, ...marcasNuevas])
+    }
     setImportModal(false)
     setImportPreview([])
+    setImportMarcas([])
   }
 
   function descargarPlantilla() {
@@ -143,12 +189,15 @@ export function EquiposTab() {
     XLSX.writeFile(wb, 'plantilla_equipos_taller.xlsx')
   }
 
+  const marcasNuevas = importMarcas.filter(m => !m.enCatalogo)
+  const marcasConCambio = importMarcas.filter(m => m.raw !== m.normalizada)
+
   if (isLoading) return <div className="flex justify-center py-16"><Spinner className="w-8 h-8" /></div>
 
   return (
     <div>
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-2 mb-4">
+      <div className="flex flex-wrap items-center gap-2 mb-3">
         <div className="relative flex-1 min-w-48">
           <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
             fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -163,7 +212,7 @@ export function EquiposTab() {
           <option value="">Todas las categorías</option>
           {categorias.map((c: string) => <option key={c} value={c}>{c}</option>)}
         </select>
-        <button onClick={() => { setImportModal(true); setImportPreview([]); setImportError('') }}
+        <button onClick={() => { setImportModal(true); setImportPreview([]); setImportMarcas([]); setImportError('') }}
           className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg bg-white hover:bg-gray-50 transition">
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
@@ -179,6 +228,43 @@ export function EquiposTab() {
         </button>
       </div>
 
+      {/* Pills de marcas */}
+      {marcasPills.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5 mb-4 pb-4 border-b border-gray-100">
+          <span className="text-[11px] font-medium text-gray-400 mr-1">Marca:</span>
+          <button
+            onClick={() => setFiltroMarca('')}
+            className={[
+              'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border transition',
+              !filtroMarca
+                ? 'bg-blue-600 text-white border-blue-600'
+                : 'bg-white text-gray-500 border-gray-200 hover:border-blue-300 hover:text-blue-700',
+            ].join(' ')}
+          >
+            Todas
+            <span className={`text-[10px] px-1.5 py-0 rounded-full font-semibold ${!filtroMarca ? 'bg-white/25 text-white' : 'bg-gray-100 text-gray-500'}`}>
+              {(equipos ?? []).length}
+            </span>
+          </button>
+          {marcasPills.map(([marca, count]) => (
+            <button key={marca}
+              onClick={() => setFiltroMarca(filtroMarca === marca ? '' : marca)}
+              className={[
+                'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border transition',
+                filtroMarca === marca
+                  ? 'bg-blue-600 text-white border-blue-600'
+                  : 'bg-white text-gray-500 border-gray-200 hover:border-blue-300 hover:text-blue-700',
+              ].join(' ')}
+            >
+              {marca}
+              <span className={`text-[10px] px-1.5 py-0 rounded-full font-semibold ${filtroMarca === marca ? 'bg-white/25 text-white' : 'bg-gray-100 text-gray-500'}`}>
+                {count}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Tabla */}
       <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
         {lista.length === 0 ? (
@@ -187,7 +273,7 @@ export function EquiposTab() {
               <rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/>
             </svg>
             <p className="text-sm text-gray-400">
-              {busqueda || filtroCat ? 'Sin resultados para ese filtro' : 'Sin equipos registrados. Agrega el primero.'}
+              {busqueda || filtroCat || filtroMarca ? 'Sin resultados para ese filtro' : 'Sin equipos registrados. Agrega el primero.'}
             </p>
           </div>
         ) : (
@@ -214,10 +300,8 @@ export function EquiposTab() {
                   <td className="px-4 py-3 text-[12px] text-gray-400">{e.descripcion || '—'}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-2">
-                      <button onClick={() => abrirEditar(e)}
-                        className="text-xs text-blue-600 hover:underline font-medium">Editar</button>
-                      <button onClick={() => eliminar(e.id)}
-                        className="text-xs text-red-500 hover:underline font-medium">Eliminar</button>
+                      <button onClick={() => abrirEditar(e)} className="text-xs text-blue-600 hover:underline font-medium">Editar</button>
+                      <button onClick={() => eliminar(e.id)} className="text-xs text-red-500 hover:underline font-medium">Eliminar</button>
                     </div>
                   </td>
                 </tr>
@@ -234,9 +318,7 @@ export function EquiposTab() {
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
               <h3 className="font-semibold text-gray-900">{editId ? 'Editar equipo' : 'Nuevo equipo'}</h3>
               <button onClick={() => setModal(false)} className="text-gray-400 hover:text-gray-600">
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
             <div className="p-5 space-y-3">
@@ -244,12 +326,9 @@ export function EquiposTab() {
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">Marca *</label>
                   <input value={form.marca} onChange={e => setForm(f => ({ ...f, marca: e.target.value }))}
-                    placeholder="Apple, Samsung…"
-                    list="eq-marca-list"
+                    placeholder="Apple, Samsung…" list="eq-marca-list"
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
-                  <datalist id="eq-marca-list">
-                    {marcas.map(m => <option key={m} value={m}/>)}
-                  </datalist>
+                  <datalist id="eq-marca-list">{marcas.map(m => <option key={m} value={m}/>)}</datalist>
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">Categoría *</label>
@@ -273,8 +352,7 @@ export function EquiposTab() {
               </div>
             </div>
             <div className="flex justify-end gap-2 px-5 py-4 border-t border-gray-100">
-              <button onClick={() => setModal(false)}
-                className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition">Cancelar</button>
+              <button onClick={() => setModal(false)} className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition">Cancelar</button>
               <button onClick={guardarEquipo} disabled={!form.modelo.trim() || guardar.isPending}
                 className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition">
                 {guardar.isPending ? 'Guardando…' : 'Guardar equipo'}
@@ -287,27 +365,24 @@ export function EquiposTab() {
       {/* Modal importar Excel */}
       {importModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 flex-shrink-0">
               <div>
                 <h3 className="font-semibold text-gray-900">Importar desde Excel</h3>
                 <p className="text-xs text-gray-400 mt-0.5">Columnas requeridas: Marca, Modelo</p>
               </div>
               <button onClick={() => setImportModal(false)} className="text-gray-400 hover:text-gray-600">
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
-            <div className="p-5 space-y-4">
+
+            <div className="p-5 space-y-4 overflow-y-auto flex-1">
               {!importPreview.length ? (
                 <>
-                  <div
-                    className="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center cursor-pointer hover:border-blue-300 transition"
+                  <div className="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center cursor-pointer hover:border-blue-300 transition"
                     onClick={() => fileRef.current?.click()}
                     onDragOver={e => e.preventDefault()}
-                    onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) procesarExcel(f) }}
-                  >
+                    onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) procesarExcel(f) }}>
                     <svg className="w-8 h-8 text-gray-300 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                     </svg>
@@ -317,34 +392,80 @@ export function EquiposTab() {
                       onChange={e => { if (e.target.files?.[0]) procesarExcel(e.target.files[0]); e.target.value = '' }} />
                   </div>
                   {importError && <p className="text-xs text-red-600">{importError}</p>}
-                  <button onClick={descargarPlantilla}
-                    className="text-xs text-blue-600 hover:underline">⬇ Descargar plantilla de ejemplo</button>
+                  <button onClick={descargarPlantilla} className="text-xs text-blue-600 hover:underline">⬇ Descargar plantilla de ejemplo</button>
                 </>
               ) : (
                 <>
-                  <p className="text-sm font-medium text-gray-700">{importPreview.length} equipos encontrados</p>
-                  <div className="max-h-52 overflow-y-auto border border-gray-100 rounded-lg text-xs">
-                    <div className="grid grid-cols-3 gap-2 px-3 py-2 bg-gray-50 font-medium text-gray-400 uppercase text-[10px] tracking-wider">
-                      <span>Marca</span><span>Modelo</span><span>Categoría</span>
-                    </div>
-                    {importPreview.slice(0, 25).map((e, i) => (
-                      <div key={i} className="grid grid-cols-3 gap-2 px-3 py-2 border-t border-gray-50 text-gray-700">
-                        <span>{e.marca}</span><span>{e.modelo}</span><span className="text-gray-400">{e.categoria}</span>
+                  {/* Resumen */}
+                  <div className="grid grid-cols-3 gap-3">
+                    {[
+                      { num: importPreview.length, label: 'Equipos encontrados', color: 'text-gray-900' },
+                      { num: importMarcas.length,  label: 'Marcas detectadas',   color: 'text-gray-900' },
+                      { num: marcasNuevas.length,  label: 'Marcas nuevas',       color: marcasNuevas.length ? 'text-amber-700' : 'text-gray-900',
+                        bg: marcasNuevas.length ? 'bg-amber-50 border-amber-200' : '' },
+                    ].map((s, i) => (
+                      <div key={i} className={`rounded-lg border p-3 ${s.bg ?? 'bg-gray-50 border-gray-100'}`}>
+                        <div className={`text-xl font-semibold ${s.color}`}>{s.num}</div>
+                        <div className="text-[11px] text-gray-400 mt-0.5">{s.label}</div>
                       </div>
                     ))}
-                    {importPreview.length > 25 && (
-                      <div className="px-3 py-2 text-gray-400 border-t border-gray-50">…y {importPreview.length - 25} más</div>
-                    )}
                   </div>
-                  <button onClick={() => setImportPreview([])} className="text-xs text-gray-400 hover:underline">← Cambiar archivo</button>
+
+                  {/* Marcas detectadas */}
+                  <div>
+                    <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-2">Marcas en el archivo</p>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {importMarcas.map(m => (
+                        <div key={m.normalizada}
+                          className={`flex items-center justify-between px-3 py-2 rounded-lg border text-xs ${m.enCatalogo ? 'border-gray-100 bg-gray-50' : 'border-amber-200 bg-amber-50'}`}>
+                          <div>
+                            <span className="font-medium text-gray-800">{m.normalizada}</span>
+                            <span className="text-gray-400 ml-1.5">{m.count} equipos</span>
+                          </div>
+                          <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${m.enCatalogo ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                            {m.enCatalogo ? 'en catálogo' : 'nueva'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Normalización */}
+                  {marcasConCambio.length > 0 && (
+                    <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2.5">
+                      <p className="text-[11px] font-medium text-blue-700 mb-2">Normalización automática</p>
+                      <div className="space-y-1">
+                        {marcasConCambio.map(m => (
+                          <div key={m.normalizada} className="flex items-center gap-2 text-xs">
+                            <span className="text-gray-400 line-through">{m.raw}</span>
+                            <span className="text-gray-400">→</span>
+                            <span className="text-green-700 font-medium">{m.normalizada}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Checkbox nuevas */}
+                  {marcasNuevas.length > 0 && (
+                    <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer select-none">
+                      <input type="checkbox" checked={agregarNuevas} onChange={e => setAgregarNuevas(e.target.checked)}
+                        className="w-4 h-4 rounded accent-blue-600" />
+                      Agregar marcas nuevas al catálogo automáticamente
+                    </label>
+                  )}
+
+                  <button onClick={() => { setImportPreview([]); setImportMarcas([]) }}
+                    className="text-xs text-gray-400 hover:underline">← Cambiar archivo</button>
                 </>
               )}
             </div>
-            <div className="flex justify-end gap-2 px-5 py-4 border-t border-gray-100">
+
+            <div className="flex justify-end gap-2 px-5 py-4 border-t border-gray-100 flex-shrink-0">
               <button onClick={() => setImportModal(false)}
                 className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition">Cancelar</button>
               {importPreview.length > 0 && (
-                <button onClick={confirmarImport} disabled={guardar.isPending}
+                <button onClick={confirmarImport} disabled={guardar.isPending || guardarMarcas.isPending}
                   className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition">
                   {guardar.isPending ? 'Importando…' : `Importar ${importPreview.length} equipos`}
                 </button>
