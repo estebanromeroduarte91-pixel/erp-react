@@ -46,7 +46,6 @@ export function OrdenDetalle({ orden: o, ordenes, onClose, onEditar }: Props) {
       {/* Backdrop */}
       <div
         className="fixed inset-0 z-40 bg-black/30"
-        onClick={onClose}
       />
 
       {/* Drawer desde la derecha */}

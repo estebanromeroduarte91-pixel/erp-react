@@ -41,7 +41,7 @@ function EditModal({ userId, nombre, currentRole, onClose }: {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-white rounded-2xl p-6 w-96 shadow-xl">
         <h3 className="text-base font-bold text-gray-900 mb-1">Editar usuario</h3>
         <p className="text-sm text-gray-400 mb-5">{nombre}</p>
@@ -109,7 +109,7 @@ function InviteModal({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-white rounded-2xl p-6 w-[440px] max-w-[96vw] shadow-xl">
         <h3 className="text-base font-bold text-gray-900 mb-1">Invitar usuario</h3>
         <p className="text-sm text-gray-400 mb-5">Se generará un link único para que el usuario cree su contraseña.</p>

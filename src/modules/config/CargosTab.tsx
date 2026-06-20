@@ -150,7 +150,7 @@ export function CargosTab() {
 
       {/* Modal nuevo cargo */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={e => { if (e.target === e.currentTarget) setShowModal(false) }}>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-2xl p-6 w-80 shadow-xl">
             <h3 className="text-base font-bold text-gray-900 mb-4">Nuevo cargo</h3>
             <label className="text-xs font-medium text-gray-600 block mb-1">Nombre del cargo</label>

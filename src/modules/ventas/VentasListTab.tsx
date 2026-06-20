@@ -124,8 +124,8 @@ export function VentasListTab() {
 
       {/* Drawer detalle venta */}
       {detalle && (
-        <div className="fixed inset-0 z-50 flex" onClick={e => { if (e.target === e.currentTarget) setDetalle(null) }}>
-          <div className="flex-1 bg-black/30" onClick={() => setDetalle(null)} />
+        <div className="fixed inset-0 z-50 flex">
+          <div className="flex-1 bg-black/30" />
           <div className="bg-white w-full max-w-md shadow-2xl flex flex-col overflow-hidden">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
               <div>

@@ -151,10 +151,6 @@ function ContactoModal({ titulo, campos, datos, onClose, onGuardar }: {
   const [error, setError] = useState('')
   const [guardando, setGuardando] = useState(false)
 
-  function handleBackdrop(e: React.MouseEvent<HTMLDivElement>) {
-    if (e.target === e.currentTarget) onClose()
-  }
-
   async function handleGuardar() {
     const req = campos.find(c => c.required && !form[c.key]?.trim())
     if (req) { setError(`${req.label.replace(' *', '')} es obligatorio`); return }
@@ -166,7 +162,7 @@ function ContactoModal({ titulo, campos, datos, onClose, onGuardar }: {
   const isEditing = !!datos
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={handleBackdrop}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <h3 className="text-base font-bold text-gray-900 capitalize">

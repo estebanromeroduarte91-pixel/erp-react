@@ -129,8 +129,7 @@ export function PatternLockModal({ initial = [], onSave, onClose }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-5"
-      onClick={(e) => e.target === e.currentTarget && onClose()}>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-5">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xs p-6 text-center">
         <h3 className="text-base font-bold text-gray-900 mb-1">Dibuja el patrón</h3>
         <p className="text-xs text-gray-400 mb-4">

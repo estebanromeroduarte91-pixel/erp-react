@@ -128,15 +128,14 @@ const ADMIN_ITEMS: SectionItem[] = [
 ]
 
 // ── Componente grupo expandible ────────────────────────────────
-function NavGroupItem({ item }: { item: NavGroup }) {
+function NavGroupItem({ item, open, onToggle }: { item: NavGroup; open: boolean; onToggle: () => void }) {
   const location = useLocation()
   const isParentActive = item.sub.some(s => location.pathname === s.to.split('?')[0])
-  const [open, setOpen] = useState(isParentActive)
 
   return (
     <>
       <button
-        onClick={() => setOpen(o => !o)}
+        onClick={onToggle}
         style={{
           display: 'flex', alignItems: 'center', gap: 10,
           padding: '8px 12px', cursor: 'pointer', width: '100%', border: 'none', background: 'none',
@@ -187,8 +186,17 @@ function NavGroupItem({ item }: { item: NavGroup }) {
 // ── Sidebar ────────────────────────────────────────────────────
 export function Sidebar() {
   const { nombre, rol, empresaNombre } = useAuth()
+  const location = useLocation()
   const initials = nombre.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?'
   const rolLabel = rol === 'admin' ? 'Administrador' : rol === 'encargado' ? 'Encargado' : rol === 'tecnico' ? 'Técnico' : rol === 'vendedor' ? 'Vendedor' : rol
+
+  const allGroups = [...OP_ITEMS, ...ADMIN_ITEMS].filter(si => si.type === 'group').map(si => si.item as NavGroup)
+  const activeGroupId = allGroups.find(g => g.sub.some(s => location.pathname === s.to.split('?')[0]))?.id ?? null
+  const [openGroupId, setOpenGroupId] = useState<string | null>(activeGroupId)
+
+  function toggleGroup(id: string) {
+    setOpenGroupId(prev => prev === id ? null : id)
+  }
 
   return (
     <aside style={{
@@ -240,7 +248,7 @@ export function Sidebar() {
               {si.item.label}
             </NavLink>
           ) : (
-            <NavGroupItem key={i} item={si.item} />
+            <NavGroupItem key={i} item={si.item} open={openGroupId === si.item.id} onToggle={() => toggleGroup(si.item.id)} />
           )
         )}
 
@@ -265,7 +273,7 @@ export function Sidebar() {
               {si.item.label}
             </NavLink>
           ) : (
-            <NavGroupItem key={i} item={si.item} />
+            <NavGroupItem key={i} item={si.item} open={openGroupId === si.item.id} onToggle={() => toggleGroup(si.item.id)} />
           )
         )}
       </nav>

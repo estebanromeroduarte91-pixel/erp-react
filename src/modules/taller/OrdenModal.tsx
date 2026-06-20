@@ -161,10 +161,6 @@ export function OrdenModal({ orden, ordenes, onClose }: Props) {
 
   const isEditing = !!orden
 
-  function handleBackdrop(e: React.MouseEvent<HTMLDivElement>) {
-    if (e.target === e.currentTarget) onClose()
-  }
-
   function set(field: keyof FormData, val: string) {
     setForm((f) => ({ ...f, [field]: val }))
   }
@@ -343,7 +339,7 @@ export function OrdenModal({ orden, ordenes, onClose }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={handleBackdrop}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh]">
 
         {/* Header */}
@@ -729,8 +725,7 @@ export function OrdenModal({ orden, ordenes, onClose }: Props) {
 
       {/* Modal nuevo cliente */}
       {showNuevoCliente && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4"
-          onClick={(e) => e.target === e.currentTarget && setShowNuevoCliente(false)}>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
             <div className="flex items-start justify-between px-5 py-4 border-b border-gray-100">
               <div>

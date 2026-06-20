@@ -34,10 +34,6 @@ export function ProductoModal({ producto, productos, bodegas, onClose }: Props) 
   // Categorías existentes para autocompletar
   const cats = [...new Set(productos.map((p) => p.categoria).filter(Boolean))].sort() as string[]
 
-  function handleBackdrop(e: React.MouseEvent<HTMLDivElement>) {
-    if (e.target === e.currentTarget) onClose()
-  }
-
   async function handleGuardar() {
     if (!nombre.trim()) { setError('El nombre es obligatorio'); return }
     if (sku.trim()) {
@@ -75,7 +71,7 @@ export function ProductoModal({ producto, productos, bodegas, onClose }: Props) 
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={handleBackdrop}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl flex flex-col max-h-[90vh]">
 
         {/* Header */}

@@ -33,8 +33,7 @@ export function QrFotosModal({ ordenId, tipo = 'ingreso', onClose }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-5"
-      onClick={(e) => e.target === e.currentTarget && onClose()}>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-5">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xs p-7 text-center">
         <h3 className="text-base font-bold text-gray-900 flex items-center justify-center gap-2">
           <span>📱</span> Subir fotos desde iPhone
