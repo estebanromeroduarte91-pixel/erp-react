@@ -79,8 +79,8 @@ export function MensajesTab() {
                   id={`tpl-${k}`}
                   value={tpls[k] ?? ''}
                   onChange={e => set(k, e.target.value)}
-                  rows={4}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs font-mono bg-gray-50 focus:outline-none focus:border-blue-400 resize-none"
+                  rows={8}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs font-mono bg-gray-50 focus:outline-none focus:border-blue-400 resize-y"
                 />
                 <div className="flex flex-wrap gap-1 mt-1">
                   {VARS.slice(0, 5).map(v => (
