@@ -895,3 +895,44 @@ export function useGuardarEquipos() {
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['tp_equipos', empresaId] }),
   })
 }
+
+const DEFAULT_CATEGORIAS = ['Teléfono', 'Tablet', 'Notebook', 'Smartwatch', 'PC escritorio', 'Consola', 'Audífonos', 'Otro']
+const DEFAULT_MARCAS = ['Apple', 'Samsung', 'Lenovo', 'HP', 'Dell', 'Huawei', 'Xiaomi', 'Sony', 'LG', 'Asus']
+
+export function useCatEquipo() {
+  const { empresaId } = useAuth()
+  return useQuery({
+    queryKey: ['tp_cat_equipo', empresaId],
+    queryFn: () => dbGet<string[]>(empresaId!, 'tp_cat_equipo'),
+    enabled: !!empresaId,
+    select: (data) => (Array.isArray(data) && data.length ? data as string[] : DEFAULT_CATEGORIAS),
+  })
+}
+
+export function useGuardarCatEquipo() {
+  const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (cats: string[]) => dbSet(empresaId!, 'tp_cat_equipo', cats),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['tp_cat_equipo', empresaId] }),
+  })
+}
+
+export function useMarcasEquipo() {
+  const { empresaId } = useAuth()
+  return useQuery({
+    queryKey: ['tp_marcas_equipo', empresaId],
+    queryFn: () => dbGet<string[]>(empresaId!, 'tp_marcas_equipo'),
+    enabled: !!empresaId,
+    select: (data) => (Array.isArray(data) && data.length ? data as string[] : DEFAULT_MARCAS),
+  })
+}
+
+export function useGuardarMarcasEquipo() {
+  const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (marcas: string[]) => dbSet(empresaId!, 'tp_marcas_equipo', marcas),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['tp_marcas_equipo', empresaId] }),
+  })
+}

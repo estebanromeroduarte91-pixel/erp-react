@@ -1,10 +1,8 @@
 import { useState, useMemo, useRef } from 'react'
 import * as XLSX from 'xlsx'
-import { useEquipos, useGuardarEquipos } from '@/lib/queries'
+import { useEquipos, useGuardarEquipos, useCatEquipo, useMarcasEquipo } from '@/lib/queries'
 import { Spinner } from '@/components/shared/Spinner'
 import type { Equipo } from '@/types'
-
-const CATEGORIAS = ['Teléfono', 'Tablet', 'Notebook', 'Smartwatch', 'PC escritorio', 'Consola', 'Audífonos', 'Otro']
 
 const EMPTY_FORM = { marca: '', modelo: '', categoria: 'Teléfono', descripcion: '' }
 
@@ -23,6 +21,8 @@ interface EquipoForm { marca: string; modelo: string; categoria: string; descrip
 
 export function EquiposTab() {
   const { data: equipos, isLoading } = useEquipos()
+  const { data: categorias = [] } = useCatEquipo()
+  const { data: marcas = [] } = useMarcasEquipo()
   const guardar = useGuardarEquipos()
 
   const [busqueda, setBusqueda] = useState('')
@@ -161,7 +161,7 @@ export function EquiposTab() {
         <select value={filtroCat} onChange={e => setFiltroCat(e.target.value)}
           className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white text-gray-600 focus:outline-none focus:border-blue-400">
           <option value="">Todas las categorías</option>
-          {CATEGORIAS.map(c => <option key={c} value={c}>{c}</option>)}
+          {categorias.map((c: string) => <option key={c} value={c}>{c}</option>)}
         </select>
         <button onClick={() => { setImportModal(true); setImportPreview([]); setImportError('') }}
           className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg bg-white hover:bg-gray-50 transition">
@@ -248,14 +248,14 @@ export function EquiposTab() {
                     list="eq-marca-list"
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
                   <datalist id="eq-marca-list">
-                    {['Apple','Samsung','Lenovo','HP','Dell','Huawei','Xiaomi','Sony','LG','Asus'].map(m => <option key={m} value={m}/>)}
+                    {marcas.map(m => <option key={m} value={m}/>)}
                   </datalist>
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">Categoría *</label>
                   <select value={form.categoria} onChange={e => setForm(f => ({ ...f, categoria: e.target.value }))}
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
-                    {CATEGORIAS.map(c => <option key={c} value={c}>{c}</option>)}
+                    {categorias.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
               </div>

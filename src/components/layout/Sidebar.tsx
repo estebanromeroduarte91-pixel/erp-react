@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { NavLink, useLocation } from 'react-router-dom'
+import { NavLink, Link, useLocation } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 
 // ── Tipos ─────────────────────────────────────────────────────
@@ -128,6 +128,15 @@ const ADMIN_ITEMS: SectionItem[] = [
   },
 ]
 
+function isSubActive(to: string, pathname: string, search: string): boolean {
+  const [path, qs] = to.split('?')
+  if (pathname !== path) return false
+  const current = new URLSearchParams(search)
+  if (!qs) return !current.has('tab')
+  const linkTab = new URLSearchParams(qs).get('tab')
+  return linkTab ? current.get('tab') === linkTab : true
+}
+
 // ── Componente grupo expandible ────────────────────────────────
 function NavGroupItem({ item, open, onToggle }: { item: NavGroup; open: boolean; onToggle: () => void }) {
   const location = useLocation()
@@ -160,25 +169,27 @@ function NavGroupItem({ item, open, onToggle }: { item: NavGroup; open: boolean;
       </button>
 
       <div style={{ overflow: 'hidden', maxHeight: open ? 500 : 0, transition: 'max-height .25s ease' }}>
-        {item.sub.map(s => (
-          <NavLink
-            key={s.to}
-            to={s.to}
-            end
-            style={({ isActive }) => ({
-              display: 'flex', alignItems: 'center', gap: 10,
-              padding: '7px 12px 7px 44px', cursor: 'pointer',
-              color: isActive ? 'var(--primary-dark)' : 'var(--gray-500)',
-              backgroundColor: isActive ? 'var(--primary-light)' : 'transparent',
-              borderRadius: 8, margin: '1px 6px',
-              fontSize: 13, fontWeight: isActive ? 600 : 500,
-              transition: 'all .15s', textDecoration: 'none',
-            })}
-          >
-            <span style={{ color: 'var(--gray-400)', display: 'flex' }}>{s.icon}</span>
-            {s.label}
-          </NavLink>
-        ))}
+        {item.sub.map(s => {
+          const active = isSubActive(s.to, location.pathname, location.search)
+          return (
+            <Link
+              key={s.to}
+              to={s.to}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: '7px 12px 7px 44px', cursor: 'pointer',
+                color: active ? 'var(--primary-dark)' : 'var(--gray-500)',
+                backgroundColor: active ? 'var(--primary-light)' : 'transparent',
+                borderRadius: 8, margin: '1px 6px',
+                fontSize: 13, fontWeight: active ? 600 : 500,
+                transition: 'all .15s', textDecoration: 'none',
+              }}
+            >
+              <span style={{ color: 'var(--gray-400)', display: 'flex' }}>{s.icon}</span>
+              {s.label}
+            </Link>
+          )
+        })}
       </div>
     </>
   )

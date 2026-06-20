@@ -1,13 +1,11 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
-import { useEquipos, useGuardarEquipos } from '@/lib/queries'
+import { useEquipos, useGuardarEquipos, useCatEquipo } from '@/lib/queries'
 import type { Equipo } from '@/types'
 
 interface Props {
   value: string
   onChange: (modelo: string) => void
 }
-
-const CATEGORIAS = ['Teléfono', 'Tablet', 'Notebook', 'Smartwatch', 'Consola', 'Otro']
 
 function displayName(e: Equipo): string {
   return e.marca ? `${e.modelo} [${e.marca}]` : (e.modelo ?? '')
@@ -17,6 +15,7 @@ function displayName(e: Equipo): string {
 // y alta rápida al catálogo (mismo comportamiento que el modelo-AC del ERP vanilla).
 export function EquipoSelector({ value, onChange }: Props) {
   const { data: equipos } = useEquipos()
+  const { data: categorias = [] } = useCatEquipo()
   const guardarEquipos = useGuardarEquipos()
 
   const [open, setOpen] = useState(false)
@@ -161,7 +160,7 @@ export function EquipoSelector({ value, onChange }: Props) {
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
               <select value={form.categoria} onChange={(e) => setForm((f) => ({ ...f, categoria: e.target.value }))}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
-                {CATEGORIAS.map((c) => <option key={c} value={c}>{c}</option>)}
+                {categorias.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
               <div className="flex gap-2 justify-end pt-1">
                 <button onClick={() => setNuevo(false)}
