@@ -233,7 +233,7 @@ export function EquiposTab() {
         // Detectar duplicados contra catálogo existente
         const dups: ImportDup[] = []
         parsed.forEach((e, idx) => {
-          const matches = buscarDups(e.modelo, e.marca, equipos ?? [])
+          const matches = buscarDups(e.modelo ?? '', e.marca ?? '', equipos ?? [])
           if (matches.length) dups.push({ idx, match: matches[0], resolucion: null })
         })
 
