@@ -152,7 +152,7 @@ export function OrdenDetallePage() {
   return (
     <div className="flex flex-col h-full min-h-0">
       {/* Topbar */}
-      <div className="flex items-center justify-between px-6 py-3 border-b border-gray-100 bg-white flex-shrink-0">
+      <div className="flex items-center justify-between px-6 py-3 border-b border-gray-200 bg-white flex-shrink-0">
         <div className="flex items-center gap-3">
           <button onClick={() => navigate('/taller')}
             className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 transition">
@@ -184,7 +184,7 @@ export function OrdenDetallePage() {
         <div className="w-80 flex-shrink-0 border-r border-gray-200 overflow-y-auto flex flex-col">
 
           {/* Cliente */}
-          <div className="p-5 border-b border-gray-100">
+          <div className="p-5 border-b border-gray-200">
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">Cliente</p>
             <div className="flex items-start gap-3">
               <div className="w-9 h-9 rounded-lg bg-blue-600 text-white flex items-center justify-center text-sm font-bold flex-shrink-0">
@@ -208,7 +208,7 @@ export function OrdenDetallePage() {
           </div>
 
           {/* Equipo */}
-          <div className="p-5 border-b border-gray-100">
+          <div className="p-5 border-b border-gray-200">
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">Equipo</p>
             <p className="font-semibold text-gray-900 text-sm">{o.modelo || '—'}</p>
             {o.color && <p className="text-xs text-gray-500 mt-1">{o.color}</p>}
@@ -226,7 +226,7 @@ export function OrdenDetallePage() {
 
           {/* Trabajo */}
           {o.trabajo && (
-            <div className="p-5 border-b border-gray-100">
+            <div className="p-5 border-b border-gray-200">
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">Trabajo a realizar</p>
               <p className="text-sm text-gray-700 leading-relaxed">{o.trabajo}</p>
             </div>
@@ -234,7 +234,7 @@ export function OrdenDetallePage() {
 
           {/* Estado físico */}
           {o.estadoFisico && (
-            <div className="p-5 border-b border-gray-100">
+            <div className="p-5 border-b border-gray-200">
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">Estado físico</p>
               <p className="text-sm text-gray-700 leading-relaxed">{o.estadoFisico}</p>
             </div>
@@ -242,7 +242,7 @@ export function OrdenDetallePage() {
 
           {/* Repuestos */}
           {o.repuestos && o.repuestos.length > 0 && (
-            <div className="p-5 border-b border-gray-100">
+            <div className="p-5 border-b border-gray-200">
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">Repuestos</p>
               {o.repuestos.map((r, i) => (
                 <div key={r.productId ?? i} className="flex items-center justify-between py-1.5 text-xs border-b border-gray-50 last:border-0">
@@ -268,7 +268,7 @@ export function OrdenDetallePage() {
         <div className="flex-1 border-r border-gray-200 overflow-y-auto flex flex-col">
 
           {/* Checklist de ingreso */}
-          <div className="p-5 border-b border-gray-100">
+          <div className="p-5 border-b border-gray-200">
           {checkItems.length > 0 && (() => {
             const total = checkItems.length
             const done = checkItems.filter(c => c.checked).length
@@ -353,7 +353,7 @@ export function OrdenDetallePage() {
           </div>
 
           {/* Inspección */}
-          <div className="p-5 border-b border-gray-100">
+          <div className="p-5 border-b border-gray-200">
             <div className="flex items-center justify-between mb-3">
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Inspección del equipo</p>
               <button onClick={() => setShowInspeccion(v => !v)}
@@ -467,7 +467,7 @@ export function OrdenDetallePage() {
         {/* ── Col 3: Pipeline + Acciones ── */}
         <div className="w-64 flex-shrink-0 flex flex-col overflow-y-auto">
           {/* Pipeline vertical */}
-          <div className="p-5 border-b border-gray-100">
+          <div className="p-5 border-b border-gray-200">
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">Estado</p>
             <div className="flex flex-col gap-1.5">
               {PIPELINE.map((s, i) => {
@@ -496,7 +496,7 @@ export function OrdenDetallePage() {
 
           {/* Técnico + fecha */}
           {(o.tecnico || o.fechaEstimada) && (
-            <div className="p-5 border-b border-gray-100 space-y-3">
+            <div className="p-5 border-b border-gray-200 space-y-3">
               {o.tecnico && (
                 <div>
                   <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Técnico</p>
@@ -552,7 +552,7 @@ export function OrdenDetallePage() {
       {notif && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-100">
+            <div className="px-5 py-4 border-b border-gray-200">
               <h3 className="font-semibold text-gray-900">Orden movida a <span className="text-blue-600">{notif.estado}</span></h3>
               <p className="text-xs text-gray-400 mt-0.5">¿Notificar al cliente?</p>
             </div>
