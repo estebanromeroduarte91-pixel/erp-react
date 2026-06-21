@@ -438,7 +438,7 @@ export function OrdenDetallePage() {
                     {inspecFotos.length < 6 && (
                       <button type="button" onClick={() => fileRef.current?.click()}
                         className="text-xs font-medium text-blue-600 border border-blue-200 rounded-lg px-2.5 py-1 hover:bg-blue-50 transition">
-                        + Fotos
+                        + Subir
                       </button>
                     )}
                   </div>
