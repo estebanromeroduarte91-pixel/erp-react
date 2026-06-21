@@ -5,7 +5,7 @@ import { sendEmail } from '@/lib/email'
 import { EstadoBadge } from '@/components/shared/Badge'
 import { Money } from '@/components/shared/Money'
 import { QrFotosModal } from './QrFotosModal'
-import { totalOrden } from './TallerPage'
+import { totalOrden } from './utils'
 import type { Orden, EstadoOrden, Inspeccion } from '@/types'
 
 const PIPELINE: EstadoOrden[] = ['Chequeo', 'Reparación', 'Listo', 'Entregado']

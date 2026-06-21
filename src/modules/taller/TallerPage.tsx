@@ -13,6 +13,7 @@ import { ChecklistConfigTab } from '@/modules/config/ChecklistConfigTab'
 import { MensajesTab } from '@/modules/config/MensajesTab'
 import { TerminosTab } from '@/modules/config/TerminosTab'
 import { EquiposConfigTab } from './EquiposConfigTab'
+import { totalOrden } from './utils'
 import type { EstadoOrden, Orden } from '@/types'
 
 type TallerTab = 'ordenes' | 'derivados' | 'equipos' | 'settings'
@@ -42,11 +43,6 @@ const ESTADOS_MAIN: { value: EstadoOrden | 'todos' | 'Derivado'; label: string }
   { value: 'Derivado',   label: '🔄 Derivados' },
 ]
 
-export function totalOrden(o: Orden): number {
-  const manual = Number(o.costo) || Number(o.presup) || 0
-  if (manual) return manual
-  return (o.repuestos ?? []).reduce((s, r) => s + r.precio * (r.qty ?? 1), 0)
-}
 
 function fmtFecha(iso: string) {
   try {
