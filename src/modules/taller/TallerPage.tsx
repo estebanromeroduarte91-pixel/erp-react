@@ -1,10 +1,11 @@
 import { useState, useMemo, useEffect } from 'react'
-import { useSearchParams, useNavigate } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { useOrdenes, useTraslados } from '@/lib/queries'
 import { EstadoBadge } from '@/components/shared/Badge'
 import { Money } from '@/components/shared/Money'
 import { Spinner } from '@/components/shared/Spinner'
 import { OrdenModal } from './OrdenModal'
+import { OrdenDetallePage } from './OrdenDetallePage'
 import { TrasladosTab } from './TrasladosTab'
 import { EquiposTab } from './EquiposTab'
 import { SeguimientoTab } from '@/modules/config/SeguimientoTab'
@@ -73,7 +74,6 @@ function ageLabel(age: number): string {
 
 export function TallerPage() {
   const [searchParams] = useSearchParams()
-  const navigate = useNavigate()
   const [tallerTab, setTallerTab] = useState<TallerTab>(() => resolveTallerTab(searchParams.get('tab')))
 
   useEffect(() => {
@@ -87,6 +87,7 @@ export function TallerPage() {
   const [busqueda, setBusqueda] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [editando, setEditando] = useState<Orden | null>(null)
+  const [detalleNum, setDetalleNum] = useState<string | null>(null)
 
   // IDs de órdenes con traslados activos (no retornados)
   const derivadoIds = useMemo(
@@ -343,7 +344,7 @@ export function TallerPage() {
                     return (
                       <tr
                         key={o.id}
-                        onClick={() => navigate(`/taller/orden/${o.num}`)}
+                        onClick={() => setDetalleNum(o.num)}
                         className={`${rowTint} hover:bg-blue-50/40 transition-colors cursor-pointer`}
                       >
                         <td className="px-4 py-3 font-mono font-semibold text-gray-700">#{o.num}</td>
@@ -395,6 +396,11 @@ export function TallerPage() {
             ordenes={ordenes ?? []}
             onClose={() => setModalOpen(false)}
           />
+        )}
+
+        {/* Modal detalle orden */}
+        {detalleNum && (
+          <OrdenDetallePage num={detalleNum} onClose={() => setDetalleNum(null)} />
         )}
 
       </>)}

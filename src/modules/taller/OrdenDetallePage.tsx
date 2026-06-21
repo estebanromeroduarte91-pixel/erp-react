@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { useOrdenes, useGuardarOrden, useMsgTemplates, useSeguimientoConfig, useChecklist } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { sendEmail } from '@/lib/email'
@@ -27,9 +27,9 @@ function rellenarTemplate(tpl: string, vars: Record<string, string>) {
   return tpl.replace(/\{\{(\w+)\}\}/g, (_, k) => vars[k] ?? '')
 }
 
-export function OrdenDetallePage() {
-  const { num } = useParams<{ num: string }>()
-  const navigate = useNavigate()
+export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onClose?: () => void } = {}) {
+  const { num: numParam } = useParams<{ num: string }>()
+  const num = numProp ?? numParam
   const { empresaId } = useAuth()
   const { data: ordenes, isLoading } = useOrdenes()
   const guardar = useGuardarOrden()
@@ -84,7 +84,9 @@ export function OrdenDetallePage() {
   if (!o) return (
     <div className="flex flex-col items-center justify-center h-full py-24 gap-3">
       <p className="text-gray-500">Orden no encontrada</p>
-      <button onClick={() => navigate('/taller')} className="text-sm text-blue-600 hover:underline">← Volver al taller</button>
+      {onClose && (
+        <button onClick={onClose} className="text-sm text-blue-600 hover:underline">← Volver al taller</button>
+      )}
     </div>
   )
 
@@ -178,20 +180,12 @@ export function OrdenDetallePage() {
     setGuardandoIngreso(false)
   }
 
-  return (
+  const inner = (
     <div className="flex flex-col h-full min-h-0">
       {/* Topbar */}
       <div className="flex items-center justify-between px-6 py-3 border-b border-gray-200 bg-white flex-shrink-0">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate('/taller')}
-            className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 transition">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-            </svg>
-            Volver al taller
-          </button>
-          <span className="text-gray-300">/</span>
-          <span className="text-sm font-medium text-gray-700">Orden #{o.num}</span>
+          <span className="text-sm font-semibold text-gray-800">Orden #{o.num}</span>
         </div>
         <div className="flex items-center gap-3">
           <EstadoBadge estado={o.status} />
@@ -203,6 +197,14 @@ export function OrdenDetallePage() {
             </svg>
             Editar
           </button>
+          {onClose && (
+            <button onClick={onClose}
+              className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
         </div>
       </div>
 
@@ -673,4 +675,20 @@ export function OrdenDetallePage() {
       )}
     </div>
   )
+
+  if (onClose) {
+    return (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+        onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+      >
+        <div className="bg-white rounded-2xl w-full max-w-6xl shadow-2xl flex flex-col overflow-hidden"
+          style={{ height: '90vh' }}>
+          {inner}
+        </div>
+      </div>
+    )
+  }
+
+  return inner
 }

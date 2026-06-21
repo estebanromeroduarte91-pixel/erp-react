@@ -3,7 +3,6 @@ import { useAuth } from '@/context/AuthContext'
 import { Login } from '@/modules/auth/Login'
 import { Shell } from '@/components/layout/Shell'
 import { TallerPage } from '@/modules/taller/TallerPage'
-import { OrdenDetallePage } from '@/modules/taller/OrdenDetallePage'
 import { InventarioPage } from '@/modules/inventario/InventarioPage'
 import { ContactosPage } from '@/modules/contactos/ContactosPage'
 import { VentasPage } from '@/modules/ventas/VentasPage'
@@ -32,8 +31,7 @@ function AppRoutes() {
       <Routes>
         <Route path="/" element={<Navigate to="/taller" replace />} />
         <Route path="/taller" element={<TallerPage />} />
-        <Route path="/taller/orden/:num" element={<OrdenDetallePage />} />
-        <Route path="/dashboard"     element={<DashboardPage />} />
+<Route path="/dashboard"     element={<DashboardPage />} />
         <Route path="/inventario"    element={<InventarioPage />} />
         <Route path="/ventas"        element={<VentasPage />} />
         <Route path="/contactos"     element={<ContactosPage />} />
