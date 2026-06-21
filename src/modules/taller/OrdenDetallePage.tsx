@@ -180,8 +180,8 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
     setGuardandoIngreso(false)
   }
 
-  const inner = (
-    <div className="flex flex-col h-full min-h-0">
+  const content = (
+    <>
       {/* Topbar */}
       <div className="flex items-center justify-between px-6 py-3 border-b border-gray-200 bg-white flex-shrink-0">
         <div className="flex items-center gap-3">
@@ -673,7 +673,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
       {showQrIngreso && o.id && (
         <QrFotosModal ordenId={o.id} tipo="ingreso" onClose={() => setShowQrIngreso(false)} />
       )}
-    </div>
+    </>
   )
 
   if (onClose) {
@@ -684,11 +684,15 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
       >
         <div className="bg-white rounded-2xl w-full max-w-6xl shadow-2xl flex flex-col overflow-hidden"
           style={{ height: '90vh' }}>
-          {inner}
+          {content}
         </div>
       </div>
     )
   }
 
-  return inner
+  return (
+    <div className="flex flex-col h-full min-h-0">
+      {content}
+    </div>
+  )
 }
