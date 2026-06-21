@@ -423,7 +423,7 @@ export function OrdenDetalle({ orden: o, ordenes, onClose, onEditar }: Props) {
                   </svg>
                   <div>
                     <div className="text-sm font-semibold text-blue-800">
-                      {emailOk ? '✓ Email enviado' : enviandoEmail ? 'Enviando…' : 'Enviar por email'}
+                      {emailOk ? 'Email enviado' : enviandoEmail ? 'Enviando…' : 'Enviar por email'}
                     </div>
                     <div className="text-xs text-blue-600 truncate">{o.email}</div>
                   </div>

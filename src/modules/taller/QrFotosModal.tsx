@@ -57,7 +57,7 @@ export function QrFotosModal({ ordenId, tipo = 'ingreso', onClose }: Props) {
           </button>
           <button onClick={copiar}
             className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition">
-            {copiado ? '✓ Copiada' : 'Copiar URL'}
+            {copiado ? 'Copiada' : 'Copiar URL'}
           </button>
         </div>
       </div>

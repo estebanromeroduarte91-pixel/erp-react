@@ -693,7 +693,7 @@ export function OrdenModal({ orden, ordenes, onClose }: Props) {
                   <label className="flex items-center gap-2.5 py-1.5 cursor-pointer hover:bg-white rounded-lg px-2 transition">
                     <input type="checkbox" checked={checkApagado} onChange={(e) => setCheckApagado(e.target.checked)}
                       className="w-4 h-4 rounded border-gray-300 text-red-500 focus:ring-red-400" />
-                    <span className="text-sm font-medium text-red-600">⚠ Llega apagado</span>
+                    <span className="text-sm font-medium text-red-600">Llega apagado</span>
                   </label>
                   <label className="flex items-center gap-2.5 py-1.5 cursor-pointer hover:bg-white rounded-lg px-2 transition">
                     <input type="checkbox" checked={checkMojado} onChange={(e) => setCheckMojado(e.target.checked)}

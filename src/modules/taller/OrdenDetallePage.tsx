@@ -216,8 +216,8 @@ export function OrdenDetallePage() {
               {o.color && <p className="text-xs text-gray-500 mt-0.5">{o.color}</p>}
               {o.serie && <p className="text-xs text-gray-400 mt-1">S/N: {o.serie}</p>}
               {o.pin && (
-                <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
-                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <p className="text-xs text-gray-400 mt-1 flex items-center gap-1">
+                  <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0110 0v4" />
                   </svg>
                   PIN: {o.pin}
@@ -577,7 +577,7 @@ export function OrdenDetallePage() {
                   </svg>
                   <div>
                     <div className="text-sm font-semibold text-blue-800">
-                      {emailOk ? '✓ Email enviado' : enviandoEmail ? 'Enviando…' : 'Enviar por email'}
+                      {emailOk ? 'Email enviado' : enviandoEmail ? 'Enviando…' : 'Enviar por email'}
                     </div>
                     <div className="text-xs text-blue-600">{o.email}</div>
                   </div>

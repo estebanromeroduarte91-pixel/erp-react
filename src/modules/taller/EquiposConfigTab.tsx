@@ -106,7 +106,7 @@ function ListaEditable({
 
       {/* Guardar */}
       <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-100">
-        {guardado && <span className="text-xs text-green-600 font-medium">✓ Guardado</span>}
+        {guardado && <span className="text-xs text-green-600 font-medium">Guardado</span>}
         <button onClick={guardar} disabled={isPending}
           className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition">
           {isPending ? 'Guardando…' : 'Guardar cambios'}
