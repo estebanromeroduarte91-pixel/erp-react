@@ -54,6 +54,7 @@ export function OrdenDetallePage() {
   const fileRef = useRef<HTMLInputElement>(null)
 
   // Fotos de ingreso
+  const [showFotosIngreso, setShowFotosIngreso] = useState(false)
   const [showQrIngreso, setShowQrIngreso] = useState(false)
   const [guardandoIngreso, setGuardandoIngreso] = useState(false)
   const fileRefIngreso = useRef<HTMLInputElement>(null)
@@ -472,9 +473,16 @@ export function OrdenDetallePage() {
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
                 Fotos de ingreso {o.photosIngreso && o.photosIngreso.length > 0 && `(${o.photosIngreso.length})`}
               </p>
-              <div className="flex items-center gap-2">
+              <button onClick={() => setShowFotosIngreso(v => !v)}
+                className="text-xs font-semibold text-blue-600 border border-blue-200 rounded-lg px-3 py-1 hover:bg-blue-50 transition">
+                {showFotosIngreso ? 'Cerrar' : '+ Agregar'}
+              </button>
+            </div>
+
+            {showFotosIngreso && (
+              <div className="border border-gray-200 rounded-xl p-3 mb-3 flex items-center gap-2">
                 <button type="button" onClick={() => setShowQrIngreso(true)}
-                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 bg-blue-50 border border-blue-200 rounded-lg px-2.5 py-1 hover:bg-blue-100 transition">
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 bg-blue-50 border border-blue-200 rounded-lg px-2.5 py-1.5 hover:bg-blue-100 transition">
                   <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" />
                     <rect x="3" y="14" width="7" height="7" rx="1" /><path d="M14 14h3v3h-3zM17 17v3M14 17h.01" />
@@ -483,13 +491,14 @@ export function OrdenDetallePage() {
                 </button>
                 {(!o.photosIngreso || o.photosIngreso.length < 6) && (
                   <button type="button" onClick={() => fileRefIngreso.current?.click()}
-                    className="text-xs font-medium text-blue-600 border border-blue-200 rounded-lg px-2.5 py-1 hover:bg-blue-50 transition">
-                    + Fotos
+                    className="text-xs font-medium text-blue-600 border border-blue-200 rounded-lg px-2.5 py-1.5 hover:bg-blue-50 transition">
+                    + Subir
                   </button>
                 )}
+                <input ref={fileRefIngreso} type="file" accept="image/*" multiple className="hidden" onChange={handleFotosIngreso} />
               </div>
-              <input ref={fileRefIngreso} type="file" accept="image/*" multiple className="hidden" onChange={handleFotosIngreso} />
-            </div>
+            )}
+
             {o.photosIngreso && o.photosIngreso.length > 0 ? (
               <div className="grid grid-cols-3 gap-2">
                 {o.photosIngreso.map((src, i) => (
@@ -503,12 +512,14 @@ export function OrdenDetallePage() {
                 ))}
               </div>
             ) : (
-              <div className="border border-dashed border-gray-200 rounded-xl p-6 flex flex-col items-center gap-2 text-gray-400">
-                <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                <p className="text-sm">Sin fotos de ingreso</p>
-              </div>
+              !showFotosIngreso && (
+                <div className="border border-dashed border-gray-200 rounded-xl p-6 flex flex-col items-center gap-2 text-gray-400">
+                  <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <p className="text-sm">Sin fotos de ingreso</p>
+                </div>
+              )
             )}
           </div>
         </div>
