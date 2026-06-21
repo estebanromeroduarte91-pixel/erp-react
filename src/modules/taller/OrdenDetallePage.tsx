@@ -53,6 +53,11 @@ export function OrdenDetallePage() {
   const [guardandoInspec, setGuardandoInspec] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
+  // Fotos de ingreso
+  const [showQrIngreso, setShowQrIngreso] = useState(false)
+  const [guardandoIngreso, setGuardandoIngreso] = useState(false)
+  const fileRefIngreso = useRef<HTMLInputElement>(null)
+
   const o = ordenes?.find(x => x.num === num)
 
   // Sync inspección local con la orden cuando cambia
@@ -147,6 +152,29 @@ export function OrdenDetallePage() {
     await guardar.mutateAsync(actualizadas)
     setGuardandoInspec(false)
     setShowInspeccion(false)
+  }
+
+  function handleFotosIngreso(e: React.ChangeEvent<HTMLInputElement>) {
+    const existing = orden.photosIngreso ?? []
+    const files = Array.from(e.target.files ?? []).slice(0, 6 - existing.length)
+    files.forEach(f => {
+      const reader = new FileReader()
+      reader.onload = async ev => {
+        const nuevas = [...(ordenes?.find(x => x.id === orden.id)?.photosIngreso ?? []), ev.target?.result as string]
+        const actualizadas = (ordenes ?? []).map(x => x.id === orden.id ? { ...x, photosIngreso: nuevas } : x)
+        await guardar.mutateAsync(actualizadas)
+      }
+      reader.readAsDataURL(f)
+    })
+    e.target.value = ''
+  }
+
+  async function eliminarFotoIngreso(idx: number) {
+    setGuardandoIngreso(true)
+    const nuevas = (orden.photosIngreso ?? []).filter((_, i) => i !== idx)
+    const actualizadas = (ordenes ?? []).map(x => x.id === orden.id ? { ...x, photosIngreso: nuevas } : x)
+    await guardar.mutateAsync(actualizadas)
+    setGuardandoIngreso(false)
   }
 
   return (
@@ -440,17 +468,38 @@ export function OrdenDetallePage() {
 
           {/* Fotos de ingreso */}
           <div className="p-5">
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">
-              Fotos de ingreso {o.photosIngreso && o.photosIngreso.length > 0 && `(${o.photosIngreso.length})`}
-            </p>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                Fotos de ingreso {o.photosIngreso && o.photosIngreso.length > 0 && `(${o.photosIngreso.length})`}
+              </p>
+              <div className="flex items-center gap-2">
+                <button type="button" onClick={() => setShowQrIngreso(true)}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 bg-blue-50 border border-blue-200 rounded-lg px-2.5 py-1 hover:bg-blue-100 transition">
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" />
+                    <rect x="3" y="14" width="7" height="7" rx="1" /><path d="M14 14h3v3h-3zM17 17v3M14 17h.01" />
+                  </svg>
+                  QR iPhone
+                </button>
+                {(!o.photosIngreso || o.photosIngreso.length < 6) && (
+                  <button type="button" onClick={() => fileRefIngreso.current?.click()}
+                    className="text-xs font-medium text-blue-600 border border-blue-200 rounded-lg px-2.5 py-1 hover:bg-blue-50 transition">
+                    + Fotos
+                  </button>
+                )}
+              </div>
+              <input ref={fileRefIngreso} type="file" accept="image/*" multiple className="hidden" onChange={handleFotosIngreso} />
+            </div>
             {o.photosIngreso && o.photosIngreso.length > 0 ? (
               <div className="grid grid-cols-3 gap-2">
                 {o.photosIngreso.map((src, i) => (
-                  <a key={i} href={src} target="_blank" rel="noreferrer">
-                    <div className="aspect-square rounded-xl overflow-hidden border border-gray-200">
+                  <div key={i} className="relative aspect-square rounded-xl overflow-hidden border border-gray-200 group">
+                    <a href={src} target="_blank" rel="noreferrer">
                       <img src={src} alt="" className="w-full h-full object-cover" />
-                    </div>
-                  </a>
+                    </a>
+                    <button onClick={() => eliminarFotoIngreso(i)} disabled={guardandoIngreso}
+                      className="absolute top-1 right-1 w-5 h-5 bg-black/60 text-white rounded-full text-[10px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition">✕</button>
+                  </div>
                 ))}
               </div>
             ) : (
@@ -606,6 +655,10 @@ export function OrdenDetallePage() {
       {/* QR inspección */}
       {showQrInspec && o.id && (
         <QrFotosModal ordenId={o.id} tipo="inspeccion" onClose={() => setShowQrInspec(false)} />
+      )}
+      {/* QR fotos de ingreso */}
+      {showQrIngreso && o.id && (
+        <QrFotosModal ordenId={o.id} tipo="ingreso" onClose={() => setShowQrIngreso(false)} />
       )}
     </div>
   )
