@@ -181,25 +181,24 @@ export function OrdenDetallePage() {
       <div className="flex flex-1 min-h-0 overflow-hidden">
 
         {/* ── Col 1: Cliente + Equipo + Trabajo ── */}
-        <div className="w-80 flex-shrink-0 border-r border-gray-100 overflow-y-auto p-5 space-y-5">
+        <div className="w-80 flex-shrink-0 border-r border-gray-200 overflow-y-auto flex flex-col">
+
           {/* Cliente */}
-          <div>
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Cliente</p>
-            <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 flex items-start gap-3">
-              <div className="w-9 h-9 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-bold flex-shrink-0">
+          <div className="p-5 border-b border-gray-100">
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">Cliente</p>
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 rounded-lg bg-blue-600 text-white flex items-center justify-center text-sm font-bold flex-shrink-0">
                 {initials(o.nombre)}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-bold text-gray-900 text-sm">{o.nombre || '—'}</p>
                 {o.rut && <p className="text-xs text-gray-400 mt-0.5">RUT: {o.rut}</p>}
-                {o.tel && (
-                  <a href={`tel:${o.tel}`} className="text-xs text-blue-600 font-semibold hover:underline block mt-1">{o.tel}</a>
-                )}
+                {o.tel && <a href={`tel:${o.tel}`} className="text-xs text-blue-600 font-semibold hover:underline block mt-1">{o.tel}</a>}
                 {o.email && <p className="text-xs text-gray-500 mt-0.5 truncate">{o.email}</p>}
               </div>
               {o.tel && (
                 <a href={`https://wa.me/${o.tel.replace(/\D/g, '')}`} target="_blank" rel="noreferrer"
-                  className="w-7 h-7 rounded-lg bg-green-50 border border-green-200 flex items-center justify-center hover:bg-green-100 transition flex-shrink-0" title="WhatsApp">
+                  className="w-7 h-7 rounded-lg bg-green-50 border border-green-200 flex items-center justify-center hover:bg-green-100 transition flex-shrink-0">
                   <svg className="w-3.5 h-3.5 text-green-600" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
                   </svg>
@@ -209,67 +208,67 @@ export function OrdenDetallePage() {
           </div>
 
           {/* Equipo */}
-          <div>
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Equipo</p>
-            <div className="bg-gray-50 border border-gray-200 rounded-xl p-3">
-              <p className="font-semibold text-gray-900 text-sm">{o.modelo || '—'}</p>
-              {o.color && <p className="text-xs text-gray-500 mt-0.5">{o.color}</p>}
-              {o.serie && <p className="text-xs text-gray-400 mt-1">S/N: {o.serie}</p>}
-              {o.pin && (
-                <p className="text-xs text-gray-400 mt-1 flex items-center gap-1">
-                  <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0110 0v4" />
-                  </svg>
-                  PIN: {o.pin}
-                </p>
-              )}
-            </div>
+          <div className="p-5 border-b border-gray-100">
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">Equipo</p>
+            <p className="font-semibold text-gray-900 text-sm">{o.modelo || '—'}</p>
+            {o.color && <p className="text-xs text-gray-500 mt-1">{o.color}</p>}
+            {o.serie && <p className="text-xs text-gray-400 mt-1.5 flex items-center gap-1">
+              <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><rect x="5" y="2" width="14" height="20" rx="2"/></svg>
+              {o.serie}
+            </p>}
+            {o.pin && <p className="text-xs text-gray-400 mt-1 flex items-center gap-1">
+              <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0110 0v4" />
+              </svg>
+              PIN: {o.pin}
+            </p>}
           </div>
 
           {/* Trabajo */}
           {o.trabajo && (
-            <div>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Trabajo a realizar</p>
-              <p className="text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-xl p-3 leading-relaxed">{o.trabajo}</p>
+            <div className="p-5 border-b border-gray-100">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">Trabajo a realizar</p>
+              <p className="text-sm text-gray-700 leading-relaxed">{o.trabajo}</p>
             </div>
           )}
 
           {/* Estado físico */}
           {o.estadoFisico && (
-            <div>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Estado físico</p>
-              <p className="text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-xl p-3 leading-relaxed">{o.estadoFisico}</p>
+            <div className="p-5 border-b border-gray-100">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">Estado físico</p>
+              <p className="text-sm text-gray-700 leading-relaxed">{o.estadoFisico}</p>
             </div>
           )}
 
           {/* Repuestos */}
           {o.repuestos && o.repuestos.length > 0 && (
-            <div>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Repuestos</p>
-              <div className="border border-gray-100 rounded-xl overflow-hidden">
-                {o.repuestos.map((r, i) => (
-                  <div key={r.productId ?? i} className="flex items-center justify-between px-3 py-2 text-xs border-b border-gray-50 last:border-0">
-                    <span className="text-gray-700">{r.name}</span>
-                    <span className="text-gray-500">{r.qty ?? 1} × <Money value={r.precio} /></span>
-                  </div>
-                ))}
-              </div>
+            <div className="p-5 border-b border-gray-100">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">Repuestos</p>
+              {o.repuestos.map((r, i) => (
+                <div key={r.productId ?? i} className="flex items-center justify-between py-1.5 text-xs border-b border-gray-50 last:border-0">
+                  <span className="text-gray-700">{r.name}</span>
+                  <span className="text-gray-500">{r.qty ?? 1} × <Money value={r.precio} /></span>
+                </div>
+              ))}
             </div>
           )}
 
-          <p className="text-xs text-gray-400 flex items-center gap-1">
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" />
-              <line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
-            </svg>
-            {fmtFecha(o.fecha)}
-          </p>
+          <div className="p-5 mt-auto">
+            <p className="text-xs text-gray-400 flex items-center gap-1">
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
+              </svg>
+              {fmtFecha(o.fecha)}
+            </p>
+          </div>
         </div>
 
         {/* ── Col 2: Checklist + Inspección + Fotos ── */}
-        <div className="flex-1 border-r border-gray-100 overflow-y-auto p-5 space-y-5">
+        <div className="flex-1 border-r border-gray-200 overflow-y-auto flex flex-col">
 
           {/* Checklist de ingreso */}
+          <div className="p-5 border-b border-gray-100">
           {checkItems.length > 0 && (() => {
             const total = checkItems.length
             const done = checkItems.filter(c => c.checked).length
@@ -351,9 +350,10 @@ export function OrdenDetallePage() {
               </div>
             )
           })()}
+          </div>
 
           {/* Inspección */}
-          <div>
+          <div className="p-5 border-b border-gray-100">
             <div className="flex items-center justify-between mb-3">
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Inspección del equipo</p>
               <button onClick={() => setShowInspeccion(v => !v)}
@@ -439,7 +439,7 @@ export function OrdenDetallePage() {
           </div>
 
           {/* Fotos de ingreso */}
-          <div>
+          <div className="p-5">
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">
               Fotos de ingreso {o.photosIngreso && o.photosIngreso.length > 0 && `(${o.photosIngreso.length})`}
             </p>
@@ -465,9 +465,9 @@ export function OrdenDetallePage() {
         </div>
 
         {/* ── Col 3: Pipeline + Acciones ── */}
-        <div className="w-64 flex-shrink-0 flex flex-col overflow-y-auto p-5 gap-5">
+        <div className="w-64 flex-shrink-0 flex flex-col overflow-y-auto">
           {/* Pipeline vertical */}
-          <div>
+          <div className="p-5 border-b border-gray-100">
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">Estado</p>
             <div className="flex flex-col gap-1.5">
               {PIPELINE.map((s, i) => {
@@ -496,7 +496,7 @@ export function OrdenDetallePage() {
 
           {/* Técnico + fecha */}
           {(o.tecnico || o.fechaEstimada) && (
-            <div className="space-y-3">
+            <div className="p-5 border-b border-gray-100 space-y-3">
               {o.tecnico && (
                 <div>
                   <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Técnico</p>
@@ -513,7 +513,7 @@ export function OrdenDetallePage() {
           )}
 
           {/* Notificaciones */}
-          <div className="mt-auto space-y-2">
+          <div className="p-5 mt-auto space-y-2">
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Notificar cliente</p>
             {o.tel ? (
               <a href={`https://wa.me/${o.tel.replace(/\D/g, '')}`} target="_blank" rel="noreferrer"
