@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useEffect } from 'react'
+import { useEffect, useId } from 'react'
 import { supabase } from './supabase'
 import { dbGet, dbSet } from './db'
 import { useAuth } from '@/context/AuthContext'
@@ -10,12 +10,16 @@ import type { Orden, Cliente, Producto, Bodega, Movimiento, Proveedor, Venta, Me
 export function useOrdenes() {
   const { empresaId } = useAuth()
   const qc = useQueryClient()
+  const instanceId = useId()
 
-  // Realtime: invalida la query cuando cambia tp_orders en Supabase
+  // Realtime: invalida la query cuando cambia tp_orders en Supabase.
+  // El nombre del canal incluye un id único por instancia del hook para que
+  // dos componentes que usen useOrdenes a la vez (ej. lista + modal de detalle)
+  // no choquen suscribiéndose al mismo canal de Supabase.
   useEffect(() => {
     if (!empresaId) return
     const channel = supabase
-      .channel(`rt-orders-${empresaId}`)
+      .channel(`rt-orders-${empresaId}-${instanceId}`)
       .on(
         'postgres_changes',
         {
@@ -33,7 +37,7 @@ export function useOrdenes() {
       )
       .subscribe()
     return () => { void supabase.removeChannel(channel) }
-  }, [empresaId, qc])
+  }, [empresaId, qc, instanceId])
 
   return useQuery({
     queryKey: ['tp_orders', empresaId],
