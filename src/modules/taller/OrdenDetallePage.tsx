@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useParams } from 'react-router-dom'
 import { useOrdenes, useGuardarOrden, useMsgTemplates, useSeguimientoConfig, useChecklist } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
@@ -677,16 +678,17 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
   )
 
   if (onClose) {
-    return (
+    return createPortal(
       <div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+        className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4"
         onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
       >
         <div className="bg-white rounded-2xl w-full max-w-6xl shadow-2xl flex flex-col overflow-hidden"
           style={{ height: '90vh' }}>
           {content}
         </div>
-      </div>
+      </div>,
+      document.body,
     )
   }
 
