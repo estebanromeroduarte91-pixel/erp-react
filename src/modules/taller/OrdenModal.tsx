@@ -492,7 +492,7 @@ export function OrdenModal({ orden, ordenes, onClose }: Props) {
                 <EquipoSelector value={form.modelo} onChange={(v) => set('modelo', v)} />
               </div>
               <Field label="N° Serie / IMEI" value={form.serie} onChange={(v) => set('serie', v)} placeholder="C8QH2XXXXXX" />
-              <Field label="Color" value={form.color} onChange={(v) => set('color', v)} placeholder="Negro, Blanco…" autoCapitalize="words" onBlur={(v) => set('color', capWords(v))} />
+              <Field label="Color" value={form.color} onChange={(v) => set('color', capFirst(v))} placeholder="Negro, Blanco…" autoCapitalize="words" />
               {/* Contraseña / Patrón */}
               <div>
                 <label className="text-xs font-medium text-gray-600 mb-1 block">Contraseña / Patrón</label>
@@ -530,8 +530,7 @@ export function OrdenModal({ orden, ordenes, onClose }: Props) {
               </div>
               <div className="col-span-2">
                 <label className="text-xs font-medium text-gray-600 mb-1 block">Estado físico del equipo</label>
-                <textarea value={form.estadoFisico} onChange={(e) => set('estadoFisico', e.target.value)}
-                  onBlur={(e) => set('estadoFisico', capFirst(e.target.value))}
+                <textarea value={form.estadoFisico} onChange={(e) => set('estadoFisico', capFirst(e.target.value))}
                   autoCapitalize="sentences"
                   placeholder="Rayones, grietas, daños visibles..." rows={2}
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400 resize-none" />
@@ -546,8 +545,7 @@ export function OrdenModal({ orden, ordenes, onClose }: Props) {
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2">
                 <label className="text-xs font-medium text-gray-600 mb-1 block">Descripción del trabajo</label>
-                <textarea value={form.trabajo} onChange={(e) => set('trabajo', e.target.value)}
-                  onBlur={(e) => set('trabajo', capFirst(e.target.value))}
+                <textarea value={form.trabajo} onChange={(e) => set('trabajo', capFirst(e.target.value))}
                   autoCapitalize="sentences"
                   placeholder="Ej: Cambio de pantalla, reparación de conector de carga..." rows={3}
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400 resize-none" />
