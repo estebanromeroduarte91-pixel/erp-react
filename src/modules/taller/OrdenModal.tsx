@@ -143,6 +143,10 @@ export function OrdenModal({ orden, ordenes, onClose }: Props) {
   const [clienteAbierto, setClienteAbierto] = useState(false)
   const [showNuevoCliente, setShowNuevoCliente] = useState(false)
   const [nuevoCliente, setNuevoCliente] = useState({ nombre: '', apellido: '', tel: '', email: '', rut: '' })
+  // id del cliente del directorio que está cargado en el form (para poder editarlo);
+  // null si el cliente no existe en el directorio. editandoCliente = modal en modo edición.
+  const [clienteEditId, setClienteEditId] = useState<string | null>(null)
+  const [editandoCliente, setEditandoCliente] = useState(false)
   const clienteRef = useRef<HTMLDivElement>(null)
 
   const clienteSeleccionado = form.nombre.trim() || form.apellido.trim()
@@ -209,56 +213,92 @@ export function OrdenModal({ orden, ordenes, onClose }: Props) {
       email: c.email ?? f.email,
       rut: c.rut ?? f.rut,
     }))
+    setClienteEditId(c.id)
     setBusquedaCliente('')
     setClienteAbierto(false)
   }
 
   function limpiarCliente() {
     setForm((f) => ({ ...f, nombre: '', apellido: '', tel: '', email: '', rut: '' }))
+    setClienteEditId(null)
     setBusquedaCliente('')
   }
 
+  // Al editar una orden, localiza el cliente en el directorio (por RUT, o nombre+apellido)
+  // para habilitar el botón de edición del cliente sobre el chip.
+  useEffect(() => {
+    if (clienteEditId || !clientes || !clienteSeleccionado) return
+    const rutNorm = form.rut.trim().toLowerCase().replace(/\s/g, '')
+    const match = clientes.find((c) =>
+      (rutNorm && c.rut && c.rut.toLowerCase().replace(/\s/g, '') === rutNorm) ||
+      (c.nombre === form.nombre && (c.apellido ?? '') === form.apellido),
+    )
+    if (match) setClienteEditId(match.id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientes])
+
   const [errorNuevoCliente, setErrorNuevoCliente] = useState('')
   const [clienteDuplicado, setClienteDuplicado] = useState<NonNullable<typeof clientes>[number] | null>(null)
+
+  // Abre el modal de cliente precargado con los datos actuales para editarlos.
+  function abrirEditarCliente() {
+    setNuevoCliente({
+      nombre: form.nombre, apellido: form.apellido,
+      rut: form.rut, tel: form.tel, email: form.email,
+    })
+    setEditandoCliente(true)
+    setErrorNuevoCliente('')
+    setClienteDuplicado(null)
+    setShowNuevoCliente(true)
+  }
+
+  function cerrarModalCliente() {
+    setShowNuevoCliente(false)
+    setEditandoCliente(false)
+    setErrorNuevoCliente('')
+    setClienteDuplicado(null)
+    setNuevoCliente({ nombre: '', apellido: '', tel: '', email: '', rut: '' })
+  }
 
   async function handleCrearCliente() {
     if (!nuevoCliente.nombre.trim()) return
     setErrorNuevoCliente('')
     setClienteDuplicado(null)
 
+    // Validar RUT duplicado (excluye al propio cliente cuando se está editando)
     if (nuevoCliente.rut.trim()) {
       const rutNorm = nuevoCliente.rut.trim().toLowerCase().replace(/\s/g, '')
       const existe = (clientes ?? []).find(
-        (c) => c.rut && c.rut.toLowerCase().replace(/\s/g, '') === rutNorm
+        (c) => c.id !== clienteEditId && c.rut && c.rut.toLowerCase().replace(/\s/g, '') === rutNorm
       )
       if (existe) {
-        setClienteDuplicado(existe)
+        if (!editandoCliente) setClienteDuplicado(existe)
         setErrorNuevoCliente(`El RUT ya está registrado a nombre de ${existe.nombre} ${existe.apellido ?? ''}.`)
         return
       }
     }
 
-    const ahora = new Date().toISOString()
-    const nuevo = {
-      id: `cli-tp-${Date.now()}`,
+    const datos = {
       nombre: nuevoCliente.nombre.trim(),
       apellido: nuevoCliente.apellido.trim(),
       rut: nuevoCliente.rut.trim(),
       tel: nuevoCliente.tel.trim(),
       email: nuevoCliente.email.trim(),
-      fecha_creacion: ahora,
     }
-    await guardarClientes.mutateAsync([...(clientes ?? []), nuevo])
-    setForm((f) => ({
-      ...f,
-      nombre: nuevo.nombre,
-      apellido: nuevo.apellido,
-      tel: nuevo.tel,
-      email: nuevo.email,
-      rut: nuevo.rut,
-    }))
-    setNuevoCliente({ nombre: '', apellido: '', tel: '', email: '', rut: '' })
-    setShowNuevoCliente(false)
+
+    if (editandoCliente && clienteEditId) {
+      // Actualiza el cliente existente en el directorio y refleja los cambios en la orden
+      await guardarClientes.mutateAsync(
+        (clientes ?? []).map((c) => (c.id === clienteEditId ? { ...c, ...datos } : c)),
+      )
+    } else {
+      const nuevo = { id: `cli-tp-${Date.now()}`, ...datos, fecha_creacion: new Date().toISOString() }
+      await guardarClientes.mutateAsync([...(clientes ?? []), nuevo])
+      setClienteEditId(nuevo.id)
+    }
+
+    setForm((f) => ({ ...f, ...datos }))
+    cerrarModalCliente()
   }
 
   function usarClienteExistente() {
@@ -434,7 +474,15 @@ export function OrdenModal({ orden, ordenes, onClose }: Props) {
                       </span>
                     )}
                   </div>
-                  <button type="button" onClick={limpiarCliente}
+                  {clienteEditId && (
+                    <button type="button" onClick={abrirEditarCliente} title="Editar datos del cliente"
+                      className="text-blue-400 hover:text-blue-700 p-0.5 flex-shrink-0">
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
+                      </svg>
+                    </button>
+                  )}
+                  <button type="button" onClick={limpiarCliente} title="Quitar cliente"
                     className="text-blue-400 hover:text-blue-700 p-0.5 flex-shrink-0">
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -796,10 +844,12 @@ export function OrdenModal({ orden, ordenes, onClose }: Props) {
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
             <div className="flex items-start justify-between px-5 py-4 border-b border-gray-100">
               <div>
-                <h3 className="text-base font-bold text-gray-900">Nuevo cliente</h3>
-                <p className="text-xs text-gray-400 mt-0.5">Los datos quedan en el directorio de clientes</p>
+                <h3 className="text-base font-bold text-gray-900">{editandoCliente ? 'Editar cliente' : 'Nuevo cliente'}</h3>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  {editandoCliente ? 'Actualiza los datos en el directorio de clientes' : 'Los datos quedan en el directorio de clientes'}
+                </p>
               </div>
-              <button onClick={() => setShowNuevoCliente(false)} className="text-gray-400 hover:text-gray-600 p-1">
+              <button onClick={cerrarModalCliente} className="text-gray-400 hover:text-gray-600 p-1">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -855,13 +905,13 @@ export function OrdenModal({ orden, ordenes, onClose }: Props) {
               </div>
             )}
             <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-gray-100 bg-gray-50">
-              <button onClick={() => { setShowNuevoCliente(false); setErrorNuevoCliente(''); setClienteDuplicado(null) }}
+              <button onClick={cerrarModalCliente}
                 className="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-100 transition">
                 Cancelar
               </button>
               <button onClick={handleCrearCliente} disabled={!nuevoCliente.nombre.trim()}
                 className="px-5 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition">
-                Crear cliente
+                {editandoCliente ? 'Guardar cambios' : 'Crear cliente'}
               </button>
             </div>
           </div>
