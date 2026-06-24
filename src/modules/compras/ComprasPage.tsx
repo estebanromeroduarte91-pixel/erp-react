@@ -52,7 +52,7 @@ function getCantRecibida(o: OC, itemId: string): number {
 
 const ESTADO_META: Record<EstadoOC, { label: string; color: string; bg: string }> = {
   borrador:   { label: 'Borrador',   color: '#6b7280', bg: '#f3f4f6' },
-  parcial:    { label: 'Parcial 📦', color: '#d97706', bg: '#fef3c7' },
+  parcial:    { label: 'Parcial', color: '#d97706', bg: '#fef3c7' },
   recibida:   { label: 'Recibida',   color: '#059669', bg: '#d1fae5' },
   confirmada: { label: 'Confirmada', color: '#2563eb', bg: '#dbeafe' },
   cancelada:  { label: 'Cancelada',  color: '#dc2626', bg: '#fee2e2' },
@@ -364,8 +364,9 @@ function ModalNuevaOC({
         </div>
         <div style={{ padding: '14px 24px', borderTop: '1px solid var(--gray-100)', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
           <button onClick={onClose} style={{ padding: '9px 20px', border: '1.5px solid var(--gray-300)', borderRadius: 8, background: '#fff', cursor: 'pointer', fontWeight: 600 }}>Cancelar</button>
-          <button onClick={handleSave} style={{ padding: '9px 20px', background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}>
-            💾 {ocEdit ? 'Actualizar' : 'Crear'} OC
+          <button onClick={handleSave} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 20px', background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}>
+            <svg style={{ width: 15, height: 15 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 3h11l3 3v13a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2z" /><path strokeLinecap="round" strokeLinejoin="round" d="M8 3v5h7M8 21v-6h8v6" /></svg>
+            {ocEdit ? 'Actualizar' : 'Crear'} OC
           </button>
         </div>
       </div>
@@ -409,7 +410,7 @@ function ModalRecibirOC({
       <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 780, maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,.2)' }}>
         <div style={{ padding: '18px 24px', borderBottom: '1px solid var(--gray-100)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div>
-            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>📦 Nueva Recepción — {oc.numero}</h3>
+            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Nueva Recepción — {oc.numero}</h3>
             <div style={{ fontSize: 12, color: 'var(--gray-400)', marginTop: 2 }}>{oc.proveedor_nombre || '—'} · {recsPrev.length} recepción(es) previa(s)</div>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: 'var(--gray-500)', lineHeight: 1 }}>×</button>
@@ -418,13 +419,13 @@ function ModalRecibirOC({
           <div style={{ padding: 20, overflowY: 'auto', borderRight: '1px solid var(--gray-100)' }}>
             <div style={{ marginBottom: 16 }}>
               <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--gray-500)', textTransform: 'uppercase', marginBottom: 4 }}>
-                🏭 Bodega que recibe <span style={{ color: 'var(--danger, #dc2626)' }}>*</span>
+                Bodega que recibe <span style={{ color: 'var(--danger, #dc2626)' }}>*</span>
               </label>
               <select value={bodegaId} onChange={e => setBodegaId(e.target.value)} style={{ width: '100%', fontSize: 14, fontWeight: 600 }}>
                 <option value="">-- Seleccionar bodega --</option>
                 {bodegas.map(b => <option key={b.id} value={b.id}>{b.nombre ?? b.name}</option>)}
               </select>
-              {!bodegas.length && <p style={{ fontSize: 12, color: '#d97706', marginTop: 4 }}>⚠️ No hay bodegas creadas.</p>}
+              {!bodegas.length && <p style={{ fontSize: 12, color: '#d97706', marginTop: 4 }}>No hay bodegas creadas.</p>}
             </div>
             <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--gray-500)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>Ítems de la OC</div>
             <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid var(--gray-200)', borderRadius: 8 }}>
@@ -444,7 +445,7 @@ function ModalRecibirOC({
                     <tr key={it.id} style={{ borderBottom: '1px solid var(--gray-100)' }}>
                       <td style={{ padding: '10px 14px' }}>
                         <div style={{ fontWeight: 600, fontSize: 13.5, color: 'var(--gray-800)' }}>{it.producto_nombre || '—'}</div>
-                        {it.bodega_nombre && <div style={{ fontSize: 11, color: 'var(--gray-400)', marginTop: 2 }}>🏭 {it.bodega_nombre}</div>}
+                        {it.bodega_nombre && <div style={{ fontSize: 11, color: 'var(--gray-400)', marginTop: 2 }}>{it.bodega_nombre}</div>}
                       </td>
                       <td style={{ padding: '10px', textAlign: 'center', fontSize: 13 }}>{it.cantidad}</td>
                       <td style={{ padding: '10px', textAlign: 'center' }}>
@@ -474,11 +475,13 @@ function ModalRecibirOC({
             </div>
           </div>
           <div style={{ padding: 20, background: 'var(--gray-50)', overflowY: 'auto' }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--gray-500)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>📋 Historial</div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--gray-500)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>Historial</div>
             {recsPrev.length
               ? recsPrev.slice().reverse().map(r => (
                 <div key={r.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '10px 0', borderBottom: '1px solid var(--gray-100)' }}>
-                  <div style={{ minWidth: 36, height: 36, background: 'var(--primary-light)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>🏭</div>
+                  <div style={{ minWidth: 36, height: 36, background: 'var(--primary-light)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <svg style={{ width: 16, height: 16, color: 'var(--primary)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 21h18M5 21V8l5 3V8l5 3V8l4 2.5V21" /></svg>
+                  </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--gray-800)' }}>{r.bodega_nombre}</div>
                     <div style={{ fontSize: 12, color: 'var(--gray-400)', marginTop: 1 }}>{fmtDate(r.fecha)}</div>
@@ -614,20 +617,20 @@ function ModalVerOC({
             <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
               {(estado === 'borrador' || estado === 'parcial') && (
                 <>
-                  <button onClick={onRecibir} style={{ padding: '8px 16px', background: '#059669', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}>📦 Recibir</button>
-                  <button onClick={onEditar} style={{ padding: '8px 16px', border: '1.5px solid var(--gray-300)', borderRadius: 8, background: '#fff', cursor: 'pointer', fontWeight: 600 }}>✏️ Editar</button>
+                  <button onClick={onRecibir} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: '#059669', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}><svg style={{ width: 15, height: 15 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>Recibir</button>
+                  <button onClick={onEditar} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', border: '1.5px solid var(--gray-300)', borderRadius: 8, background: '#fff', cursor: 'pointer', fontWeight: 600 }}><svg style={{ width: 14, height: 14 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>Editar</button>
                   <button onClick={onCancelar} style={{ padding: '8px 16px', border: '1.5px solid #fee2e2', borderRadius: 8, background: '#fff', color: '#dc2626', cursor: 'pointer', fontWeight: 600 }}>✕ Cancelar</button>
                 </>
               )}
               {(estado === 'recibida' || estado === 'parcial') && (
-                <button onClick={onConfirmar} style={{ padding: '8px 16px', background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}>✅ Confirmar</button>
+                <button onClick={onConfirmar} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}><svg style={{ width: 15, height: 15 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>Confirmar</button>
               )}
             </div>
           )}
           {oc.folio_factura && (
             <div style={{ background: 'var(--gray-50)', borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: 13, display: 'flex', gap: 16 }}>
-              <span>📄 Folio: <strong>{oc.folio_factura === 'SIN FACTURA' ? 'Sin factura' : '#' + oc.folio_factura}</strong></span>
-              {oc.metodo_pago && <span>💳 Pago: <strong style={{ textTransform: 'capitalize' }}>{oc.metodo_pago}</strong></span>}
+              <span>Folio: <strong>{oc.folio_factura === 'SIN FACTURA' ? 'Sin factura' : '#' + oc.folio_factura}</strong></span>
+              {oc.metodo_pago && <span>Pago: <strong style={{ textTransform: 'capitalize' }}>{oc.metodo_pago}</strong></span>}
             </div>
           )}
           <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--gray-500)', textTransform: 'uppercase', marginBottom: 8 }}>Productos</div>
@@ -674,7 +677,7 @@ function ModalVerOC({
                   </div>
                   <div style={{ padding: '10px 14px', fontSize: 13 }}>
                     {r.items.map(i => `${i.producto_nombre}: ${i.cantidad}`).join(' · ')}
-                    {r.notas && <div style={{ fontSize: 12, color: 'var(--gray-500)', marginTop: 4 }}>📝 {r.notas}</div>}
+                    {r.notas && <div style={{ fontSize: 12, color: 'var(--gray-500)', marginTop: 4 }}>{r.notas}</div>}
                   </div>
                 </div>
               ))}
@@ -682,7 +685,7 @@ function ModalVerOC({
           )}
           {oc.notas && (
             <div style={{ marginTop: 12, fontSize: 13, color: 'var(--gray-600)', background: 'var(--gray-50)', borderRadius: 8, padding: '10px 14px' }}>
-              📝 {oc.notas}
+              {oc.notas}
             </div>
           )}
         </div>
@@ -699,7 +702,7 @@ function ModalVerOC({
 function OCLogTable({ log }: { log: OCLogEntry[] }) {
   if (!log.length) return (
     <div style={{ padding: '48px 24px', textAlign: 'center' }}>
-      <div style={{ fontSize: 40, marginBottom: 12 }}>🗂</div>
+      <svg style={{ width: 40, height: 40, margin: '0 auto 12px', color: 'var(--gray-300)', display: 'block' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" /></svg>
       <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--gray-600)', marginBottom: 6 }}>Sin registros eliminados</div>
       <div style={{ color: 'var(--gray-400)', fontSize: 14 }}>Las OCs eliminadas aparecerán aquí de forma permanente</div>
     </div>
@@ -708,7 +711,7 @@ function OCLogTable({ log }: { log: OCLogEntry[] }) {
   return (
     <div style={{ padding: '16px 20px' }}>
       <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: '#92400e' }}>
-        <span style={{ fontSize: 18 }}>🔒</span>
+        <svg style={{ width: 17, height: 17, flexShrink: 0 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><rect x="5" y="11" width="14" height="10" rx="2" /><path strokeLinecap="round" d="M8 11V7a4 4 0 018 0v4" /></svg>
         <span>Este historial es <strong>inmutable</strong> — los registros no pueden ser eliminados ni modificados.</span>
       </div>
       <div style={{ overflowX: 'auto' }}>
@@ -754,7 +757,7 @@ type ModalState =
 const FILTRO_TABS: { key: FiltroTab; label: string }[] = [
   { key: 'todas',      label: 'Todas' },
   { key: 'borrador',   label: 'Borrador' },
-  { key: 'parcial',    label: 'Parcial 📦' },
+  { key: 'parcial',    label: 'Parcial' },
   { key: 'recibida',   label: 'Recibida' },
   { key: 'confirmada', label: 'Confirmada' },
   { key: 'cancelada',  label: 'Cancelada' },
@@ -893,7 +896,7 @@ export function ComprasPage() {
     await guardarOCs.mutateAsync(updated)
     setModal({ type: 'none' })
     const oc2 = updated.find(o => o.id === ocId)
-    showToast(oc2?.estado === 'recibida' ? '✅ OC completamente recibida' : '📦 Recepción parcial guardada')
+    showToast(oc2?.estado === 'recibida' ? 'OC completamente recibida' : 'Recepción parcial guardada')
   }
 
   async function handleConfirmar(ocId: string, folio: string, metodoPago: string) {
@@ -907,7 +910,7 @@ export function ComprasPage() {
     const asiento = asientoDeOC(ocConfirmada, metodoPago, sinFactura, planCuentas ?? [], existente?.numero ?? nextNumeroAsiento(listaAs))
     await guardarAsientos.mutateAsync(existente ? listaAs.map(a => a.id === asiento.id ? asiento : a) : [...listaAs, asiento])
     setModal({ type: 'none' })
-    showToast('OC confirmada ✅')
+    showToast('OC confirmada')
   }
 
   async function handleCancelar(ocId: string) {
@@ -942,8 +945,9 @@ export function ComprasPage() {
         <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: 'var(--gray-800)' }}>Compras</h2>
         {section === 'ocs' && (
           <button onClick={() => setModal({ type: 'nueva' })}
-            style={{ padding: '9px 18px', background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 14 }}>
-            ➕ Nueva OC
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 18px', background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 14 }}>
+            <svg style={{ width: 16, height: 16 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+            Nueva OC
           </button>
         )}
       </div>
@@ -994,8 +998,10 @@ export function ComprasPage() {
               marginLeft: 'auto', padding: '12px 16px', border: 'none', background: 'none', cursor: 'pointer', fontWeight: 600,
               fontSize: 13, color: filtro === 'log' ? 'var(--primary)' : 'var(--gray-400)',
               borderBottom: filtro === 'log' ? '2px solid var(--primary)' : '2px solid transparent',
+              display: 'inline-flex', alignItems: 'center', gap: 6,
             }}>
-            🗂 Historial
+            <svg style={{ width: 15, height: 15 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" /></svg>
+            Historial
             {log.length > 0 && (
               <span style={{ marginLeft: 6, background: 'var(--gray-100)', color: 'var(--gray-500)', borderRadius: 20, padding: '1px 7px', fontSize: 11, fontWeight: 700 }}>{log.length}</span>
             )}
@@ -1026,7 +1032,7 @@ export function ComprasPage() {
           <OCLogTable log={log} />
         ) : displayedOCs.length === 0 ? (
           <div style={{ padding: '48px 24px', textAlign: 'center' }}>
-            <div style={{ fontSize: 40, marginBottom: 12 }}>📋</div>
+            <svg style={{ width: 40, height: 40, margin: '0 auto 12px', color: 'var(--gray-300)', display: 'block' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
             <h3 style={{ margin: '0 0 6px', color: 'var(--gray-600)' }}>Sin órdenes de compra</h3>
             <p style={{ color: 'var(--gray-400)', margin: 0 }}>
               {search ? 'No se encontraron resultados para tu búsqueda' : 'Crea tu primera orden de compra para comenzar'}
@@ -1060,21 +1066,23 @@ export function ComprasPage() {
                       <EstadoBadge estado={o.estado} />
                       {o.folio_factura && (
                         <div style={{ fontSize: 11, marginTop: 2, color: 'var(--gray-400)' }}>
-                          📄 {o.folio_factura === 'SIN FACTURA' ? 'Sin factura' : '#' + o.folio_factura}
+                          {o.folio_factura === 'SIN FACTURA' ? 'Sin factura' : '#' + o.folio_factura}
                         </div>
                       )}
                     </td>
                     <td style={{ padding: '12px 14px' }} onClick={e => e.stopPropagation()}>
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'nowrap' }}>
                         <button onClick={() => setModal({ type: 'ver', ocId: o.id })}
-                          style={{ padding: '5px 10px', border: '1.5px solid var(--gray-200)', borderRadius: 7, background: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
-                          👁 Ver
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', border: '1.5px solid var(--gray-200)', borderRadius: 7, background: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
+                          <svg style={{ width: 13, height: 13 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                          Ver
                         </button>
                         {(o.estado === 'borrador' || o.estado === 'parcial') && (
                           <>
                             <button onClick={() => setModal({ type: 'recibir', ocId: o.id })}
-                              style={{ padding: '5px 10px', border: 'none', borderRadius: 7, background: '#059669', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
-                              📦 Recibir
+                              style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', border: 'none', borderRadius: 7, background: '#059669', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
+                              <svg style={{ width: 13, height: 13 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+                              Recibir
                             </button>
                             <button onClick={() => handleCancelar(o.id)}
                               style={{ padding: '5px 9px', border: '1.5px solid var(--gray-200)', borderRadius: 7, background: '#fff', color: '#dc2626', cursor: 'pointer', fontSize: 15, fontWeight: 700, lineHeight: 1 }}>
@@ -1084,13 +1092,14 @@ export function ComprasPage() {
                         )}
                         {(o.estado === 'recibida' || o.estado === 'parcial') && (
                           <button onClick={() => setModal({ type: 'confirmar', ocId: o.id })}
-                            style={{ padding: '5px 10px', border: 'none', borderRadius: 7, background: 'var(--primary)', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
-                            ✅ Confirmar
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', border: 'none', borderRadius: 7, background: 'var(--primary)', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
+                            <svg style={{ width: 13, height: 13 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                            Confirmar
                           </button>
                         )}
                         <button onClick={() => handleEliminar(o.id)}
-                          style={{ padding: '5px 8px', border: '1.5px solid #fee2e2', borderRadius: 7, background: '#fff', color: '#dc2626', cursor: 'pointer', fontSize: 12 }}>
-                          🗑
+                          style={{ display: 'inline-flex', alignItems: 'center', padding: '5px 8px', border: '1.5px solid #fee2e2', borderRadius: 7, background: '#fff', color: '#dc2626', cursor: 'pointer', fontSize: 12 }}>
+                          <svg style={{ width: 14, height: 14 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                         </button>
                       </div>
                     </td>

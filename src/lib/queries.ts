@@ -219,9 +219,9 @@ export function useGuardarProveedores() {
 // ── Ventas ────────────────────────────────────────────────────
 
 const METODOS_PAGO_DEFAULT: MetodoPago[] = [
-  { id: 'efectivo', icon: '💵', label: 'Efectivo', desc: 'Billetes y monedas' },
-  { id: 'tarjeta',  icon: '💳', label: 'Tarjeta',  desc: 'Débito / Crédito' },
-  { id: 'transfer', icon: '🏦', label: 'Transferencia', desc: 'Banco / Wallet' },
+  { id: 'efectivo', icon: 'cash', label: 'Efectivo', desc: 'Billetes y monedas' },
+  { id: 'tarjeta',  icon: 'card', label: 'Tarjeta',  desc: 'Débito / Crédito' },
+  { id: 'transfer', icon: 'bank', label: 'Transferencia', desc: 'Banco / Wallet' },
 ]
 
 export function useMetodosPago() {

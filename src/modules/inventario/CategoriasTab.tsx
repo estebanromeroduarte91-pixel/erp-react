@@ -113,7 +113,9 @@ export function CategoriasTab() {
 
       {categorias.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-200 py-16 text-center">
-          <div className="text-4xl mb-3">🏷️</div>
+          <svg className="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M7 7h.01M7 3h5a2 2 0 011.414.586l7 7a2 2 0 010 2.828l-5 5a2 2 0 01-2.828 0l-7-7A2 2 0 013 11V6a3 3 0 013-3z" />
+          </svg>
           <p className="text-gray-600 font-semibold mb-1">Sin categorías</p>
           <p className="text-gray-400 text-sm">Las categorías ayudan a organizar tu inventario</p>
         </div>
@@ -121,8 +123,10 @@ export function CategoriasTab() {
         <div className="grid gap-3">
           {categorias.map(cat => (
             <div key={cat.id} className="bg-white rounded-xl border border-gray-200 p-4 flex items-start gap-4">
-              <div style={{ width: 40, height: 40, borderRadius: 10, background: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>
-                🏷️
+              <div style={{ width: 40, height: 40, borderRadius: 10, background: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <svg style={{ width: 18, height: 18, color: 'var(--primary)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M7 7h.01M7 3h5a2 2 0 011.414.586l7 7a2 2 0 010 2.828l-5 5a2 2 0 01-2.828 0l-7-7A2 2 0 013 11V6a3 3 0 013-3z" />
+                </svg>
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-gray-800">{cat.nombre}</p>

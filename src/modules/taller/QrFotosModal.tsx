@@ -36,7 +36,10 @@ export function QrFotosModal({ ordenId, tipo = 'ingreso', onClose }: Props) {
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-5">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xs p-7 text-center">
         <h3 className="text-base font-bold text-gray-900 flex items-center justify-center gap-2">
-          <span>📱</span> Subir fotos desde iPhone
+          <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <rect x="7" y="2" width="10" height="20" rx="2" /><path strokeLinecap="round" d="M11 18h2" />
+          </svg>
+          Subir fotos desde iPhone
         </h3>
         <p className="text-sm text-gray-500 mt-2 mb-5 leading-relaxed">
           Escanea el QR con la cámara del iPhone. Las fotos se sincronizan automáticamente.

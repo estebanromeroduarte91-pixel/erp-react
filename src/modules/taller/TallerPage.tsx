@@ -40,7 +40,7 @@ const ESTADOS_MAIN: { value: EstadoOrden | 'todos' | 'Derivado'; label: string }
   { value: 'Chequeo',    label: 'Chequeo' },
   { value: 'Reparación', label: 'Reparación' },
   { value: 'Listo',      label: 'Listos' },
-  { value: 'Derivado',   label: '🔄 Derivados' },
+  { value: 'Derivado',   label: 'Derivados' },
 ]
 
 
@@ -371,7 +371,10 @@ export function TallerPage() {
                             <EstadoBadge estado={o.status} />
                             {isDerived && (
                               <span className="inline-flex items-center gap-1 bg-amber-100 text-amber-800 rounded-full px-2 py-0.5 text-xs font-semibold">
-                                🔄 {derivedTsl?.tecnico ?? 'Derivado'}
+                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h5M20 20v-5h-5M4 9a8 8 0 0114-3M20 15a8 8 0 01-14 3" />
+                                </svg>
+                                {derivedTsl?.tecnico ?? 'Derivado'}
                               </span>
                             )}
                           </div>

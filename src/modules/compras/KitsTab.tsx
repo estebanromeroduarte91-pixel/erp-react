@@ -239,8 +239,11 @@ export function KitsTab() {
   return (
     <div>
       {/* Info banner */}
-      <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 13, color: '#1e40af' }}>
-        💡 <strong>¿Cómo funciona?</strong> Crea un kit para cada modelo de equipo (ej: iPhone 13) con todos sus repuestos y componentes. Desde aquí puedes crear órdenes de compra directamente.
+      <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 13, color: '#1e40af', display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+        <svg style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 21h6M10 21v-3.5a5.5 5.5 0 11-1-3.2M12 3a6 6 0 016 6c0 2-1 3.5-2 4.5" />
+        </svg>
+        <span><strong>¿Cómo funciona?</strong> Crea un kit para cada modelo de equipo (ej: iPhone 13) con todos sus repuestos y componentes. Desde aquí puedes crear órdenes de compra directamente.</span>
       </div>
 
       {/* Card principal */}
@@ -276,7 +279,9 @@ export function KitsTab() {
         {/* Table / empty */}
         {filtered.length === 0 ? (
           <div style={{ padding: '56px 24px', textAlign: 'center' }}>
-            <div style={{ fontSize: 40, marginBottom: 12 }}>🔧</div>
+            <svg style={{ width: 40, height: 40, margin: '0 auto 12px', color: 'var(--gray-300)', display: 'block' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M11.42 15.17L17.25 21A2.652 2.652 0 0021 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 11-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 004.486-6.336l-3.276 3.277a3.004 3.004 0 01-2.25-2.25l3.276-3.276a4.5 4.5 0 00-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437l1.745-1.437m6.615 8.206L15.75 15.75M4.867 19.125h.008v.008h-.008v-.008z" />
+            </svg>
             <h3 style={{ margin: '0 0 6px', color: 'var(--gray-600)' }}>
               {search ? 'Sin resultados' : 'Sin kits'}
             </h3>
@@ -331,30 +336,33 @@ export function KitsTab() {
                       <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
                         <button
                           onClick={() => handleCrearOC(k.id)}
-                          style={{ padding: '5px 10px', background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' }}
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' }}
                           title="Crear orden de compra con estos componentes"
                         >
-                          🛒 Crear OC
+                          <svg style={{ width: 14, height: 14 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                          Crear OC
                         </button>
                         <button
                           onClick={() => setModal({ open: true, kit: k })}
-                          style={{ padding: '5px 10px', border: '1.5px solid var(--gray-200)', borderRadius: 7, background: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', border: '1.5px solid var(--gray-200)', borderRadius: 7, background: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
                         >
-                          ✏️ Editar
+                          <svg style={{ width: 13, height: 13 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+                          Editar
                         </button>
                         <button
                           onClick={() => handleClonar(k.id)}
-                          style={{ padding: '5px 10px', border: '1.5px solid var(--gray-200)', borderRadius: 7, background: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', border: '1.5px solid var(--gray-200)', borderRadius: 7, background: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
                           title="Clonar kit"
                         >
-                          📋 Clonar
+                          <svg style={{ width: 13, height: 13 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V5a2 2 0 012-2h8" /></svg>
+                          Clonar
                         </button>
                         <button
                           onClick={() => handleDelete(k.id)}
-                          style={{ padding: '5px 9px', border: '1.5px solid #fee2e2', borderRadius: 7, background: '#fff', color: '#dc2626', cursor: 'pointer', fontSize: 12 }}
+                          style={{ display: 'inline-flex', alignItems: 'center', padding: '5px 9px', border: '1.5px solid #fee2e2', borderRadius: 7, background: '#fff', color: '#dc2626', cursor: 'pointer', fontSize: 12 }}
                           title="Eliminar"
                         >
-                          🗑
+                          <svg style={{ width: 14, height: 14 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                         </button>
                       </div>
                     </td>

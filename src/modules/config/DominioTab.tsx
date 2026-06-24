@@ -77,7 +77,7 @@ export function DominioTab() {
       const recs: DominioRecord[] = res.records ?? []
       const fallidos = recs.filter(r => r.status === 'failed')
       const pendientes = recs.filter(r => ['pending', 'not_started', 'temporary_failure'].includes(r.status))
-      if (fallidos.length) showToast(`⚠ ${fallidos.length} registro(s) con error: ${fallidos.map(r => r.type).join(', ')}. Revisa el valor en tu DNS.`, 'err')
+      if (fallidos.length) showToast(`${fallidos.length} registro(s) con error: ${fallidos.map(r => r.type).join(', ')}. Revisa el valor en tu DNS.`, 'err')
       else if (pendientes.length) showToast(`Esperando ${pendientes.length} registro(s): ${pendientes.map(r => r.type).join(', ')}. El DNS puede tardar minutos.`, 'err')
       else showToast('Aún no verificado. Espera unos minutos a que propague el DNS.', 'err')
     } finally {

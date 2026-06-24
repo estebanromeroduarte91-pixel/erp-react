@@ -315,7 +315,9 @@ export function TrasladosTab() {
         </div>
         {activosFiltrados.length === 0 ? (
           <div className="py-14 text-center text-gray-400 text-sm">
-            <div className="text-3xl mb-3">🔄</div>
+            <svg className="w-10 h-10 mx-auto mb-3 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h5M20 20v-5h-5M4 9a8 8 0 0114-3M20 15a8 8 0 01-14 3" />
+            </svg>
             <p>{busqueda ? 'Sin resultados' : 'No hay traslados activos'}</p>
           </div>
         ) : (
@@ -644,8 +646,8 @@ function TrasladoModal({
               <label className="text-xs font-medium text-gray-600 mb-1 block">Condición al enviar</label>
               <select value={form.condicion} onChange={(e) => set('condicion', e.target.value)}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
-                <option value="enciende">⚡ Enciende</option>
-                <option value="apagado">📴 Apagado</option>
+                <option value="enciende">Enciende</option>
+                <option value="apagado">Apagado</option>
                 <option value="regular">Regular</option>
               </select>
             </div>

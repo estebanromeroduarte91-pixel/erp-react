@@ -150,8 +150,15 @@ function InviteModal({ onClose }: { onClose: () => void }) {
             <p className="text-[11px] font-bold text-blue-800 uppercase tracking-wide mb-2">Link generado — compártelo con el usuario</p>
             <p className="text-xs text-blue-700 break-all leading-relaxed mb-3">{link}</p>
             <button onClick={copiar}
-              className="px-3 py-1.5 border-2 border-blue-500 text-blue-600 text-xs font-bold rounded-lg hover:bg-blue-100 transition">
-              {copied ? '✓ Copiado' : '📋 Copiar link'}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 border-2 border-blue-500 text-blue-600 text-xs font-bold rounded-lg hover:bg-blue-100 transition">
+              {copied ? '✓ Copiado' : (
+                <>
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V5a2 2 0 012-2h8" />
+                  </svg>
+                  Copiar link
+                </>
+              )}
             </button>
           </div>
         )}

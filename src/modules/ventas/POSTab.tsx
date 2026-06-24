@@ -4,6 +4,23 @@ import type { VentaItem, Venta } from '@/types'
 
 const IVA = 0.19
 
+// Ícono SVG por método de pago (reemplaza los emojis de los datos)
+function IconoMetodo({ id }: { id: string }) {
+  const cls = 'w-5 h-5 mx-auto'
+  if (id === 'efectivo') return (
+    <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><rect x="2" y="6" width="20" height="12" rx="2" /><circle cx="12" cy="12" r="2.5" /><path d="M6 12h.01M18 12h.01" /></svg>
+  )
+  if (id === 'tarjeta') return (
+    <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><rect x="2" y="5" width="20" height="14" rx="2" /><path d="M2 10h20" /></svg>
+  )
+  if (id === 'transfer') return (
+    <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11M20 10v11M9 10v11M15 10v11" /></svg>
+  )
+  return (
+    <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><circle cx="12" cy="12" r="9" /><path strokeLinecap="round" d="M12 7v10M9.5 9.5a2.5 2 0 015 0c0 2.5-5 1.5-5 4a2.5 2 0 005 0" /></svg>
+  )
+}
+
 function uid() { return Math.random().toString(36).slice(2) + Date.now().toString(36) }
 function today() { return new Date().toISOString().split('T')[0] }
 function fmt(n: number) { return '$' + Math.round(n).toLocaleString('es-CL') }
@@ -305,7 +322,7 @@ export function POSTab() {
                           : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300',
                       ].join(' ')}
                     >
-                      <span className="block text-lg mb-0.5">{m.icon}</span>
+                      <span className="block mb-1"><IconoMetodo id={m.id} /></span>
                       {m.label}
                     </button>
                   ))}

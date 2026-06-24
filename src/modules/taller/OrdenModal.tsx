@@ -744,7 +744,12 @@ export function OrdenModal({ orden, ordenes, onClose }: Props) {
                   <label className="flex items-center gap-2.5 py-1.5 cursor-pointer hover:bg-white rounded-lg px-2 transition">
                     <input type="checkbox" checked={checkMojado} onChange={(e) => setCheckMojado(e.target.checked)}
                       className="w-4 h-4 rounded border-gray-300 text-blue-500 focus:ring-blue-400" />
-                    <span className="text-sm font-medium text-blue-600">💧 Llega mojado</span>
+                    <span className="text-sm font-medium text-blue-600 flex items-center gap-1.5">
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 2.5s6 6.5 6 10.5a6 6 0 11-12 0c0-4 6-10.5 6-10.5z" />
+                      </svg>
+                      Llega mojado
+                    </span>
                   </label>
                 </div>
               )}
