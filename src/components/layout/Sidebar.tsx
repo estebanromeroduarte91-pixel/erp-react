@@ -128,19 +128,32 @@ const ADMIN_ITEMS: SectionItem[] = [
   },
 ]
 
-function isSubActive(to: string, pathname: string, search: string): boolean {
-  const [path, qs] = to.split('?')
-  if (pathname !== path) return false
+// Devuelve el índice del subitem que mejor coincide con la ruta actual, o -1.
+// "Mejor" = mismo pathname y todos sus query params coinciden; gana el más
+// específico (más params), de modo que solo un hermano queda activo aunque
+// compartan pathname (ej. /compras vs /compras?section=kits).
+function subActivoIndex(subs: SubItem[], pathname: string, search: string): number {
   const current = new URLSearchParams(search)
-  if (!qs) return !current.has('tab')
-  const linkTab = new URLSearchParams(qs).get('tab')
-  return linkTab ? current.get('tab') === linkTab : true
+  let best = -1
+  let bestScore = -1
+  subs.forEach((s, i) => {
+    const [path, qs] = s.to.split('?')
+    if (pathname !== path) return
+    const linkParams = new URLSearchParams(qs || '')
+    for (const [k, v] of linkParams) {
+      if (current.get(k) !== v) return // un param del link no coincide → descartado
+    }
+    const score = [...linkParams].length
+    if (score > bestScore) { bestScore = score; best = i }
+  })
+  return best
 }
 
 // ── Componente grupo expandible ────────────────────────────────
 function NavGroupItem({ item, open, onToggle }: { item: NavGroup; open: boolean; onToggle: () => void }) {
   const location = useLocation()
-  const isParentActive = item.sub.some(s => location.pathname === s.to.split('?')[0])
+  const activeIdx = subActivoIndex(item.sub, location.pathname, location.search)
+  const isParentActive = activeIdx !== -1
 
   return (
     <>
@@ -169,8 +182,8 @@ function NavGroupItem({ item, open, onToggle }: { item: NavGroup; open: boolean;
       </button>
 
       <div style={{ overflow: 'hidden', maxHeight: open ? 500 : 0, transition: 'max-height .25s ease' }}>
-        {item.sub.map(s => {
-          const active = isSubActive(s.to, location.pathname, location.search)
+        {item.sub.map((s, idx) => {
+          const active = idx === activeIdx
           return (
             <Link
               key={s.to}
