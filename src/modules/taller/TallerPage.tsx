@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { useOrdenes, useTraslados } from '@/lib/queries'
+import { useOrdenes, useTraslados, useGuardarOrden } from '@/lib/queries'
 import { EstadoBadge } from '@/components/shared/Badge'
 import { Money } from '@/components/shared/Money'
 import { Spinner } from '@/components/shared/Spinner'
@@ -78,12 +78,15 @@ export function TallerPage() {
 
   const { data: ordenes, isLoading, error } = useOrdenes()
   const { data: traslados } = useTraslados()
+  const guardarOrden = useGuardarOrden()
   const [configTab, setConfigTab] = useState<TallerConfigTab>('seguimiento')
   const [filtroEstado, setFiltroEstado] = useState<EstadoOrden | 'todos' | 'Derivado'>('todos')
   const [busqueda, setBusqueda] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [editando, setEditando] = useState<Orden | null>(null)
   const [detalleNum, setDetalleNum] = useState<string | null>(null)
+  const [ordenAEliminar, setOrdenAEliminar] = useState<Orden | null>(null)
+  const [eliminando, setEliminando] = useState(false)
 
   // IDs de órdenes con traslados activos (no retornados)
   const derivadoIds = useMemo(
@@ -133,6 +136,14 @@ export function TallerPage() {
   function abrirEditar(o: Orden) {
     setEditando(o)
     setModalOpen(true)
+  }
+
+  async function confirmarEliminar() {
+    if (!ordenAEliminar) return
+    setEliminando(true)
+    await guardarOrden.mutateAsync((ordenes ?? []).filter((o) => o.id !== ordenAEliminar.id))
+    setEliminando(false)
+    setOrdenAEliminar(null)
   }
 
   if (isLoading) {
@@ -343,7 +354,7 @@ export function TallerPage() {
                         onClick={() => setDetalleNum(o.num)}
                         className={`${rowTint} hover:bg-blue-50/40 transition-colors cursor-pointer`}
                       >
-                        <td className="px-4 py-3 font-mono font-semibold text-gray-700">#{o.num}</td>
+                        <td className="px-4 py-3 font-semibold text-gray-700">#{o.num}</td>
                         <td className="px-4 py-3 whitespace-nowrap">
                           <span className="text-gray-500">{fmtFecha(o.fecha)}</span>
                           <span className={`ml-2 inline-block text-[11px] font-semibold rounded-full px-2 py-0.5 ${ageChip}`}>
@@ -368,12 +379,21 @@ export function TallerPage() {
                         <td className="px-4 py-3 text-right font-semibold text-gray-800">
                           <Money value={totalOrden(o)} />
                         </td>
-                        <td className="px-4 py-3 text-right">
+                        <td className="px-4 py-3 text-right whitespace-nowrap">
                           <button
                             onClick={(e) => { e.stopPropagation(); abrirEditar(o) }}
                             className="text-xs text-blue-600 hover:underline font-medium"
                           >
                             Editar
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setOrdenAEliminar(o) }}
+                            title="Eliminar orden"
+                            className="ml-3 text-gray-300 hover:text-red-500 transition-colors align-middle"
+                          >
+                            <svg className="w-4 h-4 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
                           </button>
                         </td>
                       </tr>
@@ -397,6 +417,36 @@ export function TallerPage() {
         {/* Modal detalle orden */}
         {detalleNum && (
           <OrdenDetallePage num={detalleNum} onClose={() => setDetalleNum(null)} />
+        )}
+
+        {/* Confirmación eliminar orden */}
+        {ordenAEliminar && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4"
+            onClick={(e) => { if (e.target === e.currentTarget && !eliminando) setOrdenAEliminar(null) }}>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-5">
+              <div className="flex gap-3 items-start">
+                <div className="w-9 h-9 rounded-full bg-red-50 flex items-center justify-center flex-shrink-0">
+                  <svg className="w-5 h-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-sm font-semibold text-gray-900">¿Eliminar orden #{ordenAEliminar.num}?</h3>
+                  <p className="text-xs text-gray-500 mt-1">Esta acción no se puede deshacer.</p>
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 mt-5">
+                <button onClick={() => setOrdenAEliminar(null)} disabled={eliminando}
+                  className="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-100 transition disabled:opacity-60">
+                  Cancelar
+                </button>
+                <button onClick={confirmarEliminar} disabled={eliminando}
+                  className="px-4 py-2 text-sm font-semibold text-white bg-red-500 rounded-lg hover:bg-red-600 transition disabled:opacity-60">
+                  {eliminando ? 'Eliminando…' : 'Eliminar'}
+                </button>
+              </div>
+            </div>
+          </div>
         )}
 
       </>)}
