@@ -5,7 +5,9 @@ import {
   useOCs, useGuardarOCs, useOCLog, useGuardarOCLog,
   useIncrementarContadorOC, useProductos, useBodegas,
   useProveedores, useGuardarProductos,
+  usePlanCuentas, useAsientos, useGuardarAsientos,
 } from '@/lib/queries'
+import { asientoDeOC, asientoIdDeOC, nextNumeroAsiento } from '@/lib/contabilidad'
 import type { OC, OCItem, OCRecepcion, OCLogEntry, EstadoOC, Producto, Bodega, Proveedor } from '@/types'
 
 // ─── Helpers ──────────────────────────────────────────────────
@@ -512,9 +514,9 @@ function ModalConfirmarOC({
   const totalIva = Math.round((oc.total ?? 0) * 1.19)
 
   const METODOS = [
-    { id: 'banco' as const, icon: '🏦', label: 'Banco', desc: 'Se registrará el pago contra cuenta Banco (120)' },
-    { id: 'caja' as const, icon: '💵', label: 'Caja / Efectivo', desc: 'Se registrará el pago contra cuenta Caja (110)' },
-    { id: 'credito' as const, icon: '📋', label: 'A crédito', desc: 'Sin asiento de pago — queda en Cuentas por Pagar' },
+    { id: 'banco' as const, label: 'Transferencia', desc: 'Se registrará el pago contra cuenta Banco (120)' },
+    { id: 'caja' as const, label: 'Efectivo', desc: 'Se registrará el pago contra cuenta Caja (110)' },
+    { id: 'credito' as const, label: 'A crédito', desc: 'Sin asiento de pago — queda en Cuentas por Pagar' },
   ]
 
   return (
@@ -549,7 +551,7 @@ function ModalConfirmarOC({
                     background: metodo === m.id ? 'var(--primary-light)' : '#fff',
                     color: metodo === m.id ? 'var(--primary)' : 'var(--gray-600)',
                   }}>
-                  {m.icon}<br />{m.label}
+                  {m.label}
                 </button>
               ))}
             </div>
@@ -559,13 +561,13 @@ function ModalConfirmarOC({
         <div style={{ padding: '14px 24px', borderTop: '1px solid var(--gray-100)', display: 'flex', justifyContent: 'space-between' }}>
           <button onClick={() => onConfirm('SIN FACTURA', metodo)}
             style={{ padding: '9px 16px', border: '1.5px solid var(--gray-300)', borderRadius: 8, background: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
-            📄 Sin factura
+            Sin factura
           </button>
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={onClose} style={{ padding: '9px 16px', border: '1.5px solid var(--gray-300)', borderRadius: 8, background: '#fff', cursor: 'pointer', fontWeight: 600 }}>Cancelar</button>
             <button onClick={() => { if (!folio.trim()) return alert('Ingresa el folio o usa "Sin factura"'); onConfirm(folio.trim(), metodo) }}
               style={{ padding: '9px 20px', background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}>
-              ✅ Confirmar y pagar
+              Confirmar y pagar
             </button>
           </div>
         </div>
@@ -806,6 +808,9 @@ export function ComprasPage() {
   const guardarOCLog = useGuardarOCLog()
   const incrementarContador = useIncrementarContadorOC()
   const guardarProductos = useGuardarProductos()
+  const { data: planCuentas } = usePlanCuentas()
+  const { data: asientos } = useAsientos()
+  const guardarAsientos = useGuardarAsientos()
 
   // Recalculate dynamic estado
   const ocs: OC[] = rawOcs.map(o => {
@@ -892,10 +897,15 @@ export function ComprasPage() {
   }
 
   async function handleConfirmar(ocId: string, folio: string, metodoPago: string) {
-    const updated = ocs.map(o =>
-      o.id === ocId ? { ...o, estado: 'confirmada' as EstadoOC, folio_factura: folio, metodo_pago: metodoPago, fecha_confirmacion: today() } : o
-    )
+    const ocConfirmada = { ...(ocs.find(o => o.id === ocId)!), estado: 'confirmada' as EstadoOC, folio_factura: folio, metodo_pago: metodoPago, fecha_confirmacion: today() }
+    const updated = ocs.map(o => o.id === ocId ? ocConfirmada : o)
     await guardarOCs.mutateAsync(updated)
+    // Genera el asiento contable de la compra (con/sin IVA según haya factura)
+    const sinFactura = !folio.trim() || folio.trim().toUpperCase() === 'SIN FACTURA'
+    const listaAs = asientos ?? []
+    const existente = listaAs.find(a => a.id === asientoIdDeOC(ocId))
+    const asiento = asientoDeOC(ocConfirmada, metodoPago, sinFactura, planCuentas ?? [], existente?.numero ?? nextNumeroAsiento(listaAs))
+    await guardarAsientos.mutateAsync(existente ? listaAs.map(a => a.id === asiento.id ? asiento : a) : [...listaAs, asiento])
     setModal({ type: 'none' })
     showToast('OC confirmada ✅')
   }
@@ -904,6 +914,11 @@ export function ComprasPage() {
     const oc = ocs.find(o => o.id === ocId)
     if (!oc || !confirm(`¿Cancelar la OC ${oc.numero}? Esta acción no se puede deshacer.`)) return
     await guardarOCs.mutateAsync(ocs.map(o => o.id === ocId ? { ...o, estado: 'cancelada' as EstadoOC } : o))
+    // Elimina el asiento contable asociado (si la OC estaba confirmada)
+    const idAs = asientoIdDeOC(ocId)
+    if ((asientos ?? []).some(a => a.id === idAs)) {
+      await guardarAsientos.mutateAsync((asientos ?? []).filter(a => a.id !== idAs))
+    }
     setModal({ type: 'none' })
     showToast(`OC ${oc.numero} cancelada`)
   }
