@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { NavLink, Link, useLocation } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 
 // ── Tipos ─────────────────────────────────────────────────────
@@ -132,7 +132,7 @@ const ADMIN_ITEMS: SectionItem[] = [
 // "Mejor" = mismo pathname y todos sus query params coinciden; gana el más
 // específico (más params), de modo que solo un hermano queda activo aunque
 // compartan pathname (ej. /compras vs /compras?section=kits).
-function subActivoIndex(subs: SubItem[], pathname: string, search: string): number {
+function subActivoIndex(subs: { to: string }[], pathname: string, search: string): number {
   const current = new URLSearchParams(search)
   let best = -1
   let bestScore = -1
@@ -208,6 +208,27 @@ function NavGroupItem({ item, open, onToggle }: { item: NavGroup; open: boolean;
   )
 }
 
+// ── Item simple (no grupo). active se calcula afuera para que solo uno
+//    quede resaltado cuando varios comparten pathname (ej. /config…) ──
+function SingleLink({ item, active }: { item: NavSingle; active: boolean }) {
+  return (
+    <Link to={item.to}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 10,
+        padding: '8px 12px', cursor: 'pointer',
+        color: active ? 'var(--primary-dark)' : 'var(--gray-600)',
+        backgroundColor: active ? 'var(--primary-light)' : 'transparent',
+        borderRadius: 8, margin: '1px 6px',
+        fontSize: 13.5, fontWeight: active ? 700 : 600,
+        transition: 'all .15s', textDecoration: 'none',
+      }}
+    >
+      <span style={{ color: 'var(--gray-400)', width: 20, display: 'flex', flexShrink: 0 }}>{item.icon}</span>
+      {item.label}
+    </Link>
+  )
+}
+
 // ── Sidebar ────────────────────────────────────────────────────
 export function Sidebar() {
   const { nombre, rol, empresaNombre } = useAuth()
@@ -218,6 +239,12 @@ export function Sidebar() {
   const allGroups = [...OP_ITEMS, ...ADMIN_ITEMS].filter(si => si.type === 'group').map(si => si.item as NavGroup)
   const activeGroupId = allGroups.find(g => g.sub.some(s => location.pathname === s.to.split('?')[0]))?.id ?? null
   const [openGroupId, setOpenGroupId] = useState<string | null>(activeGroupId)
+
+  // El item single activo: mejor coincidencia entre todos los que comparten pathname
+  // (ej. /config, /config?tab=accesos y /config?tab=cargos), para no resaltar varios a la vez.
+  const allSingles = [...OP_ITEMS, ...ADMIN_ITEMS].filter(si => si.type === 'single').map(si => si.item as NavSingle)
+  const activeSingleIdx = subActivoIndex(allSingles, location.pathname, location.search)
+  const activeSingleTo = activeSingleIdx >= 0 ? allSingles[activeSingleIdx].to : null
 
   function toggleGroup(id: string) {
     setOpenGroupId(prev => prev === id ? null : id)
@@ -258,20 +285,7 @@ export function Sidebar() {
         </div>
         {OP_ITEMS.map((si, i) =>
           si.type === 'single' ? (
-            <NavLink key={i} to={si.item.to} end
-              style={({ isActive }) => ({
-                display: 'flex', alignItems: 'center', gap: 10,
-                padding: '8px 12px', cursor: 'pointer',
-                color: isActive ? 'var(--primary-dark)' : 'var(--gray-600)',
-                backgroundColor: isActive ? 'var(--primary-light)' : 'transparent',
-                borderRadius: 8, margin: '1px 6px',
-                fontSize: 13.5, fontWeight: isActive ? 700 : 600,
-                transition: 'all .15s', textDecoration: 'none',
-              })}
-            >
-              <span style={{ color: 'var(--gray-400)', width: 20, display: 'flex', flexShrink: 0 }}>{si.item.icon}</span>
-              {si.item.label}
-            </NavLink>
+            <SingleLink key={i} item={si.item} active={si.item.to === activeSingleTo} />
           ) : (
             <NavGroupItem key={i} item={si.item} open={openGroupId === si.item.id} onToggle={() => toggleGroup(si.item.id)} />
           )
@@ -283,20 +297,7 @@ export function Sidebar() {
         </div>
         {ADMIN_ITEMS.map((si, i) =>
           si.type === 'single' ? (
-            <NavLink key={i} to={si.item.to} end
-              style={({ isActive }) => ({
-                display: 'flex', alignItems: 'center', gap: 10,
-                padding: '8px 12px', cursor: 'pointer',
-                color: isActive ? 'var(--primary-dark)' : 'var(--gray-600)',
-                backgroundColor: isActive ? 'var(--primary-light)' : 'transparent',
-                borderRadius: 8, margin: '1px 6px',
-                fontSize: 13.5, fontWeight: isActive ? 700 : 600,
-                transition: 'all .15s', textDecoration: 'none',
-              })}
-            >
-              <span style={{ color: 'var(--gray-400)', width: 20, display: 'flex', flexShrink: 0 }}>{si.item.icon}</span>
-              {si.item.label}
-            </NavLink>
+            <SingleLink key={i} item={si.item} active={si.item.to === activeSingleTo} />
           ) : (
             <NavGroupItem key={i} item={si.item} open={openGroupId === si.item.id} onToggle={() => toggleGroup(si.item.id)} />
           )
