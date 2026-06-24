@@ -3,13 +3,15 @@ import { useSearchParams } from 'react-router-dom'
 import { GastosTab } from './GastosTab'
 import { LibroDiarioTab } from './LibroDiarioTab'
 import { EstadoResultadosTab } from './EstadoResultadosTab'
+import { CategoriasContablesTab } from './CategoriasContablesTab'
 
-type Tab = 'gastos' | 'diario' | 'er'
+type Tab = 'gastos' | 'diario' | 'er' | 'categorias'
 
 // sidebar usa ?tab=libro para el Libro Diario
 function resolveTab(param: string | null): Tab {
   if (param === 'libro' || param === 'diario') return 'diario'
   if (param === 'er') return 'er'
+  if (param === 'categorias') return 'categorias'
   return 'gastos'
 }
 
@@ -25,6 +27,7 @@ export function ContabilidadPage() {
     { key: 'gastos', label: 'Gastos' },
     { key: 'diario', label: 'Libro Diario' },
     { key: 'er',     label: 'Estado de Resultados' },
+    { key: 'categorias', label: 'Categorías' },
   ]
 
   return (
@@ -48,6 +51,7 @@ export function ContabilidadPage() {
       {tab === 'gastos' && <GastosTab />}
       {tab === 'diario' && <LibroDiarioTab />}
       {tab === 'er'     && <EstadoResultadosTab />}
+      {tab === 'categorias' && <CategoriasContablesTab />}
     </div>
   )
 }
