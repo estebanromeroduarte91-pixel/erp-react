@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
-import { useGastos, useGuardarGastos, useGastoCats } from '@/lib/queries'
+import { useGastos, useGuardarGastos, useGastoCats, usePlanCuentas, useCatCuentaMap, useAsientos, useGuardarAsientos } from '@/lib/queries'
+import { asientoDeGasto, asientoIdDeGasto, nextNumeroAsiento } from '@/lib/contabilidad'
 import { Spinner } from '@/components/shared/Spinner'
 import type { Gasto, GastoCat } from '@/types'
 
@@ -21,6 +22,27 @@ export function GastosTab() {
   const { data: gastos, isLoading } = useGastos()
   const { data: cats } = useGastoCats()
   const guardar = useGuardarGastos()
+  const { data: planCuentas } = usePlanCuentas()
+  const { data: catCuentaMap } = useCatCuentaMap()
+  const { data: asientos } = useAsientos()
+  const guardarAsientos = useGuardarAsientos()
+
+  // Mantiene el asiento de partida doble de cada gasto en sincronía (crear/editar).
+  async function sincronizarAsiento(gasto: Gasto) {
+    const lista = asientos ?? []
+    const existente = lista.find((a) => a.id === asientoIdDeGasto(gasto.id))
+    const numero = existente?.numero ?? nextNumeroAsiento(lista)
+    const asiento = asientoDeGasto(gasto, planCuentas ?? [], catCuentaMap ?? {}, numero)
+    const actualizada = existente
+      ? lista.map((a) => (a.id === asiento.id ? asiento : a))
+      : [...lista, asiento]
+    await guardarAsientos.mutateAsync(actualizada)
+  }
+
+  async function eliminarAsiento(gastoId: string) {
+    const id = asientoIdDeGasto(gastoId)
+    await guardarAsientos.mutateAsync((asientos ?? []).filter((a) => a.id !== id))
+  }
 
   const [busqueda, setBusqueda] = useState('')
   const [filtroCat, setFiltroCat] = useState<string | null>(null)
@@ -63,6 +85,7 @@ export function GastosTab() {
   async function eliminar(g: Gasto) {
     if (!confirm(`¿Eliminar "${g.descripcion}"?`)) return
     await guardar.mutateAsync((gastos ?? []).filter(x => x.id !== g.id))
+    await eliminarAsiento(g.id)
   }
 
   function abrirNuevo() { setEditando(null); setModalOpen(true) }
@@ -186,11 +209,13 @@ export function GastosTab() {
           onClose={() => setModalOpen(false)}
           onGuardar={async (g) => {
             const lista2 = gastos ?? []
+            const guardado = g.id ? g : { ...g, id: uid() }
             if (g.id) {
-              await guardar.mutateAsync(lista2.map(x => x.id === g.id ? g : x))
+              await guardar.mutateAsync(lista2.map(x => x.id === g.id ? guardado : x))
             } else {
-              await guardar.mutateAsync([...lista2, { ...g, id: uid() }])
+              await guardar.mutateAsync([...lista2, guardado])
             }
+            await sincronizarAsiento(guardado)
           }}
         />
       )}

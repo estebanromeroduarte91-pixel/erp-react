@@ -1,7 +1,11 @@
 import { useState, useMemo } from 'react'
-import { useTraslados, useGuardarTraslados, useTecnicosExternos, useGuardarTecnicosExternos, useOrdenes } from '@/lib/queries'
+import { useTraslados, useGuardarTraslados, useTecnicosExternos, useGuardarTecnicosExternos, useOrdenes, useGuardarOrden, useGastos, useGuardarGastos, usePlanCuentas, useCatCuentaMap, useAsientos, useGuardarAsientos } from '@/lib/queries'
+import { asientoDeGasto, nextNumeroAsiento } from '@/lib/contabilidad'
 import { Spinner } from '@/components/shared/Spinner'
-import type { Traslado, EstadoTraslado, TecnicoExterno } from '@/types'
+import type { Traslado, EstadoTraslado, TecnicoExterno, EstadoOrden } from '@/types'
+
+const PIPELINE_ORDEN: EstadoOrden[] = ['Chequeo', 'Reparación', 'Listo', 'Entregado']
+function uid() { return Math.random().toString(36).slice(2) + Date.now().toString(36) }
 
 const ESTADO_LABEL: Record<EstadoTraslado, string> = {
   'enviado':      'Enviado',
@@ -68,6 +72,64 @@ export function TrasladosTab() {
   const { data: tecnicos } = useTecnicosExternos()
   const guardarTecnicos = useGuardarTecnicosExternos()
   const { data: ordenes } = useOrdenes()
+  const guardarOrden = useGuardarOrden()
+  const { data: gastos } = useGastos()
+  const guardarGastos = useGuardarGastos()
+  const { data: planCuentas } = usePlanCuentas()
+  const { data: catCuentaMap } = useCatCuentaMap()
+  const { data: asientos } = useAsientos()
+  const guardarAsientos = useGuardarAsientos()
+
+  // Diálogo "Confirmar retorno"
+  const [retorno, setRetorno] = useState<Traslado | null>(null)
+  const [retEstadoOrden, setRetEstadoOrden] = useState(true)
+  const [retNuevoEstado, setRetNuevoEstado] = useState<EstadoOrden>('Reparación')
+  const [retRegistrarPago, setRetRegistrarPago] = useState(true)
+  const [retMonto, setRetMonto] = useState('')
+  const [retMetodo, setRetMetodo] = useState('Efectivo')
+  const [retGuardando, setRetGuardando] = useState(false)
+
+  function abrirRetorno(t: Traslado) {
+    setRetorno(t)
+    setRetEstadoOrden(!!t.order_id)
+    setRetNuevoEstado('Reparación')
+    setRetRegistrarPago(!!t.precio_acordado)
+    setRetMonto(t.precio_acordado ? String(t.precio_acordado) : '')
+    setRetMetodo('Efectivo')
+  }
+
+  async function confirmarRetorno() {
+    if (!retorno) return
+    setRetGuardando(true)
+    const hoy = new Date().toISOString().split('T')[0]
+    // 1. Marca el traslado como retornado con su fecha real
+    await guardar.mutateAsync(all.map((t) =>
+      t.id === retorno.id ? { ...t, estado: 'retornado' as EstadoTraslado, fecha_retorno_real: hoy } : t,
+    ))
+    // 2. Reactiva la orden asociada en el estado elegido
+    if (retEstadoOrden && retorno.order_id) {
+      await guardarOrden.mutateAsync((ordenes ?? []).map((o) =>
+        o.id === retorno.order_id ? { ...o, status: retNuevoEstado } : o,
+      ))
+    }
+    // 3. Registra el pago al técnico como gasto + asiento contable de partida doble
+    if (retRegistrarPago && Number(retMonto) > 0) {
+      const ordNum = ordenes?.find((o) => o.id === retorno.order_id)?.num
+      const gasto = {
+        id: uid(),
+        fecha: hoy,
+        descripcion: `Técnico externo — ${retorno.tecnico}${ordNum ? ` (Orden #${ordNum})` : ''}`,
+        monto: Number(retMonto),
+        categoria: 'Servicios Tercerizados',
+        metodo: retMetodo,
+      }
+      await guardarGastos.mutateAsync([...(gastos ?? []), gasto])
+      const asiento = asientoDeGasto(gasto, planCuentas ?? [], catCuentaMap ?? {}, nextNumeroAsiento(asientos ?? []))
+      await guardarAsientos.mutateAsync([...(asientos ?? []), asiento])
+    }
+    setRetGuardando(false)
+    setRetorno(null)
+  }
 
   const [busqueda, setBusqueda] = useState('')
   const [showHistorial, setShowHistorial] = useState(false)
@@ -294,7 +356,11 @@ export function TrasladosTab() {
                     <td className="px-4 py-3">
                       <select
                         value={t.estado}
-                        onChange={(e) => cambiarEstado(t.id, e.target.value as EstadoTraslado)}
+                        onChange={(e) => {
+                          const nuevo = e.target.value as EstadoTraslado
+                          if (nuevo === 'retornado') abrirRetorno(t)
+                          else cambiarEstado(t.id, nuevo)
+                        }}
                         onClick={(e) => e.stopPropagation()}
                         className={`text-xs font-semibold border rounded-lg px-2 py-1 cursor-pointer ${ESTADO_COLORS[t.estado] ?? ''}`}
                       >
@@ -389,6 +455,97 @@ export function TrasladosTab() {
           onEliminar={eliminarTecnico}
           onClose={() => setShowTecnicos(false)}
         />
+      )}
+
+      {/* Confirmar retorno: reactiva la orden y registra el pago al técnico en contabilidad */}
+      {retorno && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4"
+          onClick={(e) => { if (e.target === e.currentTarget && !retGuardando) setRetorno(null) }}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-100">
+              <div className="w-9 h-9 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0">
+                <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 7l9 6 9-6M3 7v10a2 2 0 002 2h14a2 2 0 002-2V7M3 7l9-4 9 4" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-gray-900">Confirmar retorno</h3>
+                <p className="text-xs text-gray-400 mt-0.5">{retorno.equipo} · Técnico: {retorno.tecnico || '—'}</p>
+              </div>
+            </div>
+
+            <div className="px-5 py-4 space-y-4 overflow-y-auto">
+              {/* Actualizar estado de la orden */}
+              {retorno.order_id && (
+                <div className="border border-gray-200 rounded-xl p-3.5">
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input type="checkbox" checked={retEstadoOrden} onChange={(e) => setRetEstadoOrden(e.target.checked)}
+                      className="mt-0.5 w-4 h-4 accent-blue-600" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-gray-800">Actualizar estado de la orden
+                        {ordenes?.find(o => o.id === retorno.order_id)?.num && (
+                          <span className="text-blue-600"> #{ordenes.find(o => o.id === retorno.order_id)!.num}</span>
+                        )}
+                      </p>
+                      <p className="text-xs text-gray-400 mt-0.5">La reactiva en el taller</p>
+                    </div>
+                  </label>
+                  {retEstadoOrden && (
+                    <select value={retNuevoEstado} onChange={(e) => setRetNuevoEstado(e.target.value as EstadoOrden)}
+                      className="mt-2.5 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
+                      {PIPELINE_ORDEN.map((s) => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  )}
+                </div>
+              )}
+
+              {/* Registrar pago al técnico */}
+              <div className="border border-gray-200 rounded-xl p-3.5">
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input type="checkbox" checked={retRegistrarPago} onChange={(e) => setRetRegistrarPago(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 accent-blue-600" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-gray-800">Registrar pago al técnico</p>
+                    <p className="text-xs text-gray-400 mt-0.5">Crea el gasto y su asiento contable</p>
+                  </div>
+                </label>
+                {retRegistrarPago && (
+                  <div className="mt-2.5 grid grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="text-xs font-medium text-gray-500 mb-1 block">Monto</label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
+                        <input type="number" value={retMonto} onChange={(e) => setRetMonto(e.target.value)} placeholder="0"
+                          className="w-full border border-gray-200 rounded-lg pl-7 pr-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-gray-500 mb-1 block">Forma de pago</label>
+                      <select value={retMetodo} onChange={(e) => setRetMetodo(e.target.value)}
+                        className="w-full border border-gray-200 rounded-lg px-2 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
+                        {['Efectivo', 'Transferencia', 'Tarjeta', 'Crédito', 'Cheque'].map((m) => <option key={m}>{m}</option>)}
+                      </select>
+                    </div>
+                    <p className="col-span-2 text-[11px] text-gray-400">
+                      Se registra como gasto «Servicios Tercerizados» a {retMetodo === 'Crédito' ? 'Cuentas por Pagar' : retMetodo === 'Efectivo' ? 'Caja' : 'Banco'}.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 px-5 py-3 border-t border-gray-100 bg-gray-50">
+              <button onClick={() => setRetorno(null)} disabled={retGuardando}
+                className="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-100 transition disabled:opacity-60">
+                Cancelar
+              </button>
+              <button onClick={confirmarRetorno} disabled={retGuardando}
+                className="px-5 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition disabled:opacity-60">
+                {retGuardando ? 'Guardando…' : 'Confirmar retorno'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

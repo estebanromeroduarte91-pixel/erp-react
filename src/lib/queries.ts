@@ -325,6 +325,7 @@ const DEFAULT_GASTO_CATS: GastoCat[] = [
   { id: 'cat-8',  nombre: 'Materiales',    color: '#14b8a6', icono: 'box' },
   { id: 'cat-9',  nombre: 'Administrativo',color: '#64748b', icono: 'folder' },
   { id: 'cat-10', nombre: 'Otros',         color: '#94a3b8', icono: 'grid' },
+  { id: 'cat-11', nombre: 'Servicios Tercerizados', color: '#0ea5e9', icono: 'wrench' },
 ]
 
 export function useGastos() {
@@ -393,6 +394,7 @@ const DEFAULT_PLAN_CUENTAS: CuentaContable[] = [
   { id: 'pc-550', codigo: '550', nombre: 'Transporte y Logística',        tipo: 'gasto',      grupo: 'Gastos Operacionales' },
   { id: 'pc-560', codigo: '560', nombre: 'Alimentación',                  tipo: 'gasto',      grupo: 'Gastos Operacionales' },
   { id: 'pc-570', codigo: '570', nombre: 'Mantenimiento',                 tipo: 'gasto',      grupo: 'Gastos Operacionales' },
+  { id: 'pc-575', codigo: '575', nombre: 'Servicios Tercerizados',        tipo: 'gasto',      grupo: 'Gastos Operacionales' },
   { id: 'pc-580', codigo: '580', nombre: 'Materiales y Suministros',      tipo: 'gasto',      grupo: 'Gastos Operacionales' },
   { id: 'pc-590', codigo: '590', nombre: 'Gastos Administrativos',        tipo: 'gasto',      grupo: 'Gastos Operacionales' },
   { id: 'pc-595', codigo: '595', nombre: 'Otros Gastos',                  tipo: 'gasto',      grupo: 'Gastos Operacionales' },
@@ -442,7 +444,8 @@ export function useCatCuentaMap() {
       const DEFAULT: Record<string, string> = {
         'Servicios': 'pc-510', 'RRHH': 'pc-520', 'Arriendo': 'pc-530',
         'Limpieza': 'pc-540', 'Logística': 'pc-550', 'Alimentación': 'pc-560',
-        'Mantenimiento': 'pc-570', 'Materiales': 'pc-580', 'Administrativo': 'pc-590', 'Otros': 'pc-595',
+        'Mantenimiento': 'pc-570', 'Servicios Tercerizados': 'pc-575',
+        'Materiales': 'pc-580', 'Administrativo': 'pc-590', 'Otros': 'pc-595',
       }
       return { ...DEFAULT, ...((data as Record<string, string> | null) ?? {}) }
     },
