@@ -5,6 +5,19 @@ import type { Bodega } from '@/types'
 
 function uid() { return Math.random().toString(36).slice(2) + Date.now().toString(36) }
 
+const DIAS: Record<string, string> = { lun: 'Lun', mar: 'Mar', mie: 'Mié', jue: 'Jue', vie: 'Vie', sab: 'Sáb', dom: 'Dom' }
+
+function formatHorario(h: unknown): string {
+  if (!h) return ''
+  if (typeof h === 'string') return h
+  const obj = h as { bloques?: Array<{ dias?: string[]; desde?: string; hasta?: string }> }
+  if (!Array.isArray(obj.bloques)) return ''
+  return obj.bloques.map(b => {
+    const dias = (b.dias ?? []).map(d => DIAS[d] ?? d).join('/')
+    return `${dias} ${b.desde ?? ''}–${b.hasta ?? ''}`
+  }).filter(Boolean).join(', ')
+}
+
 const EMPTY_FORM = { nombre: '', direccion: '', tel: '', email: '', horario: '' }
 
 export function BodegasTab() {
@@ -29,7 +42,7 @@ export function BodegasTab() {
         direccion: b.direccion ?? '',
         tel: b.tel ?? '',
         email: b.email ?? '',
-        horario: b.horario ?? '',
+        horario: formatHorario(b.horario),
       },
     })
   }
@@ -117,12 +130,12 @@ export function BodegasTab() {
                         {b.email}
                       </span>
                     )}
-                    {b.horario && (
+                    {formatHorario(b.horario) && (
                       <span className="text-xs text-gray-500 flex items-center gap-1">
                         <svg className="w-3 h-3 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
                         </svg>
-                        {b.horario}
+                        {formatHorario(b.horario)}
                       </span>
                     )}
                   </div>
