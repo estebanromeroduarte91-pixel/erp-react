@@ -1,6 +1,15 @@
 import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
+import { useQuery } from '@tanstack/react-query'
+import { dbGet } from '@/lib/db'
+
+// Permisos por defecto de los cargos del sistema (espejo del vanilla)
+const PERMISOS_DEFAULT: Record<string, Record<string, boolean>> = {
+  tecnico:   { dashboard: false, ventas: false, taller: true,  clientes: true,  inventario: false, compras: false, estadisticas: false },
+  vendedor:  { dashboard: false, ventas: true,  taller: false, clientes: true,  inventario: false, compras: false, estadisticas: false },
+  encargado: { dashboard: true,  ventas: true,  taller: true,  clientes: true,  inventario: true,  compras: false, estadisticas: true  },
+}
 
 // ── Tipos ─────────────────────────────────────────────────────
 interface SubItem { to: string; label: string; icon: React.ReactNode }
@@ -231,10 +240,68 @@ function SingleLink({ item, active }: { item: NavSingle; active: boolean }) {
 
 // ── Sidebar ────────────────────────────────────────────────────
 export function Sidebar() {
-  const { nombre, rol, empresaNombre } = useAuth()
+  const { nombre, rol, cargoId, empresaId, empresaNombre } = useAuth()
   const location = useLocation()
   const initials = nombre.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?'
   const rolLabel = rol === 'admin' ? 'Administrador' : rol === 'encargado' ? 'Encargado' : rol === 'tecnico' ? 'Técnico' : rol === 'vendedor' ? 'Vendedor' : rol
+
+  // Cargar cargos personalizados de la empresa para obtener permisos
+  const { data: cargos } = useQuery({
+    queryKey: ['cargos', empresaId],
+    queryFn: () => dbGet<{ id: string; permisos: Record<string, boolean> }[]>(empresaId!, 'cargos'),
+    enabled: !!empresaId && rol !== 'admin',
+    staleTime: 5 * 60 * 1000,
+  })
+
+  // Calcular permisos efectivos según rol y cargo
+  const permisos: Record<string, boolean> = (() => {
+    if (rol === 'admin') return {} // admin ve todo
+    const cargo = cargos?.find(c => c.id === cargoId)
+    return cargo?.permisos ?? PERMISOS_DEFAULT[cargoId ?? ''] ?? PERMISOS_DEFAULT.tecnico
+  })()
+
+  // Filtrar items de operación según permisos
+  const opItemsFiltrados = rol === 'admin' ? OP_ITEMS : OP_ITEMS.filter(si => {
+    if (si.type === 'single') return true // Dashboard se controla por permisos.dashboard
+    const id = (si.item as NavGroup).id
+    if (id === 'ventas') return permisos.ventas
+    if (id === 'taller') return permisos.taller
+    if (id === 'contactos') return permisos.clientes
+    if (id === 'inventario') return permisos.inventario
+    return true
+  }).filter(si => {
+    // Dashboard como single item
+    if (si.type === 'single' && (si.item as NavSingle).to === '/dashboard') return permisos.dashboard
+    return true
+  })
+
+  // Filtrar items de administración según rol
+  const adminItemsFiltrados = (() => {
+    if (rol === 'admin') return ADMIN_ITEMS
+    if (rol === 'encargado') {
+      // Encargado ve todo excepto Accesos y Cargos
+      return ADMIN_ITEMS.filter(si => {
+        if (si.type === 'single') {
+          const to = (si.item as NavSingle).to
+          if (to.includes('accesos') || to.includes('cargos')) return false
+        }
+        return true
+      })
+    }
+    // Otros roles: ocultar toda la sección Administración excepto lo que tenga permiso
+    return ADMIN_ITEMS.filter(si => {
+      if (si.type === 'single') {
+        const to = (si.item as NavSingle).to
+        if (to === '/estadisticas') return permisos.estadisticas
+        return false // accesos, cargos, config: ocultos
+      }
+      if (si.type === 'group') {
+        const id = (si.item as NavGroup).id
+        if (id === 'contabilidad') return permisos.compras
+      }
+      return false
+    })
+  })()
 
   const allGroups = [...OP_ITEMS, ...ADMIN_ITEMS].filter(si => si.type === 'group').map(si => si.item as NavGroup)
   const activeGroupId = allGroups.find(g => g.sub.some(s => location.pathname === s.to.split('?')[0]))?.id ?? null
@@ -283,23 +350,25 @@ export function Sidebar() {
         <div style={{ padding: '14px 12px 5px', fontSize: 10.5, fontWeight: 700, letterSpacing: '.09em', color: 'var(--gray-400)', textTransform: 'uppercase' }}>
           Operación
         </div>
-        {OP_ITEMS.map((si, i) =>
+        {opItemsFiltrados.map((si, i) =>
           si.type === 'single' ? (
-            <SingleLink key={i} item={si.item} active={si.item.to === activeSingleTo} />
+            <SingleLink key={i} item={si.item as NavSingle} active={(si.item as NavSingle).to === activeSingleTo} />
           ) : (
-            <NavGroupItem key={i} item={si.item} open={openGroupId === si.item.id} onToggle={() => toggleGroup(si.item.id)} />
+            <NavGroupItem key={i} item={si.item as NavGroup} open={openGroupId === (si.item as NavGroup).id} onToggle={() => toggleGroup((si.item as NavGroup).id)} />
           )
         )}
 
-        {/* Administración */}
-        <div style={{ padding: '14px 12px 5px', fontSize: 10.5, fontWeight: 700, letterSpacing: '.09em', color: 'var(--gray-400)', textTransform: 'uppercase' }}>
-          Administración
-        </div>
-        {ADMIN_ITEMS.map((si, i) =>
+        {/* Administración — solo si hay items visibles */}
+        {adminItemsFiltrados.length > 0 && (
+          <div style={{ padding: '14px 12px 5px', fontSize: 10.5, fontWeight: 700, letterSpacing: '.09em', color: 'var(--gray-400)', textTransform: 'uppercase' }}>
+            Administración
+          </div>
+        )}
+        {adminItemsFiltrados.map((si, i) =>
           si.type === 'single' ? (
-            <SingleLink key={i} item={si.item} active={si.item.to === activeSingleTo} />
+            <SingleLink key={i} item={si.item as NavSingle} active={(si.item as NavSingle).to === activeSingleTo} />
           ) : (
-            <NavGroupItem key={i} item={si.item} open={openGroupId === si.item.id} onToggle={() => toggleGroup(si.item.id)} />
+            <NavGroupItem key={i} item={si.item as NavGroup} open={openGroupId === (si.item as NavGroup).id} onToggle={() => toggleGroup((si.item as NavGroup).id)} />
           )
         )}
       </nav>
