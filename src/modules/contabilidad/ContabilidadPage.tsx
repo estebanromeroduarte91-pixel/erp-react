@@ -4,8 +4,9 @@ import { GastosTab } from './GastosTab'
 import { LibroDiarioTab } from './LibroDiarioTab'
 import { EstadoResultadosTab } from './EstadoResultadosTab'
 import { CategoriasContablesTab } from './CategoriasContablesTab'
+import { PlanCuentasTab } from './PlanCuentasTab'
 
-type Tab = 'gastos' | 'diario' | 'er' | 'categorias'
+type Tab = 'gastos' | 'diario' | 'er' | 'categorias' | 'plan'
 
 // sidebar usa ?tab=libro para el Libro Diario
 function resolveTab(param: string | null): Tab {
@@ -28,6 +29,7 @@ export function ContabilidadPage() {
     { key: 'diario', label: 'Libro Diario' },
     { key: 'er',     label: 'Estado de Resultados' },
     { key: 'categorias', label: 'Categorías' },
+    { key: 'plan',       label: 'Plan de cuentas' },
   ]
 
   return (
@@ -52,6 +54,7 @@ export function ContabilidadPage() {
       {tab === 'diario' && <LibroDiarioTab />}
       {tab === 'er'     && <EstadoResultadosTab />}
       {tab === 'categorias' && <CategoriasContablesTab />}
+      {tab === 'plan'       && <PlanCuentasTab />}
     </div>
   )
 }

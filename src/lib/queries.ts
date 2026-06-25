@@ -415,6 +415,15 @@ export function usePlanCuentas() {
   })
 }
 
+export function useGuardarPlanCuentas() {
+  const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (cuentas: CuentaContable[]) => dbSet(empresaId!, 'plan_cuentas', cuentas),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['plan_cuentas', empresaId] }),
+  })
+}
+
 export function useAsientos() {
   const { empresaId } = useAuth()
   return useQuery({
