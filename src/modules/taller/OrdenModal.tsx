@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useGuardarOrden, useClientes, useGuardarClientes, useProductos, useChecklist, useUserProfiles, useMsgTemplates, useSeguimientoConfig } from '@/lib/queries'
+import { useGuardarOrden, useClientes, useGuardarClientes, useProductos, useChecklist, useUserProfiles, useMsgTemplates, useSeguimientoConfig, useBodegas } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { dbGet } from '@/lib/db'
@@ -60,6 +60,7 @@ export function OrdenModal({ orden, ordenes, onClose }: Props) {
   const { data: usuarios = [] } = useUserProfiles()
   const { data: msgTemplates } = useMsgTemplates()
   const { data: segCfg } = useSeguimientoConfig()
+  const { data: bodegas = [] } = useBodegas()
   const usuariosActivos = usuarios.filter(u => u.activo)
 
   const [form, setForm] = useState<FormData>(() =>
@@ -413,15 +414,20 @@ export function OrdenModal({ orden, ordenes, onClose }: Props) {
         const num = draftId
           ? (nuevasOrdenes.find(o => o.id === draftId)?.num ?? '')
           : (nuevasOrdenes[0]?.num ?? '')
+        const ordenGuardada = nuevasOrdenes.find(o => o.num === num) ?? nuevasOrdenes[0]
+        const branchNombre = bodegas.find(b => b.id === ordenGuardada?.branchId)?.nombre ?? segCfg?.nombreTaller ?? ''
         const vars = {
           nombre: form.nombre,
           modelo: form.modelo,
-          orden: num,
-          sucursal: segCfg?.nombreTaller ?? '',
+          orden: String(num),
+          sucursal: branchNombre,
           horario: segCfg?.horario ?? '',
           fecha_estimada: form.fechaEstimada ?? '',
         }
-        const html = rellenarTemplate(tpl, vars).replace(/\n/g, '<br>')
+        // Convierte formato WhatsApp (*texto*) a HTML negrita y saltos de línea
+        const html = rellenarTemplate(tpl, vars)
+          .replace(/\*([^*]+)\*/g, '<b>$1</b>')
+          .replace(/\n/g, '<br>')
         void sendEmail(empresaId, form.email, `Ingreso de equipo #${num}`, html)
       }
     }
