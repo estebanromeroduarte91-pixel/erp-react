@@ -3,7 +3,7 @@ import { useGuardarOrden, useClientes, useGuardarClientes, useProductos, useChec
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { dbGet } from '@/lib/db'
-import { sendEmail } from '@/lib/email'
+import { sendEmail, buildEmailIngreso } from '@/lib/email'
 import { Money } from '@/components/shared/Money'
 import { EquipoSelector } from './EquipoSelector'
 import { PatternLockModal } from './PatternLockModal'
@@ -415,7 +415,8 @@ export function OrdenModal({ orden, ordenes, onClose }: Props) {
           ? (nuevasOrdenes.find(o => o.id === draftId)?.num ?? '')
           : (nuevasOrdenes[0]?.num ?? '')
         const ordenGuardada = nuevasOrdenes.find(o => o.num === num) ?? nuevasOrdenes[0]
-        const branchNombre = bodegas.find(b => b.id === ordenGuardada?.branchId)?.nombre ?? segCfg?.nombreTaller ?? ''
+        const branch = bodegas.find(b => b.id === ordenGuardada?.branchId)
+        const branchNombre = branch?.nombre ?? branch?.name ?? segCfg?.nombreTaller ?? ''
         const vars = {
           nombre: form.nombre,
           modelo: form.modelo,
@@ -424,11 +425,28 @@ export function OrdenModal({ orden, ordenes, onClose }: Props) {
           horario: segCfg?.horario ?? '',
           fecha_estimada: form.fechaEstimada ?? '',
         }
-        // Convierte formato WhatsApp (*texto*) a HTML negrita y saltos de línea
-        const html = rellenarTemplate(tpl, vars)
-          .replace(/\*([^*]+)\*/g, '<b>$1</b>')
-          .replace(/\n/g, '<br>')
-        void sendEmail(empresaId, form.email, `Ingreso de equipo #${num}`, html)
+        const msgTexto = rellenarTemplate(tpl, vars)
+        const html = buildEmailIngreso({
+          tallerNombre: segCfg?.nombreTaller ?? 'TallerPro',
+          logoUrl: segCfg?.logoUrl,
+          msgTexto,
+          orden: {
+            num: String(num),
+            modelo: form.modelo,
+            color: form.color,
+            serie: form.serie,
+            estadoFisico: form.estadoFisico,
+            trabajo: form.trabajo,
+            nombre: form.nombre,
+            rut: form.rut,
+            tel: form.tel,
+            email: form.email,
+          },
+          branchNombre,
+          branchDir: branch?.direccion,
+          fotos,
+        })
+        void sendEmail(empresaId, form.email, `Orden de trabajo #OT-${String(num).padStart(4, '0')}`, html)
       }
     }
 
