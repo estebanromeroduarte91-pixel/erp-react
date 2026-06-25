@@ -1,7 +1,8 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useGuardarOrden, useMsgTemplates, useSeguimientoConfig, useBodegas } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
-import { sendEmail, buildEmailListo, buildEmailInspeccion } from '@/lib/email'
+import { supabase } from '@/lib/supabase'
+import { sendEmail, buildEmailListo, buildEmailInspeccion, buildEmailAprobacion } from '@/lib/email'
 import { EstadoBadge } from '@/components/shared/Badge'
 import { Money } from '@/components/shared/Money'
 import { QrFotosModal } from './QrFotosModal'
@@ -42,6 +43,12 @@ export function OrdenDetalle({ orden: o, ordenes, onClose, onEditar }: Props) {
   const [enviandoEmail, setEnviandoEmail] = useState(false)
   const [emailOk, setEmailOk] = useState(false)
 
+  // Aprobación
+  const [showAprobacion, setShowAprobacion] = useState(false)
+  const [enviandoAprob, setEnviandoAprob] = useState(false)
+  const [aprobMsgEmail, setAprobMsgEmail] = useState('')
+  const [aprobMsgWa, setAprobMsgWa] = useState('')
+
   // Inspección
   const [showInspeccion, setShowInspeccion] = useState(false)
   const [inspecNotas, setInspecNotas] = useState(o.inspeccion?.notas ?? '')
@@ -52,6 +59,27 @@ export function OrdenDetalle({ orden: o, ordenes, onClose, onEditar }: Props) {
 
   const total = totalOrden(o)
   const pipelineIdx = PIPELINE.indexOf(o.status as EstadoOrden)
+
+  // Polling: detectar cuando el cliente aprueba/rechaza el presupuesto
+  useEffect(() => {
+    if (o.aprobacion_estado !== 'pendiente' || !o.aprobacion_token || !empresaId) return
+    const check = async () => {
+      const { data } = await supabase
+        .from('aprobaciones')
+        .select('estado, aprobado_en')
+        .eq('token', o.aprobacion_token!)
+        .neq('estado', 'pendiente')
+        .maybeSingle()
+      if (data) {
+        const actualizadas = ordenes.map(x => x.id === o.id
+          ? { ...x, aprobacion_estado: data.estado as 'aprobado' | 'rechazado', aprobacion_fecha: data.aprobado_en }
+          : x)
+        await guardar.mutateAsync(actualizadas)
+      }
+    }
+    const interval = setInterval(check, 15000)
+    return () => clearInterval(interval)
+  }, [o.aprobacion_estado, o.aprobacion_token, empresaId])
 
   const branch = bodegas.find(b => b.id === o.branchId)
   const branchNombre = branch?.nombre ?? branch?.name ?? segCfg?.nombreTaller ?? ''
@@ -113,6 +141,85 @@ export function OrdenDetalle({ orden: o, ordenes, onClose, onEditar }: Props) {
     if (!notifEstado?.waMsg || !o.tel) return
     const tel = o.tel.replace(/\D/g, '')
     window.open(`https://wa.me/${tel}?text=${encodeURIComponent(notifEstado.waMsg)}`, '_blank')
+  }
+
+  // Aprobación de presupuesto
+  const APROB_BASE_URL = 'https://estebanromeroduarte91-pixel.github.io/modulo-compras/aprobar.html'
+
+  function abrirModalAprobacion() {
+    const vars = buildVars(o.num)
+    const link = o.aprobacion_token && o.aprobacion_estado === 'pendiente'
+      ? `${APROB_BASE_URL}?t=${o.aprobacion_token}`
+      : '(se generará al enviar)'
+    const varsCon = { ...vars, link }
+    const tplWa = msgTemplates?.aprobacion_wa ?? ''
+    const tplEmail = msgTemplates?.aprobacion_email ?? ''
+    setAprobMsgWa(tplWa ? rellenarTemplate(tplWa, varsCon) : '')
+    setAprobMsgEmail(tplEmail ? rellenarTemplate(tplEmail, varsCon) : '')
+    setShowAprobacion(true)
+  }
+
+  async function enviarAprobacion(canal: 'email' | 'wa') {
+    if (!empresaId) return
+    setEnviandoAprob(true)
+
+    let token = o.aprobacion_token
+    if (!token || o.aprobacion_estado !== 'pendiente') {
+      token = crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '')
+      const trabajoData = JSON.stringify({
+        v: 2,
+        items: (o.repuestos ?? []).map(r => ({ name: r.name, qty: r.qty, precio: r.precio ?? 0 })),
+        trabajo: o.trabajo ?? '',
+        taller: segCfg?.nombreTaller ?? 'TallerPro',
+        sucursal: branchNombre,
+        horario: segCfg?.horario ?? '',
+        logoUrl: segCfg?.logoUrl ?? '',
+      })
+      const row = {
+        token,
+        orden_id: o.id,
+        empresa_id: empresaId,
+        orden_num: String(o.num ?? ''),
+        cliente: o.nombre ?? '',
+        equipo: o.modelo ?? '',
+        trabajo: trabajoData,
+        presupuesto: o.presup ?? 0,
+        estado: 'pendiente',
+      }
+      const { error } = await supabase.from('aprobaciones').insert(row)
+      if (error) { alert('Error al crear solicitud: ' + error.message); setEnviandoAprob(false); return }
+      const actualizadas = ordenes.map(x => x.id === o.id
+        ? { ...x, aprobacion_token: token, aprobacion_estado: 'pendiente' as const, aprobacion_enviado: new Date().toISOString().slice(0, 10) }
+        : x)
+      await guardar.mutateAsync(actualizadas)
+    }
+
+    const link = `${APROB_BASE_URL}?t=${token}`
+    if (canal === 'wa') {
+      const msg = aprobMsgWa.includes('(se generará al enviar)')
+        ? aprobMsgWa.replace('(se generará al enviar)', link)
+        : aprobMsgWa.replace(/\{\{link\}\}/g, link)
+      const tel = (o.tel ?? '').replace(/\D/g, '')
+      const telWa = tel.startsWith('56') ? tel : '56' + tel
+      window.open(`https://wa.me/${telWa}?text=${encodeURIComponent(msg)}`, '_blank')
+    } else {
+      const introTexto = aprobMsgEmail.split(/\n\n/)[0] ?? aprobMsgEmail
+      const items = o.repuestos ?? []
+      const html = buildEmailAprobacion({
+        tallerNombre: segCfg?.nombreTaller ?? 'TallerPro',
+        logoUrl: segCfg?.logoUrl,
+        introTexto,
+        orden: { num: o.num, modelo: o.modelo ?? '', nombre: o.nombre ?? '', trabajo: o.trabajo },
+        repuestos: items.length ? items : undefined,
+        presupuesto: o.presup != null ? Number(o.presup) : undefined,
+        link,
+      })
+      const asunto = `Aprobación de presupuesto — ${o.modelo ?? 'Equipo'} #OT-${String(o.num).padStart(4, '0')}`
+      if (o.email) await sendEmail(empresaId, o.email, asunto, html)
+    }
+
+    setEnviandoAprob(false)
+    setShowAprobacion(false)
   }
 
   // Inspección: fotos desde archivo
@@ -421,7 +528,27 @@ export function OrdenDetalle({ orden: o, ordenes, onClose, onEditar }: Props) {
           </div>
 
           {/* Footer */}
-          <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 rounded-b-2xl flex-shrink-0">
+          <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 rounded-b-2xl flex-shrink-0 space-y-2">
+            {/* Solicitar aprobación de presupuesto */}
+            {(o.presup || (o.repuestos && o.repuestos.length > 0)) && o.aprobacion_estado !== 'aprobado' && (
+              <button onClick={abrirModalAprobacion}
+                className={`w-full text-sm font-semibold py-2.5 rounded-xl border transition ${
+                  o.aprobacion_estado === 'pendiente'
+                    ? 'bg-amber-50 text-amber-700 border-amber-300 hover:bg-amber-100'
+                    : o.aprobacion_estado === 'rechazado'
+                    ? 'bg-red-50 text-red-700 border-red-300 hover:bg-red-100'
+                    : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                }`}>
+                {o.aprobacion_estado === 'pendiente' ? '⏳ Aprobación pendiente — Reenviar' :
+                 o.aprobacion_estado === 'rechazado' ? '❌ Rechazado — Reenviar solicitud' :
+                 '💬 Solicitar aprobación de presupuesto'}
+              </button>
+            )}
+            {o.aprobacion_estado === 'aprobado' && (
+              <div className="w-full text-center text-sm font-semibold py-2.5 rounded-xl bg-green-50 text-green-700 border border-green-200">
+                ✅ Presupuesto aprobado
+              </div>
+            )}
             <button onClick={() => onEditar(o)}
               className="w-full bg-blue-600 text-white text-sm font-semibold py-2.5 rounded-xl hover:bg-blue-700 transition">
               Editar orden
@@ -473,6 +600,66 @@ export function OrdenDetalle({ orden: o, ordenes, onClose, onEditar }: Props) {
               <button onClick={() => { setNotifEstado(null); onClose() }}
                 className="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-100 transition">
                 Cerrar sin notificar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal aprobación de presupuesto */}
+      {showAprobacion && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-100">
+              <h3 className="font-semibold text-gray-900">Solicitar aprobación</h3>
+              <p className="text-xs text-gray-400 mt-0.5">{o.nombre} · {o.modelo} · #{String(o.num).padStart(4, '0')}</p>
+            </div>
+            <div className="px-5 py-4 space-y-3">
+              {/* Presupuesto resumen */}
+              <div className="bg-gray-50 rounded-xl p-3 flex items-center justify-between">
+                <span className="text-sm text-gray-600">Presupuesto</span>
+                <span className="text-lg font-bold text-blue-600">
+                  ${(o.repuestos?.length
+                    ? o.repuestos.reduce((s, r) => s + (r.precio ?? 0) * (r.qty ?? 1), 0)
+                    : (o.presup ?? 0)).toLocaleString('es-CL')}
+                </span>
+              </div>
+              {/* WA */}
+              {o.tel && (
+                <button onClick={() => enviarAprobacion('wa')} disabled={enviandoAprob}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-green-50 border border-green-200 hover:bg-green-100 transition text-left disabled:opacity-60">
+                  <svg className="w-5 h-5 text-green-600 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+                  </svg>
+                  <div>
+                    <div className="text-sm font-semibold text-green-800">Enviar por WhatsApp</div>
+                    <div className="text-xs text-green-600">{o.tel}</div>
+                  </div>
+                </button>
+              )}
+              {/* Email */}
+              {o.email && (
+                <button onClick={() => enviarAprobacion('email')} disabled={enviandoAprob}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-blue-50 border border-blue-200 hover:bg-blue-100 transition text-left disabled:opacity-60">
+                  <svg className="w-5 h-5 text-blue-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                  <div>
+                    <div className="text-sm font-semibold text-blue-800">
+                      {enviandoAprob ? 'Enviando…' : 'Enviar por email'}
+                    </div>
+                    <div className="text-xs text-blue-600">{o.email}</div>
+                  </div>
+                </button>
+              )}
+              {!o.tel && !o.email && (
+                <p className="text-xs text-gray-400 text-center py-2">El cliente no tiene teléfono ni email registrado.</p>
+              )}
+            </div>
+            <div className="flex justify-end px-5 py-3 border-t border-gray-100 bg-gray-50">
+              <button onClick={() => setShowAprobacion(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-100 transition">
+                Cancelar
               </button>
             </div>
           </div>
