@@ -98,6 +98,9 @@ export interface Bodega {
   nombre?: string   // la mayoría usa "nombre", algunos "name"
   name?: string
   direccion?: string
+  tel?: string
+  email?: string
+  horario?: string
   activo?: boolean
 }
 

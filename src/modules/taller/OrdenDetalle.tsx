@@ -83,6 +83,10 @@ export function OrdenDetalle({ orden: o, ordenes, onClose, onEditar }: Props) {
 
   const branch = bodegas.find(b => b.id === o.branchId)
   const branchNombre = branch?.nombre ?? branch?.name ?? segCfg?.nombreTaller ?? ''
+  const branchHorario = branch?.horario ?? segCfg?.horario ?? ''
+  const branchDir = branch?.direccion ?? ''
+  const branchTel = branch?.tel ?? ''
+  const branchEmail = branch?.email ?? ''
 
   function buildVars(num: string | number) {
     return {
@@ -90,7 +94,7 @@ export function OrdenDetalle({ orden: o, ordenes, onClose, onEditar }: Props) {
       modelo: o.modelo ?? '',
       orden: String(num),
       sucursal: branchNombre,
-      horario: segCfg?.horario ?? '',
+      horario: branchHorario,
       presupuesto: String(o.presup ?? ''),
       trabajo: o.trabajo ?? '',
       link: '',
@@ -126,7 +130,7 @@ export function OrdenDetalle({ orden: o, ordenes, onClose, onEditar }: Props) {
       msgTexto: notifEstado.emailMsg,
       orden: { num: o.num, modelo: o.modelo ?? '', nombre: o.nombre ?? '' },
       branchNombre,
-      horario: segCfg?.horario,
+      horario: branchHorario,
     })
     const esListo = notifEstado.estado === 'Listo'
     const asunto = esListo
@@ -172,7 +176,10 @@ export function OrdenDetalle({ orden: o, ordenes, onClose, onEditar }: Props) {
         trabajo: o.trabajo ?? '',
         taller: segCfg?.nombreTaller ?? 'TallerPro',
         sucursal: branchNombre,
-        horario: segCfg?.horario ?? '',
+        horario: branchHorario,
+        tel: branchTel,
+        email: branchEmail,
+        dir: branchDir,
         logoUrl: segCfg?.logoUrl ?? '',
       })
       const row = {

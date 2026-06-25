@@ -422,7 +422,7 @@ export function OrdenModal({ orden, ordenes, onClose }: Props) {
           modelo: form.modelo,
           orden: String(num),
           sucursal: branchNombre,
-          horario: segCfg?.horario ?? '',
+          horario: branch?.horario ?? segCfg?.horario ?? '',
           fecha_estimada: form.fechaEstimada ?? '',
         }
         const msgTexto = rellenarTemplate(tpl, vars)
@@ -444,6 +444,8 @@ export function OrdenModal({ orden, ordenes, onClose }: Props) {
           },
           branchNombre,
           branchDir: branch?.direccion,
+          branchTel: branch?.tel,
+          branchEmail: branch?.email,
           fotos,
         })
         void sendEmail(empresaId, form.email, `Orden de trabajo #OT-${String(num).padStart(4, '0')}`, html)
