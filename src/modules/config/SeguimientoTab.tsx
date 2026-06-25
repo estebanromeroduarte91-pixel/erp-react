@@ -1,14 +1,33 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useSeguimientoConfig, useGuardarSeguimientoConfig } from '@/lib/queries'
+import { useAuth } from '@/context/AuthContext'
+import { supabase } from '@/lib/supabase'
 import { Spinner } from '@/components/shared/Spinner'
 import type { SeguimientoConfig } from '@/types'
 
 export function SeguimientoTab() {
   const { data: cfg, isLoading } = useSeguimientoConfig()
   const guardar = useGuardarSeguimientoConfig()
+  const { empresaId } = useAuth()
 
   const [form, setForm] = useState<SeguimientoConfig>({})
   const [guardado, setGuardado] = useState(false)
+  const [subiendoLogo, setSubiendoLogo] = useState(false)
+  const [errorLogo, setErrorLogo] = useState('')
+  const logoInputRef = useRef<HTMLInputElement>(null)
+
+  async function handleSubirLogo(file: File) {
+    if (!empresaId) return
+    setSubiendoLogo(true)
+    setErrorLogo('')
+    const ext = file.name.split('.').pop()?.toLowerCase() || 'png'
+    const path = `${empresaId}/logo/logo_taller.${ext}`
+    const { error } = await supabase.storage.from('erp-assets').upload(path, file, { upsert: true, contentType: file.type })
+    if (error) { setErrorLogo('Error al subir: ' + error.message); setSubiendoLogo(false); return }
+    const { data: urlData } = supabase.storage.from('erp-assets').getPublicUrl(path)
+    set('logoUrl', urlData.publicUrl + '?t=' + Date.now())
+    setSubiendoLogo(false)
+  }
 
   useEffect(() => { if (cfg) setForm(cfg) }, [cfg])
 
@@ -93,13 +112,28 @@ export function SeguimientoTab() {
             />
           </div>
           <div>
-            <label className="text-xs font-medium text-gray-600 block mb-1">URL del logo</label>
-            <input
-              type="url" value={form.logoUrl ?? ''}
-              onChange={e => set('logoUrl', e.target.value)}
-              placeholder="https://..."
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400"
-            />
+            <label className="text-xs font-medium text-gray-600 block mb-1">Logo del taller</label>
+            <div className="flex gap-2 items-center">
+              <input
+                type="url" value={form.logoUrl ?? ''}
+                onChange={e => set('logoUrl', e.target.value)}
+                placeholder="https://... o sube una imagen"
+                className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400"
+              />
+              <button
+                type="button"
+                onClick={() => logoInputRef.current?.click()}
+                disabled={subiendoLogo}
+                className="px-3 py-2 text-sm font-semibold bg-gray-100 border border-gray-200 rounded-lg hover:bg-gray-200 transition whitespace-nowrap disabled:opacity-60"
+              >
+                {subiendoLogo ? 'Subiendo…' : '📁 Subir imagen'}
+              </button>
+              <input
+                ref={logoInputRef} type="file" accept="image/*" className="hidden"
+                onChange={e => { const f = e.target.files?.[0]; if (f) handleSubirLogo(f) }}
+              />
+            </div>
+            {errorLogo && <p className="text-xs text-red-500 mt-1">{errorLogo}</p>}
             {form.logoUrl && (
               <img src={form.logoUrl} alt="logo preview"
                 className="mt-2 max-h-14 object-contain rounded border border-gray-100"
