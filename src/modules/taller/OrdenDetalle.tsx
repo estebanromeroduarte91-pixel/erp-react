@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react'
-import { useGuardarOrden, useMsgTemplates, useSeguimientoConfig } from '@/lib/queries'
+import { useGuardarOrden, useMsgTemplates, useSeguimientoConfig, useBodegas } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
-import { sendEmail } from '@/lib/email'
+import { sendEmail, buildEmailListo, buildEmailInspeccion } from '@/lib/email'
 import { EstadoBadge } from '@/components/shared/Badge'
 import { Money } from '@/components/shared/Money'
 import { QrFotosModal } from './QrFotosModal'
@@ -36,6 +36,7 @@ export function OrdenDetalle({ orden: o, ordenes, onClose, onEditar }: Props) {
   const guardar = useGuardarOrden()
   const { data: msgTemplates } = useMsgTemplates()
   const { data: segCfg } = useSeguimientoConfig()
+  const { data: bodegas = [] } = useBodegas()
 
   const [notifEstado, setNotifEstado] = useState<{ estado: EstadoOrden; waMsg: string; emailMsg: string } | null>(null)
   const [enviandoEmail, setEnviandoEmail] = useState(false)
@@ -52,12 +53,15 @@ export function OrdenDetalle({ orden: o, ordenes, onClose, onEditar }: Props) {
   const total = totalOrden(o)
   const pipelineIdx = PIPELINE.indexOf(o.status as EstadoOrden)
 
-  function buildVars(num: string) {
+  const branch = bodegas.find(b => b.id === o.branchId)
+  const branchNombre = branch?.nombre ?? branch?.name ?? segCfg?.nombreTaller ?? ''
+
+  function buildVars(num: string | number) {
     return {
       nombre: o.nombre ?? '',
       modelo: o.modelo ?? '',
-      orden: num,
-      sucursal: segCfg?.nombreTaller ?? '',
+      orden: String(num),
+      sucursal: branchNombre,
       horario: segCfg?.horario ?? '',
       presupuesto: String(o.presup ?? ''),
       trabajo: o.trabajo ?? '',
@@ -88,8 +92,18 @@ export function OrdenDetalle({ orden: o, ordenes, onClose, onEditar }: Props) {
   async function enviarEmail() {
     if (!notifEstado?.emailMsg || !o.email || !empresaId) return
     setEnviandoEmail(true)
-    const html = notifEstado.emailMsg.replace(/\n/g, '<br>')
-    const asunto = notifEstado.estado === 'Listo' ? `Tu equipo está listo — Orden #${o.num}` : `Orden #${o.num} entregada`
+    const html = buildEmailListo({
+      tallerNombre: segCfg?.nombreTaller ?? 'TallerPro',
+      logoUrl: segCfg?.logoUrl,
+      msgTexto: notifEstado.emailMsg,
+      orden: { num: o.num, modelo: o.modelo ?? '', nombre: o.nombre ?? '' },
+      branchNombre,
+      horario: segCfg?.horario,
+    })
+    const esListo = notifEstado.estado === 'Listo'
+    const asunto = esListo
+      ? `Tu ${o.modelo} está listo para retirar — #OT-${String(o.num).padStart(4, '0')}`
+      : `Orden #OT-${String(o.num).padStart(4, '0')} entregada`
     await sendEmail(empresaId, o.email, asunto, html)
     setEnviandoEmail(false)
     setEmailOk(true)
@@ -112,11 +126,27 @@ export function OrdenDetalle({ orden: o, ordenes, onClose, onEditar }: Props) {
     e.target.value = ''
   }
 
-  async function guardarInspeccion() {
+  async function guardarInspeccion(enviarCorreo = false) {
     setGuardandoInspec(true)
     const inspeccion: Inspeccion = { fotos: inspecFotos, notas: inspecNotas, fecha: new Date().toISOString() }
     const actualizadas = ordenes.map(x => x.id === o.id ? { ...x, inspeccion } : x)
     await guardar.mutateAsync(actualizadas)
+
+    if (enviarCorreo && o.email && empresaId) {
+      const tpl = msgTemplates?.inspeccion_email ?? ''
+      const vars = buildVars(o.num)
+      const msgTexto = tpl ? tpl.replace(/\{\{(\w+)\}\}/g, (_, k) => (vars as Record<string, string>)[k] ?? '') : ''
+      const html = buildEmailInspeccion({
+        tallerNombre: segCfg?.nombreTaller ?? 'TallerPro',
+        logoUrl: segCfg?.logoUrl,
+        msgTexto,
+        orden: { num: o.num, modelo: o.modelo ?? '', nombre: o.nombre ?? '', serie: o.serie },
+        notas: inspecNotas,
+        fotos: inspecFotos,
+      })
+      void sendEmail(empresaId, o.email, `Inspección de equipo — ${o.modelo} #OT-${String(o.num).padStart(4, '0')}`, html)
+    }
+
     setGuardandoInspec(false)
     setShowInspeccion(false)
   }
@@ -316,10 +346,16 @@ export function OrdenDetalle({ orden: o, ordenes, onClose, onEditar }: Props) {
                   <div className="flex justify-end gap-2">
                     <button onClick={() => setShowInspeccion(false)}
                       className="px-3 py-1.5 text-xs font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition">Cancelar</button>
-                    <button onClick={guardarInspeccion} disabled={guardandoInspec}
-                      className="px-3 py-1.5 text-xs font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition">
-                      {guardandoInspec ? 'Guardando…' : 'Guardar inspección'}
+                    <button onClick={() => guardarInspeccion(false)} disabled={guardandoInspec}
+                      className="px-3 py-1.5 text-xs font-semibold text-gray-700 bg-gray-100 border border-gray-200 rounded-lg hover:bg-gray-200 disabled:opacity-60 transition">
+                      {guardandoInspec ? 'Guardando…' : 'Guardar'}
                     </button>
+                    {o.email && (
+                      <button onClick={() => guardarInspeccion(true)} disabled={guardandoInspec}
+                        className="px-3 py-1.5 text-xs font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition">
+                        {guardandoInspec ? 'Guardando…' : 'Guardar y enviar correo'}
+                      </button>
+                    )}
                   </div>
                 </div>
               )}
