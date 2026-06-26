@@ -292,62 +292,6 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
             </div>
           )}
 
-          {/* Repuestos */}
-          <div className="p-5 border-b border-gray-200">
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Repuestos</p>
-              <button onClick={() => setShowRepForm(v => !v)}
-                className="text-[11px] font-semibold text-blue-600 border border-blue-200 rounded-lg px-2 py-0.5 hover:bg-blue-50 transition">
-                {showRepForm ? 'Cancelar' : '+ Agregar'}
-              </button>
-            </div>
-
-            {(o.repuestos ?? []).length > 0 && (
-              <div className="mb-2">
-                {(o.repuestos ?? []).map((r, i) => (
-                  <div key={r.productId ?? i} className="flex items-center justify-between py-1.5 text-xs border-b border-gray-50 last:border-0 group">
-                    <span className="text-gray-700 flex-1 min-w-0 truncate">{r.name}</span>
-                    <span className="text-gray-500 mx-2 flex-shrink-0">{r.qty ?? 1} × <Money value={r.precio} /></span>
-                    <button onClick={() => eliminarRepuesto(i)}
-                      className="w-4 h-4 rounded text-gray-300 hover:text-red-500 transition opacity-0 group-hover:opacity-100 flex-shrink-0">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
-                        <path strokeLinecap="round" d="M6 18L18 6M6 6l12 12"/>
-                      </svg>
-                    </button>
-                  </div>
-                ))}
-                <div className="flex items-center justify-between pt-1.5 text-xs font-semibold text-gray-700">
-                  <span>Total</span>
-                  <Money value={(o.repuestos ?? []).reduce((s, r) => s + r.precio * (r.qty ?? 1), 0)} />
-                </div>
-              </div>
-            )}
-
-            {(o.repuestos ?? []).length === 0 && !showRepForm && (
-              <p className="text-xs text-gray-400">Sin repuestos agregados.</p>
-            )}
-
-            {showRepForm && (
-              <div className="mt-2 space-y-2 border border-gray-200 rounded-xl p-3 bg-gray-50">
-                <input autoFocus value={repNombre} onChange={e => setRepNombre(e.target.value)}
-                  placeholder="Nombre del repuesto"
-                  className="w-full text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:border-blue-400" />
-                <div className="flex gap-2">
-                  <input value={repQty} onChange={e => setRepQty(e.target.value)}
-                    placeholder="Cant." type="number" min="1"
-                    className="w-16 text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:border-blue-400" />
-                  <input value={repPrecio} onChange={e => setRepPrecio(e.target.value)}
-                    placeholder="Precio" type="number" min="0"
-                    className="flex-1 text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:border-blue-400" />
-                </div>
-                <button onClick={agregarRepuesto} disabled={!repNombre.trim()}
-                  className="w-full text-xs font-semibold text-white bg-blue-600 rounded-lg py-1.5 hover:bg-blue-700 disabled:opacity-50 transition">
-                  Agregar
-                </button>
-              </div>
-            )}
-          </div>
-
           <div className="p-5 mt-auto">
             <p className="text-xs text-gray-400 flex items-center gap-1">
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -529,6 +473,62 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
                     {guardandoInspec ? 'Guardando…' : 'Guardar inspección'}
                   </button>
                 </div>
+              </div>
+            )}
+          </div>
+
+          {/* Repuestos */}
+          <div className="p-5 border-b border-gray-200">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Repuestos</p>
+              <button onClick={() => setShowRepForm(v => !v)}
+                className="text-[11px] font-semibold text-blue-600 border border-blue-200 rounded-lg px-2 py-0.5 hover:bg-blue-50 transition">
+                {showRepForm ? 'Cancelar' : '+ Agregar'}
+              </button>
+            </div>
+
+            {(o.repuestos ?? []).length > 0 && (
+              <div className="mb-2">
+                {(o.repuestos ?? []).map((r, i) => (
+                  <div key={r.productId ?? i} className="flex items-center justify-between py-1.5 text-xs border-b border-gray-50 last:border-0 group">
+                    <span className="text-gray-700 flex-1 min-w-0 truncate">{r.name}</span>
+                    <span className="text-gray-500 mx-2 flex-shrink-0">{r.qty ?? 1} × <Money value={r.precio} /></span>
+                    <button onClick={() => eliminarRepuesto(i)}
+                      className="w-4 h-4 rounded text-gray-300 hover:text-red-500 transition opacity-0 group-hover:opacity-100 flex-shrink-0">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" d="M6 18L18 6M6 6l12 12"/>
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+                <div className="flex items-center justify-between pt-1.5 text-xs font-semibold text-gray-700">
+                  <span>Total</span>
+                  <Money value={(o.repuestos ?? []).reduce((s, r) => s + r.precio * (r.qty ?? 1), 0)} />
+                </div>
+              </div>
+            )}
+
+            {(o.repuestos ?? []).length === 0 && !showRepForm && (
+              <p className="text-xs text-gray-400">Sin repuestos agregados.</p>
+            )}
+
+            {showRepForm && (
+              <div className="mt-2 space-y-2 border border-gray-200 rounded-xl p-3 bg-gray-50">
+                <input autoFocus value={repNombre} onChange={e => setRepNombre(e.target.value)}
+                  placeholder="Nombre del repuesto"
+                  className="w-full text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:border-blue-400" />
+                <div className="flex gap-2">
+                  <input value={repQty} onChange={e => setRepQty(e.target.value)}
+                    placeholder="Cant." type="number" min="1"
+                    className="w-16 text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:border-blue-400" />
+                  <input value={repPrecio} onChange={e => setRepPrecio(e.target.value)}
+                    placeholder="Precio" type="number" min="0"
+                    className="flex-1 text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:border-blue-400" />
+                </div>
+                <button onClick={agregarRepuesto} disabled={!repNombre.trim()}
+                  className="w-full text-xs font-semibold text-white bg-blue-600 rounded-lg py-1.5 hover:bg-blue-700 disabled:opacity-50 transition">
+                  Agregar
+                </button>
               </div>
             )}
           </div>
