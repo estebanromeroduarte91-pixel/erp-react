@@ -3,7 +3,7 @@ import { useEffect, useId } from 'react'
 import { supabase } from './supabase'
 import { dbGet, dbSet } from './db'
 import { useAuth } from '@/context/AuthContext'
-import type { Orden, Cliente, Producto, Bodega, Movimiento, Proveedor, Venta, MetodoPago, Caja, CajaSesion, Gasto, GastoCat, CuentaContable, Asiento, SeguimientoConfig, SmtpConfig, MsgTemplates, Cargo, UserProfile, UserConfig, PendingInvite, EmailDomain, OC, OCLogEntry, Categoria, Kit, Traslado, TecnicoExterno, Equipo } from '@/types'
+import type { Orden, Cliente, Producto, Bodega, Movimiento, Proveedor, Venta, MetodoPago, Caja, CajaSesion, Gasto, GastoCat, CuentaContable, Asiento, SeguimientoConfig, SmtpConfig, MsgTemplates, Cargo, UserProfile, UserConfig, PendingInvite, EmailDomain, OC, OCLogEntry, Categoria, Kit, Traslado, TecnicoExterno, Equipo, FichaUsuario } from '@/types'
 
 // ── Órdenes de Taller ─────────────────────────────────────────
 
@@ -766,6 +766,27 @@ export function useActualizarNombreUsuario() {
       if (error) throw error
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['user_profiles', empresaId] }),
+  })
+}
+
+export function useFichaUsuario(userId: string) {
+  const { empresaId } = useAuth()
+  return useQuery({
+    queryKey: ['ficha_usuario', empresaId, userId],
+    queryFn: () => dbGet<FichaUsuario>(empresaId!, `ficha_${userId}`),
+    enabled: !!empresaId && !!userId,
+    select: data => (data ?? {}) as FichaUsuario,
+  })
+}
+
+export function useGuardarFichaUsuario() {
+  const qc = useQueryClient()
+  const { empresaId } = useAuth()
+  return useMutation({
+    mutationFn: async ({ userId, ficha }: { userId: string; ficha: FichaUsuario }) => {
+      await dbSet(empresaId!, `ficha_${userId}`, ficha)
+    },
+    onSuccess: (_, { userId }) => void qc.invalidateQueries({ queryKey: ['ficha_usuario', empresaId, userId] }),
   })
 }
 

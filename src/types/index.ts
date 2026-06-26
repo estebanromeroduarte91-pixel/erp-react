@@ -303,6 +303,30 @@ export interface MsgTemplates {
   [key: string]: string | undefined
 }
 
+// ── Ficha de empleado ─────────────────────────────────────────
+export interface RegistroVacaciones {
+  id: string
+  fecha_inicio: string   // YYYY-MM-DD
+  fecha_fin: string      // YYYY-MM-DD
+  dias_habiles: number   // calculado automáticamente
+  estado: 'aprobado' | 'pendiente'
+  nota?: string
+}
+
+export interface RegistroInasistencia {
+  id: string
+  fecha: string          // YYYY-MM-DD
+  tipo: 'sin_aviso' | 'justificada'
+  nota?: string
+}
+
+export interface FichaUsuario {
+  fecha_ingreso?: string // YYYY-MM-DD
+  dias_anuales?: number  // 15 por defecto (legal Chile)
+  vacaciones?: RegistroVacaciones[]
+  inasistencias?: RegistroInasistencia[]
+}
+
 // ── Cargos y permisos ─────────────────────────────────────────
 export type ModuloKey = 'dashboard' | 'ventas' | 'taller' | 'clientes' | 'inventario' | 'compras' | 'estadisticas' | 'configuracion'
 
