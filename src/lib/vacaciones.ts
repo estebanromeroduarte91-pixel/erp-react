@@ -43,7 +43,9 @@ export function getFeriadosChile(year: number): Set<string> {
   ])
 }
 
-// Días hábiles (Lun–Sáb) entre dos fechas inclusive, sin contar feriados
+// Días hábiles para vacaciones (Lun–Vie) entre dos fechas inclusive, sin contar feriados.
+// Art. 69 Código del Trabajo: el sábado es SIEMPRE inhábil para efectos del feriado anual,
+// independiente de si el trabajador trabaja los sábados.
 export function diasHabilesEnRango(inicio: string, fin: string): number {
   const start = new Date(inicio + 'T12:00:00')
   const end = new Date(fin + 'T12:00:00')
@@ -59,7 +61,9 @@ export function diasHabilesEnRango(inicio: string, fin: string): number {
   let count = 0
   const d = new Date(start)
   while (d <= end) {
-    if (d.getDay() !== 0 && !feriados.has(ymd(d))) count++ // 0 = domingo
+    const dow = d.getDay()
+    // Solo lunes(1) a viernes(5) — sábado(6) y domingo(0) siempre excluidos
+    if (dow >= 1 && dow <= 5 && !feriados.has(ymd(d))) count++
     d.setDate(d.getDate() + 1)
   }
   return count
