@@ -2,6 +2,7 @@ import { useState } from 'react'
 import {
   useUserProfiles, useToggleUsuarioActivo, useUserCargoMap, useGuardarUserConfig,
   usePendingInvites, useCrearInvitacion, useCancelarInvitacion, useCargos, useBodegas,
+  useActualizarNombreUsuario,
 } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { Spinner } from '@/components/shared/Spinner'
@@ -28,17 +29,26 @@ function EditModal({ userId, nombre, currentRole, onClose }: {
   const { data: uMap = {} } = useUserCargoMap()
   const guardar = useGuardarUserConfig()
 
+  const actualizarNombre = useActualizarNombreUsuario()
   const uCfg = uMap[userId] ?? {}
+  const [nombreEdit, setNombreEdit] = useState(nombre)
   const [cargoId, setCargoId] = useState(currentRole === 'admin' && !uCfg.cargoId ? '__admin' : (uCfg.cargoId ?? cargos[0]?.id ?? ''))
   const [branchId, setBranchId] = useState(uCfg.branchId ?? '')
   const [done, setDone] = useState(false)
 
   async function handleGuardar() {
     const cfg: UserConfig = { cargoId: cargoId === '__admin' ? undefined : cargoId, branchId: branchId || undefined }
-    await guardar.mutateAsync({ userId, cfg })
+    await Promise.all([
+      guardar.mutateAsync({ userId, cfg }),
+      nombreEdit.trim() && nombreEdit.trim() !== nombre
+        ? actualizarNombre.mutateAsync({ userId, nombre: nombreEdit.trim() })
+        : Promise.resolve(),
+    ])
     setDone(true)
     setTimeout(onClose, 800)
   }
+
+  const isPending = guardar.isPending || actualizarNombre.isPending
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -47,6 +57,11 @@ function EditModal({ userId, nombre, currentRole, onClose }: {
         <p className="text-sm text-gray-400 mb-5">{nombre}</p>
 
         <div className="space-y-4">
+          <div>
+            <label className="text-xs font-semibold text-gray-600 block mb-1">Nombre</label>
+            <input value={nombreEdit} onChange={e => setNombreEdit(e.target.value)}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+          </div>
           <div>
             <label className="text-xs font-semibold text-gray-600 block mb-1">Cargo</label>
             <select value={cargoId} onChange={e => setCargoId(e.target.value)}
@@ -72,9 +87,9 @@ function EditModal({ userId, nombre, currentRole, onClose }: {
             className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
             Cancelar
           </button>
-          <button onClick={handleGuardar} disabled={guardar.isPending || done}
+          <button onClick={handleGuardar} disabled={isPending || done || !nombreEdit.trim()}
             className="px-4 py-2 text-sm font-semibold bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60 transition">
-            {done ? '✓ Guardado' : guardar.isPending ? 'Guardando…' : 'Guardar'}
+            {done ? '✓ Guardado' : isPending ? 'Guardando…' : 'Guardar'}
           </button>
         </div>
       </div>

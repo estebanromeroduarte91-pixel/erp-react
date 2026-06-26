@@ -757,6 +757,18 @@ export function useToggleUsuarioActivo() {
   })
 }
 
+export function useActualizarNombreUsuario() {
+  const qc = useQueryClient()
+  const { empresaId } = useAuth()
+  return useMutation({
+    mutationFn: async ({ userId, nombre }: { userId: string; nombre: string }) => {
+      const { error } = await supabase.from('user_profiles').update({ nombre }).eq('id', userId)
+      if (error) throw error
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['user_profiles', empresaId] }),
+  })
+}
+
 // user_cargo_map en erp_data
 export function useUserCargoMap() {
   const { empresaId } = useAuth()
