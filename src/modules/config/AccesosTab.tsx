@@ -346,10 +346,10 @@ function InasistenciasTab({ ficha, onUpdate }: { ficha: FichaUsuario; onUpdate: 
 }
 
 // ── Modal principal de ficha ──────────────────────────────────
-function FichaModal({ userId, nombre, currentRole, onClose }: {
-  userId: string; nombre: string; currentRole: string; onClose: () => void
+function FichaModal({ userId, nombre, currentRole, initialTab = 'perfil', onClose }: {
+  userId: string; nombre: string; currentRole: string; initialTab?: FichaTab; onClose: () => void
 }) {
-  const [tab, setTab] = useState<FichaTab>('perfil')
+  const [tab, setTab] = useState<FichaTab>(initialTab)
   const { data: ficha = {}, isLoading } = useFichaUsuario(userId)
   const guardarFicha = useGuardarFichaUsuario()
 
@@ -520,7 +520,7 @@ export function AccesosTab() {
   const toggleActivo = useToggleUsuarioActivo()
   const cancelarInvite = useCancelarInvitacion()
 
-  const [editUser, setEditUser] = useState<{ userId: string; nombre: string; currentRole: string } | null>(null)
+  const [editUser, setEditUser] = useState<{ userId: string; nombre: string; currentRole: string; initialTab: FichaTab } | null>(null)
   const [showInvite, setShowInvite] = useState(false)
 
   if (loadU || loadI) return <div className="flex justify-center py-16"><Spinner className="w-8 h-8" /></div>
@@ -550,17 +550,18 @@ export function AccesosTab() {
               const branchLabel = p.role === 'admin' && !branch ? 'Global' : (branch ? (branch.nombre ?? branch.name) : 'Sin sucursal')
 
               return (
-                <div key={p.id} className="flex items-center justify-between gap-3 px-4 py-3 bg-white border border-gray-200 rounded-xl">
-                  <div className="flex items-center gap-3">
+                <div key={p.id} className="flex items-center justify-between gap-3 px-4 py-3 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition cursor-pointer"
+                  onClick={() => setEditUser({ userId: p.id, nombre: p.nombre, currentRole: p.role, initialTab: 'vacaciones' })}>
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
                     <div className="w-9 h-9 rounded-full bg-blue-50 flex items-center justify-center text-xs font-semibold text-blue-600 flex-shrink-0">
                       {initiales(p.nombre)}
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <p className="text-sm font-semibold text-gray-900">{p.nombre}</p>
                       <p className="text-xs text-gray-400">{rolLabel} · {branchLabel}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
+                  <div className="flex items-center gap-2 flex-shrink-0" onClick={e => e.stopPropagation()}>
                     <span className={[
                       'text-[11px] font-semibold px-2.5 py-0.5 rounded-full',
                       p.activo ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700',
@@ -570,11 +571,11 @@ export function AccesosTab() {
                     {!isMe ? (
                       <>
                         <button onClick={() => toggleActivo.mutate({ userId: p.id, activo: !p.activo })}
-                          className="px-3 py-1 text-xs border border-gray-200 rounded-lg text-gray-500 hover:bg-gray-50 transition">
+                          className="px-3 py-1 text-xs border border-gray-200 rounded-lg text-gray-500 hover:bg-gray-100 transition">
                           {p.activo ? 'Desactivar' : 'Activar'}
                         </button>
-                        <button onClick={() => setEditUser({ userId: p.id, nombre: p.nombre, currentRole: p.role })}
-                          className="px-3 py-1 text-xs border border-gray-200 rounded-lg text-gray-500 hover:bg-gray-50 transition">
+                        <button onClick={() => setEditUser({ userId: p.id, nombre: p.nombre, currentRole: p.role, initialTab: 'perfil' })}
+                          className="px-3 py-1 text-xs border border-gray-200 rounded-lg text-gray-500 hover:bg-gray-100 transition">
                           Editar
                         </button>
                       </>
