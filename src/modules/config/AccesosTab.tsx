@@ -95,8 +95,8 @@ function PerfilTab({ userId, nombre, currentRole, onClose }: {
 }
 
 // ── Tab Vacaciones ────────────────────────────────────────────
-function VacacionesTab({ userId, ficha, onUpdate }: {
-  userId: string; ficha: FichaUsuario; onUpdate: (f: FichaUsuario) => void
+function VacacionesTab({ ficha, onUpdate }: {
+  ficha: FichaUsuario; onUpdate: (f: FichaUsuario) => void
 }) {
   const vacaciones = ficha.vacaciones ?? []
   const diasAnuales = ficha.dias_anuales ?? 15
@@ -402,7 +402,7 @@ function FichaModal({ userId, nombre, currentRole, onClose }: {
             : tab === 'perfil'
               ? <PerfilTab userId={userId} nombre={nombre} currentRole={currentRole} onClose={onClose} />
               : tab === 'vacaciones'
-                ? <VacacionesTab userId={userId} ficha={ficha} onUpdate={handleUpdate} />
+                ? <VacacionesTab ficha={ficha} onUpdate={handleUpdate} />
                 : <InasistenciasTab ficha={ficha} onUpdate={handleUpdate} />
           }
         </div>
