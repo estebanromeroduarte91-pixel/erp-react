@@ -11,6 +11,28 @@ import type { Orden, EstadoOrden, Inspeccion } from '@/types'
 
 const PIPELINE: EstadoOrden[] = ['Chequeo', 'Reparación', 'Listo', 'Entregado']
 
+const ALL_DIAS = ['lun', 'mar', 'mie', 'jue', 'vie', 'sab', 'dom']
+const LBL_DIAS: Record<string, string> = { lun: 'Lun', mar: 'Mar', mie: 'Mié', jue: 'Jue', vie: 'Vie', sab: 'Sáb', dom: 'Dom' }
+function fmtBloque(b: { dias?: string[]; desde?: string; hasta?: string }): string {
+  const idx = (b.dias ?? []).filter(d => ALL_DIAS.includes(d)).map(d => ALL_DIAS.indexOf(d)).sort((a, z) => a - z)
+  let dStr = ''
+  if (idx.length) {
+    const consec = idx.every((v, i) => i === 0 || v === idx[i - 1] + 1)
+    dStr = consec && idx.length > 2
+      ? `${LBL_DIAS[ALL_DIAS[idx[0]]]}–${LBL_DIAS[ALL_DIAS[idx[idx.length - 1]]]}`
+      : idx.map(i => LBL_DIAS[ALL_DIAS[i]]).join(', ')
+  }
+  const tStr = b.desde && b.hasta ? `${b.desde}–${b.hasta}` : b.desde || b.hasta || ''
+  return [dStr, tStr].filter(Boolean).join(' ')
+}
+function formatHorario(h: unknown): string {
+  if (!h) return ''
+  if (typeof h === 'string') return h
+  const obj = h as { bloques?: Array<{ dias?: string[]; desde?: string; hasta?: string }> }
+  if (Array.isArray(obj.bloques)) return obj.bloques.map(fmtBloque).filter(Boolean).join(' / ')
+  return fmtBloque(obj as { dias?: string[]; desde?: string; hasta?: string })
+}
+
 interface Props {
   orden: Orden
   ordenes: Orden[]
@@ -42,6 +64,7 @@ export function OrdenDetalle({ orden: o, ordenes, onClose, onEditar }: Props) {
   const [notifEstado, setNotifEstado] = useState<{ estado: EstadoOrden; waMsg: string; emailMsg: string } | null>(null)
   const [enviandoEmail, setEnviandoEmail] = useState(false)
   const [emailOk, setEmailOk] = useState(false)
+  const [lightbox, setLightbox] = useState<string | null>(null)
 
   // Aprobación
   const [showAprobacion, setShowAprobacion] = useState(false)
@@ -59,6 +82,14 @@ export function OrdenDetalle({ orden: o, ordenes, onClose, onEditar }: Props) {
 
   const total = totalOrden(o)
   const pipelineIdx = PIPELINE.indexOf(o.status as EstadoOrden)
+
+  // Sincronizar fotos de inspección cuando el QR (página Netlify) escribe a la DB vía realtime
+  useEffect(() => {
+    if (!showInspeccion) {
+      setInspecFotos(o.inspeccion?.fotos ?? [])
+      setInspecNotas(o.inspeccion?.notas ?? '')
+    }
+  }, [o.inspeccion?.fotos, o.inspeccion?.notas]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Polling: detectar cuando el cliente aprueba/rechaza el presupuesto
   useEffect(() => {
@@ -83,7 +114,7 @@ export function OrdenDetalle({ orden: o, ordenes, onClose, onEditar }: Props) {
 
   const branch = bodegas.find(b => b.id === o.branchId)
   const branchNombre = branch?.nombre ?? branch?.name ?? segCfg?.nombreTaller ?? ''
-  const branchHorario = branch?.horario ?? segCfg?.horario ?? ''
+  const branchHorario = formatHorario(branch?.horario) || formatHorario(segCfg?.horario) || ''
   const branchDir = branch?.direccion ?? ''
   const branchTel = branch?.tel ?? ''
   const branchEmail = branch?.email ?? ''
@@ -108,14 +139,31 @@ export function OrdenDetalle({ orden: o, ordenes, onClose, onEditar }: Props) {
     await guardar.mutateAsync(actualizadas)
 
     const vars = buildVars(o.num)
-    const keyWa = estado === 'Listo' ? 'listo_wa' : estado === 'Entregado' ? 'listo_wa' : null
-    const keyEmail = estado === 'Listo' ? 'listo_email' : estado === 'Entregado' ? 'listo_email' : null
+    const esListo = estado === 'Listo' || estado === 'Entregado'
+    const waMsg = esListo && msgTemplates?.listo_wa ? rellenarTemplate(msgTemplates.listo_wa, vars) : ''
+    const emailMsg = esListo && msgTemplates?.listo_email ? rellenarTemplate(msgTemplates.listo_email, vars) : ''
 
-    const waMsg = keyWa && msgTemplates?.[keyWa] ? rellenarTemplate(msgTemplates[keyWa]!, vars) : ''
-    const emailMsg = keyEmail && msgTemplates?.[keyEmail] ? rellenarTemplate(msgTemplates[keyEmail]!, vars) : ''
+    // Envío automático de email al poner Listo
+    if (esListo && emailMsg && o.email && empresaId) {
+      const html = buildEmailListo({
+        tallerNombre: segCfg?.nombreTaller ?? 'TallerPro',
+        logoUrl: segCfg?.logoUrl,
+        msgTexto: emailMsg,
+        orden: { num: o.num, modelo: o.modelo ?? '', nombre: o.nombre ?? '' },
+        branchNombre,
+        horario: branchHorario,
+      })
+      const asunto = estado === 'Listo'
+        ? `Tu ${o.modelo} está listo para retirar — #OT-${String(o.num).padStart(4, '0')}`
+        : `Orden #OT-${String(o.num).padStart(4, '0')} entregada`
+      void sendEmail(empresaId, o.email, asunto, html)
+      setEmailOk(true)
+    }
 
-    if (waMsg || emailMsg) {
-      setNotifEstado({ estado, waMsg, emailMsg })
+    // Popup solo para WA (o si no hay email configurado, también muestra opción email)
+    const mostrarEmail = esListo && emailMsg && o.email && !empresaId
+    if (waMsg || mostrarEmail) {
+      setNotifEstado({ estado, waMsg, emailMsg: mostrarEmail ? emailMsg : '' })
     } else {
       onClose()
     }
@@ -405,11 +453,9 @@ export function OrdenDetalle({ orden: o, ordenes, onClose, onEditar }: Props) {
                   {o.inspeccion.fotos && o.inspeccion.fotos.length > 0 && (
                     <div className="grid grid-cols-3 gap-2 mt-2">
                       {o.inspeccion.fotos.map((src, i) => (
-                        <a key={i} href={src} target="_blank" rel="noreferrer">
-                          <div className="aspect-square rounded-lg overflow-hidden border border-gray-200">
-                            <img src={src} alt="" className="w-full h-full object-cover" />
-                          </div>
-                        </a>
+                        <button key={i} onClick={() => setLightbox(src)} className="aspect-square rounded-lg overflow-hidden border border-gray-200 hover:opacity-90 transition">
+                          <img src={src} alt="" className="w-full h-full object-cover" />
+                        </button>
                       ))}
                     </div>
                   )}
@@ -523,11 +569,9 @@ export function OrdenDetalle({ orden: o, ordenes, onClose, onEditar }: Props) {
                 </p>
                 <div className="grid grid-cols-3 gap-2">
                   {o.photosIngreso.map((src, i) => (
-                    <a key={i} href={src} target="_blank" rel="noreferrer">
-                      <div className="aspect-square rounded-lg overflow-hidden border border-gray-200">
-                        <img src={src} alt="" className="w-full h-full object-cover" />
-                      </div>
-                    </a>
+                    <button key={i} onClick={() => setLightbox(src)} className="aspect-square rounded-lg overflow-hidden border border-gray-200 hover:opacity-90 transition">
+                      <img src={src} alt="" className="w-full h-full object-cover" />
+                    </button>
                   ))}
                 </div>
               </div>
@@ -537,7 +581,7 @@ export function OrdenDetalle({ orden: o, ordenes, onClose, onEditar }: Props) {
           {/* Footer */}
           <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 rounded-b-2xl flex-shrink-0 space-y-2">
             {/* Solicitar aprobación de presupuesto */}
-            {(o.presup || (o.repuestos && o.repuestos.length > 0)) && o.aprobacion_estado !== 'aprobado' && (
+            {o.aprobacion_estado !== 'aprobado' ? (
               <button onClick={abrirModalAprobacion}
                 className={`w-full text-sm font-semibold py-2.5 rounded-xl border transition ${
                   o.aprobacion_estado === 'pendiente'
@@ -546,20 +590,25 @@ export function OrdenDetalle({ orden: o, ordenes, onClose, onEditar }: Props) {
                     ? 'bg-red-50 text-red-700 border-red-300 hover:bg-red-100'
                     : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
                 }`}>
-                {o.aprobacion_estado === 'pendiente' ? '⏳ Aprobación pendiente — Reenviar' :
-                 o.aprobacion_estado === 'rechazado' ? '❌ Rechazado — Reenviar solicitud' :
-                 '💬 Solicitar aprobación de presupuesto'}
+                {o.aprobacion_estado === 'pendiente' ? 'Aprobación pendiente — Reenviar' :
+                 o.aprobacion_estado === 'rechazado' ? 'Rechazado — Reenviar solicitud' :
+                 'Solicitar aprobación de presupuesto'}
               </button>
-            )}
-            {o.aprobacion_estado === 'aprobado' && (
+            ) : (
               <div className="w-full text-center text-sm font-semibold py-2.5 rounded-xl bg-green-50 text-green-700 border border-green-200">
-                ✅ Presupuesto aprobado
+                Presupuesto aprobado
               </div>
             )}
-            <button onClick={() => onEditar(o)}
-              className="w-full bg-blue-600 text-white text-sm font-semibold py-2.5 rounded-xl hover:bg-blue-700 transition">
-              Editar orden
-            </button>
+            <div className="flex gap-2">
+              <button onClick={() => { onClose(); setTimeout(() => window.location.hash = '#/taller?tab=derivados', 50) }}
+                className="flex-1 text-sm font-semibold py-2.5 rounded-xl border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition">
+                Derivar
+              </button>
+              <button onClick={() => onEditar(o)}
+                className="flex-1 bg-blue-600 text-white text-sm font-semibold py-2.5 rounded-xl hover:bg-blue-700 transition">
+                Editar orden
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -573,6 +622,14 @@ export function OrdenDetalle({ orden: o, ordenes, onClose, onEditar }: Props) {
               <p className="text-xs text-gray-400 mt-0.5">¿Notificar al cliente?</p>
             </div>
             <div className="px-5 py-4 space-y-3">
+              {emailOk && o.email && (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-green-50 border border-green-200">
+                  <svg className="w-4 h-4 text-green-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span className="text-xs font-medium text-green-700">Email enviado a {o.email}</span>
+                </div>
+              )}
               {notifEstado.waMsg && o.tel && (
                 <button onClick={enviarWhatsApp}
                   className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-green-50 border border-green-200 hover:bg-green-100 transition text-left">
@@ -676,6 +733,17 @@ export function OrdenDetalle({ orden: o, ordenes, onClose, onEditar }: Props) {
       {/* QR fotos inspección */}
       {showQrInspec && o.id && (
         <QrFotosModal ordenId={o.id} tipo="inspeccion" onClose={() => setShowQrInspec(false)} />
+      )}
+
+      {/* Lightbox */}
+      {lightbox && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/90 p-4" onClick={() => setLightbox(null)}>
+          <button onClick={() => setLightbox(null)}
+            className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition text-lg">
+            ✕
+          </button>
+          <img src={lightbox} alt="" className="max-w-full max-h-full rounded-lg object-contain" onClick={e => e.stopPropagation()} />
+        </div>
       )}
     </>
   )

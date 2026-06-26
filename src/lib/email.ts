@@ -174,9 +174,9 @@ export function buildEmailIngreso(d: IngresoEmailData): string {
     ? `<div style="background:#f8fafc;border-radius:12px;padding:16px 18px;margin-bottom:20px;border:1px solid #eef0f5">
         ${secIcon('Fotos de ingreso')}
         <table cellpadding="0" cellspacing="0" border="0" style="width:100%">
-          ${chunk(d.fotos, 3).map(row => `<tr>${row.map(src => `<td style="width:33%;padding:3px"><img src="${src}" width="150" style="width:100%;max-width:150px;border-radius:8px;border:1px solid #e5e7eb;display:block"></td>`).join('')}</tr>`).join('')}
+          ${chunk(d.fotos, 2).map(row => `<tr>${row.map(src => `<td style="width:50%;padding:4px"><a href="${src}" target="_blank" style="display:block"><img src="${src}" width="240" style="width:100%;border-radius:8px;border:1px solid #e5e7eb;display:block"></a></td>`).join('')}</tr>`).join('')}
         </table>
-        <p style="font-size:11px;color:#9ca3af;margin:10px 0 0">Las fotos documentan el estado físico del equipo al momento del ingreso.</p>
+        <p style="font-size:11px;color:#9ca3af;margin:10px 0 0">Toca una foto para verla en tamaño completo.</p>
       </div>` : ''
 
   const body = `
@@ -277,8 +277,9 @@ export function buildEmailInspeccion(d: InspeccionEmailData): string {
     ? `<div style="background:#f8fafc;border-radius:12px;padding:16px 18px;margin-bottom:20px;border:1px solid #eef0f5">
         ${secIcon('Fotos del equipo')}
         <table cellpadding="0" cellspacing="0" border="0" style="width:100%">
-          ${chunk(d.fotos, 3).map(row => `<tr>${row.map(src => `<td style="width:33%;padding:3px"><img src="${src}" width="150" style="width:100%;max-width:150px;border-radius:8px;border:1px solid #e5e7eb;display:block"></td>`).join('')}</tr>`).join('')}
+          ${chunk(d.fotos, 2).map(row => `<tr>${row.map(src => `<td style="width:50%;padding:4px"><a href="${src}" target="_blank" style="display:block"><img src="${src}" width="240" style="width:100%;border-radius:8px;border:1px solid #e5e7eb;display:block"></a></td>`).join('')}</tr>`).join('')}
         </table>
+        <p style="font-size:11px;color:#9ca3af;margin:10px 0 0">Toca una foto para verla en tamaño completo.</p>
       </div>` : ''
 
   const notasHtml = d.notas
