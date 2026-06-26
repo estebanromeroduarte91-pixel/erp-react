@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useParams } from 'react-router-dom'
-import { useOrdenes, useGuardarOrden, useMsgTemplates, useSeguimientoConfig, useChecklist } from '@/lib/queries'
+import { useOrdenes, useGuardarOrden, useMsgTemplates, useSeguimientoConfig, useChecklist, useProductos, useGuardarProductos } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { sendEmail } from '@/lib/email'
 import { EstadoBadge } from '@/components/shared/Badge'
@@ -10,7 +10,7 @@ import { QrFotosModal } from './QrFotosModal'
 import { OrdenModal } from './OrdenModal'
 import { totalOrden } from './utils'
 import { Spinner } from '@/components/shared/Spinner'
-import type { EstadoOrden, Inspeccion, CheckItem } from '@/types'
+import type { EstadoOrden, Inspeccion, CheckItem, Producto } from '@/types'
 
 const PIPELINE: EstadoOrden[] = ['Chequeo', 'Reparación', 'Listo', 'Entregado']
 
@@ -38,6 +38,8 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
   const { data: segCfg } = useSeguimientoConfig()
 
   const { data: checklistTemplate = [] } = useChecklist()
+  const { data: productos = [] } = useProductos()
+  const guardarProductos = useGuardarProductos()
 
   const [editarOpen, setEditarOpen] = useState(false)
   const [notif, setNotif] = useState<{ estado: EstadoOrden; waMsg: string; emailMsg: string } | null>(null)
@@ -60,11 +62,14 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
   const [guardandoIngreso, setGuardandoIngreso] = useState(false)
   const fileRefIngreso = useRef<HTMLInputElement>(null)
 
-  // Repuestos inline
-  const [showRepForm, setShowRepForm] = useState(false)
-  const [repNombre, setRepNombre] = useState('')
+  // Repuestos — modal con búsqueda de inventario
+  const [showRepModal, setShowRepModal] = useState(false)
+  const [repSearch, setRepSearch] = useState('')
+  const [repSelected, setRepSelected] = useState<Producto | null>(null)
   const [repQty, setRepQty] = useState('1')
   const [repPrecio, setRepPrecio] = useState('')
+  const [repManualNombre, setRepManualNombre] = useState('')
+  const [repManual, setRepManual] = useState(false)
 
   const o = ordenes?.find(x => x.num === num)
 
@@ -179,12 +184,48 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
     e.target.value = ''
   }
 
-  async function agregarRepuesto() {
-    if (!repNombre.trim()) return
-    const nuevo = { name: repNombre.trim(), qty: Math.max(1, parseInt(repQty) || 1), precio: parseFloat(repPrecio) || 0 }
-    const actualizadas = (ordenes ?? []).map(x => x.id === orden.id ? { ...x, repuestos: [...(x.repuestos ?? []), nuevo] } : x)
+  function stockTotal(p: Producto): number {
+    if (p.stock_sucursales && Object.keys(p.stock_sucursales).length)
+      return Object.values(p.stock_sucursales).reduce((s, v) => s + (v ?? 0), 0)
+    return p.stock ?? 0
+  }
+
+  function abrirRepModal() {
+    setRepSearch(''); setRepSelected(null); setRepQty('1'); setRepPrecio('')
+    setRepManualNombre(''); setRepManual(false); setShowRepModal(true)
+  }
+
+  function seleccionarProducto(p: Producto) {
+    setRepSelected(p)
+    setRepPrecio(String(p.precio_venta ?? 0))
+    setRepQty('1')
+    setRepManual(false)
+  }
+
+  async function confirmarRepuesto() {
+    const qty = Math.max(1, parseInt(repQty) || 1)
+    const precio = parseFloat(repPrecio) || 0
+    let nuevo: { productId?: string; name: string; qty: number; precio: number }
+
+    if (repManual) {
+      if (!repManualNombre.trim()) return
+      nuevo = { name: repManualNombre.trim(), qty, precio }
+    } else {
+      if (!repSelected) return
+      nuevo = { productId: repSelected.id, name: repSelected.nombre, qty, precio }
+      // Descontar stock del inventario
+      const nuevoStock = Math.max(0, stockTotal(repSelected) - qty)
+      const prodsActualizados = productos.map(p =>
+        p.id === repSelected.id ? { ...p, stock: nuevoStock } : p
+      )
+      await guardarProductos.mutateAsync(prodsActualizados)
+    }
+
+    const actualizadas = (ordenes ?? []).map(x =>
+      x.id === orden.id ? { ...x, repuestos: [...(x.repuestos ?? []), nuevo] } : x
+    )
     await guardar.mutateAsync(actualizadas)
-    setRepNombre(''); setRepQty('1'); setRepPrecio(''); setShowRepForm(false)
+    setShowRepModal(false)
   }
 
   async function eliminarRepuesto(idx: number) {
@@ -481,20 +522,19 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
           <div className="p-5 border-b border-gray-200">
             <div className="flex items-center justify-between mb-3">
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Repuestos</p>
-              <button onClick={() => setShowRepForm(v => !v)}
+              <button onClick={abrirRepModal}
                 className="text-[11px] font-semibold text-blue-600 border border-blue-200 rounded-lg px-2 py-0.5 hover:bg-blue-50 transition">
-                {showRepForm ? 'Cancelar' : '+ Agregar'}
+                + Agregar
               </button>
             </div>
-
-            {(o.repuestos ?? []).length > 0 && (
-              <div className="mb-2">
+            {(o.repuestos ?? []).length > 0 ? (
+              <div>
                 {(o.repuestos ?? []).map((r, i) => (
                   <div key={r.productId ?? i} className="flex items-center justify-between py-1.5 text-xs border-b border-gray-50 last:border-0 group">
                     <span className="text-gray-700 flex-1 min-w-0 truncate">{r.name}</span>
                     <span className="text-gray-500 mx-2 flex-shrink-0">{r.qty ?? 1} × <Money value={r.precio} /></span>
                     <button onClick={() => eliminarRepuesto(i)}
-                      className="w-4 h-4 rounded text-gray-300 hover:text-red-500 transition opacity-0 group-hover:opacity-100 flex-shrink-0">
+                      className="w-4 h-4 text-gray-300 hover:text-red-500 transition opacity-0 group-hover:opacity-100 flex-shrink-0">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
                         <path strokeLinecap="round" d="M6 18L18 6M6 6l12 12"/>
                       </svg>
@@ -506,30 +546,8 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
                   <Money value={(o.repuestos ?? []).reduce((s, r) => s + r.precio * (r.qty ?? 1), 0)} />
                 </div>
               </div>
-            )}
-
-            {(o.repuestos ?? []).length === 0 && !showRepForm && (
+            ) : (
               <p className="text-xs text-gray-400">Sin repuestos agregados.</p>
-            )}
-
-            {showRepForm && (
-              <div className="mt-2 space-y-2 border border-gray-200 rounded-xl p-3 bg-gray-50">
-                <input autoFocus value={repNombre} onChange={e => setRepNombre(e.target.value)}
-                  placeholder="Nombre del repuesto"
-                  className="w-full text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:border-blue-400" />
-                <div className="flex gap-2">
-                  <input value={repQty} onChange={e => setRepQty(e.target.value)}
-                    placeholder="Cant." type="number" min="1"
-                    className="w-16 text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:border-blue-400" />
-                  <input value={repPrecio} onChange={e => setRepPrecio(e.target.value)}
-                    placeholder="Precio" type="number" min="0"
-                    className="flex-1 text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:border-blue-400" />
-                </div>
-                <button onClick={agregarRepuesto} disabled={!repNombre.trim()}
-                  className="w-full text-xs font-semibold text-white bg-blue-600 rounded-lg py-1.5 hover:bg-blue-700 disabled:opacity-50 transition">
-                  Agregar
-                </button>
-              </div>
             )}
           </div>
 
@@ -736,6 +754,146 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
       {/* QR fotos de ingreso */}
       {showQrIngreso && o.id && (
         <QrFotosModal ordenId={o.id} tipo="ingreso" onClose={() => setShowQrIngreso(false)} />
+      )}
+
+      {/* Modal repuestos — búsqueda de inventario */}
+      {showRepModal && (
+        <div className="fixed inset-0 z-[300] flex items-end sm:items-center justify-center bg-black/50 p-4"
+          onClick={e => { if (e.target === e.currentTarget) setShowRepModal(false) }}>
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl flex flex-col max-h-[85vh]">
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <div>
+                <p className="text-sm font-semibold text-gray-800">Agregar repuesto</p>
+                <p className="text-xs text-gray-400 mt-0.5">Busca en inventario o ingresa manual</p>
+              </div>
+              <button onClick={() => setShowRepModal(false)}
+                className="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-600 transition">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4">
+                  <path strokeLinecap="round" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
+
+            {/* Toggle manual */}
+            <div className="px-5 pt-3 pb-2 flex gap-2">
+              <button onClick={() => setRepManual(false)}
+                className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition ${!repManual ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`}>
+                Inventario
+              </button>
+              <button onClick={() => { setRepManual(true); setRepSelected(null) }}
+                className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition ${repManual ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`}>
+                Manual
+              </button>
+            </div>
+
+            {/* Contenido */}
+            <div className="flex-1 overflow-y-auto px-5 pb-3">
+              {repManual ? (
+                /* Modo manual */
+                <div className="space-y-2 pt-1">
+                  <input autoFocus value={repManualNombre} onChange={e => setRepManualNombre(e.target.value)}
+                    placeholder="Nombre del repuesto"
+                    className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:border-blue-400" />
+                  <div className="flex gap-2">
+                    <input value={repQty} onChange={e => setRepQty(e.target.value)}
+                      type="number" min="1" placeholder="Cant."
+                      className="w-20 text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:border-blue-400" />
+                    <input value={repPrecio} onChange={e => setRepPrecio(e.target.value)}
+                      type="number" min="0" placeholder="Precio unitario"
+                      className="flex-1 text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:border-blue-400" />
+                  </div>
+                </div>
+              ) : (
+                /* Modo inventario */
+                <div className="pt-1">
+                  {/* Buscador */}
+                  <div className="relative mb-3">
+                    <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                    </svg>
+                    <input autoFocus value={repSearch} onChange={e => { setRepSearch(e.target.value); setRepSelected(null) }}
+                      placeholder="Buscar producto por nombre o SKU…"
+                      className="w-full text-sm border border-gray-200 rounded-xl pl-9 pr-3 py-2 focus:outline-none focus:border-blue-400" />
+                  </div>
+
+                  {/* Lista de resultados */}
+                  {repSearch.trim().length > 0 && !repSelected && (() => {
+                    const q = repSearch.toLowerCase()
+                    const results = productos
+                      .filter(p => p.nombre.toLowerCase().includes(q) || (p.sku ?? '').toLowerCase().includes(q))
+                      .slice(0, 8)
+                    return results.length > 0 ? (
+                      <div className="border border-gray-200 rounded-xl overflow-hidden mb-3">
+                        {results.map((p, i) => {
+                          const stk = stockTotal(p)
+                          return (
+                            <button key={p.id} onClick={() => seleccionarProducto(p)}
+                              className={`w-full text-left px-4 py-2.5 hover:bg-blue-50 transition ${i > 0 ? 'border-t border-gray-100' : ''} ${stk === 0 ? 'opacity-50' : ''}`}>
+                              <div className="text-sm font-medium text-gray-800 truncate">{p.nombre}</div>
+                              <div className="text-xs text-gray-400 mt-0.5 flex items-center gap-2">
+                                <span className={stk > 0 ? 'text-green-600' : 'text-red-500'}>Stock: {stk}</span>
+                                {p.precio_venta ? <span>· ${p.precio_venta.toLocaleString('es-CL')}</span> : null}
+                              </div>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-gray-400 text-center py-3">Sin resultados</p>
+                    )
+                  })()}
+
+                  {/* Producto seleccionado */}
+                  {repSelected && (
+                    <div className="border border-green-200 bg-green-50 rounded-xl p-4 mb-3">
+                      <div className="flex items-start justify-between mb-3">
+                        <div>
+                          <p className="text-sm font-semibold text-green-800">{repSelected.nombre}</p>
+                          <p className="text-xs text-green-600 mt-0.5">Stock disponible: {stockTotal(repSelected)} unidades</p>
+                        </div>
+                        <button onClick={() => { setRepSelected(null); setRepSearch('') }}
+                          className="text-green-400 hover:text-green-600 transition">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4">
+                            <path strokeLinecap="round" d="M6 18L18 6M6 6l12 12"/>
+                          </svg>
+                        </button>
+                      </div>
+                      <div className="flex gap-2">
+                        <div>
+                          <label className="text-[10px] text-gray-500 font-medium block mb-1">Cantidad</label>
+                          <input value={repQty} onChange={e => setRepQty(e.target.value)}
+                            type="number" min="1" max={stockTotal(repSelected)}
+                            className="w-20 text-sm border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-blue-400 bg-white" />
+                        </div>
+                        <div className="flex-1">
+                          <label className="text-[10px] text-gray-500 font-medium block mb-1">Precio unitario</label>
+                          <input value={repPrecio} onChange={e => setRepPrecio(e.target.value)}
+                            type="number" min="0"
+                            className="w-full text-sm border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-blue-400 bg-white" />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="px-5 py-4 border-t border-gray-100 flex gap-2 justify-end">
+              <button onClick={() => setShowRepModal(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50 transition">
+                Cancelar
+              </button>
+              <button
+                onClick={confirmarRepuesto}
+                disabled={guardar.isPending || guardarProductos.isPending || (!repManual && !repSelected) || (repManual && !repManualNombre.trim())}
+                className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 disabled:opacity-50 transition">
+                {guardar.isPending ? 'Guardando…' : 'Agregar repuesto'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   )
