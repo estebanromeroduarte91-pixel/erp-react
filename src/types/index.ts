@@ -62,6 +62,8 @@ export interface Orden {
   photosTraslado?: string[]
   aprobacion_estado?: 'pendiente' | 'aprobado' | 'rechazado'
   aprobacion_token?: string
+  aprobacion_enviado?: string
+  aprobacion_fecha?: string
   deliveredAt?: string
   updatedAt?: string
   createdAt?: string

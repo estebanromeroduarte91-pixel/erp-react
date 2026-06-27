@@ -9,7 +9,7 @@ import { EstadoBadge } from '@/components/shared/Badge'
 import { Money } from '@/components/shared/Money'
 import { QrFotosModal } from './QrFotosModal'
 import { OrdenModal } from './OrdenModal'
-import { totalOrden } from './utils'
+import { totalOrden, formatHorario } from './utils'
 import { Spinner } from '@/components/shared/Spinner'
 import type { EstadoOrden, Inspeccion, CheckItem, Producto } from '@/types'
 
