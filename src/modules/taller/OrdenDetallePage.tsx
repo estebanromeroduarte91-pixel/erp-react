@@ -1,9 +1,10 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useParams } from 'react-router-dom'
 import { useOrdenes, useGuardarOrden, useMsgTemplates, useSeguimientoConfig, useChecklist, useProductos, useGuardarProductos } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
-import { sendEmail } from '@/lib/email'
+import { sendEmail, buildEmailAprobacion } from '@/lib/email'
+import { supabase } from '@/lib/supabase'
 import { EstadoBadge } from '@/components/shared/Badge'
 import { Money } from '@/components/shared/Money'
 import { QrFotosModal } from './QrFotosModal'
@@ -47,6 +48,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
   const [checkItems, setCheckItems] = useState<CheckItem[]>([])
   const [enviandoEmail, setEnviandoEmail] = useState(false)
   const [emailOk, setEmailOk] = useState(false)
+  const [aprobEnviando, setAprobEnviando] = useState(false)
 
   // Inspección
   const [showInspeccion, setShowInspeccion] = useState(false)
@@ -233,6 +235,83 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
       ? { ...x, repuestos: (x.repuestos ?? []).filter((_, i) => i !== idx) } : x)
     await guardar.mutateAsync(actualizadas)
   }
+
+  const APROB_BASE_URL = 'https://estebanromeroduarte91-pixel.github.io/modulo-compras/aprobar.html'
+
+  async function solicitarAprobacion() {
+    if (!o.email || !empresaId) return
+    setAprobEnviando(true)
+    try {
+      let token = o.aprobacion_token
+      if (!token || o.aprobacion_estado !== 'pendiente') {
+        token = crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '')
+        const trabajoData = JSON.stringify({
+          v: 2,
+          items: (o.repuestos ?? []).map(r => ({ name: r.name, qty: r.qty, precio: r.precio ?? 0 })),
+          trabajo: o.trabajo ?? '',
+          taller: segCfg?.nombreTaller ?? 'TallerPro',
+          sucursal: branch?.nombre ?? branch?.name ?? '',
+          horario: branchHorario,
+          tel: branch?.tel ?? '',
+          logoUrl: segCfg?.logoUrl ?? '',
+        })
+        const { error } = await supabase.from('aprobaciones').insert({
+          token,
+          orden_id: o.id,
+          empresa_id: empresaId,
+          orden_num: o.num ?? '',
+          cliente: o.nombre ?? '',
+          equipo: o.modelo ?? '',
+          trabajo: trabajoData,
+          presupuesto: o.presup ?? 0,
+          estado: 'pendiente',
+        })
+        if (error) { console.error(error); setAprobEnviando(false); return }
+
+        const actualizadas = (ordenes ?? []).map(x => x.id === o.id
+          ? { ...x, aprobacion_token: token, aprobacion_estado: 'pendiente' as const, aprobacion_enviado: new Date().toISOString() }
+          : x)
+        await guardar.mutateAsync(actualizadas)
+      }
+
+      const link = `${APROB_BASE_URL}?t=${token}`
+      const introTexto = msgTemplates?.aprobacion_email ?? `Hola ${o.nombre ?? ''}, hemos revisado tu ${o.modelo ?? 'equipo'} y necesitamos tu autorización para proceder.`
+      const html = buildEmailAprobacion({
+        tallerNombre: segCfg?.nombreTaller ?? 'TallerPro',
+        logoUrl: segCfg?.logoUrl,
+        introTexto,
+        orden: { num: o.num ?? '', modelo: o.modelo ?? '', nombre: o.nombre ?? '', trabajo: o.trabajo },
+        repuestos: o.repuestos,
+        presupuesto: Number(o.presup ?? 0),
+        link,
+      })
+      const asunto = `Aprobación de presupuesto — ${o.modelo ?? 'Equipo'} #${o.num ?? ''}`
+      void sendEmail(empresaId, o.email, asunto, html)
+    } finally {
+      setAprobEnviando(false)
+    }
+  }
+
+  const pollAprobacion = useCallback(async () => {
+    if (!o.aprobacion_token || o.aprobacion_estado !== 'pendiente') return
+    const { data } = await supabase
+      .from('aprobaciones')
+      .select('token,estado,aprobado_en')
+      .eq('token', o.aprobacion_token)
+      .neq('estado', 'pendiente')
+      .maybeSingle()
+    if (!data) return
+    const actualizadas = (ordenes ?? []).map(x => x.id === o.id
+      ? { ...x, aprobacion_estado: data.estado as 'aprobado' | 'rechazado', aprobacion_fecha: data.aprobado_en }
+      : x)
+    await guardar.mutateAsync(actualizadas)
+  }, [o.aprobacion_token, o.aprobacion_estado, o.id, ordenes, guardar])
+
+  useEffect(() => {
+    if (o.aprobacion_estado !== 'pendiente') return
+    const id = setInterval(() => void pollAprobacion(), 30_000)
+    return () => clearInterval(id)
+  }, [o.aprobacion_estado, pollAprobacion])
 
   async function eliminarFotoIngreso(idx: number) {
     setGuardandoIngreso(true)
@@ -684,10 +763,66 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
             ) : (
               <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-gray-50 border border-gray-100 text-xs text-gray-400">Sin email</div>
             )}
-            <button onClick={() => setEditarOpen(true)}
-              className="w-full bg-blue-600 text-white text-sm font-semibold py-2.5 rounded-xl hover:bg-blue-700 transition mt-2">
-              Editar orden
-            </button>
+            {/* Bloque de aprobación */}
+            <div className="mt-2">
+              {o.aprobacion_estado === 'aprobado' ? (
+                <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-green-50 border border-green-200">
+                  <svg className="w-5 h-5 text-green-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                  </svg>
+                  <div>
+                    <p className="text-xs font-semibold text-green-800">Aprobado por cliente</p>
+                    {o.aprobacion_fecha && (
+                      <p className="text-[10px] text-green-600 mt-0.5">{new Date(o.aprobacion_fecha).toLocaleString('es-CL', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
+                    )}
+                  </div>
+                </div>
+              ) : o.aprobacion_estado === 'rechazado' ? (
+                <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-red-50 border border-red-200">
+                  <svg className="w-5 h-5 text-red-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                  </svg>
+                  <div>
+                    <p className="text-xs font-semibold text-red-800">Rechazado por cliente</p>
+                    <button onClick={() => void solicitarAprobacion()} className="text-[10px] text-red-600 underline mt-0.5">Reenviar solicitud</button>
+                  </div>
+                </div>
+              ) : o.aprobacion_estado === 'pendiente' ? (
+                <div className="px-3 py-2.5 rounded-xl bg-amber-50 border border-amber-200">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <svg className="w-4 h-4 text-amber-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <p className="text-xs font-semibold text-amber-800">Aprobación pendiente</p>
+                  </div>
+                  {o.aprobacion_enviado && (
+                    <p className="text-[10px] text-amber-600 mb-1.5">Enviada {new Date(o.aprobacion_enviado).toLocaleString('es-CL', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
+                  )}
+                  <button onClick={() => void solicitarAprobacion()} disabled={aprobEnviando || !o.email}
+                    className="w-full text-[11px] font-semibold text-amber-800 bg-transparent border border-amber-300 rounded-lg py-1.5 hover:bg-amber-100 disabled:opacity-50 transition">
+                    {aprobEnviando ? 'Enviando…' : 'Reenviar solicitud'}
+                  </button>
+                </div>
+              ) : o.email ? (
+                <button onClick={() => void solicitarAprobacion()} disabled={aprobEnviando}
+                  className="w-full flex items-center justify-center gap-2 bg-green-600 text-white text-sm font-semibold py-2.5 rounded-xl hover:bg-green-700 disabled:opacity-60 transition">
+                  {aprobEnviando ? (
+                    <span>Enviando…</span>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5"/>
+                      </svg>
+                      Solicitar aprobación
+                    </>
+                  )}
+                </button>
+              ) : (
+                <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-gray-50 border border-gray-100 text-xs text-gray-400">
+                  Sin email — no se puede solicitar aprobación
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
