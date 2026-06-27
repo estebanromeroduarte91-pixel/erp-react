@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useParams } from 'react-router-dom'
-import { useOrdenes, useGuardarOrden, useMsgTemplates, useSeguimientoConfig, useChecklist, useProductos, useGuardarProductos } from '@/lib/queries'
+import { useOrdenes, useGuardarOrden, useMsgTemplates, useSeguimientoConfig, useChecklist, useProductos, useGuardarProductos, useBodegas } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { sendEmail, buildEmailAprobacion } from '@/lib/email'
 import { supabase } from '@/lib/supabase'
@@ -41,6 +41,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
   const { data: checklistTemplate = [] } = useChecklist()
   const { data: productos = [] } = useProductos()
   const guardarProductos = useGuardarProductos()
+  const { data: bodegas = [] } = useBodegas()
 
   const [editarOpen, setEditarOpen] = useState(false)
   const [notif, setNotif] = useState<{ estado: EstadoOrden; waMsg: string; emailMsg: string } | null>(null)
@@ -239,79 +240,82 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
   const APROB_BASE_URL = 'https://estebanromeroduarte91-pixel.github.io/modulo-compras/aprobar.html'
 
   async function solicitarAprobacion() {
-    if (!o.email || !empresaId) return
+    if (!orden.email || !empresaId) return
     setAprobEnviando(true)
     try {
-      let token = o.aprobacion_token
-      if (!token || o.aprobacion_estado !== 'pendiente') {
+      const aprobOrden = orden
+      const aprobBranch = bodegas.find(b => b.id === aprobOrden.branchId)
+      const aprobHorario = formatHorario(aprobBranch?.horario) || formatHorario(segCfg?.horario) || ''
+      let token = aprobOrden.aprobacion_token
+      if (!token || aprobOrden.aprobacion_estado !== 'pendiente') {
         token = crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '')
         const trabajoData = JSON.stringify({
           v: 2,
-          items: (o.repuestos ?? []).map(r => ({ name: r.name, qty: r.qty, precio: r.precio ?? 0 })),
-          trabajo: o.trabajo ?? '',
+          items: (aprobOrden.repuestos ?? []).map(r => ({ name: r.name, qty: r.qty, precio: r.precio ?? 0 })),
+          trabajo: aprobOrden.trabajo ?? '',
           taller: segCfg?.nombreTaller ?? 'TallerPro',
-          sucursal: branch?.nombre ?? branch?.name ?? '',
-          horario: branchHorario,
-          tel: branch?.tel ?? '',
+          sucursal: aprobBranch?.nombre ?? aprobBranch?.name ?? '',
+          horario: aprobHorario,
+          tel: aprobBranch?.tel ?? '',
           logoUrl: segCfg?.logoUrl ?? '',
         })
         const { error } = await supabase.from('aprobaciones').insert({
           token,
-          orden_id: o.id,
+          orden_id: aprobOrden.id,
           empresa_id: empresaId,
-          orden_num: o.num ?? '',
-          cliente: o.nombre ?? '',
-          equipo: o.modelo ?? '',
+          orden_num: aprobOrden.num ?? '',
+          cliente: aprobOrden.nombre ?? '',
+          equipo: aprobOrden.modelo ?? '',
           trabajo: trabajoData,
-          presupuesto: o.presup ?? 0,
+          presupuesto: aprobOrden.presup ?? 0,
           estado: 'pendiente',
         })
         if (error) { console.error(error); setAprobEnviando(false); return }
 
-        const actualizadas = (ordenes ?? []).map(x => x.id === o.id
+        const actualizadas = (ordenes ?? []).map(x => x.id === aprobOrden.id
           ? { ...x, aprobacion_token: token, aprobacion_estado: 'pendiente' as const, aprobacion_enviado: new Date().toISOString() }
           : x)
         await guardar.mutateAsync(actualizadas)
       }
 
       const link = `${APROB_BASE_URL}?t=${token}`
-      const introTexto = msgTemplates?.aprobacion_email ?? `Hola ${o.nombre ?? ''}, hemos revisado tu ${o.modelo ?? 'equipo'} y necesitamos tu autorización para proceder.`
+      const introTexto = msgTemplates?.aprobacion_email ?? `Hola ${aprobOrden.nombre ?? ''}, hemos revisado tu ${aprobOrden.modelo ?? 'equipo'} y necesitamos tu autorización para proceder.`
       const html = buildEmailAprobacion({
         tallerNombre: segCfg?.nombreTaller ?? 'TallerPro',
         logoUrl: segCfg?.logoUrl,
         introTexto,
-        orden: { num: o.num ?? '', modelo: o.modelo ?? '', nombre: o.nombre ?? '', trabajo: o.trabajo },
-        repuestos: o.repuestos,
-        presupuesto: Number(o.presup ?? 0),
+        orden: { num: aprobOrden.num ?? '', modelo: aprobOrden.modelo ?? '', nombre: aprobOrden.nombre ?? '', trabajo: aprobOrden.trabajo },
+        repuestos: aprobOrden.repuestos,
+        presupuesto: Number(aprobOrden.presup ?? 0),
         link,
       })
-      const asunto = `Aprobación de presupuesto — ${o.modelo ?? 'Equipo'} #${o.num ?? ''}`
-      void sendEmail(empresaId, o.email, asunto, html)
+      const asunto = `Aprobación de presupuesto — ${aprobOrden.modelo ?? 'Equipo'} #${aprobOrden.num ?? ''}`
+      void sendEmail(empresaId, aprobOrden.email!, asunto, html)
     } finally {
       setAprobEnviando(false)
     }
   }
 
   const pollAprobacion = useCallback(async () => {
-    if (!o.aprobacion_token || o.aprobacion_estado !== 'pendiente') return
+    if (!orden.aprobacion_token || orden.aprobacion_estado !== 'pendiente') return
     const { data } = await supabase
       .from('aprobaciones')
       .select('token,estado,aprobado_en')
-      .eq('token', o.aprobacion_token)
+      .eq('token', orden.aprobacion_token)
       .neq('estado', 'pendiente')
       .maybeSingle()
     if (!data) return
-    const actualizadas = (ordenes ?? []).map(x => x.id === o.id
+    const actualizadas = (ordenes ?? []).map(x => x.id === orden.id
       ? { ...x, aprobacion_estado: data.estado as 'aprobado' | 'rechazado', aprobacion_fecha: data.aprobado_en }
       : x)
     await guardar.mutateAsync(actualizadas)
-  }, [o.aprobacion_token, o.aprobacion_estado, o.id, ordenes, guardar])
+  }, [orden.aprobacion_token, orden.aprobacion_estado, orden.id, ordenes, guardar])
 
   useEffect(() => {
-    if (o.aprobacion_estado !== 'pendiente') return
+    if (orden.aprobacion_estado !== 'pendiente') return
     const id = setInterval(() => void pollAprobacion(), 30_000)
     return () => clearInterval(id)
-  }, [o.aprobacion_estado, pollAprobacion])
+  }, [orden.aprobacion_estado, pollAprobacion])
 
   async function eliminarFotoIngreso(idx: number) {
     setGuardandoIngreso(true)
