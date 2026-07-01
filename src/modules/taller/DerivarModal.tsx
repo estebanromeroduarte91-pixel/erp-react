@@ -70,7 +70,7 @@ export function DerivarModal({ orden, onClose }: { orden: Orden; onClose: () => 
   const tecnicoSel = tecnicos.find(t => t.id === form.tecnico_ext_id)
   const resultados = useMemo(() => {
     const q = busqueda.trim().toLowerCase()
-    if (!q) return tecnicos.slice(0, 6)
+    if (!q) return []
     return tecnicos.filter(t =>
       t.nombre.toLowerCase().includes(q) || (t.notas ?? '').toLowerCase().includes(q),
     ).slice(0, 6)
