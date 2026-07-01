@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useParams } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { useOrdenes, useGuardarOrden, useMsgTemplates, useSeguimientoConfig, useChecklist, useProductos, useGuardarProductos, useBodegas, useTraslados } from '@/lib/queries'
 import { DerivarModal } from './DerivarModal'
 import { useAuth } from '@/context/AuthContext'
@@ -34,6 +35,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
   const { num: numParam } = useParams<{ num: string }>()
   const num = numProp ?? numParam
   const { empresaId } = useAuth()
+  const qc = useQueryClient()
   const { data: ordenes, isLoading } = useOrdenes()
   const guardar = useGuardarOrden()
   const { data: msgTemplates } = useMsgTemplates()
@@ -106,6 +108,16 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
     qrInspecSnapshot.current = dbFotos
     if (nuevas.length) setInspecFotos(prev => [...new Set([...prev, ...nuevas])])
   }, [inspecDbFotos])
+
+  // Mientras un modal QR esté abierto, refrescar las órdenes cada 3s para que
+  // las fotos subidas desde el iPhone aparezcan aunque el realtime no dispare.
+  useEffect(() => {
+    if (!showQrInspec && !showQrIngreso) return
+    const id = setInterval(() => {
+      void qc.invalidateQueries({ queryKey: ['tp_orders', empresaId] })
+    }, 3000)
+    return () => clearInterval(id)
+  }, [showQrInspec, showQrIngreso, qc, empresaId])
 
   if (isLoading) return (
     <div className="flex items-center justify-center h-full py-24">
