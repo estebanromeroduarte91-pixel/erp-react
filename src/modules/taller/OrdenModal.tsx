@@ -51,7 +51,7 @@ function rellenarTemplate(tpl: string, vars: Record<string, string>): string {
 }
 
 export function OrdenModal({ orden, ordenes, onClose }: Props) {
-  const { empresaId } = useAuth()
+  const { empresaId, branchId: userBranchId } = useAuth()
   const guardar = useGuardarOrden()
   const { data: clientes } = useClientes()
   const guardarClientes = useGuardarClientes()
@@ -371,6 +371,7 @@ export function OrdenModal({ orden, ordenes, onClose }: Props) {
       const existe = ordenes.some((o) => o.id === draftId)
       const actualizada = (base: Orden): Orden => ({
         ...base, ...form, repuestos, checkIngreso: checkFinal, photosIngreso: fotos, _draft: false,
+        branchId: base.branchId ?? userBranchId ?? undefined,
       })
       nuevasOrdenes = existe
         ? ordenes.map((o) => (o.id === draftId ? actualizada(o) : o))
@@ -384,6 +385,7 @@ export function OrdenModal({ orden, ordenes, onClose }: Props) {
         repuestos,
         checkIngreso: checkFinal,
         photosIngreso: fotos,
+        branchId: userBranchId ?? undefined,
       }
       nuevasOrdenes = [nuevaOrden, ...ordenes]
     }

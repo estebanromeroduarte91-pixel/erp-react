@@ -140,9 +140,12 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
   const orden = o! // safe: early returns above guarantee o is defined here during render
 
   function buildVars() {
+    const branch = bodegas.find(b => b.id === orden.branchId)
     return {
       nombre: orden.nombre ?? '', modelo: orden.modelo ?? '', orden: orden.num,
-      sucursal: segCfg?.nombreTaller ?? '', horario: segCfg?.horario ?? '',
+      sucursal: branch?.nombre ?? branch?.name ?? segCfg?.nombreTaller ?? '',
+      horario: formatHorario(branch?.horario) || formatHorario(segCfg?.horario) || '',
+      direccion: branch?.direccion ?? '', telefono: branch?.tel ?? '', email: branch?.email ?? '',
       presupuesto: String(orden.presup ?? ''), trabajo: orden.trabajo ?? '',
       link: '', fecha_estimada: orden.fechaEstimada ?? '',
     }
