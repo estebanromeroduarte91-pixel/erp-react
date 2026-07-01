@@ -50,6 +50,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
   const [enviandoEmail, setEnviandoEmail] = useState(false)
   const [emailOk, setEmailOk] = useState(false)
   const [aprobEnviando, setAprobEnviando] = useState(false)
+  const [aprobMsg, setAprobMsg] = useState<{ msg: string; type: 'ok' | 'err' } | null>(null)
 
   // Inspección
   const [showInspeccion, setShowInspeccion] = useState(false)
@@ -240,10 +241,12 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
   const APROB_BASE_URL = 'https://estebanromeroduarte91-pixel.github.io/modulo-compras/aprobar.html'
 
   async function solicitarAprobacion() {
-    if (!orden.email || !empresaId) return
+    const aprobOrden = orden
+    if (!aprobOrden.email) { setAprobMsg({ msg: 'La orden no tiene email del cliente.', type: 'err' }); return }
+    if (!empresaId) { setAprobMsg({ msg: 'No se pudo identificar la empresa. Recarga la página.', type: 'err' }); return }
     setAprobEnviando(true)
+    setAprobMsg(null)
     try {
-      const aprobOrden = orden
       const aprobBranch = bodegas.find(b => b.id === aprobOrden.branchId)
       const aprobHorario = formatHorario(aprobBranch?.horario) || formatHorario(segCfg?.horario) || ''
       let token = aprobOrden.aprobacion_token
@@ -270,7 +273,12 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
           presupuesto: aprobOrden.presup ?? 0,
           estado: 'pendiente',
         })
-        if (error) { console.error(error); setAprobEnviando(false); return }
+        if (error) {
+          console.error('Error insert aprobaciones:', error)
+          setAprobMsg({ msg: 'No se pudo crear la solicitud: ' + error.message, type: 'err' })
+          setAprobEnviando(false)
+          return
+        }
 
         const actualizadas = (ordenes ?? []).map(x => x.id === aprobOrden.id
           ? { ...x, aprobacion_token: token, aprobacion_estado: 'pendiente' as const, aprobacion_enviado: new Date().toISOString() }
@@ -290,7 +298,15 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
         link,
       })
       const asunto = `Aprobación de presupuesto — ${aprobOrden.modelo ?? 'Equipo'} #${aprobOrden.num ?? ''}`
-      void sendEmail(empresaId, aprobOrden.email!, asunto, html)
+      const res = await sendEmail(empresaId, aprobOrden.email, asunto, html)
+      if (res.ok) {
+        setAprobMsg({ msg: `Solicitud enviada a ${aprobOrden.email}`, type: 'ok' })
+      } else {
+        setAprobMsg({ msg: 'Solicitud creada, pero el email falló: ' + (res.error ?? 'error desconocido'), type: 'err' })
+      }
+    } catch (e) {
+      console.error('Error solicitarAprobacion:', e)
+      setAprobMsg({ msg: 'Error inesperado: ' + (e as Error).message, type: 'err' })
     } finally {
       setAprobEnviando(false)
     }
@@ -316,6 +332,12 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
     const id = setInterval(() => void pollAprobacion(), 30_000)
     return () => clearInterval(id)
   }, [orden.aprobacion_estado, pollAprobacion])
+
+  useEffect(() => {
+    if (!aprobMsg) return
+    const id = setTimeout(() => setAprobMsg(null), 5000)
+    return () => clearTimeout(id)
+  }, [aprobMsg])
 
   async function eliminarFotoIngreso(idx: number) {
     setGuardandoIngreso(true)
@@ -913,6 +935,25 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
       {/* QR fotos de ingreso */}
       {showQrIngreso && o.id && (
         <QrFotosModal ordenId={o.id} tipo="ingreso" onClose={() => setShowQrIngreso(false)} />
+      )}
+
+      {/* Toast de aprobación */}
+      {aprobMsg && (
+        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[400] max-w-sm">
+          <div className={`flex items-start gap-2.5 px-4 py-3 rounded-xl shadow-lg border text-sm font-medium ${
+            aprobMsg.type === 'ok' ? 'bg-green-600 text-white border-green-700' : 'bg-red-600 text-white border-red-700'
+          }`}>
+            <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              {aprobMsg.type === 'ok'
+                ? <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                : <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />}
+            </svg>
+            <span>{aprobMsg.msg}</span>
+            <button onClick={() => setAprobMsg(null)} className="ml-1 opacity-70 hover:opacity-100 flex-shrink-0">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Modal repuestos — búsqueda de inventario */}
