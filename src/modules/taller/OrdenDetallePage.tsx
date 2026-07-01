@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useParams } from 'react-router-dom'
-import { useOrdenes, useGuardarOrden, useMsgTemplates, useSeguimientoConfig, useChecklist, useProductos, useGuardarProductos, useBodegas } from '@/lib/queries'
+import { useOrdenes, useGuardarOrden, useMsgTemplates, useSeguimientoConfig, useChecklist, useProductos, useGuardarProductos, useBodegas, useTraslados } from '@/lib/queries'
+import { DerivarModal } from './DerivarModal'
 import { useAuth } from '@/context/AuthContext'
 import { sendEmail, buildEmailAprobacion } from '@/lib/email'
 import { supabase } from '@/lib/supabase'
@@ -42,8 +43,10 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
   const { data: productos = [] } = useProductos()
   const guardarProductos = useGuardarProductos()
   const { data: bodegas = [] } = useBodegas()
+  const { data: traslados = [] } = useTraslados()
 
   const [editarOpen, setEditarOpen] = useState(false)
+  const [showDerivar, setShowDerivar] = useState(false)
   const [notif, setNotif] = useState<{ estado: EstadoOrden; waMsg: string; emailMsg: string } | null>(null)
   const [checklistOpen, setChecklistOpen] = useState(false)
   const [checkItems, setCheckItems] = useState<CheckItem[]>([])
@@ -371,7 +374,20 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
         </div>
         <div className="flex items-center gap-3">
           <EstadoBadge estado={o.status} />
-          {total > 0 && <span className="text-sm font-semibold text-gray-800"><Money value={total} /></span>}
+          {(() => {
+            const derivado = traslados.some(t => t.order_id === o.id && t.estado !== 'retornado')
+            return (
+              <button onClick={() => setShowDerivar(true)}
+                className={`flex items-center gap-1.5 text-sm font-semibold rounded-lg px-3 py-1.5 border transition ${
+                  derivado ? 'text-amber-700 border-amber-200 bg-amber-50 hover:bg-amber-100' : 'text-gray-600 border-gray-200 hover:bg-gray-50'
+                }`}>
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                </svg>
+                {derivado ? 'Derivado' : 'Derivar'}
+              </button>
+            )
+          })()}
           <button onClick={() => setEditarOpen(true)}
             className="flex items-center gap-1.5 text-sm font-semibold text-blue-600 border border-blue-200 rounded-lg px-3 py-1.5 hover:bg-blue-50 transition">
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -950,6 +966,11 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
       {/* QR fotos de ingreso */}
       {showQrIngreso && o.id && (
         <QrFotosModal ordenId={o.id} tipo="ingreso" onClose={() => setShowQrIngreso(false)} />
+      )}
+
+      {/* Modal derivar a técnico externo */}
+      {showDerivar && (
+        <DerivarModal orden={o} onClose={() => setShowDerivar(false)} />
       )}
 
       {/* Toast de aprobación */}
