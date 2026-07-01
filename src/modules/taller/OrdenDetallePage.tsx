@@ -1030,7 +1030,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
               {/* Diagnóstico de apertura */}
               <div>
                 <label className="text-xs font-semibold text-gray-600 mb-1.5 block">Diagnóstico de apertura</label>
-                <textarea value={inspecNotas} onChange={e => setInspecNotas(e.target.value)}
+                <textarea value={inspecNotas} onChange={e => { const v = e.target.value; setInspecNotas(v.charAt(0).toUpperCase() + v.slice(1)) }}
                   placeholder="Describe lo que encontraste al abrir el equipo: humedad, sulfatación, golpes internos…" rows={4}
                   autoCapitalize="sentences"
                   className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm bg-gray-50 focus:outline-none focus:border-blue-400 resize-none leading-relaxed" />
