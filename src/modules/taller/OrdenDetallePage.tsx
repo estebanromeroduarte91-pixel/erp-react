@@ -82,10 +82,12 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
 
   // Sync inspección local con la orden cuando cambia
   const inspecRef = useRef<string | null>(null)
+  const qrInspecSnapshot = useRef<string[]>([])
   if (o && inspecRef.current !== o.id) {
     inspecRef.current = o.id
     setInspecNotas(o.inspeccion?.notas ?? '')
     setInspecFotos(o.inspeccion?.fotos ?? [])
+    qrInspecSnapshot.current = o.inspeccion?.fotos ?? []
     // Merge template con estado guardado en la orden
     const saved = o.checkIngreso ?? []
     const merged: CheckItem[] = checklistTemplate.map(label => ({
@@ -94,6 +96,16 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
     }))
     setCheckItems(merged.length ? merged : saved)
   }
+
+  // Sumar en vivo las fotos que llegan por QR a la inspección (realtime),
+  // incluso con el formulario abierto. Solo agrega las nuevas — no revierte borrados locales.
+  const inspecDbFotos = o?.inspeccion?.fotos
+  useEffect(() => {
+    const dbFotos = inspecDbFotos ?? []
+    const nuevas = dbFotos.filter(f => !qrInspecSnapshot.current.includes(f))
+    qrInspecSnapshot.current = dbFotos
+    if (nuevas.length) setInspecFotos(prev => [...new Set([...prev, ...nuevas])])
+  }, [inspecDbFotos])
 
   if (isLoading) return (
     <div className="flex items-center justify-center h-full py-24">
