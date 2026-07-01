@@ -254,7 +254,6 @@ export function DerivarModal({ orden, onClose }: { orden: Orden; onClose: () => 
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
                   <option value="enciende">Equipo enciende</option>
                   <option value="apagado">Equipo apagado</option>
-                  <option value="regular">Regular</option>
                 </select>
               </div>
               <div>
