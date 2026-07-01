@@ -5,7 +5,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useOrdenes, useGuardarOrden, useMsgTemplates, useSeguimientoConfig, useChecklist, useProductos, useGuardarProductos, useBodegas, useTraslados } from '@/lib/queries'
 import { DerivarModal } from './DerivarModal'
 import { useAuth } from '@/context/AuthContext'
-import { sendEmail, buildEmailAprobacion, buildEmailInspeccion } from '@/lib/email'
+import { sendEmail, buildEmailAprobacion, buildEmailInspeccion, buildEmailListo } from '@/lib/email'
 import { supabase } from '@/lib/supabase'
 import { EstadoBadge } from '@/components/shared/Badge'
 import { Money } from '@/components/shared/Money'
@@ -151,24 +151,49 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
     }
   }
 
+  function buildListoHtml(msgTexto: string) {
+    const branch = bodegas.find(b => b.id === orden.branchId)
+    return buildEmailListo({
+      tallerNombre: segCfg?.nombreTaller ?? 'TallerPro',
+      logoUrl: segCfg?.logoUrl,
+      msgTexto,
+      orden: { num: orden.num, modelo: orden.modelo ?? '', nombre: orden.nombre ?? '' },
+      branchNombre: branch?.nombre ?? branch?.name ?? segCfg?.nombreTaller ?? '',
+      horario: formatHorario(branch?.horario) || formatHorario(segCfg?.horario) || '',
+    })
+  }
+
+  function asuntoListo(estado: EstadoOrden) {
+    return estado === 'Listo'
+      ? `Tu ${orden.modelo ?? 'equipo'} está listo para retirar — #OT-${String(orden.num).padStart(4, '0')}`
+      : `Orden #OT-${String(orden.num).padStart(4, '0')} entregada`
+  }
+
   async function cambiarEstado(estado: EstadoOrden) {
     if (orden.status === estado) return
     const actualizadas = (ordenes ?? []).map(x => x.id === orden.id ? { ...x, status: estado } : x)
     await guardar.mutateAsync(actualizadas)
+    setEmailOk(false)
     const vars = buildVars()
-    const keyWa = (estado === 'Listo' || estado === 'Entregado') ? 'listo_wa' : null
-    const keyEmail = (estado === 'Listo' || estado === 'Entregado') ? 'listo_email' : null
-    const waMsg = keyWa && msgTemplates?.[keyWa] ? rellenarTemplate(msgTemplates[keyWa]!, vars) : ''
-    const emailMsg = keyEmail && msgTemplates?.[keyEmail] ? rellenarTemplate(msgTemplates[keyEmail]!, vars) : ''
-    if (waMsg || emailMsg) setNotif({ estado, waMsg, emailMsg })
+    const esListo = estado === 'Listo' || estado === 'Entregado'
+    const waMsg = esListo && msgTemplates?.listo_wa ? rellenarTemplate(msgTemplates.listo_wa, vars) : ''
+    const emailMsg = esListo && msgTemplates?.listo_email ? rellenarTemplate(msgTemplates.listo_email, vars) : ''
+
+    // Auto-envío del email diseñado al poner Listo / Entregado
+    if (esListo && emailMsg && orden.email && empresaId) {
+      void sendEmail(empresaId, orden.email, asuntoListo(estado), buildListoHtml(emailMsg))
+      setEmailOk(true)
+    }
+
+    // Popup: WhatsApp siempre; email solo si no se pudo auto-enviar (sin empresaId)
+    const mostrarEmail = esListo && emailMsg && orden.email && !empresaId
+    if (waMsg || mostrarEmail) setNotif({ estado, waMsg, emailMsg: mostrarEmail ? emailMsg : '' })
   }
 
   async function enviarEmail() {
     if (!notif?.emailMsg || !orden.email || !empresaId) return
     setEnviandoEmail(true)
-    const html = notif.emailMsg.replace(/\n/g, '<br>')
-    const asunto = notif.estado === 'Listo' ? `Tu equipo está listo — Orden #${orden.num}` : `Orden #${orden.num} entregada`
-    await sendEmail(empresaId, orden.email, asunto, html)
+    await sendEmail(empresaId, orden.email, asuntoListo(notif.estado), buildListoHtml(notif.emailMsg))
     setEnviandoEmail(false)
     setEmailOk(true)
   }
@@ -948,6 +973,17 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
               <p className="text-xs text-gray-400 mt-0.5">¿Notificar al cliente?</p>
             </div>
             <div className="px-5 py-4 space-y-3">
+              {emailOk && o.email && (
+                <div className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-green-50 border border-green-200">
+                  <svg className="w-4 h-4 text-green-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-green-800">Email enviado al cliente</p>
+                    <p className="text-[11px] text-green-600 truncate">{o.email}</p>
+                  </div>
+                </div>
+              )}
               {notif.waMsg && o.tel && (
                 <button onClick={enviarWhatsApp}
                   className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-green-50 border border-green-200 hover:bg-green-100 transition text-left">
