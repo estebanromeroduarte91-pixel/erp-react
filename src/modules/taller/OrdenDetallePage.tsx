@@ -5,7 +5,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useOrdenes, useGuardarOrden, useMsgTemplates, useSeguimientoConfig, useChecklist, useProductos, useGuardarProductos, useBodegas, useTraslados } from '@/lib/queries'
 import { DerivarModal } from './DerivarModal'
 import { useAuth } from '@/context/AuthContext'
-import { sendEmail, buildEmailAprobacion } from '@/lib/email'
+import { sendEmail, buildEmailAprobacion, buildEmailInspeccion } from '@/lib/email'
 import { supabase } from '@/lib/supabase'
 import { EstadoBadge } from '@/components/shared/Badge'
 import { Money } from '@/components/shared/Money'
@@ -63,6 +63,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
   const [inspecFotos, setInspecFotos] = useState<string[]>([])
   const [showQrInspec, setShowQrInspec] = useState(false)
   const [guardandoInspec, setGuardandoInspec] = useState(false)
+  const [enviandoInspec, setEnviandoInspec] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   // Fotos de ingreso
@@ -197,6 +198,42 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
     await guardar.mutateAsync(actualizadas)
     setGuardandoInspec(false)
     setShowInspeccion(false)
+  }
+
+  async function guardarYEnviarInspeccion() {
+    if (!orden.email) { setAprobMsg({ msg: 'La orden no tiene email del cliente.', type: 'err' }); return }
+    if (!empresaId) { setAprobMsg({ msg: 'No se pudo identificar la empresa. Recarga la página.', type: 'err' }); return }
+    setEnviandoInspec(true)
+    try {
+      const inspeccion: Inspeccion = { fotos: inspecFotos, notas: inspecNotas, fecha: new Date().toISOString() }
+      const actualizadas = (ordenes ?? []).map(x => x.id === orden.id ? { ...x, inspeccion } : x)
+      await guardar.mutateAsync(actualizadas)
+
+      const tplVars: Record<string, string> = {
+        nombre: orden.nombre ?? '', modelo: orden.modelo ?? '', orden: orden.num ?? '', serie: orden.serie ?? '',
+      }
+      const rawTpl = msgTemplates?.inspeccion_email ?? `Hola {{nombre}}, al abrir tu {{modelo}} para la reparación detectamos algunos detalles que queremos informarte antes de continuar.`
+      const msgTexto = rawTpl.split(/\n\n/)[0].replace(/\{\{(\w+)\}\}/g, (_, k: string) => tplVars[k] ?? '')
+
+      const html = buildEmailInspeccion({
+        tallerNombre: segCfg?.nombreTaller ?? 'TallerPro',
+        logoUrl: segCfg?.logoUrl,
+        msgTexto,
+        orden: { num: orden.num ?? '', modelo: orden.modelo ?? '', nombre: orden.nombre ?? '', serie: orden.serie },
+        notas: inspecNotas,
+        fotos: inspecFotos,
+      })
+      const asunto = `Reporte de inspección — ${orden.modelo ?? 'Equipo'} #OT-${String(orden.num).padStart(4, '0')}`
+      const res = await sendEmail(empresaId, orden.email, asunto, html)
+      setAprobMsg(res.ok
+        ? { msg: `Reporte enviado a ${orden.email}`, type: 'ok' }
+        : { msg: 'Guardado, pero el email falló: ' + (res.error ?? 'error desconocido'), type: 'err' })
+    } catch (e) {
+      setAprobMsg({ msg: 'Error inesperado: ' + (e as Error).message, type: 'err' })
+    } finally {
+      setEnviandoInspec(false)
+      setShowInspeccion(false)
+    }
   }
 
   function handleFotosIngreso(e: React.ChangeEvent<HTMLInputElement>) {
@@ -660,14 +697,14 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
           })()}
           </div>
 
-          {/* ── Inspección (colapsable) ── */}
+          {/* ── Inspección (abre modal) ── */}
           <div className="border-b border-gray-200">
-            <button onClick={() => setShowInspeccion(v => !v)}
+            <button onClick={() => setShowInspeccion(true)}
               className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 transition">
               <div className="flex items-center gap-2.5">
-                <div className="w-7 h-7 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0">
-                  <svg className="w-3.5 h-3.5 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
+                  <svg className="w-3.5 h-3.5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <circle cx="11" cy="11" r="7" /><path strokeLinecap="round" d="M21 21l-4.35-4.35" />
                   </svg>
                 </div>
                 <span className="text-sm font-semibold text-gray-800">Inspección del equipo</span>
@@ -675,57 +712,29 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
                   ? <span className="text-[10px] font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Registrada</span>
                   : <span className="text-[10px] font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">Sin registrar</span>}
               </div>
-              <svg className={`w-4 h-4 text-gray-400 transition-transform ${showInspeccion ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-              </svg>
+              <span className="text-xs font-semibold text-blue-600 border border-blue-200 rounded-lg px-3 py-1">
+                {o.inspeccion ? 'Ver / editar' : '+ Agregar'}
+              </span>
             </button>
 
-            {showInspeccion && (
-              <div className="border border-gray-200 rounded-xl p-4 space-y-3">
-                <textarea value={inspecNotas} onChange={e => setInspecNotas(e.target.value)}
-                  placeholder="Notas de la inspección: fallas encontradas, diagnóstico..." rows={4}
-                  autoCapitalize="sentences"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400 resize-none" />
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-medium text-gray-500">Fotos ({inspecFotos.length}/6)</p>
-                  <div className="flex items-center gap-2">
-                    <button type="button" onClick={() => setShowQrInspec(true)}
-                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 bg-blue-50 border border-blue-200 rounded-lg px-2.5 py-1 hover:bg-blue-100 transition">
-                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" />
-                        <rect x="3" y="14" width="7" height="7" rx="1" /><path d="M14 14h3v3h-3zM17 17v3M14 17h.01" />
-                      </svg>
-                      QR iPhone
-                    </button>
-                    {inspecFotos.length < 6 && (
-                      <button type="button" onClick={() => fileRef.current?.click()}
-                        className="text-xs font-medium text-blue-600 border border-blue-200 rounded-lg px-2.5 py-1 hover:bg-blue-50 transition">
-                        + Subir
-                      </button>
-                    )}
-                  </div>
-                  <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFotosInspec} />
+            {/* Preview compacto de lo guardado */}
+            {o.inspeccion && (o.inspeccion.notas || (o.inspeccion.fotos?.length ?? 0) > 0) && (
+              <button onClick={() => setShowInspeccion(true)} className="block w-full text-left px-5 pb-4">
+                <div className="bg-gray-50 rounded-xl p-3.5 space-y-2.5 hover:bg-gray-100 transition">
+                  {o.inspeccion.notas && (
+                    <p className="text-sm text-gray-700 leading-relaxed line-clamp-2">{o.inspeccion.notas}</p>
+                  )}
+                  {(o.inspeccion.fotos?.length ?? 0) > 0 && (
+                    <div className="grid grid-cols-5 gap-1.5">
+                      {o.inspeccion.fotos!.slice(0, 5).map((src, i) => (
+                        <div key={i} className="aspect-square rounded-lg overflow-hidden border border-gray-200">
+                          <img src={src} alt="" className="w-full h-full object-cover" />
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                {inspecFotos.length > 0 && (
-                  <div className="grid grid-cols-4 gap-2">
-                    {inspecFotos.map((src, i) => (
-                      <div key={i} className="relative aspect-square rounded-lg overflow-hidden border border-gray-200 group">
-                        <img src={src} alt="" className="w-full h-full object-cover" />
-                        <button onClick={() => setInspecFotos(f => f.filter((_, j) => j !== i))}
-                          className="absolute top-1 right-1 w-5 h-5 bg-black/60 text-white rounded-full text-[10px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition">✕</button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <div className="flex justify-end gap-2">
-                  <button onClick={() => setShowInspeccion(false)}
-                    className="px-3 py-1.5 text-xs font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition">Cancelar</button>
-                  <button onClick={guardarInspeccion} disabled={guardandoInspec}
-                    className="px-3 py-1.5 text-xs font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition">
-                    {guardandoInspec ? 'Guardando…' : 'Guardar inspección'}
-                  </button>
-                </div>
-              </div>
+              </button>
             )}
           </div>
 
@@ -994,6 +1003,105 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
       {/* Modal derivar a técnico externo */}
       {showDerivar && (
         <DerivarModal orden={o} onClose={() => setShowDerivar(false)} />
+      )}
+
+      {/* Modal inspección del equipo */}
+      {showInspeccion && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/50 p-4"
+          onClick={e => { if (e.target === e.currentTarget) setShowInspeccion(false) }}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[92vh]">
+            {/* Header */}
+            <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100">
+              <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0">
+                <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <circle cx="11" cy="11" r="7" /><path strokeLinecap="round" d="M21 21l-4.35-4.35" />
+                </svg>
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-base font-bold text-gray-900">Inspección del equipo</h3>
+                <p className="text-xs text-gray-400 truncate">{o.modelo}{o.num ? ` · Orden #${o.num}` : ''}{o.nombre ? ` · ${o.nombre}` : ''}</p>
+              </div>
+              <button onClick={() => setShowInspeccion(false)} className="text-gray-400 hover:text-gray-600 p-1 flex-shrink-0">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+            </div>
+
+            <div className="overflow-y-auto px-6 py-5 space-y-5">
+              {/* Diagnóstico de apertura */}
+              <div>
+                <label className="text-xs font-semibold text-gray-600 mb-1.5 block">Diagnóstico de apertura</label>
+                <textarea value={inspecNotas} onChange={e => setInspecNotas(e.target.value)}
+                  placeholder="Describe lo que encontraste al abrir el equipo: humedad, sulfatación, golpes internos…" rows={4}
+                  autoCapitalize="sentences"
+                  className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm bg-gray-50 focus:outline-none focus:border-blue-400 resize-none leading-relaxed" />
+              </div>
+
+              {/* Fotos */}
+              <div>
+                <div className="flex items-center justify-between mb-2.5">
+                  <label className="text-xs font-semibold text-gray-600">Fotos <span className="text-gray-400 font-normal">({inspecFotos.length}/6)</span></label>
+                  <div className="flex items-center gap-2">
+                    <button type="button" onClick={() => setShowQrInspec(true)}
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 bg-blue-50 border border-blue-200 rounded-lg px-2.5 py-1.5 hover:bg-blue-100 transition">
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" />
+                        <rect x="3" y="14" width="7" height="7" rx="1" /><path d="M14 14h3v3h-3zM17 17v3M14 17h.01" />
+                      </svg>
+                      QR iPhone
+                    </button>
+                    {inspecFotos.length < 6 && (
+                      <button type="button" onClick={() => fileRef.current?.click()}
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 border border-blue-200 rounded-lg px-2.5 py-1.5 hover:bg-blue-50 transition">
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v12m0-12l-4 4m4-4l4 4M4 20h16"/></svg>
+                        Subir
+                      </button>
+                    )}
+                  </div>
+                  <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFotosInspec} />
+                </div>
+                {inspecFotos.length > 0 ? (
+                  <div className="grid grid-cols-4 gap-2">
+                    {inspecFotos.map((src, i) => (
+                      <div key={i} className="relative aspect-square rounded-lg overflow-hidden border border-gray-200 group">
+                        <img src={src} alt="" className="w-full h-full object-cover" />
+                        <button onClick={() => setInspecFotos(f => f.filter((_, j) => j !== i))}
+                          className="absolute top-1 right-1 w-5 h-5 bg-black/60 text-white rounded-full text-[10px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition">✕</button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="border border-dashed border-gray-200 rounded-xl py-8 flex flex-col items-center gap-1.5 text-gray-400">
+                    <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <p className="text-xs">Sin fotos · usa QR iPhone o Subir</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center gap-2.5 px-6 py-4 border-t border-gray-100 bg-gray-50 rounded-b-2xl">
+              <button onClick={() => setShowInspeccion(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-100 transition">
+                Cancelar
+              </button>
+              <div className="flex-1" />
+              <button onClick={guardarInspeccion} disabled={guardandoInspec || enviandoInspec}
+                className="px-4 py-2 text-sm font-semibold text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-60 transition">
+                {guardandoInspec ? 'Guardando…' : 'Guardar'}
+              </button>
+              <button onClick={guardarYEnviarInspeccion} disabled={guardandoInspec || enviandoInspec || !o.email}
+                title={!o.email ? 'La orden no tiene email del cliente' : undefined}
+                className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5"/>
+                </svg>
+                {enviandoInspec ? 'Enviando…' : 'Guardar y enviar al cliente'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Toast de aprobación */}

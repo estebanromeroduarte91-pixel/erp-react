@@ -283,8 +283,17 @@ export function buildEmailInspeccion(d: InspeccionEmailData): string {
       </div>` : ''
 
   const notasHtml = d.notas
-    ? `<div style="background:#f0f4ff;border-left:3px solid #3656e6;border-radius:0 12px 12px 0;padding:18px 20px;margin-bottom:20px">
-        <p style="font-size:10px;font-weight:700;color:#3656e6;text-transform:uppercase;letter-spacing:.7px;margin:0 0 10px">Estado del equipo</p>
+    ? `<div style="background:#f8fafc;border:1px solid #eef0f5;border-radius:12px;padding:16px 18px;margin-bottom:20px">
+        <table cellpadding="0" cellspacing="0" border="0" style="width:100%;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid #e8edf5"><tr>
+          <td style="width:32px;vertical-align:middle">
+            <table cellpadding="0" cellspacing="0" border="0"><tr><td style="width:32px;height:32px;background:#ecefff;border-radius:9px;text-align:center;vertical-align:middle">
+              <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiMzNjU2ZTYiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48Y2lyY2xlIGN4PSIxMSIgY3k9IjExIiByPSI3Ii8+PHBhdGggZD0iTTIxIDIxbC00LjM1LTQuMzUiLz48L3N2Zz4=" width="16" height="16" alt="" style="display:block;margin:8px auto">
+            </td></tr></table>
+          </td>
+          <td style="padding-left:10px;vertical-align:middle">
+            <span style="font-size:11px;font-weight:800;color:#374151;letter-spacing:.7px;text-transform:uppercase">Estado del equipo</span>
+          </td>
+        </tr></table>
         <p style="font-size:14px;color:#374151;line-height:1.7;margin:0">${d.notas.replace(/\n/g, '<br>')}</p>
       </div>` : ''
 
