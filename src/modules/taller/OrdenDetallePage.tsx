@@ -427,11 +427,80 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
           </div>
         </div>
 
-        {/* ── Col 2: Checklist + Inspección + Fotos ── */}
+        {/* ── Col 2: Repuestos (destacado) + Checklist + Inspección + Fotos ── */}
         <div className="flex-1 border-r border-gray-200 overflow-y-auto flex flex-col">
 
-          {/* Checklist de ingreso */}
+          {/* ── REPUESTOS — sección principal ── */}
           <div className="p-5 border-b border-gray-200">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
+                  <svg className="w-3.5 h-3.5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M11.42 15.17L17.25 21A2.652 2.652 0 0021 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 11-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 004.486-6.336l-3.276 3.277a3.004 3.004 0 01-2.25-2.25l3.276-3.276a4.5 4.5 0 00-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437l1.745-1.437m6.615 8.206L15.75 15.75M4.867 19.125h.008v.008h-.008v-.008z" />
+                  </svg>
+                </div>
+                <span className="text-sm font-semibold text-gray-800">Repuestos</span>
+                {(o.repuestos ?? []).length > 0 && (
+                  <span className="text-[10px] font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+                    {(o.repuestos ?? []).length}
+                  </span>
+                )}
+              </div>
+              <button onClick={abrirRepModal}
+                className="text-[11px] font-semibold text-blue-600 border border-blue-200 rounded-lg px-2.5 py-1 hover:bg-blue-50 transition">
+                + Agregar
+              </button>
+            </div>
+
+            {(o.repuestos ?? []).length > 0 ? (
+              <div className="space-y-2">
+                {(o.repuestos ?? []).map((r, i) => (
+                  <div key={r.productId ?? i} className="flex items-center justify-between bg-gray-50 border border-gray-100 rounded-xl px-3.5 py-3 group">
+                    <div className="flex-1 min-w-0 mr-3">
+                      <p className="text-sm font-semibold text-gray-800 truncate">{r.name}</p>
+                      <p className="text-[11px] text-gray-400 mt-0.5">{r.productId ? 'Del inventario' : 'Ingreso manual'}</p>
+                    </div>
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      <div className="text-right">
+                        <p className="text-sm font-bold text-gray-800"><Money value={r.precio * (r.qty ?? 1)} /></p>
+                        <p className="text-[10px] text-gray-400">{r.qty ?? 1} × <Money value={r.precio} /></p>
+                      </div>
+                      <button onClick={() => eliminarRepuesto(i)}
+                        className="w-6 h-6 rounded-full text-gray-300 hover:text-red-500 hover:bg-red-50 transition opacity-0 group-hover:opacity-100 flex items-center justify-center">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="w-3.5 h-3.5">
+                          <path strokeLinecap="round" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                <div className="flex items-center justify-between bg-blue-50 border border-blue-100 rounded-xl px-3.5 py-3">
+                  <span className="text-sm font-bold text-blue-800">Total repuestos</span>
+                  <span className="text-lg font-extrabold text-blue-700">
+                    <Money value={(o.repuestos ?? []).reduce((s, r) => s + r.precio * (r.qty ?? 1), 0)} />
+                  </span>
+                </div>
+                <button onClick={abrirRepModal}
+                  className="w-full flex items-center justify-center gap-1.5 py-2 border border-dashed border-gray-300 rounded-xl text-xs font-medium text-gray-400 hover:border-blue-300 hover:text-blue-500 transition">
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+                  </svg>
+                  Agregar otro repuesto
+                </button>
+              </div>
+            ) : (
+              <button onClick={abrirRepModal}
+                className="w-full flex flex-col items-center gap-2 py-8 border border-dashed border-gray-200 rounded-xl text-gray-400 hover:border-blue-300 hover:text-blue-500 transition">
+                <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M11.42 15.17L17.25 21A2.652 2.652 0 0021 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 11-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 004.486-6.336l-3.276 3.277a3.004 3.004 0 01-2.25-2.25l3.276-3.276a4.5 4.5 0 00-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437l1.745-1.437m6.615 8.206L15.75 15.75M4.867 19.125h.008v.008h-.008v-.008z" />
+                </svg>
+                <span className="text-sm">Sin repuestos — clic para agregar</span>
+              </button>
+            )}
+          </div>
+
+          {/* ── Checklist de ingreso (colapsable) ── */}
+          <div className="border-b border-gray-200">
           {checkItems.length > 0 && (() => {
             const total = checkItems.length
             const done = checkItems.filter(c => c.checked).length
@@ -441,7 +510,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
               <div>
                 <button
                   onClick={() => setChecklistOpen(v => !v)}
-                  className="w-full flex items-center justify-between bg-white border border-gray-200 rounded-xl px-3 py-2.5 hover:bg-gray-50 transition"
+                  className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 transition"
                 >
                   <div className="flex items-center gap-2.5">
                     <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
@@ -515,42 +584,26 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
           })()}
           </div>
 
-          {/* Inspección */}
-          <div className="p-5 border-b border-gray-200">
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Inspección del equipo</p>
-              <button onClick={() => setShowInspeccion(v => !v)}
-                className="text-xs font-semibold text-blue-600 border border-blue-200 rounded-lg px-3 py-1 hover:bg-blue-50 transition">
-                {showInspeccion ? 'Cerrar' : o.inspeccion ? 'Editar' : '+ Agregar'}
-              </button>
-            </div>
-
-            {!showInspeccion && o.inspeccion && (
-              <div className="bg-gray-50 rounded-xl p-4 space-y-3">
-                {o.inspeccion.notas && <p className="text-sm text-gray-700 leading-relaxed">{o.inspeccion.notas}</p>}
-                {o.inspeccion.fecha && <p className="text-[11px] text-gray-400">{fmtFecha(o.inspeccion.fecha)}</p>}
-                {o.inspeccion.fotos && o.inspeccion.fotos.length > 0 && (
-                  <div className="grid grid-cols-3 gap-2">
-                    {o.inspeccion.fotos.map((src, i) => (
-                      <a key={i} href={src} target="_blank" rel="noreferrer">
-                        <div className="aspect-square rounded-lg overflow-hidden border border-gray-200">
-                          <img src={src} alt="" className="w-full h-full object-cover" />
-                        </div>
-                      </a>
-                    ))}
-                  </div>
-                )}
+          {/* ── Inspección (colapsable) ── */}
+          <div className="border-b border-gray-200">
+            <button onClick={() => setShowInspeccion(v => !v)}
+              className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 transition">
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0">
+                  <svg className="w-3.5 h-3.5 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                  </svg>
+                </div>
+                <span className="text-sm font-semibold text-gray-800">Inspección del equipo</span>
+                {o.inspeccion
+                  ? <span className="text-[10px] font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Registrada</span>
+                  : <span className="text-[10px] font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">Sin registrar</span>}
               </div>
-            )}
-
-            {!showInspeccion && !o.inspeccion && (
-              <div className="border border-dashed border-gray-200 rounded-xl p-8 flex flex-col items-center gap-2 text-gray-400">
-                <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                </svg>
-                <p className="text-sm">Sin inspección registrada</p>
-              </div>
-            )}
+              <svg className={`w-4 h-4 text-gray-400 transition-transform ${showInspeccion ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            <div className="hidden">{/* placeholder to preserve structure */}
 
             {showInspeccion && (
               <div className="border border-gray-200 rounded-xl p-4 space-y-3">
@@ -601,92 +654,60 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
             )}
           </div>
 
-          {/* Repuestos */}
-          <div className="p-5 border-b border-gray-200">
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Repuestos</p>
-              <button onClick={abrirRepModal}
-                className="text-[11px] font-semibold text-blue-600 border border-blue-200 rounded-lg px-2 py-0.5 hover:bg-blue-50 transition">
-                + Agregar
-              </button>
-            </div>
-            {(o.repuestos ?? []).length > 0 ? (
-              <div>
-                {(o.repuestos ?? []).map((r, i) => (
-                  <div key={r.productId ?? i} className="flex items-center justify-between py-1.5 text-xs border-b border-gray-50 last:border-0 group">
-                    <span className="text-gray-700 flex-1 min-w-0 truncate">{r.name}</span>
-                    <span className="text-gray-500 mx-2 flex-shrink-0">{r.qty ?? 1} × <Money value={r.precio} /></span>
-                    <button onClick={() => eliminarRepuesto(i)}
-                      className="w-4 h-4 text-gray-300 hover:text-red-500 transition opacity-0 group-hover:opacity-100 flex-shrink-0">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
-                        <path strokeLinecap="round" d="M6 18L18 6M6 6l12 12"/>
-                      </svg>
-                    </button>
-                  </div>
-                ))}
-                <div className="flex items-center justify-between pt-1.5 text-xs font-semibold text-gray-700">
-                  <span>Total</span>
-                  <Money value={(o.repuestos ?? []).reduce((s, r) => s + r.precio * (r.qty ?? 1), 0)} />
-                </div>
-              </div>
-            ) : (
-              <p className="text-xs text-gray-400">Sin repuestos agregados.</p>
-            )}
-          </div>
-
-          {/* Fotos de ingreso */}
-          <div className="p-5">
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                Fotos de ingreso {o.photosIngreso && o.photosIngreso.length > 0 && `(${o.photosIngreso.length})`}
-              </p>
-              <button onClick={() => setShowFotosIngreso(v => !v)}
-                className="text-xs font-semibold text-blue-600 border border-blue-200 rounded-lg px-3 py-1 hover:bg-blue-50 transition">
-                {showFotosIngreso ? 'Cerrar' : '+ Agregar'}
-              </button>
-            </div>
-
-            {showFotosIngreso && (
-              <div className="border border-gray-200 rounded-xl p-3 mb-3 flex items-center gap-2">
-                <button type="button" onClick={() => setShowQrIngreso(true)}
-                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 bg-blue-50 border border-blue-200 rounded-lg px-2.5 py-1.5 hover:bg-blue-100 transition">
-                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" />
-                    <rect x="3" y="14" width="7" height="7" rx="1" /><path d="M14 14h3v3h-3zM17 17v3M14 17h.01" />
-                  </svg>
-                  QR iPhone
-                </button>
-                {(!o.photosIngreso || o.photosIngreso.length < 6) && (
-                  <button type="button" onClick={() => fileRefIngreso.current?.click()}
-                    className="text-xs font-medium text-blue-600 border border-blue-200 rounded-lg px-2.5 py-1.5 hover:bg-blue-50 transition">
-                    + Subir
-                  </button>
-                )}
-                <input ref={fileRefIngreso} type="file" accept="image/*" multiple className="hidden" onChange={handleFotosIngreso} />
-              </div>
-            )}
-
-            {o.photosIngreso && o.photosIngreso.length > 0 ? (
-              <div className="grid grid-cols-3 gap-2">
-                {o.photosIngreso.map((src, i) => (
-                  <div key={i} className="relative aspect-square rounded-xl overflow-hidden border border-gray-200 group">
-                    <a href={src} target="_blank" rel="noreferrer">
-                      <img src={src} alt="" className="w-full h-full object-cover" />
-                    </a>
-                    <button onClick={() => eliminarFotoIngreso(i)} disabled={guardandoIngreso}
-                      className="absolute top-1 right-1 w-5 h-5 bg-black/60 text-white rounded-full text-[10px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition">✕</button>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              !showFotosIngreso && (
-                <div className="border border-dashed border-gray-200 rounded-xl p-6 flex flex-col items-center gap-2 text-gray-400">
-                  <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          {/* ── Fotos de ingreso (colapsable) ── */}
+          <div>
+            <button onClick={() => setShowFotosIngreso(v => !v)}
+              className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 transition">
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
+                  <svg className="w-3.5 h-3.5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
-                  <p className="text-sm">Sin fotos de ingreso</p>
                 </div>
-              )
+                <span className="text-sm font-semibold text-gray-800">Fotos de ingreso</span>
+                {(o.photosIngreso?.length ?? 0) > 0 && (
+                  <span className="text-[10px] font-bold bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{o.photosIngreso!.length}</span>
+                )}
+              </div>
+              <svg className={`w-4 h-4 text-gray-400 transition-transform ${showFotosIngreso ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {showFotosIngreso && (
+              <div className="px-5 pb-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <button type="button" onClick={() => setShowQrIngreso(true)}
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 bg-blue-50 border border-blue-200 rounded-lg px-2.5 py-1.5 hover:bg-blue-100 transition">
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" />
+                      <rect x="3" y="14" width="7" height="7" rx="1" /><path d="M14 14h3v3h-3zM17 17v3M14 17h.01" />
+                    </svg>
+                    QR iPhone
+                  </button>
+                  {(!o.photosIngreso || o.photosIngreso.length < 6) && (
+                    <button type="button" onClick={() => fileRefIngreso.current?.click()}
+                      className="text-xs font-medium text-blue-600 border border-blue-200 rounded-lg px-2.5 py-1.5 hover:bg-blue-50 transition">
+                      + Subir
+                    </button>
+                  )}
+                  <input ref={fileRefIngreso} type="file" accept="image/*" multiple className="hidden" onChange={handleFotosIngreso} />
+                </div>
+                {o.photosIngreso && o.photosIngreso.length > 0 ? (
+                  <div className="grid grid-cols-3 gap-2">
+                    {o.photosIngreso.map((src, i) => (
+                      <div key={i} className="relative aspect-square rounded-xl overflow-hidden border border-gray-200 group">
+                        <a href={src} target="_blank" rel="noreferrer">
+                          <img src={src} alt="" className="w-full h-full object-cover" />
+                        </a>
+                        <button onClick={() => eliminarFotoIngreso(i)} disabled={guardandoIngreso}
+                          className="absolute top-1 right-1 w-5 h-5 bg-black/60 text-white rounded-full text-[10px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition">✕</button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-400">Sin fotos de ingreso.</p>
+                )}
+              </div>
             )}
           </div>
         </div>
