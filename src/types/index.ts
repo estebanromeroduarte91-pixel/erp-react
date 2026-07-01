@@ -399,6 +399,8 @@ export interface Traslado {
   fecha_retorno_real?: string
   motivo?: string
   notas?: string
+  fotos?: string[]
+  tecnico_ext_id?: string
 }
 
 // ── Kits de Equipos ──────────────────────────────────────────
