@@ -10,7 +10,7 @@ import { EstadoBadge } from '@/components/shared/Badge'
 import { Money } from '@/components/shared/Money'
 import { QrFotosModal } from './QrFotosModal'
 import { OrdenModal } from './OrdenModal'
-import { totalOrden, formatHorario } from './utils'
+import { formatHorario } from './utils'
 import { Spinner } from '@/components/shared/Spinner'
 import type { EstadoOrden, Inspeccion, CheckItem, Producto } from '@/types'
 
@@ -109,7 +109,6 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
     </div>
   )
 
-  const total = totalOrden(o)
   const pipelineIdx = PIPELINE.indexOf(o.status as EstadoOrden)
 
   // Everything below uses `o` only after the early-return guards above
