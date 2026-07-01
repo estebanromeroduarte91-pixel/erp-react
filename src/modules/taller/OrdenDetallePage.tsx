@@ -603,7 +603,6 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
               </svg>
             </button>
-            <div className="hidden">{/* placeholder to preserve structure */}
 
             {showInspeccion && (
               <div className="border border-gray-200 rounded-xl p-4 space-y-3">
