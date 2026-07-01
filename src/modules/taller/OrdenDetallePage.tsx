@@ -270,7 +270,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
           cliente: aprobOrden.nombre ?? '',
           equipo: aprobOrden.modelo ?? '',
           trabajo: trabajoData,
-          presupuesto: aprobOrden.presup ?? 0,
+          presupuesto: Number(aprobOrden.presup) || 0,
           estado: 'pendiente',
         })
         if (error) {
