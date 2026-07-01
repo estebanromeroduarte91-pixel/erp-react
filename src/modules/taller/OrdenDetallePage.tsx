@@ -287,7 +287,22 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
       }
 
       const link = `${APROB_BASE_URL}?t=${token}`
-      const introTexto = msgTemplates?.aprobacion_email ?? `Hola ${aprobOrden.nombre ?? ''}, hemos revisado tu ${aprobOrden.modelo ?? 'equipo'} y necesitamos tu autorización para proceder.`
+      const totalPresup = Number(aprobOrden.presup) || (aprobOrden.repuestos ?? []).reduce((s, r) => s + r.precio * (r.qty ?? 1), 0)
+      const tplVars: Record<string, string> = {
+        nombre: aprobOrden.nombre ?? '',
+        modelo: aprobOrden.modelo ?? '',
+        orden: aprobOrden.num ?? '',
+        trabajo: aprobOrden.trabajo ?? '—',
+        presupuesto: '$' + totalPresup.toLocaleString('es-CL'),
+        sucursal: aprobBranch?.nombre ?? aprobBranch?.name ?? '',
+        horario: aprobHorario,
+        tecnico: aprobOrden.tecnico ?? '',
+        fecha_estimada: aprobOrden.fechaEstimada ?? '',
+        link,
+      }
+      const rawTpl = msgTemplates?.aprobacion_email ?? `Hola {{nombre}}, hemos revisado tu {{modelo}} y necesitamos tu autorización para proceder.`
+      // Solo el primer párrafo como intro (las líneas Trabajo/Presupuesto/Orden ya van en las tarjetas)
+      const introTexto = rawTpl.split(/\n\n/)[0].replace(/\{\{(\w+)\}\}/g, (_, k: string) => tplVars[k] ?? '')
       const html = buildEmailAprobacion({
         tallerNombre: segCfg?.nombreTaller ?? 'TallerPro',
         logoUrl: segCfg?.logoUrl,
