@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useClientes, useGuardarClientes } from '@/lib/queries'
+import { useAuth } from '@/context/AuthContext'
 import { Spinner } from '@/components/shared/Spinner'
 import type { Cliente } from '@/types'
 
@@ -14,6 +15,7 @@ const COLORS = ['bg-blue-100 text-blue-700', 'bg-purple-100 text-purple-700',
 export function ClientesTab() {
   const { data: clientes, isLoading } = useClientes()
   const guardar = useGuardarClientes()
+  const { esAdmin } = useAuth()
 
   const [busqueda, setBusqueda] = useState('')
   const [editando, setEditando] = useState<Cliente | null | 'nuevo'>('nuevo' as unknown as null)
@@ -33,6 +35,7 @@ export function ClientesTab() {
   function abrirEditar(c: Cliente) { setEditando(c); setModalOpen(true) }
 
   async function eliminar(c: Cliente) {
+    if (!esAdmin) return
     if (!confirm(`¿Eliminar a "${c.nombre} ${c.apellido ?? ''}"?`)) return
     await guardar.mutateAsync((clientes ?? []).filter(x => x.id !== c.id))
   }
@@ -94,7 +97,7 @@ export function ClientesTab() {
                   )}
                   <div className="flex gap-2">
                     <button onClick={() => abrirEditar(c)} className="text-xs text-blue-600 hover:underline font-medium">Editar</button>
-                    <button onClick={() => eliminar(c)} className="text-xs text-red-500 hover:underline font-medium">Eliminar</button>
+                    {esAdmin && <button onClick={() => eliminar(c)} className="text-xs text-red-500 hover:underline font-medium">Eliminar</button>}
                   </div>
                 </li>
               )

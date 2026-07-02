@@ -17,6 +17,7 @@ interface AuthState {
 }
 
 interface AuthContextValue extends AuthState {
+  esAdmin: boolean  // true solo para el super admin (dueño) — puede eliminar registros
   login: (email: string, password: string) => Promise<string | null>
   logout: () => Promise<void>
 }
@@ -110,7 +111,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut()
   }
 
-  return <AuthContext.Provider value={{ ...estado, login, logout }}>{children}</AuthContext.Provider>
+  const esAdmin = estado.rol === 'admin'
+
+  return <AuthContext.Provider value={{ ...estado, esAdmin, login, logout }}>{children}</AuthContext.Provider>
 }
 
 // eslint-disable-next-line react-refresh/only-export-components

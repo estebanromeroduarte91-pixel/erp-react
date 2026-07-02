@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useVentas, useGuardarVentas, useMetodosPago } from '@/lib/queries'
+import { useAuth } from '@/context/AuthContext'
 import { Spinner } from '@/components/shared/Spinner'
 import type { Venta } from '@/types'
 
@@ -9,6 +10,7 @@ export function VentasListTab() {
   const { data: ventas, isLoading } = useVentas()
   const { data: metodos } = useMetodosPago()
   const guardar = useGuardarVentas()
+  const { esAdmin } = useAuth()
 
   const [busqueda, setBusqueda] = useState('')
   const [filtroEstado, setFiltroEstado] = useState<'todas' | 'pagada' | 'anulada'>('todas')
@@ -34,6 +36,7 @@ export function VentasListTab() {
   }, [ventas, filtroEstado, busqueda])
 
   async function anular(v: Venta) {
+    if (!esAdmin) return
     if (!confirm(`¿Anular la venta ${v.numero}?`)) return
     await guardar.mutateAsync((ventas ?? []).map(x => x.id === v.id ? { ...x, estado: 'anulada' as const } : x))
   }
@@ -109,7 +112,7 @@ export function VentasListTab() {
                     <td className="px-3 py-3 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <button onClick={() => setDetalle(v)} className="text-xs text-blue-600 hover:underline font-medium">Ver</button>
-                        {v.estado === 'pagada' && (
+                        {v.estado === 'pagada' && esAdmin && (
                           <button onClick={() => anular(v)} className="text-xs text-red-500 hover:underline font-medium">Anular</button>
                         )}
                       </div>

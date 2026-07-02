@@ -1,6 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import * as XLSX from 'xlsx'
 import { useEquipos, useGuardarEquipos, useCatEquipo, useMarcasEquipo, useGuardarMarcasEquipo } from '@/lib/queries'
+import { useAuth } from '@/context/AuthContext'
 import { Spinner } from '@/components/shared/Spinner'
 import type { Equipo } from '@/types'
 
@@ -97,6 +98,7 @@ export function EquiposTab() {
   const { data: marcas = [] } = useMarcasEquipo()
   const guardar = useGuardarEquipos()
   const guardarMarcas = useGuardarMarcasEquipo()
+  const { esAdmin } = useAuth()
 
   const [busqueda, setBusqueda] = useState('')
   const [filtroCat, setFiltroCat] = useState('')
@@ -182,6 +184,7 @@ export function EquiposTab() {
   }
 
   async function eliminar(id: string) {
+    if (!esAdmin) return
     if (!confirm('¿Eliminar este equipo del catálogo?')) return
     await guardar.mutateAsync((equipos ?? []).filter(e => e.id !== id))
   }
@@ -396,7 +399,7 @@ export function EquiposTab() {
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-2">
                       <button onClick={() => abrirEditar(e)} className="text-xs text-blue-600 hover:underline font-medium">Editar</button>
-                      <button onClick={() => eliminar(e.id)} className="text-xs text-red-500 hover:underline font-medium">Eliminar</button>
+                      {esAdmin && <button onClick={() => eliminar(e.id)} className="text-xs text-red-500 hover:underline font-medium">Eliminar</button>}
                     </div>
                   </td>
                 </tr>

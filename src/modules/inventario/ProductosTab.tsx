@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useProductos, useBodegas, useGuardarProductos } from '@/lib/queries'
+import { useAuth } from '@/context/AuthContext'
 import { Money } from '@/components/shared/Money'
 import { Spinner } from '@/components/shared/Spinner'
 import { ProductoModal } from './ProductoModal'
@@ -19,6 +20,7 @@ export function ProductosTab() {
   const { data: productos, isLoading } = useProductos()
   const { data: bodegas } = useBodegas()
   const guardar = useGuardarProductos()
+  const { esAdmin } = useAuth()
 
   const [busqueda, setBusqueda]     = useState('')
   const [filtroBodega, setFiltroBodega] = useState('')
@@ -70,6 +72,7 @@ export function ProductosTab() {
   function abrirEditar(p: Producto) { setEditando(p); setModalOpen(true) }
 
   async function eliminar(p: Producto) {
+    if (!esAdmin) return
     if (!confirm(`¿Eliminar "${p.nombre}"?`)) return
     await guardar.mutateAsync((productos ?? []).filter(x => x.id !== p.id))
   }
@@ -251,8 +254,8 @@ export function ProductosTab() {
                         <div className="flex items-center justify-end gap-2">
                           <button onClick={() => abrirEditar(p)}
                             className="text-xs text-blue-600 hover:underline font-medium">Editar</button>
-                          <button onClick={() => eliminar(p)}
-                            className="text-xs text-red-500 hover:underline font-medium">Eliminar</button>
+                          {esAdmin && <button onClick={() => eliminar(p)}
+                            className="text-xs text-red-500 hover:underline font-medium">Eliminar</button>}
                         </div>
                       </td>
                     </tr>

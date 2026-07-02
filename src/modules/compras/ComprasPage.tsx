@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useLocation, useSearchParams } from 'react-router-dom'
 import { KitsTab } from './KitsTab'
+import { useAuth } from '@/context/AuthContext'
 import {
   useOCs, useGuardarOCs, useOCLog, useGuardarOCLog,
   useIncrementarContadorOC, useProductos, useBodegas,
@@ -772,6 +773,7 @@ function resolveSection(param: string | null): Section {
 export function ComprasPage() {
   const location = useLocation()
   const [searchParams] = useSearchParams()
+  const { esAdmin } = useAuth()
   const [section, setSection] = useState<Section>(() => resolveSection(searchParams.get('section')))
 
   useEffect(() => {
@@ -927,6 +929,7 @@ export function ComprasPage() {
   }
 
   async function handleEliminar(ocId: string) {
+    if (!esAdmin) return
     const oc = ocs.find(o => o.id === ocId)
     if (!oc || !confirm(`¿Eliminar la OC ${oc.numero}?\n\nEsta acción no se puede deshacer, pero quedará registrada en el historial de forma permanente.`)) return
     const logEntry: OCLogEntry = { ...oc, _eliminada_en: today(), _eliminada_ts: Date.now() }
@@ -1097,10 +1100,10 @@ export function ComprasPage() {
                             Confirmar
                           </button>
                         )}
-                        <button onClick={() => handleEliminar(o.id)}
+                        {esAdmin && <button onClick={() => handleEliminar(o.id)}
                           style={{ display: 'inline-flex', alignItems: 'center', padding: '5px 8px', border: '1.5px solid #fee2e2', borderRadius: 7, background: '#fff', color: '#dc2626', cursor: 'pointer', fontSize: 12 }}>
                           <svg style={{ width: 14, height: 14 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                        </button>
+                        </button>}
                       </div>
                     </td>
                   </tr>

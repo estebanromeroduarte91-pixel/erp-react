@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useCategorias, useGuardarCategorias } from '@/lib/queries'
+import { useAuth } from '@/context/AuthContext'
 import type { Categoria } from '@/types'
 
 const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36)
@@ -84,6 +85,7 @@ function ModalCategoria({
 export function CategoriasTab() {
   const { data: categorias = [], isLoading } = useCategorias()
   const guardar = useGuardarCategorias()
+  const { esAdmin } = useAuth()
   const [modal, setModal] = useState<{ open: false } | { open: true; cat?: Categoria }>({ open: false })
 
   async function handleSave(cat: Categoria) {
@@ -94,6 +96,7 @@ export function CategoriasTab() {
   }
 
   async function handleDelete(id: string) {
+    if (!esAdmin) return
     const cat = categorias.find(c => c.id === id)
     if (!cat || !confirm(`¿Eliminar la categoría "${cat.nombre}"?`)) return
     await guardar.mutateAsync(categorias.filter(c => c.id !== id))
@@ -143,10 +146,12 @@ export function CategoriasTab() {
                   className="text-xs text-blue-600 hover:underline font-medium">
                   Editar
                 </button>
-                <button onClick={() => handleDelete(cat.id)}
-                  className="text-xs text-red-500 hover:underline font-medium">
-                  Eliminar
-                </button>
+                {esAdmin && (
+                  <button onClick={() => handleDelete(cat.id)}
+                    className="text-xs text-red-500 hover:underline font-medium">
+                    Eliminar
+                  </button>
+                )}
               </div>
             </div>
           ))}

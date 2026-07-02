@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useProveedores, useGuardarProveedores } from '@/lib/queries'
+import { useAuth } from '@/context/AuthContext'
 import { Spinner } from '@/components/shared/Spinner'
 import { ContactoModal } from './ClientesTab'
 import type { Proveedor } from '@/types'
@@ -19,6 +20,7 @@ const CAMPOS_PROVEEDOR = [
 export function ProveedoresTab() {
   const { data: proveedores, isLoading } = useProveedores()
   const guardar = useGuardarProveedores()
+  const { esAdmin } = useAuth()
 
   const [busqueda, setBusqueda] = useState('')
   const [editando, setEditando] = useState<Proveedor | null>(null)
@@ -39,6 +41,7 @@ export function ProveedoresTab() {
   function abrirEditar(p: Proveedor) { setEditando(p); setModalOpen(true) }
 
   async function eliminar(p: Proveedor) {
+    if (!esAdmin) return
     if (!confirm(`¿Eliminar a "${p.nombre}"?`)) return
     await guardar.mutateAsync((proveedores ?? []).filter(x => x.id !== p.id))
   }
@@ -104,7 +107,7 @@ export function ProveedoresTab() {
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <button onClick={() => abrirEditar(p)} className="text-xs text-blue-600 hover:underline font-medium">Editar</button>
-                        <button onClick={() => eliminar(p)} className="text-xs text-red-500 hover:underline font-medium">Eliminar</button>
+                        {esAdmin && <button onClick={() => eliminar(p)} className="text-xs text-red-500 hover:underline font-medium">Eliminar</button>}
                       </div>
                     </td>
                   </tr>

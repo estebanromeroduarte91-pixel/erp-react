@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useKits, useGuardarKits } from '@/lib/queries'
+import { useAuth } from '@/context/AuthContext'
 import type { Kit, KitComponente } from '@/types'
 
 const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36)
@@ -166,6 +167,7 @@ export function KitsTab() {
   const navigate = useNavigate()
   const { data: kits = [], isLoading } = useKits()
   const guardar = useGuardarKits()
+  const { esAdmin } = useAuth()
   const [modal, setModal] = useState<ModalState>({ open: false })
   const [search, setSearch] = useState('')
   const [toast, setToast] = useState<string | null>(null)
@@ -194,6 +196,7 @@ export function KitsTab() {
   }
 
   async function handleDelete(id: string) {
+    if (!esAdmin) return
     const kit = kits.find(k => k.id === id)
     if (!kit || !confirm(`¿Eliminar el kit "${kit.nombre}"?`)) return
     await guardar.mutateAsync(kits.filter(k => k.id !== id))
@@ -357,13 +360,13 @@ export function KitsTab() {
                           <svg style={{ width: 13, height: 13 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V5a2 2 0 012-2h8" /></svg>
                           Clonar
                         </button>
-                        <button
+                        {esAdmin && <button
                           onClick={() => handleDelete(k.id)}
                           style={{ display: 'inline-flex', alignItems: 'center', padding: '5px 9px', border: '1.5px solid #fee2e2', borderRadius: 7, background: '#fff', color: '#dc2626', cursor: 'pointer', fontSize: 12 }}
                           title="Eliminar"
                         >
                           <svg style={{ width: 14, height: 14 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                        </button>
+                        </button>}
                       </div>
                     </td>
                   </tr>

@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useTraslados, useGuardarTraslados, useTecnicosExternos, useGuardarTecnicosExternos, useOrdenes, useGuardarOrden, useGastos, useGuardarGastos, usePlanCuentas, useCatCuentaMap, useAsientos, useGuardarAsientos } from '@/lib/queries'
+import { useAuth } from '@/context/AuthContext'
 import { asientoDeGasto, nextNumeroAsiento } from '@/lib/contabilidad'
 import { Spinner } from '@/components/shared/Spinner'
 import type { Traslado, EstadoTraslado, TecnicoExterno, EstadoOrden } from '@/types'
@@ -67,6 +68,7 @@ const EMPTY_FORM: ModalForm = {
 }
 
 export function TrasladosTab() {
+  const { esAdmin } = useAuth()
   const { data: traslados, isLoading } = useTraslados()
   const guardar = useGuardarTraslados()
   const { data: tecnicos } = useTecnicosExternos()
@@ -240,6 +242,7 @@ export function TrasladosTab() {
   }
 
   async function eliminar(id: string) {
+    if (!esAdmin) return
     if (!confirm('¿Eliminar este traslado?')) return
     await guardar.mutateAsync(all.filter((t) => t.id !== id))
   }
@@ -255,6 +258,7 @@ export function TrasladosTab() {
   }
 
   async function eliminarTecnico(id: string) {
+    if (!esAdmin) return
     if (!confirm('¿Eliminar técnico?')) return
     await guardarTecnicos.mutateAsync((tecnicos ?? []).filter((t) => t.id !== id))
   }
@@ -374,7 +378,7 @@ export function TrasladosTab() {
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <button onClick={() => abrirEditar(t)} className="text-xs text-blue-600 hover:underline font-medium">Editar</button>
-                        <button onClick={() => eliminar(t.id)} className="text-xs text-red-500 hover:underline font-medium">Eliminar</button>
+                        {esAdmin && <button onClick={() => eliminar(t.id)} className="text-xs text-red-500 hover:underline font-medium">Eliminar</button>}
                       </div>
                     </td>
                   </tr>
@@ -421,7 +425,7 @@ export function TrasladosTab() {
                       <td className="px-4 py-3 text-sm">{t.tecnico}</td>
                       <td className="px-4 py-3 text-xs">{fmtFecha(t.fecha_retorno_real)}</td>
                       <td className="px-4 py-3 text-right">
-                        <button onClick={() => eliminar(t.id)} className="text-xs text-red-400 hover:underline">Eliminar</button>
+                        {esAdmin && <button onClick={() => eliminar(t.id)} className="text-xs text-red-400 hover:underline">Eliminar</button>}
                       </td>
                     </tr>
                   ))}
@@ -455,6 +459,7 @@ export function TrasladosTab() {
           setNuevoTecnico={setNuevoTecnico}
           onAgregar={agregarTecnico}
           onEliminar={eliminarTecnico}
+          puedeEliminar={esAdmin}
           onClose={() => setShowTecnicos(false)}
         />
       )}
@@ -713,13 +718,14 @@ function TrasladoModal({
 }
 
 function TecnicosModal({
-  tecnicos, nuevoTecnico, setNuevoTecnico, onAgregar, onEliminar, onClose,
+  tecnicos, nuevoTecnico, setNuevoTecnico, onAgregar, onEliminar, puedeEliminar, onClose,
 }: {
   tecnicos: TecnicoExterno[]
   nuevoTecnico: { nombre: string; telefono: string }
   setNuevoTecnico: (v: { nombre: string; telefono: string }) => void
   onAgregar: () => void
   onEliminar: (id: string) => void
+  puedeEliminar: boolean
   onClose: () => void
 }) {
   return (
@@ -745,7 +751,7 @@ function TecnicosModal({
                     <p className="text-sm font-medium text-gray-800">{t.nombre}</p>
                     {t.telefono && <p className="text-xs text-gray-400">{t.telefono}</p>}
                   </div>
-                  <button onClick={() => onEliminar(t.id)} className="text-xs text-red-400 hover:text-red-600">Eliminar</button>
+                  {puedeEliminar && <button onClick={() => onEliminar(t.id)} className="text-xs text-red-400 hover:text-red-600">Eliminar</button>}
                 </div>
               ))}
             </div>
