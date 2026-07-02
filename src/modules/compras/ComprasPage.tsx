@@ -155,7 +155,7 @@ function ItemRow({
 
   return (
     <tr style={{ borderBottom: '1px solid var(--gray-100)' }}>
-      <td style={{ padding: '6px 8px', minWidth: 180 }}>
+      <td style={{ padding: '6px 8px', minWidth: 150 }}>
         <div style={{ position: 'relative' }}>
           <input
             type="text"
@@ -164,7 +164,7 @@ function ItemRow({
             onChange={e => { setQ(e.target.value); setOpen(true); onUpdate(item.id, { producto_nombre: e.target.value, producto_id: '' }) }}
             onFocus={() => setOpen(true)}
             onBlur={() => setTimeout(() => setOpen(false), 200)}
-            style={{ width: '100%', minWidth: 160 }}
+            style={{ width: '100%', minWidth: 120 }}
           />
           {open && results.length > 0 && (
             <div style={{
@@ -195,7 +195,7 @@ function ItemRow({
             const opt = e.target.options[e.target.selectedIndex]
             onUpdate(item.id, { bodega_id: e.target.value, bodega_nombre: e.target.value ? opt.text : '' })
           }}
-          style={{ minWidth: 130 }}
+          style={{ minWidth: 105 }}
         >
           <option value="">-- Bodega --</option>
           {bodegas.map(b => <option key={b.id} value={b.id}>{b.nombre ?? b.name}</option>)}
@@ -207,7 +207,7 @@ function ItemRow({
             const qty = +e.target.value || 1
             onUpdate(item.id, { cantidad: qty, subtotal: qty * item.precio_neto })
           }}
-          style={{ width: 70, textAlign: 'center' }}
+          style={{ width: 52, textAlign: 'center' }}
         />
       </td>
       <td style={{ padding: '6px 8px' }}>
@@ -216,7 +216,7 @@ function ItemRow({
             const pn = +e.target.value || 0
             onUpdate(item.id, { precio_neto: pn, precio_iva: Math.round(pn * (1 + IVA)), precio_unitario: pn, subtotal: item.cantidad * pn })
           }}
-          style={{ width: 95 }}
+          style={{ width: 72 }}
         />
       </td>
       <td style={{ padding: '6px 8px' }}>
@@ -226,7 +226,7 @@ function ItemRow({
             const pn = Math.round(pi / (1 + IVA))
             onUpdate(item.id, { precio_neto: pn, precio_iva: pi, precio_unitario: pn, subtotal: item.cantidad * pn })
           }}
-          style={{ width: 95 }}
+          style={{ width: 72 }}
         />
       </td>
       <td style={{ padding: '6px 8px' }}>
