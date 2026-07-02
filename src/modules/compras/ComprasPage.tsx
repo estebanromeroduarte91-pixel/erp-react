@@ -17,6 +17,8 @@ const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36)
 const today = () => new Date().toISOString().split('T')[0]
 const fmt$ = (n: number) =>
   new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(n)
+const fmtMiles = (n: number) => (n ? n.toLocaleString('es-CL') : '')
+const parseMiles = (s: string) => +s.replace(/\D/g, '') || 0
 const fmtDate = (s?: string) => {
   if (!s) return '—'
   const [y, m, d] = s.split('-')
@@ -247,18 +249,18 @@ function ItemRow({
         />
       </td>
       <td style={{ padding: '6px 8px' }}>
-        <input type="number" value={item.precio_neto} min={0} placeholder="Neto"
+        <input type="text" inputMode="numeric" value={fmtMiles(item.precio_neto)} placeholder="Neto"
           onChange={e => {
-            const pn = +e.target.value || 0
+            const pn = parseMiles(e.target.value)
             onUpdate(item.id, { precio_neto: pn, precio_iva: Math.round(pn * (1 + IVA)), precio_unitario: pn, subtotal: item.cantidad * pn })
           }}
           style={{ width: 88 }}
         />
       </td>
       <td style={{ padding: '6px 8px' }}>
-        <input type="number" value={item.precio_iva} min={0} placeholder="c/IVA"
+        <input type="text" inputMode="numeric" value={fmtMiles(item.precio_iva)} placeholder="c/IVA"
           onChange={e => {
-            const pi = +e.target.value || 0
+            const pi = parseMiles(e.target.value)
             const pn = Math.round(pi / (1 + IVA))
             onUpdate(item.id, { precio_neto: pn, precio_iva: pi, precio_unitario: pn, subtotal: item.cantidad * pn })
           }}
@@ -359,11 +361,13 @@ function ModalNuevaOC({
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
             <div>
               <label style={labelStyle}>Fecha</label>
-              <input type="date" value={fecha} onChange={e => setFecha(e.target.value)} style={{ width: '100%' }} />
+              <input type="date" value={fecha} onChange={e => setFecha(e.target.value)}
+                onClick={e => e.currentTarget.showPicker?.()} style={{ width: '100%', cursor: 'pointer' }} />
             </div>
             <div>
               <label style={labelStyle}>Fecha Entrega Esperada</label>
-              <input type="date" value={fechaEntrega} onChange={e => setFechaEntrega(e.target.value)} style={{ width: '100%' }} />
+              <input type="date" value={fechaEntrega} onChange={e => setFechaEntrega(e.target.value)}
+                onClick={e => e.currentTarget.showPicker?.()} style={{ width: '100%', cursor: 'pointer' }} />
             </div>
           </div>
           <div style={{ marginBottom: 16 }}>
