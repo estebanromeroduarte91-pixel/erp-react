@@ -294,7 +294,7 @@ function ModalNuevaOC({
     })
   }
 
-  const labelStyle: React.CSSProperties = { display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--gray-500)', marginBottom: 4, textTransform: 'uppercase' }
+  const labelStyle: React.CSSProperties = { display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--gray-700)', marginBottom: 4 }
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
@@ -582,6 +582,44 @@ function ModalConfirmarOC({
 
 // ─── Modal: Ver OC ────────────────────────────────────────────
 
+const PASOS: EstadoOC[] = ['borrador', 'parcial', 'recibida', 'confirmada']
+const PASO_LABEL: Record<string, string> = { borrador: 'Borrador', parcial: 'Parcial', recibida: 'Recibida', confirmada: 'Confirmada' }
+
+function ProgressStepper({ estado }: { estado: EstadoOC }) {
+  const stepIdx = estado === 'cancelada' ? -1 : PASOS.indexOf(estado)
+  return (
+    <div style={{ display: 'flex', padding: '18px 24px', borderBottom: '1px solid var(--gray-100)' }}>
+      {PASOS.map((p, i) => {
+        const done = i < stepIdx || (i === stepIdx && stepIdx === PASOS.length - 1)
+        const active = i === stepIdx && stepIdx < PASOS.length - 1
+        return (
+          <div key={p} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative' }}>
+            {i < PASOS.length - 1 && (
+              <div style={{
+                position: 'absolute', top: 14, left: '50%', width: '100%', height: 2,
+                background: i < stepIdx ? 'var(--primary)' : 'var(--gray-200)', zIndex: 0,
+              }} />
+            )}
+            <div style={{
+              width: 28, height: 28, borderRadius: '50%', zIndex: 1,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 13, fontWeight: 700,
+              background: done ? 'var(--primary)' : active ? 'var(--primary)' : '#fff',
+              color: done || active ? '#fff' : 'var(--gray-400)',
+              border: done || active ? '2px solid var(--primary)' : '2px solid var(--gray-300)',
+            }}>
+              {done ? '✓' : i + 1}
+            </div>
+            <div style={{ fontSize: 11, fontWeight: 600, marginTop: 6, color: done || active ? 'var(--primary)' : 'var(--gray-400)' }}>
+              {PASO_LABEL[p]}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 function ModalVerOC({
   oc, onClose, onRecibir, onConfirmar, onCancelar, onEditar,
 }: {
@@ -595,104 +633,189 @@ function ModalVerOC({
   const estado = calcularEstadoOC(oc)
   const items = oc.items ?? []
   const recepciones = oc.recepciones ?? []
+  const bodsByRec = [...new Set(recepciones.map(r => r.bodega_nombre).filter(Boolean))]
+  const bodsByItem = [...new Set(items.map(i => i.bodega_nombre).filter(Boolean))]
+  const bodUniq = [...new Set([...bodsByRec, ...bodsByItem])]
+
+  const thStyle: React.CSSProperties = { padding: '8px 10px', fontSize: 11, color: 'var(--gray-500)', fontWeight: 600, textAlign: 'left', borderBottom: '1px solid var(--gray-200)', whiteSpace: 'nowrap' }
+  const detailLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: 'var(--gray-400)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 3 }
+  const detailValue: React.CSSProperties = { fontSize: 13.5, fontWeight: 600, color: 'var(--gray-800)' }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
->
-      <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 700, maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,.2)' }}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 860, maxHeight: '92vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,.2)' }}>
+
+        {/* Header */}
         <div style={{ padding: '18px 24px', borderBottom: '1px solid var(--gray-100)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
-              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: 'var(--primary)' }}>{oc.numero}</h3>
-              <EstadoBadge estado={estado} />
+            <h3 style={{ margin: '0 0 2px', fontSize: 17, fontWeight: 700 }}>{oc.numero}</h3>
+            <div style={{ fontSize: 12, color: 'var(--gray-400)' }}>{oc.proveedor_nombre || 'Sin proveedor'} · {fmtDate(oc.fecha)}</div>
+          </div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <EstadoBadge estado={estado} />
+            <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: 'var(--gray-500)', lineHeight: 1 }}>×</button>
+          </div>
+        </div>
+
+        {/* Scrollable body */}
+        <div style={{ overflowY: 'auto', flex: 1, padding: 0 }}>
+          {estado === 'cancelada' && (
+            <div style={{ margin: '16px 20px 0', background: '#fffbeb', border: '1px solid #fde68a', padding: '10px 14px', borderRadius: 8, color: '#92400e', fontSize: 13 }}>
+              ⚠️ Esta orden fue cancelada
             </div>
-            <div style={{ fontSize: 13, color: 'var(--gray-500)' }}>
-              {oc.proveedor_nombre || '—'} · {fmtDate(oc.fecha)}
-              {oc.fecha_entrega && ` · Entrega est.: ${fmtDate(oc.fecha_entrega)}`}
+          )}
+
+          {/* Progress stepper */}
+          <ProgressStepper estado={estado} />
+
+          {/* Info grid 3×2 */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', borderBottom: '1px solid var(--gray-100)' }}>
+            <div style={{ padding: '12px 20px', borderRight: '1px solid var(--gray-100)' }}>
+              <div style={detailLabel}>Proveedor</div>
+              <div style={detailValue}>{oc.proveedor_nombre || '—'}</div>
+            </div>
+            <div style={{ padding: '12px 20px', borderRight: '1px solid var(--gray-100)' }}>
+              <div style={detailLabel}>Fecha OC</div>
+              <div style={detailValue}>{fmtDate(oc.fecha)}</div>
+            </div>
+            <div style={{ padding: '12px 20px' }}>
+              <div style={detailLabel}>Entrega estimada</div>
+              <div style={detailValue}>{oc.fecha_entrega ? fmtDate(oc.fecha_entrega) : '—'}</div>
+            </div>
+            <div style={{ padding: '12px 20px', borderRight: '1px solid var(--gray-100)', borderTop: '1px solid var(--gray-100)' }}>
+              <div style={detailLabel}>Folio Factura</div>
+              <div style={detailValue}>
+                {oc.folio_factura
+                  ? oc.folio_factura === 'SIN FACTURA'
+                    ? <span style={{ color: '#d97706', fontWeight: 600 }}>⚠️ Sin factura</span>
+                    : <span>#{oc.folio_factura}{oc.metodo_pago && <span style={{ fontWeight: 400, fontSize: 12, color: 'var(--gray-400)', textTransform: 'capitalize' }}> · {oc.metodo_pago}</span>}</span>
+                  : <span style={{ color: 'var(--gray-400)', fontWeight: 400 }}>Pendiente</span>}
+              </div>
+            </div>
+            <div style={{ padding: '12px 20px', borderRight: '1px solid var(--gray-100)', borderTop: '1px solid var(--gray-100)' }}>
+              <div style={detailLabel}>Bodegas con recepciones</div>
+              <div style={detailValue}>{bodUniq.length ? bodUniq.join(', ') : '—'}</div>
+            </div>
+            <div style={{ padding: '12px 20px', borderTop: '1px solid var(--gray-100)' }}>
+              <div style={detailLabel}>Total OC</div>
+              <div style={{ ...detailValue, fontSize: 18, color: 'var(--primary)' }}>{fmt$(oc.total ?? 0)}</div>
             </div>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: 'var(--gray-500)', lineHeight: 1 }}>×</button>
-        </div>
-        <div style={{ padding: 24, overflowY: 'auto', flex: 1 }}>
-          {estado !== 'cancelada' && estado !== 'confirmada' && (
-            <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
-              {(estado === 'borrador' || estado === 'parcial') && (
-                <>
-                  <button onClick={onRecibir} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: '#059669', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}><svg style={{ width: 15, height: 15 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>Recibir</button>
-                  <button onClick={onEditar} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', border: '1.5px solid var(--gray-300)', borderRadius: 8, background: '#fff', cursor: 'pointer', fontWeight: 600 }}><svg style={{ width: 14, height: 14 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>Editar</button>
-                  <button onClick={onCancelar} style={{ padding: '8px 16px', border: '1.5px solid #fee2e2', borderRadius: 8, background: '#fff', color: '#dc2626', cursor: 'pointer', fontWeight: 600 }}>✕ Cancelar</button>
-                </>
-              )}
-              {(estado === 'recibida' || estado === 'parcial') && (
-                <button onClick={onConfirmar} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}><svg style={{ width: 15, height: 15 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>Confirmar</button>
-              )}
-            </div>
-          )}
-          {oc.folio_factura && (
-            <div style={{ background: 'var(--gray-50)', borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: 13, display: 'flex', gap: 16 }}>
-              <span>Folio: <strong>{oc.folio_factura === 'SIN FACTURA' ? 'Sin factura' : '#' + oc.folio_factura}</strong></span>
-              {oc.metodo_pago && <span>Pago: <strong style={{ textTransform: 'capitalize' }}>{oc.metodo_pago}</strong></span>}
-            </div>
-          )}
-          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--gray-500)', textTransform: 'uppercase', marginBottom: 8 }}>Productos</div>
-          <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid var(--gray-200)', borderRadius: 8, overflow: 'hidden', marginBottom: 16 }}>
-            <thead>
-              <tr style={{ background: 'var(--gray-50)' }}>
-                {['Producto', 'Bodega', 'Cant.', 'Recibido', 'P. Neto', 'Subtotal'].map((h, i) => (
-                  <th key={i} style={{ padding: '8px 12px', fontSize: 11, fontWeight: 700, color: 'var(--gray-500)', textAlign: 'left', borderBottom: '1px solid var(--gray-200)', textTransform: 'uppercase' }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {items.map(it => {
-                const rec = getCantRecibida(oc, it.id)
-                const pct = it.cantidad > 0 ? Math.round((rec / it.cantidad) * 100) : 0
-                return (
-                  <tr key={it.id} style={{ borderBottom: '1px solid var(--gray-100)' }}>
-                    <td style={{ padding: '10px 12px', fontWeight: 600, fontSize: 13 }}>{it.producto_nombre}</td>
-                    <td style={{ padding: '10px 12px', fontSize: 12, color: 'var(--gray-500)' }}>{it.bodega_nombre || '—'}</td>
-                    <td style={{ padding: '10px 12px', textAlign: 'center' }}>{it.cantidad}</td>
-                    <td style={{ padding: '10px 12px', textAlign: 'center' }}>
-                      <span style={{ color: rec >= it.cantidad ? '#059669' : '#d97706', fontWeight: 600 }}>{rec}</span>
-                      <span style={{ color: 'var(--gray-400)', fontSize: 11 }}> ({pct}%)</span>
-                    </td>
-                    <td style={{ padding: '10px 12px' }}>{fmt$(it.precio_neto)}</td>
-                    <td style={{ padding: '10px 12px', fontWeight: 600 }}>{fmt$(it.subtotal)}</td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-          <div style={{ textAlign: 'right', fontSize: 15, fontWeight: 700, marginBottom: 20 }}>Total: {fmt$(oc.total ?? 0)}</div>
-          {recepciones.length > 0 && (
-            <>
-              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--gray-500)', textTransform: 'uppercase', marginBottom: 8 }}>Recepciones ({recepciones.length})</div>
-              {recepciones.slice().reverse().map((r, ri) => (
-                <div key={r.id} style={{ marginBottom: 10, border: '1px solid var(--gray-200)', borderRadius: 8, overflow: 'hidden' }}>
-                  <div style={{ background: 'var(--gray-50)', padding: '8px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--gray-100)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ background: 'var(--primary)', color: '#fff', borderRadius: '50%', width: 24, height: 24, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700 }}>{recepciones.length - ri}</span>
-                      <strong style={{ fontSize: 13 }}>{r.bodega_nombre}</strong>
-                    </div>
-                    <span style={{ fontSize: 12, color: 'var(--gray-400)' }}>{fmtDate(r.fecha)}</span>
-                  </div>
-                  <div style={{ padding: '10px 14px', fontSize: 13 }}>
-                    {r.items.map(i => `${i.producto_nombre}: ${i.cantidad}`).join(' · ')}
-                    {r.notas && <div style={{ fontSize: 12, color: 'var(--gray-500)', marginTop: 4 }}>{r.notas}</div>}
-                  </div>
-                </div>
-              ))}
-            </>
-          )}
+
+          {/* Notas */}
           {oc.notas && (
-            <div style={{ marginTop: 12, fontSize: 13, color: 'var(--gray-600)', background: 'var(--gray-50)', borderRadius: 8, padding: '10px 14px' }}>
-              {oc.notas}
+            <div style={{ padding: '10px 20px', borderBottom: '1px solid var(--gray-100)', fontSize: 13, color: 'var(--gray-600)' }}>
+              📝 {oc.notas}
             </div>
           )}
+
+          {/* Two-column: items + recepciones */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 290px', minHeight: 200 }}>
+            {/* Items */}
+            <div style={{ borderRight: '1px solid var(--gray-100)', overflowX: 'auto' }}>
+              <div style={{ padding: '12px 16px 8px', fontSize: 11, fontWeight: 700, color: 'var(--gray-500)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Ítems de la Orden</div>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ background: 'var(--gray-50)' }}>
+                    <th style={thStyle}>Producto</th>
+                    <th style={{ ...thStyle, textAlign: 'center', width: 64 }}>Ord.</th>
+                    <th style={{ ...thStyle, textAlign: 'center', width: 64 }}>Rec.</th>
+                    <th style={{ ...thStyle, textAlign: 'center', width: 64 }}>Pend.</th>
+                    <th style={{ ...thStyle, textAlign: 'right', width: 90 }}>Subtotal</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map(it => {
+                    const rec = getCantRecibida(oc, it.id)
+                    const pend = Math.max(0, it.cantidad - rec)
+                    const pct = it.cantidad > 0 ? Math.round((rec / it.cantidad) * 100) : 0
+                    return (
+                      <tr key={it.id} style={{ borderBottom: '1px solid var(--gray-100)' }}>
+                        <td style={{ padding: '10px 14px' }}>
+                          <div style={{ fontWeight: 600, fontSize: 13 }}>{it.producto_nombre || '—'}</div>
+                          <div style={{ height: 3, background: 'var(--gray-200)', borderRadius: 3, marginTop: 4, overflow: 'hidden', width: '100%' }}>
+                            <div style={{ height: 3, background: pct >= 100 ? '#059669' : '#f59e0b', width: `${pct}%`, borderRadius: 3 }} />
+                          </div>
+                        </td>
+                        <td style={{ padding: '10px', textAlign: 'center', color: 'var(--gray-600)', fontSize: 13 }}>{it.cantidad}</td>
+                        <td style={{ padding: '10px', textAlign: 'center', fontWeight: 600, fontSize: 13, color: rec >= it.cantidad ? '#059669' : 'var(--primary)' }}>{rec}</td>
+                        <td style={{ padding: '10px', textAlign: 'center', color: pend > 0 ? '#d97706' : 'var(--gray-400)', fontWeight: pend > 0 ? 600 : 400, fontSize: 13 }}>
+                          {pend > 0 ? pend : '✓'}
+                        </td>
+                        <td style={{ padding: '10px', textAlign: 'right', fontWeight: 600 }}>{fmt$(it.subtotal)}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr style={{ background: 'var(--gray-50)' }}>
+                    <td colSpan={4} style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 700, fontSize: 13 }}>TOTAL</td>
+                    <td style={{ padding: '10px', textAlign: 'right', fontWeight: 700, fontSize: 15, color: 'var(--primary)' }}>{fmt$(oc.total ?? 0)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+
+            {/* Recepciones sidebar */}
+            <div style={{ padding: 16, background: 'var(--gray-50)', overflowY: 'auto', maxHeight: 400 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--gray-500)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>
+                📋 Recepciones ({recepciones.length})
+              </div>
+              {recepciones.length === 0
+                ? <div style={{ textAlign: 'center', padding: 24, color: 'var(--gray-400)', fontSize: 13 }}>Sin recepciones aún</div>
+                : recepciones.slice().reverse().map((r, ri) => (
+                  <div key={r.id} style={{ marginBottom: 14, border: '1px solid var(--gray-200)', borderRadius: 10, overflow: 'hidden' }}>
+                    <div style={{ background: '#fff', padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--gray-100)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ background: 'var(--primary)', color: '#fff', borderRadius: '50%', width: 26, height: 26, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700 }}>
+                          {recepciones.length - ri}
+                        </span>
+                        <strong style={{ fontSize: 13, color: 'var(--gray-800)' }}>🏭 {r.bodega_nombre}</strong>
+                      </div>
+                      <span style={{ fontSize: 12, color: 'var(--gray-400)' }}>{fmtDate(r.fecha)}</span>
+                    </div>
+                    <div style={{ padding: '10px 14px' }}>
+                      {r.items.map(i => (
+                        <div key={i.prod_item_id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', borderBottom: '1px solid var(--gray-100)', fontSize: 13 }}>
+                          <span style={{ color: 'var(--gray-700)' }}>{i.producto_nombre}</span>
+                          <span style={{ fontWeight: 700, color: 'var(--primary)', background: 'var(--primary-light)', padding: '2px 10px', borderRadius: 20 }}>{i.cantidad} un.</span>
+                        </div>
+                      ))}
+                      {r.notas && <div style={{ fontSize: 12, color: 'var(--gray-400)', marginTop: 6, fontStyle: 'italic' }}>📝 {r.notas}</div>}
+                    </div>
+                  </div>
+                ))}
+            </div>
+          </div>
         </div>
-        <div style={{ padding: '14px 24px', borderTop: '1px solid var(--gray-100)', display: 'flex', justifyContent: 'flex-end' }}>
+
+        {/* Footer actions */}
+        <div style={{ padding: '14px 24px', borderTop: '1px solid var(--gray-100)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <button onClick={onClose} style={{ padding: '9px 20px', border: '1.5px solid var(--gray-300)', borderRadius: 8, background: '#fff', cursor: 'pointer', fontWeight: 600 }}>Cerrar</button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {estado === 'borrador' && (
+              <button onClick={() => { onClose(); onEditar() }} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 16px', border: '1.5px solid var(--gray-300)', borderRadius: 8, background: '#fff', cursor: 'pointer', fontWeight: 600 }}>
+                ✏️ Editar
+              </button>
+            )}
+            {(estado === 'borrador' || estado === 'parcial') && (
+              <button onClick={onRecibir} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 18px', background: '#059669', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}>
+                📦 Recibir
+              </button>
+            )}
+            {(estado === 'recibida' || estado === 'parcial') && (
+              <button onClick={onConfirmar} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 18px', background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}>
+                ✅ Confirmar
+              </button>
+            )}
+            {['borrador', 'parcial', 'recibida'].includes(estado) && (
+              <button onClick={onCancelar} style={{ padding: '9px 16px', border: '1.5px solid #fee2e2', borderRadius: 8, background: '#fff', color: '#dc2626', cursor: 'pointer', fontWeight: 600 }}>
+                Cancelar OC
+              </button>
+            )}
+          </div>
         </div>
+
       </div>
     </div>
   )
