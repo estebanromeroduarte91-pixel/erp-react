@@ -197,7 +197,7 @@ function ItemRow({
 
   return (
     <tr style={{ borderBottom: '1px solid var(--gray-100)' }}>
-      <td style={{ padding: '6px 8px', minWidth: 150 }}>
+      <td style={{ padding: '6px 8px', minWidth: 290, width: '40%' }}>
         <div style={{ position: 'relative' }}>
           <input
             ref={anchorRef}
@@ -208,7 +208,7 @@ function ItemRow({
             onChange={e => { setQ(e.target.value); openMenu(); onUpdate(item.id, { producto_nombre: e.target.value, producto_id: '' }) }}
             onFocus={openMenu}
             onBlur={() => setTimeout(() => setOpen(false), 200)}
-            style={{ width: '100%', minWidth: 120 }}
+            style={{ width: '100%', minWidth: 270 }}
           />
           {open && results.length > 0 && (
             <div style={menuStyle(rect)}>
