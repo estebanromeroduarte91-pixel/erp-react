@@ -273,7 +273,7 @@ function ModalNuevaOC({
 
   function applyBodegaDef(bodId: string, bodNombre: string) {
     setBodegaDef({ id: bodId, nombre: bodNombre })
-    if (bodId) setItems(prev => prev.map(it => it.bodega_id ? it : { ...it, bodega_id: bodId, bodega_nombre: bodNombre }))
+    if (bodId) setItems(prev => prev.map(it => ({ ...it, bodega_id: bodId, bodega_nombre: bodNombre })))
   }
 
   function handleSave() {
@@ -311,7 +311,7 @@ function ModalNuevaOC({
               <ProveedorCombo value={prov} onChange={setProv} proveedores={proveedores} />
             </div>
             <div>
-              <label style={labelStyle}>Bodega por defecto <span style={{ fontSize: 11, color: 'var(--gray-400)', fontWeight: 400, textTransform: 'none' }}>(se aplica a líneas vacías)</span></label>
+              <label style={labelStyle}>Bodega por defecto <span style={{ fontSize: 11, color: 'var(--gray-400)', fontWeight: 400, textTransform: 'none' }}>(se aplica a todas las líneas)</span></label>
               <select value={bodegaDef.id}
                 onChange={e => { const opt = e.target.options[e.target.selectedIndex]; applyBodegaDef(e.target.value, e.target.value ? opt.text : '') }}
                 style={{ width: '100%' }}>
@@ -326,7 +326,7 @@ function ModalNuevaOC({
               <input type="date" value={fecha} onChange={e => setFecha(e.target.value)} style={{ width: '100%' }} />
             </div>
             <div>
-              <label style={labelStyle}>Fecha entrega esperada</label>
+              <label style={labelStyle}>Fecha Entrega Esperada</label>
               <input type="date" value={fechaEntrega} onChange={e => setFechaEntrega(e.target.value)} style={{ width: '100%' }} />
             </div>
           </div>
@@ -346,7 +346,7 @@ function ModalNuevaOC({
             <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid var(--gray-200)', borderRadius: 8, overflow: 'hidden' }}>
               <thead>
                 <tr style={{ background: 'var(--gray-50)' }}>
-                  {['PRODUCTO', 'BODEGA DESTINO', 'CANT.', 'P. NETO', 'P. C/IVA', 'SUBTOTAL', ''].map((h, i) => (
+                  {['PRODUCTO', 'BODEGA DESTINO', 'CANTIDAD', 'P. NETO', 'P. c/IVA', 'SUBTOTAL', ''].map((h, i) => (
                     <th key={i} style={{ padding: '8px 10px', fontSize: 11, color: 'var(--gray-500)', fontWeight: 700, textAlign: 'left', borderBottom: '1px solid var(--gray-200)', whiteSpace: 'nowrap' }}>{h}</th>
                   ))}
                 </tr>
