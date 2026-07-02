@@ -25,6 +25,7 @@ export function CargosTab() {
   const [local, setLocal] = useState<Cargo[] | null>(null)
   const [guardado, setGuardado] = useState(false)
   const [nuevoNombre, setNuevoNombre] = useState('')
+  const [nuevoRol, setNuevoRol] = useState<'tecnico' | 'vendedor' | 'encargado'>('tecnico')
   const [showModal, setShowModal] = useState(false)
 
   const lista = local ?? cargos ?? []
@@ -53,12 +54,14 @@ export function CargosTab() {
       id: 'cargo_' + uid(),
       nombre,
       sistema: false,
+      rol: nuevoRol,
       permisos: { dashboard: false, ventas: false, taller: false, clientes: false, inventario: false, compras: false, estadisticas: false, configuracion: false },
     }
     const updated = [...lista, nuevo]
     setLocal(updated)
     setSelected(nuevo.id)
     setNuevoNombre('')
+    setNuevoRol('tecnico')
     setShowModal(false)
     void guardar.mutateAsync(updated)
   }
@@ -160,8 +163,15 @@ export function CargosTab() {
               onChange={e => setNuevoNombre(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleCrear()}
               placeholder="Ej: Recepcionista"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400 mb-5"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400 mb-3"
             />
+            <label className="text-xs font-medium text-gray-600 block mb-1">Rol base del sistema</label>
+            <select value={nuevoRol} onChange={e => setNuevoRol(e.target.value as 'tecnico' | 'vendedor' | 'encargado')}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400 mb-5">
+              <option value="tecnico">Técnico</option>
+              <option value="vendedor">Vendedor</option>
+              <option value="encargado">Encargado</option>
+            </select>
             <div className="flex gap-2 justify-end">
               <button onClick={() => setShowModal(false)}
                 className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition">

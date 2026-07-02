@@ -427,7 +427,8 @@ function InviteModal({ onClose }: { onClose: () => void }) {
   async function handleCrear() {
     if (!nombre.trim() || !email.trim()) return
     const isSuperAdmin = cargoId === '__superadmin'
-    const role = isSuperAdmin ? 'admin' : ({ tecnico: 'tecnico', vendedor: 'vendedor', encargado: 'encargado' }[cargoId] ?? 'tecnico')
+    const ROLE_MAP: Record<string, string> = { tecnico: 'tecnico', vendedor: 'vendedor', encargado: 'encargado' }
+    const role = isSuperAdmin ? 'admin' : (ROLE_MAP[cargoId] ?? cargos.find(c => c.id === cargoId)?.rol ?? 'tecnico')
     const token = await crear.mutateAsync({ nombre: nombre.trim(), email: email.trim().toLowerCase(), role, cargoId, branchId })
     setLink(`${APP_BASE_URL}?invite=${token}`)
   }

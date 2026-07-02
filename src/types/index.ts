@@ -347,6 +347,7 @@ export interface Cargo {
   id: string
   nombre: string
   sistema: boolean
+  rol?: 'tecnico' | 'vendedor' | 'encargado'  // rol base en user_profiles; system cargos lo heredan del id
   permisos: CargoPermisos
 }
 

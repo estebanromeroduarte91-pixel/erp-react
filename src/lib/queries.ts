@@ -582,11 +582,20 @@ export function useGuardarChecklistSalida() {
 
 // ── Cargos ────────────────────────────────────────────────────
 
-const CARGOS_DEFAULT: Cargo[] = [
-  { id: 'tecnico',   nombre: 'Técnico',   sistema: true, permisos: { dashboard: false, ventas: false, taller: true,  clientes: true,  inventario: false, compras: false, estadisticas: false, configuracion: false } },
-  { id: 'vendedor',  nombre: 'Vendedor',  sistema: true, permisos: { dashboard: false, ventas: true,  taller: false, clientes: true,  inventario: false, compras: false, estadisticas: false, configuracion: false } },
-  { id: 'encargado', nombre: 'Encargado', sistema: true, permisos: { dashboard: true,  ventas: true,  taller: true,  clientes: true,  inventario: true,  compras: false, estadisticas: true,  configuracion: false } },
+export const CARGOS_DEFAULT: Cargo[] = [
+  { id: 'tecnico',   nombre: 'Técnico',   sistema: true, rol: 'tecnico',   permisos: { dashboard: false, ventas: false, taller: true,  clientes: true,  inventario: false, compras: false, estadisticas: false, configuracion: false } },
+  { id: 'vendedor',  nombre: 'Vendedor',  sistema: true, rol: 'vendedor',  permisos: { dashboard: false, ventas: true,  taller: false, clientes: true,  inventario: false, compras: false, estadisticas: false, configuracion: false } },
+  { id: 'encargado', nombre: 'Encargado', sistema: true, rol: 'encargado', permisos: { dashboard: true,  ventas: true,  taller: true,  clientes: true,  inventario: true,  compras: true,  estadisticas: true,  configuracion: true  } },
 ]
+
+const ROLE_MAP: Record<string, string> = { tecnico: 'tecnico', vendedor: 'vendedor', encargado: 'encargado' }
+
+function resolveRol(cargoId: string | undefined, cargos: Cargo[]): string {
+  if (!cargoId) return 'tecnico'
+  if (ROLE_MAP[cargoId]) return ROLE_MAP[cargoId]
+  const cargo = cargos.find(c => c.id === cargoId)
+  return cargo?.rol ?? 'tecnico'
+}
 
 export function useCargos() {
   const { empresaId } = useAuth()
@@ -820,10 +829,9 @@ export function useGuardarUserConfig() {
       await dbSet(empresaId!, 'user_cargo_map', map)
       // Actualizar role en user_profiles si corresponde
       const cargosData = await dbGet<Cargo[]>(empresaId!, 'cargos')
-      const cargos = parseArr<Cargo>(cargosData as Cargo[] | string | null)
+      const allCargos = [...CARGOS_DEFAULT, ...parseArr<Cargo>(cargosData as Cargo[] | string | null).filter(c => !c.sistema)]
       if (cfg.cargoId && cfg.cargoId !== '__admin') {
-        const roleMap: Record<string, string> = { tecnico: 'tecnico', vendedor: 'vendedor', encargado: 'encargado' }
-        const newRole = roleMap[cfg.cargoId] ?? cargos.find(c => c.id === cfg.cargoId)?.id ?? 'tecnico'
+        const newRole = resolveRol(cfg.cargoId, allCargos)
         await supabase.from('user_profiles').update({ role: newRole }).eq('id', userId)
       }
     },

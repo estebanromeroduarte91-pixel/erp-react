@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { useAuth } from '@/context/AuthContext'
 import { SmtpTab } from './SmtpTab'
 import { DominioTab } from './DominioTab'
 import { CargosTab } from './CargosTab'
@@ -8,6 +9,7 @@ import { AccesosTab } from './AccesosTab'
 type Tab = 'dominio' | 'smtp' | 'cargos' | 'accesos'
 
 export function ConfigPage() {
+  const { esAdmin } = useAuth()
   const [searchParams] = useSearchParams()
   const [tab, setTab] = useState<Tab>(() => {
     const t = searchParams.get('tab')
@@ -19,12 +21,13 @@ export function ConfigPage() {
     if (t) setTab(t as Tab)
   }, [searchParams])
 
-  const tabs: { key: Tab; label: string }[] = [
+  const allTabs: { key: Tab; label: string; adminOnly?: boolean }[] = [
     { key: 'dominio', label: 'Dominio' },
     { key: 'smtp',    label: 'SMTP' },
-    { key: 'cargos',  label: 'Cargos' },
-    { key: 'accesos', label: 'Accesos' },
+    { key: 'cargos',  label: 'Cargos',  adminOnly: true },
+    { key: 'accesos', label: 'Accesos', adminOnly: true },
   ]
+  const tabs = allTabs.filter(t => !t.adminOnly || esAdmin)
 
   return (
     <div>
@@ -44,10 +47,10 @@ export function ConfigPage() {
         ))}
       </div>
 
-      {tab === 'dominio'  && <DominioTab />}
-      {tab === 'smtp'     && <SmtpTab />}
-      {tab === 'cargos'   && <CargosTab />}
-      {tab === 'accesos'  && <AccesosTab />}
+      {tab === 'dominio'             && <DominioTab />}
+      {tab === 'smtp'                && <SmtpTab />}
+      {tab === 'cargos'  && esAdmin  && <CargosTab />}
+      {tab === 'accesos' && esAdmin  && <AccesosTab />}
     </div>
   )
 }
