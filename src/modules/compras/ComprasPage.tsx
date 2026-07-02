@@ -243,7 +243,7 @@ function ItemRow({
             const qty = +e.target.value || 1
             onUpdate(item.id, { cantidad: qty, subtotal: qty * item.precio_neto })
           }}
-          style={{ width: 52, textAlign: 'center' }}
+          style={{ width: 62, textAlign: 'center' }}
         />
       </td>
       <td style={{ padding: '6px 8px' }}>
@@ -252,7 +252,7 @@ function ItemRow({
             const pn = +e.target.value || 0
             onUpdate(item.id, { precio_neto: pn, precio_iva: Math.round(pn * (1 + IVA)), precio_unitario: pn, subtotal: item.cantidad * pn })
           }}
-          style={{ width: 72 }}
+          style={{ width: 88 }}
         />
       </td>
       <td style={{ padding: '6px 8px' }}>
@@ -262,7 +262,7 @@ function ItemRow({
             const pn = Math.round(pi / (1 + IVA))
             onUpdate(item.id, { precio_neto: pn, precio_iva: pi, precio_unitario: pn, subtotal: item.cantidad * pn })
           }}
-          style={{ width: 72 }}
+          style={{ width: 88 }}
         />
       </td>
       <td style={{ padding: '6px 8px' }}>
@@ -335,7 +335,7 @@ function ModalNuevaOC({
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
 >
-      <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 820, maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,.2)' }}>
+      <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 940, maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,.2)' }}>
         <div style={{ padding: '18px 24px', borderBottom: '1px solid var(--gray-100)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{ocEdit ? 'Editar' : 'Nueva'} Orden de Compra</h3>
           <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: 'var(--gray-500)', lineHeight: 1 }}>×</button>
