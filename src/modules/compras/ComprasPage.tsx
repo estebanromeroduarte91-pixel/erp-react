@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useLocation, useSearchParams } from 'react-router-dom'
 import { KitsTab } from './KitsTab'
 import { useAuth } from '@/context/AuthContext'
@@ -72,6 +72,50 @@ function EstadoBadge({ estado }: { estado: EstadoOC }) {
   )
 }
 
+// ─── Dropdown anclado (position: fixed para escapar del overflow del modal) ──
+
+function useAnchoredMenu() {
+  const anchorRef = useRef<HTMLInputElement>(null)
+  const [open, setOpen] = useState(false)
+  const [rect, setRect] = useState<DOMRect | null>(null)
+
+  const measure = useCallback(() => {
+    if (anchorRef.current) setRect(anchorRef.current.getBoundingClientRect())
+  }, [])
+
+  const openMenu = useCallback(() => { measure(); setOpen(true) }, [measure])
+
+  useEffect(() => {
+    if (!open) return
+    measure()
+    const onMove = () => measure()
+    window.addEventListener('scroll', onMove, true)
+    window.addEventListener('resize', onMove)
+    return () => {
+      window.removeEventListener('scroll', onMove, true)
+      window.removeEventListener('resize', onMove)
+    }
+  }, [open, measure])
+
+  return { anchorRef, open, setOpen, openMenu, rect }
+}
+
+function menuStyle(rect: DOMRect | null): React.CSSProperties {
+  if (!rect) return { display: 'none' }
+  const width = Math.max(rect.width, 220)
+  const menuMaxH = 240
+  const vh = window.innerHeight
+  const vw = window.innerWidth
+  const left = Math.max(8, Math.min(rect.left, vw - width - 8))
+  const flipUp = rect.bottom + 4 + menuMaxH > vh && rect.top > menuMaxH
+  const base: React.CSSProperties = {
+    position: 'fixed', left, width, zIndex: 3000,
+    background: '#fff', border: '1px solid var(--gray-200)', borderRadius: 8,
+    boxShadow: '0 12px 32px rgba(16,18,24,.18)', maxHeight: menuMaxH, overflowY: 'auto',
+  }
+  return flipUp ? { ...base, bottom: vh - rect.top + 4 } : { ...base, top: rect.bottom + 4 }
+}
+
 // ─── Combobox de proveedor ────────────────────────────────────
 
 function ProveedorCombo({
@@ -82,7 +126,7 @@ function ProveedorCombo({
   proveedores: Proveedor[]
 }) {
   const [q, setQ] = useState(value.nombre)
-  const [open, setOpen] = useState(false)
+  const { anchorRef, open, setOpen, openMenu, rect } = useAnchoredMenu()
   const results = q.length
     ? proveedores.filter(p => p.nombre.toLowerCase().includes(q.toLowerCase())).slice(0, 10)
     : proveedores.slice(0, 10)
@@ -90,21 +134,17 @@ function ProveedorCombo({
   return (
     <div style={{ position: 'relative' }}>
       <input
+        ref={anchorRef}
         type="text"
         value={q}
         placeholder="-- Seleccionar proveedor --"
-        onChange={e => { setQ(e.target.value); setOpen(true) }}
-        onFocus={() => setOpen(true)}
+        onChange={e => { setQ(e.target.value); openMenu() }}
+        onFocus={openMenu}
         onBlur={() => setTimeout(() => setOpen(false), 200)}
         style={{ width: '100%' }}
       />
       {open && results.length > 0 && (
-        <div style={{
-          position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 1000,
-          background: '#fff', border: '1px solid var(--gray-200)',
-          borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,.12)',
-          maxHeight: 220, overflowY: 'auto',
-        }}>
+        <div style={menuStyle(rect)}>
           {results.map(p => (
             <div key={p.id}
               onMouseDown={() => { onChange({ id: p.id, nombre: p.nombre }); setQ(p.nombre); setOpen(false) }}
@@ -134,7 +174,7 @@ function ItemRow({
   onRemove: (id: string) => void
 }) {
   const [q, setQ] = useState(item.producto_nombre)
-  const [open, setOpen] = useState(false)
+  const { anchorRef, open, setOpen, openMenu, rect } = useAnchoredMenu()
   const results = q.length
     ? productos.filter(p => p.nombre.toLowerCase().includes(q.toLowerCase())).slice(0, 10)
     : productos.slice(0, 10)
@@ -158,21 +198,17 @@ function ItemRow({
       <td style={{ padding: '6px 8px', minWidth: 150 }}>
         <div style={{ position: 'relative' }}>
           <input
+            ref={anchorRef}
             type="text"
             value={q}
             placeholder="Buscar producto..."
-            onChange={e => { setQ(e.target.value); setOpen(true); onUpdate(item.id, { producto_nombre: e.target.value, producto_id: '' }) }}
-            onFocus={() => setOpen(true)}
+            onChange={e => { setQ(e.target.value); openMenu(); onUpdate(item.id, { producto_nombre: e.target.value, producto_id: '' }) }}
+            onFocus={openMenu}
             onBlur={() => setTimeout(() => setOpen(false), 200)}
             style={{ width: '100%', minWidth: 120 }}
           />
           {open && results.length > 0 && (
-            <div style={{
-              position: 'absolute', top: '100%', left: 0, zIndex: 9999, minWidth: 220,
-              background: '#fff', border: '1px solid var(--gray-200)',
-              borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,.14)',
-              maxHeight: 200, overflowY: 'auto',
-            }}>
+            <div style={menuStyle(rect)}>
               {results.map(p => (
                 <div key={p.id}
                   onMouseDown={() => selectProd(p)}

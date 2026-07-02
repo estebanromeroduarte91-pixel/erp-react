@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { useEquipos, useGuardarEquipos, useCatEquipo } from '@/lib/queries'
+import { useAnchorRect, fixedDropdownStyle } from '@/lib/useAnchorRect'
 import type { Equipo } from '@/types'
 
 interface Props {
@@ -23,6 +24,7 @@ export function EquipoSelector({ value, onChange }: Props) {
   const [nuevo, setNuevo] = useState(false)
   const [form, setForm] = useState({ marca: '', modelo: '', categoria: 'Teléfono' })
   const wrapRef = useRef<HTMLDivElement>(null)
+  const { ref: fieldRef, rect } = useAnchorRect<HTMLDivElement>(open)
 
   const lista = useMemo(() => {
     const all = equipos ?? []
@@ -74,6 +76,7 @@ export function EquipoSelector({ value, onChange }: Props) {
     <div className="relative" ref={wrapRef}>
       {/* Campo */}
       <div
+        ref={fieldRef}
         onClick={() => setOpen((o) => !o)}
         className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 cursor-pointer flex items-center justify-between gap-2 focus:border-blue-400"
       >
@@ -97,7 +100,7 @@ export function EquipoSelector({ value, onChange }: Props) {
 
       {/* Dropdown */}
       {open && (
-        <div className="absolute top-full left-0 right-0 z-20 mt-1 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden">
+        <div style={fixedDropdownStyle(rect, { maxHeight: 340 })} className="bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden">
           {!nuevo ? (
             <>
               <div className="p-2 border-b border-gray-100">

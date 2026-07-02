@@ -6,6 +6,7 @@ import { dbGet } from '@/lib/db'
 import { sendEmail, buildEmailIngreso } from '@/lib/email'
 import { Money } from '@/components/shared/Money'
 import { EquipoSelector } from './EquipoSelector'
+import { useAnchorRect, fixedDropdownStyle } from '@/lib/useAnchorRect'
 import { PatternLockModal } from './PatternLockModal'
 import { QrFotosModal } from './QrFotosModal'
 import type { Orden, EstadoOrden, Repuesto, Producto, CheckItem } from '@/types'
@@ -149,6 +150,7 @@ export function OrdenModal({ orden, ordenes, onClose }: Props) {
   const [clienteEditId, setClienteEditId] = useState<string | null>(null)
   const [editandoCliente, setEditandoCliente] = useState(false)
   const clienteRef = useRef<HTMLDivElement>(null)
+  const { ref: clienteAnchorRef, rect: clienteRect } = useAnchorRect<HTMLInputElement>(clienteAbierto)
 
   const clienteSeleccionado = form.nombre.trim() || form.apellido.trim()
 
@@ -194,6 +196,7 @@ export function OrdenModal({ orden, ordenes, onClose }: Props) {
   const [repBusqueda, setRepBusqueda] = useState('')
   const [repOpen, setRepOpen] = useState(false)
   const repRef = useRef<HTMLDivElement>(null)
+  const { ref: repAnchorRef, rect: repRect } = useAnchorRect<HTMLButtonElement>(repOpen)
 
   const isEditing = !!orden
 
@@ -526,6 +529,7 @@ export function OrdenModal({ orden, ordenes, onClose }: Props) {
                       <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                     </svg>
                     <input
+                      ref={clienteAnchorRef}
                       value={busquedaCliente}
                       onChange={(e) => { setBusquedaCliente(e.target.value); setClienteAbierto(true) }}
                       onFocus={() => setClienteAbierto(true)}
@@ -533,7 +537,7 @@ export function OrdenModal({ orden, ordenes, onClose }: Props) {
                       className="w-full border border-gray-200 rounded-lg pl-9 pr-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400"
                     />
                     {clienteAbierto && (
-                      <div className="absolute top-full left-0 right-0 z-10 bg-white border border-gray-200 rounded-xl shadow-lg mt-1 overflow-hidden">
+                      <div style={fixedDropdownStyle(clienteRect)} className="bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
                         {clientesFiltrados.length === 0 ? (
                           <p className="text-xs text-gray-400 text-center py-4">Sin resultados</p>
                         ) : (
@@ -650,6 +654,7 @@ export function OrdenModal({ orden, ordenes, onClose }: Props) {
               <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Repuestos utilizados</h4>
               <div className="relative" ref={repRef}>
                 <button
+                  ref={repAnchorRef}
                   type="button"
                   onClick={() => setRepOpen((o) => !o)}
                   className="text-xs font-semibold text-blue-600 border border-blue-200 rounded-lg px-3 py-1.5 hover:bg-blue-50 transition"
@@ -657,7 +662,7 @@ export function OrdenModal({ orden, ordenes, onClose }: Props) {
                   + Agregar repuesto
                 </button>
                 {repOpen && (
-                  <div className="absolute right-0 top-full mt-1 w-72 bg-white border border-gray-200 rounded-xl shadow-xl z-20">
+                  <div style={fixedDropdownStyle(repRect, { align: 'right', width: 288 })} className="bg-white border border-gray-200 rounded-xl shadow-xl">
                     <div className="p-2 border-b border-gray-100">
                       <input
                         autoFocus
