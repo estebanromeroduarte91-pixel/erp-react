@@ -203,6 +203,7 @@ function ItemRow({
             ref={anchorRef}
             type="text"
             value={q}
+            title={q}
             placeholder="Buscar producto..."
             onChange={e => { setQ(e.target.value); openMenu(); onUpdate(item.id, { producto_nombre: e.target.value, producto_id: '' }) }}
             onFocus={openMenu}
