@@ -32,10 +32,24 @@ function extractColor(name: string): string {
   return name.slice(base.length).trim()
 }
 
+// Returns true if colorA's words are all contained in colorB (A is a subset of B)
+function isColorSubset(colorA: string, colorB: string): boolean {
+  if (colorA.toLowerCase() === colorB.toLowerCase()) return false
+  const wordsA = colorA.toLowerCase().split(' ')
+  const wordsB = new Set(colorB.toLowerCase().split(' '))
+  return wordsA.every(w => wordsB.has(w))
+}
+
+// Returns true if a product's color matches the selected color
+// (exact match OR product color words are all in selected color)
+function colorMatches(productColor: string, selectedColor: string): boolean {
+  if (productColor.toLowerCase() === selectedColor.toLowerCase()) return true
+  return isColorSubset(productColor, selectedColor)
+}
+
 // From a list of products in an enlace group, find available colors
 // and separate generic (no-color-variant) products
 function analizarGrupo(prods: Producto[]): { colores: string[]; genericos: Producto[] } {
-  // Group by base name
   const baseMap = new Map<string, Producto[]>()
   for (const p of prods) {
     const base = stripColor(p.nombre).toLowerCase()
@@ -49,10 +63,8 @@ function analizarGrupo(prods: Producto[]): { colores: string[]; genericos: Produ
 
   for (const grupo of baseMap.values()) {
     if (grupo.length === 1) {
-      // No variants — generic
       genericos.push(grupo[0])
     } else {
-      // Has variants — extract colors
       for (const p of grupo) {
         const c = extractColor(p.nombre)
         if (c) coloresSet.add(c)
@@ -60,7 +72,11 @@ function analizarGrupo(prods: Producto[]): { colores: string[]; genericos: Produ
     }
   }
 
-  return { colores: [...coloresSet].sort(), genericos }
+  // Keep only "maximal" colors — drop any color that is a word-subset of another
+  const todos = [...coloresSet]
+  const canonicos = todos.filter(c => !todos.some(other => isColorSubset(c, other)))
+
+  return { colores: canonicos.sort(), genericos }
 }
 
 // ── Modal crear / editar kit ──────────────────────────────────
@@ -145,9 +161,8 @@ function ModalKit({ kit, productos, categoriasExistentes, onSave, onClose }: Mod
     const prods = productos.filter(p => p.enlace?.trim().toLowerCase() === enlaceActivo.trim().toLowerCase())
     const { genericos } = analizarGrupo(prods)
 
-    // Color-specific products: those whose name ends with this color
-    const colorLower = color.toLowerCase()
-    const especificos = prods.filter(p => extractColor(p.nombre).toLowerCase() === colorLower)
+    // Color-specific products: exact match OR subset match (e.g. "Blanco" matches when "Titanio Blanco" selected)
+    const especificos = prods.filter(p => colorMatches(extractColor(p.nombre), color))
 
     const todos = [...especificos, ...genericos]
     setComponentes(todos.map(p => ({ id: uid(), nombre: p.nombre, cantidad: 1 })))
