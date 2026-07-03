@@ -231,6 +231,7 @@ export interface Gasto {
   descripcion: string
   monto: number
   categoria: string     // nombre de la categoría
+  subcategoria?: string // desglose dentro de la categoría (ej. empleado, sucursal, plataforma)
   metodo?: string       // 'Efectivo' | 'Transferencia' | etc.
 }
 

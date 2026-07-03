@@ -8,6 +8,10 @@ function uid() { return Math.random().toString(36).slice(2) + Date.now().toStrin
 function today() { return new Date().toISOString().split('T')[0] }
 function fmt(n: number) { return '$' + Math.round(n).toLocaleString('es-CL') }
 function mesActual() { return today().slice(0, 7) }
+// Normaliza para comparar subcategorías: sin tildes, minúsculas, espacios colapsados.
+function normalizar(s: string) {
+  return s.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ')
+}
 
 function fmtFecha(f: string) {
   if (!f) return '—'
@@ -55,6 +59,21 @@ export function GastosTab() {
     return m
   }, [cats])
 
+  // Subcategorías canónicas por categoría (forma normalizada -> nombre a mostrar),
+  // derivadas de los gastos existentes. Sirve para autocompletar y unificar duplicados.
+  const subcatsPorCat = useMemo(() => {
+    const m: Record<string, Map<string, string>> = {}
+    ;(gastos ?? []).forEach(g => {
+      const sub = (g.subcategoria ?? '').trim()
+      if (!sub) return
+      const cat = g.categoria ?? ''
+      ;(m[cat] ??= new Map())
+      const n = normalizar(sub)
+      if (!m[cat].has(n)) m[cat].set(n, sub)
+    })
+    return m
+  }, [gastos])
+
   const lista = useMemo(() => {
     let arr = [...(gastos ?? [])].sort((a, b) => (b.fecha ?? '').localeCompare(a.fecha ?? ''))
     if (filtroCat) arr = arr.filter(g => g.categoria === filtroCat)
@@ -81,6 +100,31 @@ export function GastosTab() {
     })
     return Object.entries(m)
   }, [lista])
+
+  // Resumen por categoría → subcategoría (unificando variantes por normalización).
+  // Respeta la búsqueda pero muestra todas las categorías (independiente del pill).
+  const [expandidas, setExpandidas] = useState<Set<string>>(new Set())
+  const resumen = useMemo(() => {
+    const q = busqueda.trim().toLowerCase()
+    const base = (gastos ?? []).filter(g => !q ||
+      g.descripcion.toLowerCase().includes(q) ||
+      (g.categoria ?? '').toLowerCase().includes(q) ||
+      (g.subcategoria ?? '').toLowerCase().includes(q))
+    const byCat: Record<string, { total: number; subs: Record<string, { nombre: string; monto: number }> }> = {}
+    base.forEach(g => {
+      const cat = g.categoria || 'Sin categoría'
+      const monto = +g.monto || 0
+      ;(byCat[cat] ??= { total: 0, subs: {} })
+      byCat[cat].total += monto
+      const raw = (g.subcategoria ?? '').trim()
+      const key = raw ? normalizar(raw) : '__none__'
+      const nombre = raw || 'Sin subcategoría'
+      ;(byCat[cat].subs[key] ??= { nombre, monto: 0 }).monto += monto
+    })
+    return Object.entries(byCat)
+      .map(([cat, d]) => ({ cat, total: d.total, subs: Object.values(d.subs).sort((a, b) => b.monto - a.monto) }))
+      .sort((a, b) => b.total - a.total)
+  }, [gastos, busqueda])
 
   async function eliminar(g: Gasto) {
     if (!confirm(`¿Eliminar "${g.descripcion}"?`)) return
@@ -130,6 +174,51 @@ export function GastosTab() {
           Nuevo gasto
         </button>
       </div>
+
+      {/* Resumen por categoría (expandible) */}
+      {resumen.length > 0 && (
+        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden mb-4">
+          <div className="px-4 py-2.5 border-b border-gray-100">
+            <h3 className="text-sm font-bold text-gray-800">Resumen por categoría</h3>
+            <p className="text-xs text-gray-400">Clic en una categoría para ver el desglose por subcategoría</p>
+          </div>
+          {resumen.map(r => {
+            const abierta = expandidas.has(r.cat)
+            const color = catMap[r.cat]?.color ?? '#9ca3af'
+            return (
+              <div key={r.cat} className="border-b border-gray-50 last:border-b-0">
+                <button
+                  onClick={() => setExpandidas(prev => { const n = new Set(prev); n.has(r.cat) ? n.delete(r.cat) : n.add(r.cat); return n })}
+                  className="w-full flex items-center gap-2.5 px-4 py-3 hover:bg-gray-50 transition text-left">
+                  <svg className={`w-4 h-4 text-gray-400 transition-transform ${abierta ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                  <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: color }} />
+                  <span className="text-sm font-bold text-gray-800">{r.cat}</span>
+                  <span className="ml-auto text-sm font-extrabold text-gray-900">{fmt(r.total)}</span>
+                </button>
+                {abierta && (
+                  <div className="bg-gray-50 border-t border-gray-100 px-4 py-3 pl-11 space-y-3">
+                    {r.subs.map((s, i) => {
+                      const pct = r.total > 0 ? Math.round((s.monto / r.total) * 100) : 0
+                      return (
+                        <div key={i}>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-sm font-semibold text-gray-700">{s.nombre}</span>
+                            <span className="text-xs text-gray-400">{pct}%</span>
+                            <span className="ml-auto text-sm font-bold text-gray-800">{fmt(s.monto)}</span>
+                          </div>
+                          <div className="h-1.5 bg-gray-200 rounded overflow-hidden">
+                            <div className="h-1.5 rounded" style={{ width: `${pct}%`, background: color }} />
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
 
       {/* Pills de categorías */}
       {(cats ?? []).length > 0 && (
@@ -206,6 +295,7 @@ export function GastosTab() {
         <GastoModal
           cats={cats ?? []}
           gasto={editando}
+          subcatsPorCat={subcatsPorCat}
           onClose={() => setModalOpen(false)}
           onGuardar={async (g) => {
             const lista2 = gastos ?? []
@@ -223,19 +313,32 @@ export function GastosTab() {
   )
 }
 
-function GastoModal({ cats, gasto, onClose, onGuardar }: {
+function GastoModal({ cats, gasto, subcatsPorCat, onClose, onGuardar }: {
   cats: GastoCat[]
   gasto: Gasto | null
+  subcatsPorCat: Record<string, Map<string, string>>
   onClose: () => void
   onGuardar: (g: Gasto) => Promise<void>
 }) {
   const [monto, setMonto] = useState(gasto?.monto?.toString() ?? '')
   const [descripcion, setDescripcion] = useState(gasto?.descripcion ?? '')
   const [categoria, setCategoria] = useState(gasto?.categoria ?? (cats[0]?.nombre ?? ''))
+  const [subcategoria, setSubcategoria] = useState(gasto?.subcategoria ?? '')
+  const [subOpen, setSubOpen] = useState(false)
   const [metodo, setMetodo] = useState(gasto?.metodo ?? 'Efectivo')
   const [fecha, setFecha] = useState(gasto?.fecha ?? today())
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState('')
+
+  // Nombre canónico si coincide con una subcategoría existente (unifica variantes).
+  const canonMap = subcatsPorCat[categoria]
+  const subCanonica = subcategoria.trim() ? (canonMap?.get(normalizar(subcategoria)) ?? subcategoria.trim()) : undefined
+  const seUnifica = !!subcategoria.trim() && !!subCanonica && subCanonica !== subcategoria.trim()
+  const subSugerencias = useMemo(() => {
+    const todas = canonMap ? [...canonMap.values()] : []
+    const q = normalizar(subcategoria)
+    return (q ? todas.filter(s => normalizar(s).includes(q)) : todas).slice(0, 8)
+  }, [canonMap, subcategoria])
 
   async function handleGuardar() {
     if (!monto || +monto <= 0) { setError('Ingresa un monto válido'); return }
@@ -247,6 +350,7 @@ function GastoModal({ cats, gasto, onClose, onGuardar }: {
       descripcion: descripcion.trim(),
       monto: +monto,
       categoria,
+      subcategoria: subCanonica,
       metodo,
     })
     setGuardando(false)
@@ -305,6 +409,34 @@ function GastoModal({ cats, gasto, onClose, onGuardar }: {
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* Subcategoría */}
+          <div>
+            <label className="text-xs font-semibold text-gray-500 uppercase block mb-1">
+              Subcategoría <span className="text-gray-300 normal-case font-normal">(opcional · ej. empleado, sucursal)</span>
+            </label>
+            <div className="relative">
+              <input type="text" value={subcategoria}
+                onChange={e => { setSubcategoria(e.target.value); setSubOpen(true) }}
+                onFocus={() => setSubOpen(true)}
+                onBlur={() => setTimeout(() => setSubOpen(false), 180)}
+                placeholder="Ej: Candela, Sucursal Centro…"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+              {subOpen && subSugerencias.length > 0 && (
+                <div className="absolute z-10 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden max-h-44 overflow-y-auto">
+                  {subSugerencias.map(s => (
+                    <button key={s} type="button" onMouseDown={() => { setSubcategoria(s); setSubOpen(false) }}
+                      className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-blue-50">
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            {seUnifica && (
+              <p className="text-[11px] text-amber-600 mt-1">Se unificará con “{subCanonica}” (misma subcategoría)</p>
+            )}
           </div>
 
           {/* Método y fecha */}

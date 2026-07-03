@@ -23,6 +23,31 @@ const TIPO_META: Record<string, { label: string; cls: string }> = {
 
 const ORDEN_TIPO = ['activo', 'pasivo', 'patrimonio', 'ingreso', 'gasto']
 
+// Rango de códigos por tipo (convención contable) y paso de incremento.
+// Cambia PASO_CODIGO a 5 si prefieres cuentas más densas.
+const TIPO_BASE: Record<CuentaContable['tipo'], number> = {
+  activo: 100, pasivo: 200, patrimonio: 300, ingreso: 400, gasto: 600,
+}
+const PASO_CODIGO = 10
+
+function siguienteCodigo(tipo: CuentaContable['tipo'], plan: CuentaContable[]): string {
+  const base = TIPO_BASE[tipo] ?? 900
+  const usados = new Set(plan.map(c => c.codigo))
+  const enRango = plan
+    .map(c => parseInt(c.codigo, 10))
+    .filter(n => !Number.isNaN(n) && n >= base && n < base + 100)
+  // Preferido: siguiente múltiplo después del último código usado del rango.
+  let next = enRango.length ? Math.max(...enRango) + PASO_CODIGO : base + PASO_CODIGO
+  next = Math.ceil(next / PASO_CODIGO) * PASO_CODIGO
+  // Si se sale del rango o ya existe, toma el primer múltiplo libre dentro del rango.
+  if (next >= base + 100 || usados.has(String(next))) {
+    for (let c = base + PASO_CODIGO; c < base + 100; c += PASO_CODIGO) {
+      if (!usados.has(String(c))) { next = c; break }
+    }
+  }
+  return String(next)
+}
+
 export function PlanCuentasTab() {
   const { data: plan, isLoading } = usePlanCuentas()
   const guardar = useGuardarPlanCuentas()
@@ -85,28 +110,43 @@ export function PlanCuentasTab() {
         </div>
       ))}
 
-      {modalOpen && <CuentaModal cuenta={editando} onClose={() => { setModalOpen(false); setEditando(null) }} onGuardar={guardarCuenta} />}
+      {modalOpen && <CuentaModal cuenta={editando} plan={plan ?? []} onClose={() => { setModalOpen(false); setEditando(null) }} onGuardar={guardarCuenta} />}
     </div>
   )
 }
 
-function CuentaModal({ cuenta, onClose, onGuardar }: {
+function CuentaModal({ cuenta, plan, onClose, onGuardar }: {
   cuenta: CuentaContable | null
+  plan: CuentaContable[]
   onClose: () => void
   onGuardar: (c: CuentaContable) => Promise<void>
 }) {
-  const [codigo, setCodigo] = useState(cuenta?.codigo ?? '')
-  const [nombre, setNombre] = useState(cuenta?.nombre ?? '')
   const [tipo, setTipo] = useState<CuentaContable['tipo']>(cuenta?.tipo ?? 'gasto')
+  const [codigo, setCodigo] = useState(() => cuenta?.codigo ?? siguienteCodigo(cuenta?.tipo ?? 'gasto', plan))
+  const [codigoTouched, setCodigoTouched] = useState(false)
+  const [nombre, setNombre] = useState(cuenta?.nombre ?? '')
   const [grupo, setGrupo] = useState(cuenta?.grupo ?? '')
+  const [error, setError] = useState('')
   const [guardando, setGuardando] = useState(false)
 
+  // Al cambiar el tipo (en cuentas nuevas y si no editaste el código a mano),
+  // re-sugiere el siguiente código del rango correspondiente.
+  function cambiarTipo(nuevo: CuentaContable['tipo']) {
+    setTipo(nuevo)
+    if (!cuenta && !codigoTouched) setCodigo(siguienteCodigo(nuevo, plan))
+  }
+
   async function submit() {
-    if (!codigo.trim() || !nombre.trim()) return
+    const cod = codigo.trim()
+    if (!cod || !nombre.trim()) return
+    if (plan.some(c => c.codigo === cod && c.id !== cuenta?.id)) {
+      setError(`El código ${cod} ya existe. Usa otro.`)
+      return
+    }
     setGuardando(true)
     await onGuardar({
       id: cuenta?.id ?? `pc-${uid()}`,
-      codigo: codigo.trim(), nombre: nombre.trim(), tipo, grupo: grupo.trim() || 'Otros',
+      codigo: cod, nombre: nombre.trim(), tipo, grupo: grupo.trim() || 'Otros',
     })
     setGuardando(false)
   }
@@ -124,7 +164,7 @@ function CuentaModal({ cuenta, onClose, onGuardar }: {
           <div className="grid grid-cols-3 gap-3">
             <div>
               <label className="text-xs font-medium text-gray-600 mb-1 block">Código</label>
-              <input value={codigo} onChange={e => setCodigo(e.target.value)} autoFocus placeholder="600"
+              <input value={codigo} onChange={e => { setCodigo(e.target.value); setCodigoTouched(true); setError('') }} autoFocus placeholder="600"
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
             </div>
             <div className="col-span-2">
@@ -136,7 +176,7 @@ function CuentaModal({ cuenta, onClose, onGuardar }: {
           </div>
           <div>
             <label className="text-xs font-medium text-gray-600 mb-1 block">Tipo</label>
-            <select value={tipo} onChange={e => setTipo(e.target.value as CuentaContable['tipo'])}
+            <select value={tipo} onChange={e => cambiarTipo(e.target.value as CuentaContable['tipo'])}
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
               {TIPOS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
             </select>
@@ -146,6 +186,12 @@ function CuentaModal({ cuenta, onClose, onGuardar }: {
             <input value={grupo} onChange={e => setGrupo(e.target.value)} placeholder="Gastos Operacionales"
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
           </div>
+          {error && (
+            <p className="flex items-center gap-1.5 text-xs font-medium text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+              <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M12 3l9 16H3l9-16z" /></svg>
+              {error}
+            </p>
+          )}
         </div>
         <div className="flex justify-end gap-2 px-5 py-3 border-t border-gray-100 bg-gray-50">
           <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-100 transition">Cancelar</button>
