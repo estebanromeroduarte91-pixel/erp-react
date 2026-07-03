@@ -24,7 +24,15 @@ function ModalKit({ kit, productos, categoriasExistentes, onSave, onClose }: Mod
     kit?.componentes?.length ? kit.componentes : [{ id: uid(), nombre: '', cantidad: 1 }]
   )
   const [enlaceOpen, setEnlaceOpen] = useState(false)
+  const [dropRect, setDropRect] = useState<DOMRect | null>(null)
+  const nombreInputRef = useRef<HTMLInputElement | null>(null)
   const lastRowRef = useRef<HTMLInputElement | null>(null)
+
+  function openEnlaceDrop() {
+    const rect = nombreInputRef.current?.getBoundingClientRect()
+    if (rect) setDropRect(rect)
+    setEnlaceOpen(true)
+  }
 
   // Groups of products by their enlace field
   const enlaceGroups: { enlace: string; count: number }[] = (() => {
@@ -85,7 +93,7 @@ function ModalKit({ kit, productos, categoriasExistentes, onSave, onClose }: Mod
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-      <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 580, maxHeight: '92vh', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 60px rgba(0,0,0,.2)' }}>
+      <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 780, maxHeight: '92vh', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 60px rgba(0,0,0,.2)' }}>
         {/* Header */}
         <div style={{ padding: '18px 24px', borderBottom: '1px solid var(--gray-100)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{kit ? 'Editar Kit' : 'Nuevo Kit de Equipo'}</h3>
@@ -102,19 +110,24 @@ function ModalKit({ kit, productos, categoriasExistentes, onSave, onClose }: Mod
                 <input
                   type="text"
                   value={nombre}
-                  onChange={e => { setNombre(e.target.value); setEnlaceOpen(true) }}
-                  onFocus={() => setEnlaceOpen(true)}
+                  ref={nombreInputRef}
+                  onChange={e => { setNombre(e.target.value); openEnlaceDrop() }}
+                  onFocus={() => openEnlaceDrop()}
                   onBlur={() => setTimeout(() => setEnlaceOpen(false), 200)}
                   placeholder="Ej: iPhone 13, MacBook Pro 14"
                   autoFocus
                   className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400"
                 />
-                {enlaceOpen && filteredEnlaces.length > 0 && (
+                {enlaceOpen && filteredEnlaces.length > 0 && dropRect && (
                   <div style={{
-                    position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 200, marginTop: 4,
+                    position: 'fixed',
+                    top: dropRect.bottom + 6,
+                    left: dropRect.left,
+                    width: dropRect.width,
+                    zIndex: 9999,
                     background: '#fff', border: '1.5px solid #7c3aed', borderRadius: 12,
                     boxShadow: '0 12px 40px rgba(124,58,237,0.18), 0 2px 8px rgba(0,0,0,.08)',
-                    maxHeight: 280, overflowY: 'auto',
+                    maxHeight: Math.min(320, window.innerHeight - dropRect.bottom - 16), overflowY: 'auto',
                   }}>
                     {filteredEnlaces.map(g => (
                       <div
