@@ -7,169 +7,6 @@ import type { Kit, KitComponente, Producto } from '@/types'
 const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36)
 const today = () => new Date().toISOString().slice(0, 10)
 
-// Color words to detect variants
-const COLOR_WORDS = [
-  'titanio negro', 'titanio blanco', 'titanio natural', 'titanio desierto', 'titanio azul',
-  'verde noche', 'azul pacífico', 'azul pacifico', 'azul sierra', 'verde alpino', 'morado profundo',
-  'rose gold', 'space gray', 'space black', 'sky blue',
-  'silver', 'gold', 'midnight', 'starlight', 'amarillo', 'azul',
-  'rosado', 'plata', 'verde', 'morado', 'blanco', 'negro',
-  'blanca', 'negra', 'dorado', 'rojo', 'roja', 'coral',
-  'grafito', 'titanio', 'natural', 'desierto', 'black',
-]
-
-function stripColor(name: string): string {
-  const nl = name.toLowerCase()
-  for (const c of COLOR_WORDS) {
-    if (nl.endsWith(' ' + c)) return name.slice(0, name.length - c.length - 1).trim()
-  }
-  return name
-}
-
-function getVariantes(prod: Producto, all: Producto[]): Producto[] {
-  const base = stripColor(prod.nombre).toLowerCase()
-  if (!base) return [prod]
-  const variants = all.filter(p => stripColor(p.nombre).toLowerCase() === base)
-  return variants.length > 1 ? variants : [prod]
-}
-
-// ── Component search row ──────────────────────────────────────
-
-interface CompRowProps {
-  comp: KitComponente
-  productos: Producto[]
-  onChange: (id: string, patch: Partial<KitComponente>) => void
-  onRemove: (id: string) => void
-  isLast: boolean
-  lastRef: React.RefObject<HTMLInputElement | null>
-  onEnter: () => void
-}
-
-function CompRow({ comp, productos, onChange, onRemove, isLast, lastRef, onEnter }: CompRowProps) {
-  const [q, setQ] = useState(comp.nombre)
-  const [open, setOpen] = useState(false)
-  const results = q.length >= 1
-    ? productos.filter(p => p.nombre.toLowerCase().includes(q.toLowerCase())).slice(0, 8)
-    : []
-
-  // Detect variants when producto_id is set
-  const selProd = comp.producto_id ? productos.find(p => p.id === comp.producto_id) : null
-  const variantes = selProd ? getVariantes(selProd, productos) : []
-  const esVariable = variantes.length > 1
-
-  function selectProd(p: Producto) {
-    const vars = getVariantes(p, productos)
-    const esVar = vars.length > 1
-    onChange(comp.id, {
-      nombre: p.nombre,
-      producto_id: p.id,
-      es_variable: esVar,
-      color_defecto: esVar ? p.nombre : undefined,
-    })
-    setQ(p.nombre)
-    setOpen(false)
-  }
-
-  function handleColorChange(nombre: string) {
-    const prod = productos.find(p => p.nombre === nombre)
-    onChange(comp.id, {
-      nombre,
-      producto_id: prod?.id ?? comp.producto_id,
-      color_defecto: nombre,
-    })
-    setQ(nombre)
-  }
-
-  return (
-    <tr style={{ borderBottom: '1px solid var(--gray-100)' }}>
-      {/* Product search cell */}
-      <td style={{ padding: '5px 6px', width: '50%' }}>
-        <div style={{ position: 'relative' }}>
-          <input
-            ref={isLast ? lastRef : undefined}
-            type="text"
-            value={q}
-            placeholder="Buscar en inventario…"
-            onChange={e => {
-              setQ(e.target.value)
-              setOpen(true)
-              onChange(comp.id, { nombre: e.target.value, producto_id: undefined, es_variable: undefined, color_defecto: undefined })
-            }}
-            onFocus={() => q.length >= 1 && setOpen(true)}
-            onBlur={() => setTimeout(() => setOpen(false), 180)}
-            onKeyDown={e => e.key === 'Enter' && onEnter()}
-            className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400"
-          />
-          {open && results.length > 0 && (
-            <div style={{
-              position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 200,
-              background: '#fff', border: '1px solid var(--gray-200)', borderRadius: 10,
-              boxShadow: '0 8px 24px rgba(0,0,0,.12)', marginTop: 2, maxHeight: 220, overflowY: 'auto'
-            }}>
-              {results.map(p => (
-                <div
-                  key={p.id}
-                  onMouseDown={() => selectProd(p)}
-                  style={{ padding: '7px 12px', cursor: 'pointer', fontSize: 13, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-                  onMouseEnter={e => (e.currentTarget.style.background = '#eff6ff')}
-                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                >
-                  <span>{p.nombre}</span>
-                  {p.sku && <span style={{ fontSize: 11, color: 'var(--gray-400)', marginLeft: 8 }}>#{p.sku}</span>}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </td>
-
-      {/* Variable/Fijo badge + color selector */}
-      <td style={{ padding: '5px 6px', width: '30%' }}>
-        {comp.producto_id && esVariable ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-            <span style={{ fontSize: 10, fontWeight: 700, background: '#fef3c7', color: '#92400e', borderRadius: 20, padding: '2px 7px', whiteSpace: 'nowrap' }}>
-              Variable
-            </span>
-            <select
-              value={comp.color_defecto ?? ''}
-              onChange={e => handleColorChange(e.target.value)}
-              style={{ fontSize: 12, border: '1px solid var(--gray-200)', borderRadius: 7, padding: '3px 6px', flex: 1, minWidth: 0 }}
-            >
-              {variantes.map(v => (
-                <option key={v.id} value={v.nombre}>{stripColor(v.nombre) !== v.nombre ? v.nombre.slice(stripColor(v.nombre).length).trim() : v.nombre}</option>
-              ))}
-            </select>
-          </div>
-        ) : comp.producto_id ? (
-          <span style={{ fontSize: 10, fontWeight: 700, background: '#dcfce7', color: '#166534', borderRadius: 20, padding: '2px 7px' }}>Fijo</span>
-        ) : (
-          <span style={{ fontSize: 10, color: 'var(--gray-400)' }}>Sin enlazar</span>
-        )}
-      </td>
-
-      {/* Cantidad */}
-      <td style={{ padding: '5px 4px', textAlign: 'center', width: 64 }}>
-        <input
-          type="number"
-          value={comp.cantidad}
-          min={1}
-          onChange={e => onChange(comp.id, { cantidad: Number(e.target.value) || 1 })}
-          style={{ width: 54, textAlign: 'center' }}
-          className="px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400"
-        />
-      </td>
-
-      {/* Remove */}
-      <td style={{ padding: '5px 4px', textAlign: 'center', width: 30 }}>
-        <button
-          onClick={() => onRemove(comp.id)}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--gray-400)', fontSize: 18, lineHeight: 1, padding: '2px 4px' }}
-        >×</button>
-      </td>
-    </tr>
-  )
-}
-
 // ── Modal crear / editar kit ──────────────────────────────────
 
 interface ModalKitProps {
@@ -186,7 +23,32 @@ function ModalKit({ kit, productos, categoriasExistentes, onSave, onClose }: Mod
   const [componentes, setComponentes] = useState<KitComponente[]>(
     kit?.componentes?.length ? kit.componentes : [{ id: uid(), nombre: '', cantidad: 1 }]
   )
-  const lastRowRef = useRef<HTMLInputElement>(null)
+  const [enlaceOpen, setEnlaceOpen] = useState(false)
+  const lastRowRef = useRef<HTMLInputElement | null>(null)
+
+  // Groups of products by their enlace field
+  const enlaceGroups: { enlace: string; count: number }[] = (() => {
+    const map = new Map<string, number>()
+    for (const p of productos) {
+      const e = p.enlace?.trim()
+      if (e) map.set(e, (map.get(e) ?? 0) + 1)
+    }
+    return [...map.entries()]
+      .map(([enlace, count]) => ({ enlace, count }))
+      .sort((a, b) => a.enlace.localeCompare(b.enlace))
+  })()
+
+  const filteredEnlaces = nombre.trim()
+    ? enlaceGroups.filter(g => g.enlace.toLowerCase().includes(nombre.toLowerCase()))
+    : enlaceGroups
+
+  function aplicarEnlace(enlace: string) {
+    const prods = productos.filter(p => p.enlace?.trim().toLowerCase() === enlace.trim().toLowerCase())
+    if (!prods.length) return
+    setNombre(enlace)
+    setComponentes(prods.map(p => ({ id: uid(), nombre: p.nombre, cantidad: 1 })))
+    setEnlaceOpen(false)
+  }
 
   function addComp() {
     setComponentes(prev => [...prev, { id: uid(), nombre: '', cantidad: 1 }])
@@ -197,8 +59,8 @@ function ModalKit({ kit, productos, categoriasExistentes, onSave, onClose }: Mod
     setComponentes(prev => prev.filter(c => c.id !== id))
   }
 
-  function updateComp(id: string, patch: Partial<KitComponente>) {
-    setComponentes(prev => prev.map(c => c.id === id ? { ...c, ...patch } : c))
+  function updateComp(id: string, field: 'nombre' | 'cantidad', value: string | number) {
+    setComponentes(prev => prev.map(c => c.id === id ? { ...c, [field]: value } : c))
   }
 
   function handleSave() {
@@ -214,40 +76,70 @@ function ModalKit({ kit, productos, categoriasExistentes, onSave, onClose }: Mod
     })
   }
 
-  const linked = componentes.filter(c => c.producto_id).length
-  const variable = componentes.filter(c => c.es_variable).length
+  const hl = (text: string, q: string) => {
+    if (!q.trim()) return text
+    const idx = text.toLowerCase().indexOf(q.toLowerCase())
+    if (idx === -1) return text
+    return text.slice(0, idx) + '<strong style="color:#7c3aed">' + text.slice(idx, idx + q.length) + '</strong>' + text.slice(idx + q.length)
+  }
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-      <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 640, maxHeight: '92vh', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 60px rgba(0,0,0,.2)' }}>
+      <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 580, maxHeight: '92vh', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 60px rgba(0,0,0,.2)' }}>
         {/* Header */}
         <div style={{ padding: '18px 24px', borderBottom: '1px solid var(--gray-100)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{kit ? 'Editar kit' : 'Nuevo Kit de Equipo'}</h3>
-            {componentes.filter(c => c.nombre.trim()).length > 0 && (
-              <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--gray-400)' }}>
-                {linked} de {componentes.filter(c => c.nombre.trim()).length} enlazados al inventario
-                {variable > 0 && ` · ${variable} variable${variable > 1 ? 's' : ''}`}
-              </p>
-            )}
-          </div>
+          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{kit ? 'Editar Kit' : 'Nuevo Kit de Equipo'}</h3>
           <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: 'var(--gray-500)', lineHeight: 1 }}>×</button>
         </div>
 
         {/* Body */}
         <div style={{ padding: 24, overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            {/* Kit name with enlace autocomplete */}
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Nombre del equipo *</label>
-              <input
-                type="text"
-                value={nombre}
-                onChange={e => setNombre(e.target.value)}
-                placeholder="Ej: iPhone 13, MacBook Pro 14"
-                autoFocus
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400"
-              />
+              <div style={{ position: 'relative' }}>
+                <input
+                  type="text"
+                  value={nombre}
+                  onChange={e => { setNombre(e.target.value); setEnlaceOpen(true) }}
+                  onFocus={() => setEnlaceOpen(true)}
+                  onBlur={() => setTimeout(() => setEnlaceOpen(false), 200)}
+                  placeholder="Ej: iPhone 13, MacBook Pro 14"
+                  autoFocus
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400"
+                />
+                {enlaceOpen && filteredEnlaces.length > 0 && (
+                  <div style={{
+                    position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 200, marginTop: 4,
+                    background: '#fff', border: '1.5px solid #7c3aed', borderRadius: 12,
+                    boxShadow: '0 12px 40px rgba(124,58,237,0.18), 0 2px 8px rgba(0,0,0,.08)',
+                    maxHeight: 280, overflowY: 'auto',
+                  }}>
+                    {filteredEnlaces.map(g => (
+                      <div
+                        key={g.enlace}
+                        onMouseDown={() => aplicarEnlace(g.enlace)}
+                        style={{ padding: '11px 14px', cursor: 'pointer', fontSize: 13, borderBottom: '1px solid #f3f0ff', display: 'flex', alignItems: 'center', gap: 10 }}
+                        onMouseEnter={e => (e.currentTarget.style.background = '#f5f3ff')}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                      >
+                        <span style={{ color: '#7c3aed', fontSize: 15 }}>🔗</span>
+                        <span
+                          style={{ fontWeight: 600, color: 'var(--gray-700)', flex: 1 }}
+                          dangerouslySetInnerHTML={{ __html: hl(g.enlace, nombre) }}
+                        />
+                        <span style={{ fontSize: 11, color: '#7c3aed', fontWeight: 600, background: '#ede9fe', padding: '2px 8px', borderRadius: 10, whiteSpace: 'nowrap' }}>
+                          {g.count} componentes
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
+
+            {/* Categoría */}
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Categoría</label>
               <input
@@ -267,30 +159,48 @@ function ModalKit({ kit, productos, categoriasExistentes, onSave, onClose }: Mod
           {/* Components table */}
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-              <label className="text-xs font-semibold text-gray-500 uppercase">Componentes / Repuestos</label>
-              <span className="text-xs text-gray-400">Busca en inventario para enlazar</span>
+              <label className="text-xs font-semibold text-gray-500 uppercase">Componentes / Repuestos internos</label>
+              <span className="text-xs text-gray-400">Se agregarán como líneas en la OC</span>
             </div>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
-                <tr style={{ background: 'var(--gray-50)', fontSize: 11, color: 'var(--gray-500)' }}>
+                <tr style={{ background: 'var(--gray-50)', fontSize: 12, color: 'var(--gray-500)' }}>
                   <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600 }}>Componente</th>
-                  <th style={{ padding: '6px 6px', textAlign: 'left', fontWeight: 600 }}>Tipo / Color</th>
-                  <th style={{ padding: '6px 4px', textAlign: 'center', fontWeight: 600, width: 64 }}>Cant.</th>
+                  <th style={{ padding: '6px 4px', textAlign: 'center', fontWeight: 600, width: 70 }}>Cant.</th>
                   <th style={{ width: 30 }} />
                 </tr>
               </thead>
               <tbody>
                 {componentes.map((c, idx) => (
-                  <CompRow
-                    key={c.id}
-                    comp={c}
-                    productos={productos}
-                    onChange={updateComp}
-                    onRemove={removeComp}
-                    isLast={idx === componentes.length - 1}
-                    lastRef={lastRowRef}
-                    onEnter={addComp}
-                  />
+                  <tr key={c.id}>
+                    <td style={{ padding: '4px 6px' }}>
+                      <input
+                        ref={idx === componentes.length - 1 ? lastRowRef : undefined}
+                        type="text"
+                        value={c.nombre}
+                        onChange={e => updateComp(c.id, 'nombre', e.target.value)}
+                        placeholder="Ej: Pantalla OLED, Cámara trasera…"
+                        className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400"
+                        onKeyDown={e => e.key === 'Enter' && addComp()}
+                      />
+                    </td>
+                    <td style={{ padding: '4px 4px', textAlign: 'center' }}>
+                      <input
+                        type="number"
+                        value={c.cantidad}
+                        min={1}
+                        onChange={e => updateComp(c.id, 'cantidad', e.target.value)}
+                        style={{ width: 60, textAlign: 'center' }}
+                        className="px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400"
+                      />
+                    </td>
+                    <td style={{ padding: '4px 4px', textAlign: 'center' }}>
+                      <button
+                        onClick={() => removeComp(c.id)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--gray-400)', fontSize: 18, lineHeight: 1, padding: '2px 4px' }}
+                      >×</button>
+                    </td>
+                  </tr>
                 ))}
               </tbody>
             </table>
@@ -300,12 +210,6 @@ function ModalKit({ kit, productos, categoriasExistentes, onSave, onClose }: Mod
             >
               ＋ Agregar componente
             </button>
-          </div>
-
-          {/* Legend */}
-          <div style={{ display: 'flex', gap: 14, fontSize: 11, color: 'var(--gray-500)' }}>
-            <span><span style={{ background: '#fef3c7', color: '#92400e', borderRadius: 20, padding: '1px 7px', fontWeight: 700 }}>Variable</span> — el color se elige al crear la OC</span>
-            <span><span style={{ background: '#dcfce7', color: '#166534', borderRadius: 20, padding: '1px 7px', fontWeight: 700 }}>Fijo</span> — sin variantes de color</span>
           </div>
         </div>
 
@@ -321,72 +225,9 @@ function ModalKit({ kit, productos, categoriasExistentes, onSave, onClose }: Mod
   )
 }
 
-// ── Modal OC con selección de color ──────────────────────────
-
-interface ModalOCColorProps {
-  kit: Kit
-  productos: Producto[]
-  onConfirm: (colores: Record<string, string>) => void
-  onClose: () => void
-}
-
-function ModalOCColor({ kit, productos, onConfirm, onClose }: ModalOCColorProps) {
-  const variableComps = kit.componentes.filter(c => c.es_variable && c.producto_id)
-  const [colores, setColores] = useState<Record<string, string>>(() => {
-    const init: Record<string, string> = {}
-    for (const c of variableComps) {
-      init[c.id] = c.color_defecto ?? c.nombre
-    }
-    return init
-  })
-
-  return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 1100, background: 'rgba(0,0,0,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-      <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 440, boxShadow: '0 24px 60px rgba(0,0,0,.2)' }}>
-        <div style={{ padding: '18px 24px', borderBottom: '1px solid var(--gray-100)' }}>
-          <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>Seleccionar colores — {kit.nombre}</h3>
-          <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--gray-400)' }}>Elige el color para cada componente variable</p>
-        </div>
-        <div style={{ padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {variableComps.map(c => {
-            const selProd = productos.find(p => p.id === c.producto_id)
-            const variantes = selProd ? getVariantes(selProd, productos) : []
-            return (
-              <div key={c.id}>
-                <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--gray-600)', display: 'block', marginBottom: 4 }}>
-                  {stripColor(c.nombre)}
-                </label>
-                <select
-                  value={colores[c.id] ?? ''}
-                  onChange={e => setColores(prev => ({ ...prev, [c.id]: e.target.value }))}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400"
-                >
-                  {variantes.map(v => (
-                    <option key={v.id} value={v.nombre}>{v.nombre.slice(stripColor(v.nombre).length).trim() || v.nombre}</option>
-                  ))}
-                </select>
-              </div>
-            )
-          })}
-          {variableComps.length === 0 && (
-            <p style={{ fontSize: 13, color: 'var(--gray-500)', textAlign: 'center', margin: '8px 0' }}>No hay componentes variables en este kit.</p>
-          )}
-        </div>
-        <div style={{ padding: '14px 24px', borderTop: '1px solid var(--gray-100)', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-          <button onClick={onClose} className="px-4 py-2 text-sm font-semibold border border-gray-200 rounded-lg hover:bg-gray-50 transition">Cancelar</button>
-          <button onClick={() => onConfirm(colores)} className="px-4 py-2 text-sm font-semibold bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
-            Crear OC
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 // ── KitsTab ───────────────────────────────────────────────────
 
 type ModalState = { open: false } | { open: true; kit?: Kit }
-type OCColorState = { open: false } | { open: true; kit: Kit }
 
 export function KitsTab() {
   const navigate = useNavigate()
@@ -395,7 +236,6 @@ export function KitsTab() {
   const guardar = useGuardarKits()
   const { esAdmin } = useAuth()
   const [modal, setModal] = useState<ModalState>({ open: false })
-  const [ocModal, setOcModal] = useState<OCColorState>({ open: false })
   const [search, setSearch] = useState('')
   const [toast, setToast] = useState<string | null>(null)
 
@@ -449,33 +289,18 @@ export function KitsTab() {
   function handleCrearOC(id: string) {
     const kit = kits.find(k => k.id === id)
     if (!kit || !kit.componentes.length) { setToast('Este kit no tiene componentes'); return }
-    const hasVariable = kit.componentes.some(c => c.es_variable && c.producto_id)
-    if (hasVariable) {
-      setOcModal({ open: true, kit })
-    } else {
-      navegarOC(kit, {})
-    }
-  }
-
-  function navegarOC(kit: Kit, coloresOverride: Record<string, string>) {
-    const items = kit.componentes.map(c => {
-      const nombreFinal = coloresOverride[c.id] ?? c.color_defecto ?? c.nombre
-      const prod = c.producto_id
-        ? (productos.find(p => p.nombre === nombreFinal) ?? productos.find(p => p.id === c.producto_id))
-        : undefined
-      return {
-        id: uid(),
-        producto_id: prod?.id ?? '',
-        producto_nombre: nombreFinal,
-        cantidad: c.cantidad,
-        precio_neto: prod?.precio_compra ?? 0,
-        precio_iva: 0,
-        precio_unitario: prod?.precio_compra ?? 0,
-        subtotal: c.cantidad * (prod?.precio_compra ?? 0),
-        bodega_id: '',
-        bodega_nombre: '',
-      }
-    })
+    const items = kit.componentes.map(c => ({
+      id: uid(),
+      producto_id: '',
+      producto_nombre: c.nombre,
+      cantidad: c.cantidad,
+      precio_neto: 0,
+      precio_iva: 0,
+      precio_unitario: 0,
+      subtotal: 0,
+      bodega_id: '',
+      bodega_nombre: '',
+    }))
     navigate('/compras', { state: { kitItems: items, kitNombre: kit.nombre } })
   }
 
@@ -488,7 +313,7 @@ export function KitsTab() {
         <svg style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M9 21h6M10 21v-3.5a5.5 5.5 0 11-1-3.2M12 3a6 6 0 016 6c0 2-1 3.5-2 4.5" />
         </svg>
-        <span><strong>¿Cómo funciona?</strong> Crea un kit para cada modelo de equipo. Enlaza cada componente al inventario para que los precios y SKUs se completen automáticamente al generar la OC.</span>
+        <span><strong>¿Cómo funciona?</strong> Crea un kit para cada modelo de equipo (ej: iPhone 13) con todos sus repuestos y componentes. Desde aquí puedes crear órdenes de compra directamente.</span>
       </div>
 
       {/* Card principal */}
@@ -521,7 +346,6 @@ export function KitsTab() {
           </div>
         </div>
 
-        {/* Table / empty */}
         {filtered.length === 0 ? (
           <div style={{ padding: '56px 24px', textAlign: 'center' }}>
             <svg style={{ width: 40, height: 40, margin: '0 auto 12px', color: 'var(--gray-300)', display: 'block' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -547,80 +371,76 @@ export function KitsTab() {
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ background: 'var(--gray-50)' }}>
-                  {['Modelo / Equipo', 'Categoría', 'Componentes', 'Variables', 'Acciones'].map((h, i) => (
-                    <th key={i} style={{ padding: '10px 14px', fontSize: 11, fontWeight: 700, color: 'var(--gray-500)', textAlign: i === 2 || i === 3 ? 'center' : 'left', borderBottom: '1px solid var(--gray-200)', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+                  {['Modelo / Equipo', 'Categoría', 'N° Componentes', 'Componentes', 'Acciones'].map((h, i) => (
+                    <th key={i} style={{ padding: '10px 14px', fontSize: 11, fontWeight: 700, color: 'var(--gray-500)', textAlign: i === 2 ? 'center' : 'left', borderBottom: '1px solid var(--gray-200)', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
                       {h}
                     </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(k => {
-                  const varCount = k.componentes.filter(c => c.es_variable).length
-                  return (
-                    <tr key={k.id} style={{ borderBottom: '1px solid var(--gray-100)' }}
-                      onMouseEnter={e => (e.currentTarget.style.background = 'var(--gray-50)')}
-                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                    >
-                      <td style={{ padding: '12px 14px' }}>
-                        <strong style={{ fontSize: 14 }}>{k.nombre}</strong>
-                      </td>
-                      <td style={{ padding: '12px 14px' }}>
-                        {k.categoria ? (
-                          <span style={{ background: '#eff6ff', color: '#1d4ed8', borderRadius: 20, padding: '2px 10px', fontSize: 12, fontWeight: 600 }}>
-                            {k.categoria}
-                          </span>
-                        ) : <span style={{ color: 'var(--gray-400)' }}>—</span>}
-                      </td>
-                      <td style={{ padding: '12px 14px', textAlign: 'center', fontWeight: 700, fontSize: 16, color: 'var(--primary)' }}>
-                        {k.componentes.length}
-                      </td>
-                      <td style={{ padding: '12px 14px', textAlign: 'center' }}>
-                        {varCount > 0
-                          ? <span style={{ fontSize: 11, fontWeight: 700, background: '#fef3c7', color: '#92400e', borderRadius: 20, padding: '2px 10px' }}>{varCount} variable{varCount > 1 ? 's' : ''}</span>
-                          : <span style={{ color: 'var(--gray-300)', fontSize: 12 }}>—</span>}
-                      </td>
-                      <td style={{ padding: '12px 14px' }}>
-                        <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-                          <button
-                            onClick={() => handleCrearOC(k.id)}
-                            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' }}
-                          >
-                            <svg style={{ width: 14, height: 14 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
-                            Crear OC
-                          </button>
-                          <button
-                            onClick={() => setModal({ open: true, kit: k })}
-                            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', border: '1.5px solid var(--gray-200)', borderRadius: 7, background: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
-                          >
-                            <svg style={{ width: 13, height: 13 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
-                            Editar
-                          </button>
-                          <button
-                            onClick={() => handleClonar(k.id)}
-                            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', border: '1.5px solid var(--gray-200)', borderRadius: 7, background: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
-                          >
-                            <svg style={{ width: 13, height: 13 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V5a2 2 0 012-2h8" /></svg>
-                            Clonar
-                          </button>
-                          {esAdmin && <button
-                            onClick={() => handleDelete(k.id)}
-                            style={{ display: 'inline-flex', alignItems: 'center', padding: '5px 9px', border: '1.5px solid #fee2e2', borderRadius: 7, background: '#fff', color: '#dc2626', cursor: 'pointer', fontSize: 12 }}
-                          >
-                            <svg style={{ width: 14, height: 14 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                          </button>}
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
+                {filtered.map(k => (
+                  <tr key={k.id} style={{ borderBottom: '1px solid var(--gray-100)' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--gray-50)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                  >
+                    <td style={{ padding: '12px 14px' }}>
+                      <strong style={{ fontSize: 14 }}>{k.nombre}</strong>
+                    </td>
+                    <td style={{ padding: '12px 14px' }}>
+                      {k.categoria ? (
+                        <span style={{ background: '#eff6ff', color: '#1d4ed8', borderRadius: 20, padding: '2px 10px', fontSize: 12, fontWeight: 600 }}>
+                          {k.categoria}
+                        </span>
+                      ) : <span style={{ color: 'var(--gray-400)' }}>—</span>}
+                    </td>
+                    <td style={{ padding: '12px 14px', textAlign: 'center', fontWeight: 700, fontSize: 16, color: 'var(--primary)' }}>
+                      {k.componentes.length}
+                    </td>
+                    <td style={{ padding: '12px 14px', fontSize: 12, color: 'var(--gray-500)', maxWidth: 280 }}>
+                      {k.componentes.slice(0, 4).map(c => c.nombre).join(', ')}
+                      {k.componentes.length > 4 && <em style={{ color: 'var(--gray-400)' }}> +{k.componentes.length - 4} más</em>}
+                    </td>
+                    <td style={{ padding: '12px 14px' }}>
+                      <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                        <button
+                          onClick={() => handleCrearOC(k.id)}
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' }}
+                        >
+                          <svg style={{ width: 14, height: 14 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                          Crear OC
+                        </button>
+                        <button
+                          onClick={() => setModal({ open: true, kit: k })}
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', border: '1.5px solid var(--gray-200)', borderRadius: 7, background: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
+                        >
+                          <svg style={{ width: 13, height: 13 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+                          Editar
+                        </button>
+                        <button
+                          onClick={() => handleClonar(k.id)}
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', border: '1.5px solid var(--gray-200)', borderRadius: 7, background: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
+                        >
+                          <svg style={{ width: 13, height: 13 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V5a2 2 0 012-2h8" /></svg>
+                          Clonar
+                        </button>
+                        {esAdmin && <button
+                          onClick={() => handleDelete(k.id)}
+                          style={{ display: 'inline-flex', alignItems: 'center', padding: '5px 9px', border: '1.5px solid #fee2e2', borderRadius: 7, background: '#fff', color: '#dc2626', cursor: 'pointer', fontSize: 12 }}
+                        >
+                          <svg style={{ width: 14, height: 14 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                        </button>}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
         )}
       </div>
 
-      {/* Modal kit */}
+      {/* Modal */}
       {modal.open && (
         <ModalKit
           kit={modal.kit}
@@ -628,16 +448,6 @@ export function KitsTab() {
           categoriasExistentes={categoriasExistentes}
           onSave={handleSave}
           onClose={() => setModal({ open: false })}
-        />
-      )}
-
-      {/* Modal color OC */}
-      {ocModal.open && (
-        <ModalOCColor
-          kit={ocModal.kit}
-          productos={productos}
-          onConfirm={colores => { setOcModal({ open: false }); navegarOC(ocModal.kit, colores) }}
-          onClose={() => setOcModal({ open: false })}
         />
       )}
 
