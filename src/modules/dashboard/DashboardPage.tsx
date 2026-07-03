@@ -181,7 +181,7 @@ export function DashboardPage() {
       const bvMes = ventasMes.filter(v => v.branchId === b.id)
       const bOTcomp = otsMes.filter(o => (o as any).branchId === b.id)
       const bOTopen = otsAbiertas.filter(o => (o as any).branchId === b.id).length
-      const bTicket = bOTcomp.length ? Math.round(bOTcomp.reduce((s, o) => s + (+o.presup || 0), 0) / bOTcomp.length) : 0
+      const bTicket = bOTcomp.length ? Math.round(bOTcomp.reduce((s, o) => s + (o.presup != null ? +o.presup : 0), 0) / bOTcomp.length) : 0
       return {
         nombre: b.nombre ?? b.name ?? 'Sin nombre',
         total: bvMes.reduce((s, v) => s + (+v.total_iva || 0), 0),
@@ -225,7 +225,7 @@ export function DashboardPage() {
 
     const totalOTMes = otsMes.length
     const totalOTMesAnt = otsMesAnt.length
-    const totalOTticket = otsMes.length ? Math.round(otsMes.reduce((s, o) => s + (+o.presup || 0), 0) / otsMes.length) : 0
+    const totalOTticket = otsMes.length ? Math.round(otsMes.reduce((s, o) => s + (o.presup != null ? +o.presup : 0), 0) / otsMes.length) : 0
 
     return {
       totalVentasMes, totalVentasMesAnt,
@@ -379,7 +379,7 @@ export function DashboardPage() {
                 {stats.otsDatasets.map((b, i) => {
                   const bOTcomp = (ordenes ?? []).filter(o => o.status === 'Entregado' && (o as any).branchId === bodegas[i]?.id && o.fecha?.startsWith(mes))
                   const bOTopen = (ordenes ?? []).filter(o => !['Entregado', 'No reparable'].includes(o.status) && (o as any).branchId === bodegas[i]?.id).length
-                  const bTicket = bOTcomp.length ? Math.round(bOTcomp.reduce((s, o) => s + (+o.presup || 0), 0) / bOTcomp.length) : 0
+                  const bTicket = bOTcomp.length ? Math.round(bOTcomp.reduce((s, o) => s + (o.presup != null ? +o.presup : 0), 0) / bOTcomp.length) : 0
                   return (
                     <div key={i} style={{ background: '#f8fafc', borderRadius: 8, padding: '9px 12px', border: '1px solid #f1f5f9' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, fontSize: 12, color: '#374151', marginBottom: 6 }}>
