@@ -267,9 +267,10 @@ export function GastosTab() {
                         <span className="text-sm" style={{ color: cat?.color ?? '#9ca3af' }}>●</span>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-gray-800 truncate">{g.descripcion || '—'}</p>
-                        <p className="text-xs text-gray-400">
-                          <span style={{ color: cat?.color ?? '#9ca3af' }}>{g.categoria ?? 'Sin categoría'}</span>
+                        <p className="text-sm font-semibold truncate" style={{ color: cat?.color ?? '#6b7280' }}>{g.categoria ?? 'Sin categoría'}</p>
+                        <p className="text-xs text-gray-400 truncate">
+                          {g.descripcion && <span>{g.descripcion}</span>}
+                          {g.subcategoria && <span className="ml-1 text-gray-300">· {g.subcategoria}</span>}
                           {g.metodo && <span className="ml-1 text-gray-300">· {g.metodo}</span>}
                         </p>
                       </div>
