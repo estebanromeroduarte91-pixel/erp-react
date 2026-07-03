@@ -4,7 +4,7 @@ import { useProductos, useBodegas, useGuardarProductos } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { Money } from '@/components/shared/Money'
 import { Spinner } from '@/components/shared/Spinner'
-import { ProductoModal, nextSku } from './ProductoModal'
+import { ProductoModal } from './ProductoModal'
 import type { Producto } from '@/types'
 
 type ImportRow = { sku: string; nombre: string; costoNeto: number; precio: number; stock: number; categoria: string; subcategoria: string; enlace: string }
