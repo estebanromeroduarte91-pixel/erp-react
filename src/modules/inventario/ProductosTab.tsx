@@ -1,10 +1,44 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
+import * as XLSX from 'xlsx'
 import { useProductos, useBodegas, useGuardarProductos } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { Money } from '@/components/shared/Money'
 import { Spinner } from '@/components/shared/Spinner'
 import { ProductoModal } from './ProductoModal'
 import type { Producto } from '@/types'
+
+type ImportRow = { sku: string; nombre: string; costoNeto: number; precio: number; stock: number; categoria: string; subcategoria: string; enlace: string }
+
+function parseExcel(file: File): Promise<ImportRow[]> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = e => {
+      try {
+        const wb = XLSX.read(e.target!.result, { type: 'array' })
+        const ws = wb.Sheets[wb.SheetNames[0]]
+        const raw: Record<string, string>[] = XLSX.utils.sheet_to_json(ws, { defval: '' })
+        const norm = (s: string) => s.toLowerCase().trim().normalize('NFD').replace(/[̀-ͯ]/g, '')
+        const find = (row: Record<string, string>, ...keys: string[]) => {
+          const col = Object.keys(row).find(k => keys.some(kk => norm(k) === norm(kk)))
+          return col ? String(row[col]).trim() : ''
+        }
+        const rows = raw.map(row => ({
+          sku:         find(row, 'sku'),
+          nombre:      find(row, 'producto', 'nombre', 'name'),
+          costoNeto:   Number(find(row, 'costo neto', 'costo', 'cost')) || 0,
+          precio:      Number(find(row, 'precio venta', 'precio', 'price')) || 0,
+          stock:       Number(find(row, 'stock')) || 0,
+          categoria:   find(row, 'categoria', 'categoría', 'category'),
+          subcategoria:find(row, 'subcategoria', 'subcategoría', 'subcategory'),
+          enlace:      find(row, 'enlace', 'link', 'url'),
+        })).filter(r => r.nombre)
+        resolve(rows)
+      } catch (err) { reject(err) }
+    }
+    reader.onerror = reject
+    reader.readAsArrayBuffer(file)
+  })
+}
 
 function stockTotal(p: Producto): number {
   if (p.stock_sucursales && Object.keys(p.stock_sucursales).length > 0)
@@ -27,8 +61,14 @@ export function ProductosTab() {
   const [filtroCat, setFiltroCat]   = useState('')
   const [filtroSub, setFiltroSub]   = useState('')
   const [bajosStock, setBajosStock] = useState(false)
-  const [modalOpen, setModalOpen]   = useState(false)
-  const [editando, setEditando]     = useState<Producto | null>(null)
+  const [modalOpen, setModalOpen]       = useState(false)
+  const [editando, setEditando]         = useState<Producto | null>(null)
+  const [importModal, setImportModal]   = useState(false)
+  const [importRows, setImportRows]     = useState<ImportRow[]>([])
+  const [importLoading, setImportLoading] = useState(false)
+  const [importError, setImportError]   = useState('')
+  const [importMode, setImportMode]     = useState<'reemplazar' | 'agregar'>('reemplazar')
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const categorias = useMemo(
     () => [...new Set((productos ?? []).map((p) => p.categoria).filter(Boolean))].sort() as string[],
@@ -77,6 +117,47 @@ export function ProductosTab() {
     await guardar.mutateAsync((productos ?? []).filter(x => x.id !== p.id))
   }
 
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setImportError('')
+    setImportRows([])
+    try {
+      const rows = await parseExcel(file)
+      if (!rows.length) { setImportError('El archivo no contiene productos válidos.'); return }
+      setImportRows(rows)
+    } catch {
+      setImportError('Error al leer el archivo. Verifica que sea un .xlsx válido.')
+    }
+    e.target.value = ''
+  }
+
+  async function confirmarImport() {
+    if (!importRows.length) return
+    setImportLoading(true)
+    try {
+      const nuevos: Producto[] = importRows.map(r => ({
+        id: 'imp-' + Date.now() + '-' + Math.random().toString(36).slice(2),
+        nombre: r.nombre,
+        sku: r.sku,
+        categoria: r.categoria || 'Accesorio',
+        subcategoria: r.subcategoria,
+        precio_compra: r.costoNeto,
+        precio_venta: r.precio,
+        stock: r.stock,
+        stock_min: 0,
+        enlace: r.enlace,
+        descripcion: '',
+      }))
+      const base = importMode === 'agregar' ? (productos ?? []) : []
+      await guardar.mutateAsync([...base, ...nuevos])
+      setImportModal(false)
+      setImportRows([])
+    } finally {
+      setImportLoading(false)
+    }
+  }
+
   async function eliminarTodo() {
     if (!esAdmin) return
     const total = (productos ?? []).length
@@ -104,6 +185,15 @@ export function ProductosTab() {
               className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:border-blue-400" />
           </div>
           <div className="flex items-center gap-2 ml-auto">
+            {esAdmin && (
+              <button onClick={() => { setImportRows([]); setImportError(''); setImportModal(true) }}
+                className="flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+                Importar Excel
+              </button>
+            )}
             {esAdmin && (
               <button onClick={eliminarTodo}
                 className="flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 transition">
@@ -292,6 +382,97 @@ export function ProductosTab() {
           bodegas={bodegas ?? []}
           onClose={() => setModalOpen(false)}
         />
+      )}
+
+      {/* Modal importar Excel */}
+      {importModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 flex flex-col max-h-[90vh]">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <div>
+                <h2 className="text-base font-bold text-gray-900">Importar productos desde Excel</h2>
+                <p className="text-xs text-gray-400 mt-0.5">Columnas esperadas: SKU, Producto, Costo Neto, Precio Venta, Stock, Categoría, Subcategoría, Enlace</p>
+              </div>
+              <button onClick={() => setImportModal(false)} className="text-gray-400 hover:text-gray-600 text-xl leading-none">✕</button>
+            </div>
+
+            <div className="px-6 py-5 flex-1 overflow-y-auto space-y-4">
+              {/* Zona de carga */}
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50/30 transition">
+                <svg className="w-10 h-10 mx-auto text-gray-300 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+                <p className="text-sm font-semibold text-gray-600">Seleccionar archivo Excel</p>
+                <p className="text-xs text-gray-400 mt-1">Soporta .xlsx y .xls</p>
+                <input ref={fileInputRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleFileChange} />
+              </div>
+
+              {importError && (
+                <p className="text-sm text-red-600 bg-red-50 rounded-lg px-4 py-2">{importError}</p>
+              )}
+
+              {importRows.length > 0 && (
+                <>
+                  {/* Modo de importación */}
+                  <div className="flex gap-3">
+                    <label className={`flex-1 flex items-center gap-2 border rounded-xl px-4 py-3 cursor-pointer transition ${importMode === 'reemplazar' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}>
+                      <input type="radio" name="importMode" value="reemplazar" checked={importMode === 'reemplazar'} onChange={() => setImportMode('reemplazar')} className="accent-blue-600" />
+                      <div>
+                        <p className="text-sm font-semibold text-gray-800">Reemplazar todo</p>
+                        <p className="text-xs text-gray-400">Elimina los {(productos ?? []).length} productos actuales e importa los nuevos</p>
+                      </div>
+                    </label>
+                    <label className={`flex-1 flex items-center gap-2 border rounded-xl px-4 py-3 cursor-pointer transition ${importMode === 'agregar' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}>
+                      <input type="radio" name="importMode" value="agregar" checked={importMode === 'agregar'} onChange={() => setImportMode('agregar')} className="accent-blue-600" />
+                      <div>
+                        <p className="text-sm font-semibold text-gray-800">Agregar a los existentes</p>
+                        <p className="text-xs text-gray-400">Añade los {importRows.length} productos sin borrar los actuales</p>
+                      </div>
+                    </label>
+                  </div>
+
+                  {/* Preview */}
+                  <div>
+                    <p className="text-sm font-semibold text-gray-700 mb-2">{importRows.length} productos encontrados — vista previa</p>
+                    <div className="border border-gray-200 rounded-xl overflow-hidden">
+                      <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-2 px-4 py-2 bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                        <span>Producto</span><span>Categoría</span><span>Costo</span><span>Precio</span>
+                      </div>
+                      <div className="max-h-52 overflow-y-auto divide-y divide-gray-100">
+                        {importRows.slice(0, 20).map((r, i) => (
+                          <div key={i} className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-2 px-4 py-2 text-sm items-center">
+                            <span className="truncate font-medium text-gray-800">{r.nombre}</span>
+                            <span className="text-gray-500 text-xs truncate">{r.categoria || '—'}</span>
+                            <span className="text-gray-500 text-xs">${r.costoNeto.toLocaleString('es-CL')}</span>
+                            <span className="font-semibold text-green-600 text-xs">${r.precio.toLocaleString('es-CL')}</span>
+                          </div>
+                        ))}
+                        {importRows.length > 20 && (
+                          <div className="px-4 py-2 text-xs text-gray-400">...y {importRows.length - 20} más</div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100">
+              <button onClick={() => setImportModal(false)} className="px-4 py-2 text-sm font-semibold text-gray-600 hover:text-gray-800 transition">Cancelar</button>
+              <button
+                onClick={confirmarImport}
+                disabled={!importRows.length || importLoading}
+                className="flex items-center gap-2 bg-blue-600 text-white text-sm font-semibold px-5 py-2 rounded-lg hover:bg-blue-700 transition disabled:opacity-40 disabled:cursor-not-allowed">
+                {importLoading && <Spinner className="w-4 h-4" />}
+                {importLoading ? 'Importando...' : `Importar ${importRows.length} productos`}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
