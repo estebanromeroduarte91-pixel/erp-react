@@ -410,6 +410,9 @@ export interface KitComponente {
   id: string
   nombre: string
   cantidad: number
+  producto_id?: string
+  es_variable?: boolean
+  color_defecto?: string
 }
 
 export interface Kit {
