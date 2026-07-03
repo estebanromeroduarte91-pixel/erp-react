@@ -4,7 +4,7 @@ import { useProductos, useBodegas, useGuardarProductos } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { Money } from '@/components/shared/Money'
 import { Spinner } from '@/components/shared/Spinner'
-import { ProductoModal } from './ProductoModal'
+import { ProductoModal, nextSku } from './ProductoModal'
 import type { Producto } from '@/types'
 
 type ImportRow = { sku: string; nombre: string; costoNeto: number; precio: number; stock: number; categoria: string; subcategoria: string; enlace: string }
@@ -63,11 +63,12 @@ export function ProductosTab() {
   const [bajosStock, setBajosStock] = useState(false)
   const [modalOpen, setModalOpen]       = useState(false)
   const [editando, setEditando]         = useState<Producto | null>(null)
-  const [importModal, setImportModal]   = useState(false)
-  const [importRows, setImportRows]     = useState<ImportRow[]>([])
+  const [importModal, setImportModal]     = useState(false)
+  const [importRows, setImportRows]       = useState<ImportRow[]>([])
   const [importLoading, setImportLoading] = useState(false)
-  const [importError, setImportError]   = useState('')
-  const [importMode, setImportMode]     = useState<'reemplazar' | 'agregar'>('reemplazar')
+  const [importError, setImportError]     = useState('')
+  const [importMode, setImportMode]       = useState<'reemplazar' | 'agregar'>('reemplazar')
+  const [importTab, setImportTab]         = useState<'todos' | 'dup' | 'sinsku'>('todos')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const categorias = useMemo(
@@ -136,20 +137,35 @@ export function ProductosTab() {
     if (!importRows.length) return
     setImportLoading(true)
     try {
-      const nuevos: Producto[] = importRows.map(r => ({
-        id: 'imp-' + Date.now() + '-' + Math.random().toString(36).slice(2),
-        nombre: r.nombre,
-        sku: r.sku,
-        categoria: r.categoria || 'Accesorio',
-        subcategoria: r.subcategoria,
-        precio_compra: r.costoNeto,
-        precio_venta: r.precio,
-        stock: r.stock,
-        stock_min: 0,
-        enlace: r.enlace,
-        descripcion: '',
-      }))
+      // Asignar SKUs automáticos a filas sin SKU, sin repetir con existentes ni entre sí
       const base = importMode === 'agregar' ? (productos ?? []) : []
+      const allSkus = new Set([...base.map(p => p.sku ?? ''), ...(importMode === 'reemplazar' ? [] : [])])
+      let lastSku = base.length
+        ? Math.max(...base.map(p => parseInt(p.sku ?? '0', 10)).filter(n => !isNaN(n)), 998)
+        : 998
+
+      const nuevos: Producto[] = importRows.map(r => {
+        let skuFinal = r.sku
+        if (!skuFinal || allSkus.has(skuFinal)) {
+          lastSku += 2
+          while (allSkus.has(String(lastSku))) lastSku += 2
+          skuFinal = String(lastSku)
+        }
+        allSkus.add(skuFinal)
+        return {
+          id: 'imp-' + Date.now() + '-' + Math.random().toString(36).slice(2),
+          nombre: r.nombre,
+          sku: skuFinal,
+          categoria: r.categoria || 'Accesorio',
+          subcategoria: r.subcategoria,
+          precio_compra: r.costoNeto,
+          precio_venta: r.precio,
+          stock: r.stock,
+          stock_min: 0,
+          enlace: r.enlace,
+          descripcion: '',
+        }
+      })
       await guardar.mutateAsync([...base, ...nuevos])
       setImportModal(false)
       setImportRows([])
@@ -385,95 +401,181 @@ export function ProductosTab() {
       )}
 
       {/* Modal importar Excel */}
-      {importModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 flex flex-col max-h-[90vh]">
-            {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-              <div>
-                <h2 className="text-base font-bold text-gray-900">Importar productos desde Excel</h2>
-                <p className="text-xs text-gray-400 mt-0.5">Columnas esperadas: SKU, Producto, Costo Neto, Precio Venta, Stock, Categoría, Subcategoría, Enlace</p>
+      {importModal && (() => {
+        const existingSkus = new Set((productos ?? []).map(p => p.sku ?? '').filter(Boolean))
+        const dupRows    = importRows.filter(r => r.sku && existingSkus.has(r.sku))
+        const noSkuRows  = importRows.filter(r => !r.sku)
+        const okCount    = importRows.length - dupRows.length - noSkuRows.length
+
+        // Calcular SKUs automáticos para preview
+        const base = importMode === 'agregar' ? (productos ?? []) : []
+        const allSkusPreview = new Set(base.map(p => p.sku ?? '').filter(Boolean))
+        let lastSkuPreview = base.length
+          ? Math.max(...base.map(p => parseInt(p.sku ?? '0', 10)).filter(n => !isNaN(n)), 998)
+          : 998
+        const autoSkus: string[] = noSkuRows.map(() => {
+          lastSkuPreview += 2
+          while (allSkusPreview.has(String(lastSkuPreview))) lastSkuPreview += 2
+          allSkusPreview.add(String(lastSkuPreview))
+          return String(lastSkuPreview)
+        })
+
+        const tabRows = importTab === 'dup' ? dupRows : importTab === 'sinsku' ? noSkuRows : importRows
+        const showCols = importTab === 'dup' ? 'dup' : importTab === 'sinsku' ? 'sinsku' : 'todos'
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 flex flex-col max-h-[90vh]">
+
+              {/* Header */}
+              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+                <div>
+                  <h2 className="text-base font-semibold text-gray-900">Importar productos desde Excel</h2>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {importRows.length > 0
+                      ? `${importRows.length} productos listos — revisa los avisos antes de continuar`
+                      : 'Columnas: SKU, Producto, Costo Neto, Precio Venta, Stock, Categoría, Subcategoría, Enlace'}
+                  </p>
+                </div>
+                <button onClick={() => setImportModal(false)} className="text-gray-400 hover:text-gray-600 text-xl leading-none">✕</button>
               </div>
-              <button onClick={() => setImportModal(false)} className="text-gray-400 hover:text-gray-600 text-xl leading-none">✕</button>
-            </div>
 
-            <div className="px-6 py-5 flex-1 overflow-y-auto space-y-4">
-              {/* Zona de carga */}
-              <div
-                onClick={() => fileInputRef.current?.click()}
-                className="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50/30 transition">
-                <svg className="w-10 h-10 mx-auto text-gray-300 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                </svg>
-                <p className="text-sm font-semibold text-gray-600">Seleccionar archivo Excel</p>
-                <p className="text-xs text-gray-400 mt-1">Soporta .xlsx y .xls</p>
-                <input ref={fileInputRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleFileChange} />
-              </div>
+              <div className="px-6 py-5 flex-1 overflow-y-auto space-y-4">
 
-              {importError && (
-                <p className="text-sm text-red-600 bg-red-50 rounded-lg px-4 py-2">{importError}</p>
-              )}
+                {/* Zona de carga */}
+                <div onClick={() => fileInputRef.current?.click()}
+                  className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50/30 transition">
+                  <svg className="w-8 h-8 mx-auto text-gray-300 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                  </svg>
+                  <p className="text-sm font-semibold text-gray-600">
+                    {importRows.length > 0 ? 'Cargar otro archivo' : 'Seleccionar archivo Excel'}
+                  </p>
+                  <p className="text-xs text-gray-400 mt-0.5">Soporta .xlsx y .xls</p>
+                  <input ref={fileInputRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleFileChange} />
+                </div>
 
-              {importRows.length > 0 && (
-                <>
-                  {/* Modo de importación */}
-                  <div className="flex gap-3">
-                    <label className={`flex-1 flex items-center gap-2 border rounded-xl px-4 py-3 cursor-pointer transition ${importMode === 'reemplazar' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}>
-                      <input type="radio" name="importMode" value="reemplazar" checked={importMode === 'reemplazar'} onChange={() => setImportMode('reemplazar')} className="accent-blue-600" />
-                      <div>
-                        <p className="text-sm font-semibold text-gray-800">Reemplazar todo</p>
-                        <p className="text-xs text-gray-400">Elimina los {(productos ?? []).length} productos actuales e importa los nuevos</p>
-                      </div>
-                    </label>
-                    <label className={`flex-1 flex items-center gap-2 border rounded-xl px-4 py-3 cursor-pointer transition ${importMode === 'agregar' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}>
-                      <input type="radio" name="importMode" value="agregar" checked={importMode === 'agregar'} onChange={() => setImportMode('agregar')} className="accent-blue-600" />
-                      <div>
-                        <p className="text-sm font-semibold text-gray-800">Agregar a los existentes</p>
-                        <p className="text-xs text-gray-400">Añade los {importRows.length} productos sin borrar los actuales</p>
-                      </div>
-                    </label>
-                  </div>
+                {importError && (
+                  <p className="text-sm text-red-600 bg-red-50 rounded-lg px-4 py-2">{importError}</p>
+                )}
 
-                  {/* Preview */}
-                  <div>
-                    <p className="text-sm font-semibold text-gray-700 mb-2">{importRows.length} productos encontrados — vista previa</p>
-                    <div className="border border-gray-200 rounded-xl overflow-hidden">
-                      <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-2 px-4 py-2 bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                        <span>Producto</span><span>Categoría</span><span>Costo</span><span>Precio</span>
-                      </div>
-                      <div className="max-h-52 overflow-y-auto divide-y divide-gray-100">
-                        {importRows.slice(0, 20).map((r, i) => (
-                          <div key={i} className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-2 px-4 py-2 text-sm items-center">
-                            <span className="truncate font-medium text-gray-800">{r.nombre}</span>
-                            <span className="text-gray-500 text-xs truncate">{r.categoria || '—'}</span>
-                            <span className="text-gray-500 text-xs">${r.costoNeto.toLocaleString('es-CL')}</span>
-                            <span className="font-semibold text-green-600 text-xs">${r.precio.toLocaleString('es-CL')}</span>
-                          </div>
-                        ))}
-                        {importRows.length > 20 && (
-                          <div className="px-4 py-2 text-xs text-gray-400">...y {importRows.length - 20} más</div>
-                        )}
-                      </div>
+                {importRows.length > 0 && (<>
+
+                  {/* Tarjetas resumen */}
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="rounded-xl p-3 bg-green-50 border border-green-100">
+                      <p className="text-xl font-semibold text-green-800">{okCount.toLocaleString('es-CL')}</p>
+                      <p className="text-xs text-green-700 mt-0.5">Sin problemas</p>
+                    </div>
+                    <div className="rounded-xl p-3 bg-amber-50 border border-amber-100">
+                      <p className="text-xl font-semibold text-amber-800">{dupRows.length}</p>
+                      <p className="text-xs text-amber-700 mt-0.5">SKU duplicado</p>
+                    </div>
+                    <div className="rounded-xl p-3 bg-blue-50 border border-blue-100">
+                      <p className="text-xl font-semibold text-blue-800">{noSkuRows.length}</p>
+                      <p className="text-xs text-blue-700 mt-0.5">Sin SKU — se asignará auto</p>
                     </div>
                   </div>
-                </>
-              )}
-            </div>
 
-            {/* Footer */}
-            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100">
-              <button onClick={() => setImportModal(false)} className="px-4 py-2 text-sm font-semibold text-gray-600 hover:text-gray-800 transition">Cancelar</button>
-              <button
-                onClick={confirmarImport}
-                disabled={!importRows.length || importLoading}
-                className="flex items-center gap-2 bg-blue-600 text-white text-sm font-semibold px-5 py-2 rounded-lg hover:bg-blue-700 transition disabled:opacity-40 disabled:cursor-not-allowed">
-                {importLoading && <Spinner className="w-4 h-4" />}
-                {importLoading ? 'Importando...' : `Importar ${importRows.length} productos`}
-              </button>
+                  {/* Tabs */}
+                  <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
+                    {([['todos', `Todos (${importRows.length})`], ['dup', 'SKU duplicado'], ['sinsku', 'Sin SKU']] as const).map(([key, label]) => (
+                      <button key={key} onClick={() => setImportTab(key)}
+                        className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-semibold transition ${importTab === key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+                        {label}
+                        {key === 'dup' && dupRows.length > 0 && (
+                          <span className="bg-amber-200 text-amber-900 text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">{dupRows.length}</span>
+                        )}
+                        {key === 'sinsku' && noSkuRows.length > 0 && (
+                          <span className="bg-blue-200 text-blue-900 text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">{noSkuRows.length}</span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Tabla */}
+                  <div className="border border-gray-200 rounded-xl overflow-hidden">
+                    <div className={`grid px-4 py-2 bg-gray-50 text-[11px] font-semibold text-gray-400 uppercase tracking-wide ${showCols === 'dup' ? 'grid-cols-[90px_1fr_120px]' : showCols === 'sinsku' ? 'grid-cols-[90px_1fr_120px]' : 'grid-cols-[90px_1fr_90px_90px]'}`}>
+                      <span>SKU</span><span>Producto</span>
+                      {showCols === 'dup'    && <span>Estado</span>}
+                      {showCols === 'sinsku' && <span>SKU asignado</span>}
+                      {showCols === 'todos'  && <><span>Costo</span><span>Precio</span></>}
+                    </div>
+                    <div className="max-h-44 overflow-y-auto divide-y divide-gray-100">
+                      {(tabRows.length === 0
+                        ? <div className="px-4 py-6 text-center text-sm text-gray-400">Sin productos en esta categoría</div>
+                        : tabRows.slice(0, 30).map((r, i) => {
+                            const isDup = r.sku && existingSkus.has(r.sku)
+                            const isNoSku = !r.sku
+                            const autoIdx = noSkuRows.indexOf(r)
+                            return (
+                              <div key={i} className={`grid px-4 py-2.5 text-sm items-center ${showCols === 'dup' ? 'grid-cols-[90px_1fr_120px]' : showCols === 'sinsku' ? 'grid-cols-[90px_1fr_120px]' : 'grid-cols-[90px_1fr_90px_90px]'} ${isDup ? 'bg-amber-50/60' : isNoSku ? 'bg-blue-50/60' : ''}`}>
+                                <span className={`font-mono text-xs font-medium ${isDup ? 'text-amber-700 line-through' : isNoSku ? 'text-gray-300' : 'text-gray-500'}`}>
+                                  {r.sku || '—'}
+                                </span>
+                                <span className="truncate text-gray-800 pr-3">{r.nombre}</span>
+                                {showCols === 'dup' && (
+                                  <span className="text-xs font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-md w-fit">Sobrescribir</span>
+                                )}
+                                {showCols === 'sinsku' && (
+                                  <span className="font-mono text-xs font-semibold text-blue-600">→ {autoSkus[autoIdx]}</span>
+                                )}
+                                {showCols === 'todos' && (
+                                  <><span className="text-xs text-gray-400">${r.costoNeto.toLocaleString('es-CL')}</span>
+                                  <span className="text-xs text-gray-500">${r.precio.toLocaleString('es-CL')}</span></>
+                                )}
+                              </div>
+                            )
+                          })
+                      )}
+                      {tabRows.length > 30 && (
+                        <div className="px-4 py-2 text-xs text-gray-400">...y {tabRows.length - 30} más</div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Modo importación */}
+                  <div className="flex gap-3">
+                    {(['reemplazar', 'agregar'] as const).map(mode => (
+                      <button key={mode} onClick={() => setImportMode(mode)}
+                        className={`flex-1 text-left px-4 py-3 rounded-xl border transition ${importMode === mode ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                        <p className={`text-sm font-semibold ${importMode === mode ? 'text-blue-800' : 'text-gray-800'}`}>
+                          {mode === 'reemplazar' ? 'Reemplazar todo' : 'Agregar a los existentes'}
+                        </p>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {mode === 'reemplazar'
+                            ? `Borra los ${(productos ?? []).length.toLocaleString('es-CL')} productos actuales e importa los nuevos`
+                            : `Añade sin borrar lo que ya hay`}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+
+                </>)}
+              </div>
+
+              {/* Footer */}
+              <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100 gap-4">
+                <p className="text-xs text-gray-400 flex-1">
+                  {noSkuRows.length > 0 && (
+                    <>{noSkuRows.length} producto{noSkuRows.length > 1 ? 's' : ''} recibirán SKU automático:{' '}
+                    <span className="font-mono font-semibold text-blue-600">{autoSkus.slice(0, 5).join(', ')}{autoSkus.length > 5 ? '...' : ''}</span></>
+                  )}
+                </p>
+                <div className="flex gap-2 flex-shrink-0">
+                  <button onClick={() => setImportModal(false)} className="px-4 py-2 text-sm font-semibold text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition">Cancelar</button>
+                  <button onClick={confirmarImport} disabled={!importRows.length || importLoading}
+                    className="flex items-center gap-2 bg-blue-600 text-white text-sm font-semibold px-5 py-2 rounded-lg hover:bg-blue-700 transition disabled:opacity-40 disabled:cursor-not-allowed">
+                    {importLoading && <Spinner className="w-4 h-4" />}
+                    {importLoading ? 'Importando...' : `Importar ${importRows.length.toLocaleString('es-CL')} productos`}
+                  </button>
+                </div>
+              </div>
+
             </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
     </div>
   )
 }

@@ -11,12 +11,18 @@ interface Props {
 
 function uid() { return Math.random().toString(36).slice(2) + Date.now().toString(36) }
 
+export function nextSku(productos: Producto[]): string {
+  const nums = productos.map(p => parseInt(p.sku ?? '', 10)).filter(n => !isNaN(n))
+  const max = nums.length ? Math.max(...nums) : 998
+  return String(max % 2 === 0 ? max + 2 : max + 1)
+}
+
 export function ProductoModal({ producto, productos, bodegas, onClose }: Props) {
   const guardar = useGuardarProductos()
   const isEditing = !!producto
 
   const [nombre, setNombre] = useState(producto?.nombre ?? '')
-  const [sku, setSku] = useState(producto?.sku ?? '')
+  const [sku, setSku] = useState(() => producto?.sku ?? (isEditing ? '' : nextSku(productos)))
   const [unidad, setUnidad] = useState(producto?.unidad ?? 'unidad')
   const [precioCompra, setPrecioCompra] = useState(String(producto?.precio_compra ?? ''))
   const [precioVenta, setPrecioVenta] = useState(String(producto?.precio_venta ?? ''))
