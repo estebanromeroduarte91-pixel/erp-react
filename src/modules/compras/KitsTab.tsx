@@ -7,6 +7,62 @@ import type { Kit, KitComponente, Producto } from '@/types'
 const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36)
 const today = () => new Date().toISOString().slice(0, 10)
 
+// Color words sorted longest-first to avoid partial matches
+const COLOR_WORDS = [
+  'titanio negro', 'titanio blanco', 'titanio natural', 'titanio desierto', 'titanio azul',
+  'verde noche', 'azul pacífico', 'azul pacifico', 'azul sierra', 'verde alpino', 'morado profundo',
+  'rose gold', 'space gray', 'space black', 'sky blue',
+  'silver', 'gold', 'midnight', 'starlight', 'amarillo', 'azul',
+  'rosado', 'plata', 'verde', 'morado', 'blanco', 'negro',
+  'blanca', 'negra', 'dorado', 'rojo', 'roja', 'coral',
+  'grafito', 'titanio', 'natural', 'desierto', 'black',
+]
+
+function stripColor(name: string): string {
+  const nl = name.toLowerCase()
+  for (const c of COLOR_WORDS) {
+    if (nl.endsWith(' ' + c)) return name.slice(0, name.length - c.length - 1).trim()
+  }
+  return name
+}
+
+function extractColor(name: string): string {
+  const base = stripColor(name)
+  if (base === name) return ''
+  return name.slice(base.length).trim()
+}
+
+// From a list of products in an enlace group, find available colors
+// and separate generic (no-color-variant) products
+function analizarGrupo(prods: Producto[]): { colores: string[]; genericos: Producto[] } {
+  // Group by base name
+  const baseMap = new Map<string, Producto[]>()
+  for (const p of prods) {
+    const base = stripColor(p.nombre).toLowerCase()
+    const arr = baseMap.get(base) ?? []
+    arr.push(p)
+    baseMap.set(base, arr)
+  }
+
+  const genericos: Producto[] = []
+  const coloresSet = new Set<string>()
+
+  for (const grupo of baseMap.values()) {
+    if (grupo.length === 1) {
+      // No variants — generic
+      genericos.push(grupo[0])
+    } else {
+      // Has variants — extract colors
+      for (const p of grupo) {
+        const c = extractColor(p.nombre)
+        if (c) coloresSet.add(c)
+      }
+    }
+  }
+
+  return { colores: [...coloresSet].sort(), genericos }
+}
+
 // ── Modal crear / editar kit ──────────────────────────────────
 
 interface ModalKitProps {
@@ -25,6 +81,13 @@ function ModalKit({ kit, productos, categoriasExistentes, onSave, onClose }: Mod
   )
   const [enlaceOpen, setEnlaceOpen] = useState(false)
   const [dropRect, setDropRect] = useState<DOMRect | null>(null)
+
+  // Color selection state — only set when an enlace with color variants is chosen
+  const [enlaceActivo, setEnlaceActivo] = useState<string | null>(null)
+  const [coloresDisponibles, setColoresDisponibles] = useState<string[]>([])
+  const [colorSeleccionado, setColorSeleccionado] = useState<string | null>(null)
+  const [genericosEnlace, setGenericosEnlace] = useState<Producto[]>([])
+
   const nombreInputRef = useRef<HTMLInputElement | null>(null)
   const lastRowRef = useRef<HTMLInputElement | null>(null)
 
@@ -54,8 +117,42 @@ function ModalKit({ kit, productos, categoriasExistentes, onSave, onClose }: Mod
     const prods = productos.filter(p => p.enlace?.trim().toLowerCase() === enlace.trim().toLowerCase())
     if (!prods.length) return
     setNombre(enlace)
-    setComponentes(prods.map(p => ({ id: uid(), nombre: p.nombre, cantidad: 1 })))
     setEnlaceOpen(false)
+
+    const { colores, genericos } = analizarGrupo(prods)
+
+    if (colores.length > 0) {
+      // Has color variants — show chip selector, don't load components yet
+      setEnlaceActivo(enlace)
+      setColoresDisponibles(colores)
+      setGenericosEnlace(genericos)
+      setColorSeleccionado(null)
+      setComponentes([])
+    } else {
+      // No color variants — load all directly
+      setEnlaceActivo(null)
+      setColoresDisponibles([])
+      setGenericosEnlace([])
+      setColorSeleccionado(null)
+      setComponentes(prods.map(p => ({ id: uid(), nombre: p.nombre, cantidad: 1 })))
+    }
+  }
+
+  function seleccionarColor(color: string) {
+    setColorSeleccionado(color)
+    if (!enlaceActivo) return
+
+    const prods = productos.filter(p => p.enlace?.trim().toLowerCase() === enlaceActivo.trim().toLowerCase())
+    const { genericos } = analizarGrupo(prods)
+
+    // Color-specific products: those whose name ends with this color
+    const colorLower = color.toLowerCase()
+    const especificos = prods.filter(p => extractColor(p.nombre).toLowerCase() === colorLower)
+
+    const todos = [...especificos, ...genericos]
+    setComponentes(todos.map(p => ({ id: uid(), nombre: p.nombre, cantidad: 1 })))
+    // Keep genericos in sync
+    setGenericosEnlace(genericos)
   }
 
   function addComp() {
@@ -73,6 +170,9 @@ function ModalKit({ kit, productos, categoriasExistentes, onSave, onClose }: Mod
 
   function handleSave() {
     if (!nombre.trim()) { alert('El nombre del kit es obligatorio'); return }
+    if (coloresDisponibles.length > 0 && !colorSeleccionado) {
+      alert('Elige un color antes de crear el kit'); return
+    }
     const comps = componentes.filter(c => c.nombre.trim())
     if (!comps.length) { alert('Agrega al menos un componente'); return }
     onSave({
@@ -91,6 +191,9 @@ function ModalKit({ kit, productos, categoriasExistentes, onSave, onClose }: Mod
     return text.slice(0, idx) + '<strong style="color:#7c3aed">' + text.slice(idx, idx + q.length) + '</strong>' + text.slice(idx + q.length)
   }
 
+  // Detect if a component row is a generic (no color variant) for badge display
+  const genericoNombres = new Set(genericosEnlace.map(p => p.nombre.toLowerCase()))
+
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
       <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 780, maxHeight: '92vh', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 60px rgba(0,0,0,.2)' }}>
@@ -108,10 +211,17 @@ function ModalKit({ kit, productos, categoriasExistentes, onSave, onClose }: Mod
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Nombre del equipo *</label>
               <div style={{ position: 'relative' }}>
                 <input
+                  ref={nombreInputRef}
                   type="text"
                   value={nombre}
-                  ref={nombreInputRef}
-                  onChange={e => { setNombre(e.target.value); openEnlaceDrop() }}
+                  onChange={e => {
+                    setNombre(e.target.value)
+                    // Reset color state if user edits name manually
+                    setEnlaceActivo(null)
+                    setColoresDisponibles([])
+                    setColorSeleccionado(null)
+                    openEnlaceDrop()
+                  }}
                   onFocus={() => openEnlaceDrop()}
                   onBlur={() => setTimeout(() => setEnlaceOpen(false), 200)}
                   placeholder="Ej: iPhone 13, MacBook Pro 14"
@@ -169,6 +279,35 @@ function ModalKit({ kit, productos, categoriasExistentes, onSave, onClose }: Mod
             </div>
           </div>
 
+          {/* Color chips — only shown when enlace has color variants */}
+          {coloresDisponibles.length > 0 && (
+            <div style={{ background: '#faf5ff', border: '1px solid #e9d5ff', borderRadius: 10, padding: '12px 14px' }}>
+              <p style={{ fontSize: 11, fontWeight: 700, color: '#7c3aed', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 8 }}>
+                Color del equipo
+              </p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+                {coloresDisponibles.map(c => (
+                  <button
+                    key={c}
+                    onClick={() => seleccionarColor(c)}
+                    style={{
+                      padding: '5px 14px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                      border: colorSeleccionado === c ? '2px solid #7c3aed' : '1.5px solid #d8b4fe',
+                      background: colorSeleccionado === c ? '#7c3aed' : '#fff',
+                      color: colorSeleccionado === c ? '#fff' : '#6d28d9',
+                      transition: 'all .12s',
+                    }}
+                  >
+                    {c}
+                  </button>
+                ))}
+              </div>
+              {!colorSeleccionado && (
+                <p style={{ fontSize: 11, color: '#a78bfa', marginTop: 7 }}>Elige un color para cargar los componentes correspondientes</p>
+              )}
+            </div>
+          )}
+
           {/* Components table */}
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
@@ -184,37 +323,76 @@ function ModalKit({ kit, productos, categoriasExistentes, onSave, onClose }: Mod
                 </tr>
               </thead>
               <tbody>
-                {componentes.map((c, idx) => (
-                  <tr key={c.id}>
-                    <td style={{ padding: '4px 6px' }}>
-                      <input
-                        ref={idx === componentes.length - 1 ? lastRowRef : undefined}
-                        type="text"
-                        value={c.nombre}
-                        onChange={e => updateComp(c.id, 'nombre', e.target.value)}
-                        placeholder="Ej: Pantalla OLED, Cámara trasera…"
-                        className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400"
-                        onKeyDown={e => e.key === 'Enter' && addComp()}
-                      />
-                    </td>
-                    <td style={{ padding: '4px 4px', textAlign: 'center' }}>
-                      <input
-                        type="number"
-                        value={c.cantidad}
-                        min={1}
-                        onChange={e => updateComp(c.id, 'cantidad', e.target.value)}
-                        style={{ width: 60, textAlign: 'center' }}
-                        className="px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400"
-                      />
-                    </td>
-                    <td style={{ padding: '4px 4px', textAlign: 'center' }}>
-                      <button
-                        onClick={() => removeComp(c.id)}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--gray-400)', fontSize: 18, lineHeight: 1, padding: '2px 4px' }}
-                      >×</button>
+                {componentes.length === 0 && coloresDisponibles.length > 0 ? (
+                  <tr>
+                    <td colSpan={3} style={{ padding: '20px 8px', textAlign: 'center', fontSize: 13, color: 'var(--gray-400)', fontStyle: 'italic' }}>
+                      Elige un color arriba para cargar los componentes…
                     </td>
                   </tr>
-                ))}
+                ) : componentes.length === 0 ? (
+                  <tr>
+                    <td colSpan={3} style={{ padding: '6px 6px' }}>
+                      <input
+                        ref={lastRowRef}
+                        type="text"
+                        placeholder="Ej: Pantalla OLED, Cámara trasera…"
+                        onChange={e => {
+                          const id = uid()
+                          setComponentes([{ id, nombre: e.target.value, cantidad: 1 }])
+                        }}
+                        className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400"
+                      />
+                    </td>
+                  </tr>
+                ) : (
+                  componentes.map((c, idx) => {
+                    const esGenerico = genericoNombres.has(c.nombre.toLowerCase())
+                    const esColor = colorSeleccionado && !esGenerico && genericoNombres.size > 0
+                    return (
+                      <tr key={c.id} style={{ borderBottom: '1px solid var(--gray-100)' }}>
+                        <td style={{ padding: '4px 6px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <input
+                              ref={idx === componentes.length - 1 ? lastRowRef : undefined}
+                              type="text"
+                              value={c.nombre}
+                              onChange={e => updateComp(c.id, 'nombre', e.target.value)}
+                              placeholder="Ej: Pantalla OLED, Cámara trasera…"
+                              className="flex-1 px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400"
+                              onKeyDown={e => e.key === 'Enter' && addComp()}
+                            />
+                            {esColor && (
+                              <span style={{ fontSize: 10, fontWeight: 700, background: '#ede9fe', color: '#5b21b6', borderRadius: 20, padding: '2px 8px', whiteSpace: 'nowrap' }}>
+                                color
+                              </span>
+                            )}
+                            {esGenerico && (
+                              <span style={{ fontSize: 10, fontWeight: 600, background: 'var(--gray-100)', color: 'var(--gray-400)', borderRadius: 20, padding: '2px 8px', whiteSpace: 'nowrap' }}>
+                                genérico
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td style={{ padding: '4px 4px', textAlign: 'center' }}>
+                          <input
+                            type="number"
+                            value={c.cantidad}
+                            min={1}
+                            onChange={e => updateComp(c.id, 'cantidad', e.target.value)}
+                            style={{ width: 60, textAlign: 'center' }}
+                            className="px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400"
+                          />
+                        </td>
+                        <td style={{ padding: '4px 4px', textAlign: 'center' }}>
+                          <button
+                            onClick={() => removeComp(c.id)}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--gray-400)', fontSize: 18, lineHeight: 1, padding: '2px 4px' }}
+                          >×</button>
+                        </td>
+                      </tr>
+                    )
+                  })
+                )}
               </tbody>
             </table>
             <button
