@@ -164,7 +164,8 @@ export function GastosTab() {
           </svg>
           <input value={busqueda} onChange={e => setBusqueda(e.target.value)}
             placeholder="Buscar gasto..."
-            className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:border-blue-400" />
+            style={{ paddingLeft: '2.25rem' }}
+            className="w-full pr-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:border-blue-400" />
         </div>
         <button onClick={abrirNuevo}
           className="flex items-center gap-2 bg-blue-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 transition">
