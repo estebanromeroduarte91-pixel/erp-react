@@ -77,6 +77,13 @@ export function ProductosTab() {
     await guardar.mutateAsync((productos ?? []).filter(x => x.id !== p.id))
   }
 
+  async function eliminarTodo() {
+    if (!esAdmin) return
+    const total = (productos ?? []).length
+    if (!confirm(`¿Eliminar los ${total} productos del inventario? Esta acción no se puede deshacer.`)) return
+    await guardar.mutateAsync([])
+  }
+
   if (isLoading) return <div className="flex justify-center py-16"><Spinner className="w-8 h-8" /></div>
 
   const bdList = bodegas ?? []
@@ -96,13 +103,24 @@ export function ProductosTab() {
               placeholder="Buscar producto o SKU..."
               className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:border-blue-400" />
           </div>
-          <button onClick={abrirNuevo}
-            className="flex items-center gap-2 bg-blue-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 transition ml-auto">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-            </svg>
-            Nuevo producto
-          </button>
+          <div className="flex items-center gap-2 ml-auto">
+            {esAdmin && (
+              <button onClick={eliminarTodo}
+                className="flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 transition">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                Eliminar todo
+              </button>
+            )}
+            <button onClick={abrirNuevo}
+              className="flex items-center gap-2 bg-blue-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 transition">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              Nuevo producto
+            </button>
+          </div>
         </div>
 
         {/* Fila 2: filtros */}
