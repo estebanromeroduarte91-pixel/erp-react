@@ -218,7 +218,11 @@ export function TallerPage() {
         <div style={{ padding: '8px 16px 16px' }}>
           {lista.length === 0 ? (
             <div style={{ textAlign: 'center', paddingTop: 48, color: '#8e8e93' }}>
-              <div style={{ fontSize: 40, marginBottom: 12 }}>🔧</div>
+              <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'center' }}>
+                <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#d1d5db" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.7-3.7a6 6 0 0 1-7.9 7.9l-6.9 6.9a2.1 2.1 0 0 1-3-3l6.9-6.9a6 6 0 0 1 7.9-7.9l-3.7 3.7z"/>
+                </svg>
+              </div>
               <p style={{ fontSize: 15, fontWeight: 600, color: '#3c3c43', margin: 0 }}>Sin órdenes</p>
               <p style={{ fontSize: 13, marginTop: 4 }}>No hay órdenes con este filtro</p>
             </div>

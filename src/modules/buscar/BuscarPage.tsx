@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import React, { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useVentas, useOrdenes, useProductos, useClientes } from '@/lib/queries'
 import { Spinner } from '@/components/shared/Spinner'
@@ -6,11 +6,18 @@ import { Spinner } from '@/components/shared/Spinner'
 type ResultType = 'ot' | 'venta' | 'cliente' | 'producto'
 interface Result { type: ResultType; id: string; title: string; sub: string; badge?: string; badgeColor?: string }
 
+const ACCESO_ICONS: Record<string, React.ReactNode> = {
+  '/contactos': <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
+  '/ventas': <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="M2.5 10h19"/><path d="M6 15h4"/></svg>,
+  '/inventario': <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>,
+  '/taller': <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.7-3.7a6 6 0 0 1-7.9 7.9l-6.9 6.9a2.1 2.1 0 0 1-3-3l6.9-6.9a6 6 0 0 1 7.9-7.9l-3.7 3.7z"/></svg>,
+}
+
 const ACCESOS = [
-  { to: '/contactos', label: 'Clientes', icon: '👥', sub: 'Buscar por nombre o RUT' },
-  { to: '/ventas', label: 'Boletas', icon: '🧾', sub: 'Buscar por número o cliente' },
-  { to: '/inventario', label: 'Inventario', icon: '📦', sub: 'Productos y stock' },
-  { to: '/taller', label: 'Órdenes', icon: '🔧', sub: 'OTs activas y entregadas' },
+  { to: '/contactos', label: 'Clientes', sub: 'Buscar por nombre o RUT' },
+  { to: '/ventas', label: 'Boletas', sub: 'Buscar por número o cliente' },
+  { to: '/inventario', label: 'Inventario', sub: 'Productos y stock' },
+  { to: '/taller', label: 'Órdenes', sub: 'OTs activas y entregadas' },
 ]
 
 const STATUS_COLOR: Record<string, string> = {
@@ -19,8 +26,13 @@ const STATUS_COLOR: Record<string, string> = {
 }
 
 function ResultIcon({ type }: { type: ResultType }) {
-  const icons = { ot: '🔧', venta: '🧾', cliente: '👥', producto: '📦' }
-  return <span style={{ fontSize: 18 }}>{icons[type]}</span>
+  const icons: Record<ResultType, React.ReactNode> = {
+    ot: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.7-3.7a6 6 0 0 1-7.9 7.9l-6.9 6.9a2.1 2.1 0 0 1-3-3l6.9-6.9a6 6 0 0 1 7.9-7.9l-3.7 3.7z"/></svg>,
+    venta: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="M2.5 10h19"/><path d="M6 15h4"/></svg>,
+    cliente: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
+    producto: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>,
+  }
+  return <span style={{ display: 'flex', color: '#6b7280' }}>{icons[type]}</span>
 }
 
 function TypeLabel({ type }: { type: ResultType }) {
@@ -150,7 +162,11 @@ export function BuscarPage() {
           <>
             {results.length === 0 ? (
               <div style={{ textAlign: 'center', paddingTop: 48, color: '#8e8e93' }}>
-                <div style={{ fontSize: 40, marginBottom: 12 }}>🔍</div>
+                <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'center' }}>
+                  <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#d1d5db" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                  </svg>
+                </div>
                 <p style={{ fontSize: 15, fontWeight: 600, color: '#3c3c43', margin: 0 }}>Sin resultados</p>
                 <p style={{ fontSize: 13, marginTop: 4 }}>Intenta con otro nombre o número</p>
               </div>
@@ -205,7 +221,7 @@ export function BuscarPage() {
                     boxShadow: '0 1px 4px rgba(0,0,0,.06)',
                   }}
                 >
-                  <span style={{ fontSize: 24 }}>{a.icon}</span>
+                  <span style={{ display: 'flex', color: 'var(--primary)' }}>{ACCESO_ICONS[a.to]}</span>
                   <span style={{ fontSize: 14, fontWeight: 600, color: '#1c1c1e' }}>{a.label}</span>
                   <span style={{ fontSize: 11, color: '#8e8e93' }}>{a.sub}</span>
                 </button>
