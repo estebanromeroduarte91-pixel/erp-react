@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { formatRut } from '@/lib/rut'
 import { useGuardarOrden, useClientes, useGuardarClientes, useProductos, useChecklist, useUserProfiles, useMsgTemplates, useSeguimientoConfig, useBodegas } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
@@ -913,7 +914,7 @@ export function OrdenModal({ orden, ordenes, onClose }: Props) {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-medium text-gray-600 mb-1 block">RUT</label>
-                  <input value={nuevoCliente.rut} onChange={(e) => setNuevoCliente((n) => ({ ...n, rut: e.target.value }))}
+                  <input value={nuevoCliente.rut} onChange={(e) => setNuevoCliente((n) => ({ ...n, rut: formatRut(e.target.value) }))}
                     placeholder="12.345.678-9"
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
                 </div>

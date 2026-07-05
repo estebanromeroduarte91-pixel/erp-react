@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { useClientes, useGuardarClientes } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { Spinner } from '@/components/shared/Spinner'
+import { formatRut } from '@/lib/rut'
 import type { Cliente } from '@/types'
 
 function uid() { return Math.random().toString(36).slice(2) + Date.now().toString(36) }
@@ -181,7 +182,8 @@ function ContactoModal({ titulo, campos, datos, onClose, onGuardar }: {
           {campos.map(c => (
             <div key={c.key} className={campos.length % 2 !== 0 && campos.indexOf(c) === campos.length - 1 ? 'col-span-2' : ''}>
               <label className="text-xs font-medium text-gray-600 mb-1 block">{c.label}</label>
-              <input type={c.type ?? 'text'} value={form[c.key]} onChange={e => setForm(f => ({ ...f, [c.key]: e.target.value }))}
+              <input type={c.type ?? 'text'} value={form[c.key]}
+                onChange={e => setForm(f => ({ ...f, [c.key]: c.key === 'rut' ? formatRut(e.target.value) : e.target.value }))}
                 placeholder={c.placeholder}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
             </div>
