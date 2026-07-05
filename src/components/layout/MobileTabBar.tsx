@@ -5,7 +5,7 @@ import { useAuth } from '@/context/AuthContext'
 const TABS = [
   {
     to: '/dashboard',
-    label: 'Inicio',
+    label: 'Dashboard',
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <rect x="3" y="3" width="7" height="9" rx="1.4"/><rect x="14" y="3" width="7" height="5" rx="1.4"/>
@@ -15,7 +15,7 @@ const TABS = [
   },
   {
     to: '/estadisticas',
-    label: 'Stats',
+    label: 'Estadísticas',
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>
@@ -79,7 +79,7 @@ export function MobileTabBar() {
 
       {/* Drawer panel */}
       <div style={{
-        position: 'fixed', left: 0, right: 0, bottom: drawerOpen ? 'calc(56px + max(env(safe-area-inset-bottom), 16px))' : -400, zIndex: 201,
+        position: 'fixed', left: 0, right: 0, bottom: drawerOpen ? 'calc(56px + max(env(safe-area-inset-bottom), 50px))' : -400, zIndex: 201,
         background: '#fff', borderRadius: '20px 20px 0 0',
         padding: '8px 0 8px',
         transition: 'bottom 0.3s ease',
@@ -132,7 +132,7 @@ export function MobileTabBar() {
         borderTop: '0.5px solid var(--gray-200)',
         display: 'flex', alignItems: 'flex-start',
         paddingTop: 8,
-        paddingBottom: 'max(env(safe-area-inset-bottom), 16px)',
+        paddingBottom: 'max(env(safe-area-inset-bottom), 50px)',
       }}>
         {TABS.map(tab => {
           const active = pathname === tab.to

@@ -132,7 +132,7 @@ export function BuscarPage() {
       {/* Header */}
       <div style={{ background: '#fff', padding: '16px 16px 12px', borderBottom: '0.5px solid #e5e7eb', position: 'sticky', top: 0, zIndex: 10 }}>
         <h1 style={{ fontSize: 22, fontWeight: 700, color: '#1c1c1e', margin: '0 0 10px' }}>Buscar</h1>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#e5e5ea', borderRadius: 12, padding: '9px 14px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fff', borderRadius: 12, padding: '9px 14px', border: '1px solid #e5e7eb' }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8e8e93" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
           </svg>

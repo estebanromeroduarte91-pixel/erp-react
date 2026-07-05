@@ -10,7 +10,7 @@ export function Shell({ children }: { children: ReactNode }) {
   if (isMobile) {
     return (
       <div style={{ minHeight: '100dvh', background: '#f2f2f7' }}>
-        <main style={{ paddingBottom: 'calc(72px + max(env(safe-area-inset-bottom), 16px))' }}>
+        <main style={{ paddingBottom: 'calc(72px + max(env(safe-area-inset-bottom), 50px))' }}>
           {children}
         </main>
         <MobileTabBar />
