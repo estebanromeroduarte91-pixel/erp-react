@@ -216,7 +216,6 @@ function DetailPanel({ cliente, stats, esAdmin, onEditar, onEliminar }: {
   const fechaCreacion = cliente.fecha_creacion
     ? new Date(cliente.fecha_creacion).toLocaleDateString('es-CL', { year: 'numeric', month: 'long' })
     : null
-  const otsActivas = stats?.ots.filter(o => o.status !== 'Entregado' && o.status !== 'No reparable') ?? []
   const ultimas3Ots = (stats?.ots ?? []).slice(0, 3)
 
   // Resetear vista al cambiar de cliente
@@ -262,7 +261,7 @@ function DetailPanel({ cliente, stats, esAdmin, onEditar, onEliminar }: {
         <div style={{ flex: 1, overflowY: 'auto' }}>
           {boletas.length === 0 ? (
             <p style={{ textAlign: 'center', padding: '48px 0', fontSize: 13, color: '#9ca3af' }}>Sin boletas registradas</p>
-          ) : boletas.map((v, i) => (
+          ) : boletas.map((v) => (
             <div key={v.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 24px', borderBottom: '0.5px solid #f5f5f5' }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <p style={{ margin: '0 0 2px', fontSize: 13, fontWeight: 600, color: '#111' }}>{v.numero}</p>
