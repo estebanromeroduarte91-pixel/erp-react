@@ -1,21 +1,7 @@
 import { useAuth } from '@/context/AuthContext'
-import { useLocation } from 'react-router-dom'
-
-const ROUTE_TITLES: Record<string, string> = {
-  '/dashboard': 'Dashboard',
-  '/taller': 'Taller',
-  '/inventario': 'Inventario',
-  '/ventas': 'Ventas',
-  '/contactos': 'Contactos',
-  '/contabilidad': 'Contabilidad',
-  '/estadisticas': 'Estadísticas',
-  '/config': 'Configuración',
-}
 
 export function Topbar() {
   const { logout } = useAuth()
-  const { pathname } = useLocation()
-  const title = ROUTE_TITLES[pathname] ?? 'ERP'
 
   return (
     <header style={{
@@ -23,12 +9,8 @@ export function Topbar() {
       height: 58, background: '#fff',
       borderBottom: '1px solid var(--gray-100)',
       padding: '0 24px',
-      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
     }}>
-      <h2 style={{ fontSize: 17, fontWeight: 700, color: 'var(--gray-800)', letterSpacing: '-.015em', margin: 0 }}>
-        {title}
-      </h2>
-
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
         <button
           onClick={logout}
