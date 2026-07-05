@@ -103,8 +103,6 @@ export function ClientesTab() {
 
   // ── Mobile: si hay cliente seleccionado → vista detalle ───────
   if (isMobile && seleccionado) {
-    const p = avatarPalette(seleccionado.id)
-    const nombre = `${seleccionado.nombre} ${seleccionado.apellido ?? ''}`.trim()
     return (
       <div style={{ background: '#f2f2f7', minHeight: '100%' }}>
         <div style={{ background: '#fff', padding: '12px 16px', borderBottom: '0.5px solid #e5e7eb', display: 'flex', alignItems: 'center', gap: 12 }}>
