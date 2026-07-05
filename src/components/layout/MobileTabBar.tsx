@@ -70,7 +70,7 @@ export function MobileTabBar() {
 
       {/* Drawer panel */}
       <div style={{
-        position: 'fixed', left: 0, right: 0, bottom: drawerOpen ? 72 : -400, zIndex: 201,
+        position: 'fixed', left: 0, right: 0, bottom: drawerOpen ? 'calc(56px + max(env(safe-area-inset-bottom), 16px))' : -400, zIndex: 201,
         background: '#fff', borderRadius: '20px 20px 0 0',
         padding: '8px 0 8px',
         transition: 'bottom 0.3s ease',
@@ -115,10 +115,11 @@ export function MobileTabBar() {
       {/* Tab bar */}
       <nav style={{
         position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100,
-        height: 72, background: 'rgba(255,255,255,0.95)',
+        background: 'rgba(255,255,255,0.97)',
         borderTop: '0.5px solid var(--gray-200)',
-        display: 'flex', alignItems: 'stretch',
-        paddingBottom: 'env(safe-area-inset-bottom)',
+        display: 'flex', alignItems: 'flex-start',
+        paddingTop: 8,
+        paddingBottom: 'max(env(safe-area-inset-bottom), 16px)',
       }}>
         {TABS.map(tab => {
           const active = pathname === tab.to
