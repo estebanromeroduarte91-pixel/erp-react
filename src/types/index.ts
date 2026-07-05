@@ -67,6 +67,8 @@ export interface Orden {
   deliveredAt?: string
   updatedAt?: string
   createdAt?: string
+  venta_id?: string
+  numero_boleta?: string
 }
 
 // ── Catálogo de equipos del taller (tp_equipos) ──────────────

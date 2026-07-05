@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef } from 'react'
-import { useProductos, useVentas, useGuardarVentas, useMetodosPago, useCajaSesiones, useCajas, useIncrementarContadorVenta } from '@/lib/queries'
-import type { VentaItem, Venta } from '@/types'
+import { useProductos, useVentas, useGuardarVentas, useMetodosPago, useCajaSesiones, useCajas, useIncrementarContadorVenta, useOrdenes, useGuardarOrden } from '@/lib/queries'
+import type { VentaItem, Venta, Orden } from '@/types'
 
 const IVA = 0.19
 
@@ -35,14 +35,19 @@ function lineNeto(it: VentaItem) {
 export function POSTab() {
   const { data: productos } = useProductos()
   const { data: ventas } = useVentas()
+  const { data: ordenes } = useOrdenes()
   const { data: metodos } = useMetodosPago()
   const { data: sesiones } = useCajaSesiones()
   const { data: cajas } = useCajas()
   const guardarVentas = useGuardarVentas()
+  const guardarOrden = useGuardarOrden()
   const incrementarContador = useIncrementarContadorVenta()
 
   const [items, setItems] = useState<VentaItem[]>([])
   const [busqueda, setBusqueda] = useState('')
+  const [busquedaOT, setBusquedaOT] = useState('')
+  const [otSeleccionada, setOtSeleccionada] = useState<Orden | null>(null)
+  const [otPanelOpen, setOtPanelOpen] = useState(false)
   const [cliente, setCliente] = useState('')
   const [cobrarOpen, setCobrarOpen] = useState(false)
   const [metodoSel, setMetodoSel] = useState<string>('')
@@ -54,6 +59,17 @@ export function POSTab() {
 
   const totalIva = items.reduce((s, it) => s + lineTotal(it), 0)
   const totalNeto = items.reduce((s, it) => s + lineNeto(it), 0)
+
+  const otsListas = useMemo(() => (ordenes ?? []).filter(o => o.status === 'Listo'), [ordenes])
+  const otResultados = useMemo(() => {
+    const q = busquedaOT.trim().toLowerCase()
+    if (!q) return otsListas.slice(0, 6)
+    return otsListas.filter(o =>
+      o.nombre?.toLowerCase().includes(q) ||
+      o.num?.toLowerCase().includes(q) ||
+      o.modelo?.toLowerCase().includes(q)
+    ).slice(0, 6)
+  }, [otsListas, busquedaOT])
 
   const resultados = useMemo(() => {
     if (!busqueda.trim()) return []
@@ -93,6 +109,39 @@ export function POSTab() {
     setItems(prev => prev.filter(i => i.id !== id))
   }
 
+  function seleccionarOT(ot: Orden) {
+    setOtSeleccionada(ot)
+    setBusquedaOT('')
+    setOtPanelOpen(false)
+    setCliente([ot.nombre, ot.apellido].filter(Boolean).join(' '))
+    const nuevosItems: VentaItem[] = []
+    if (ot.trabajo && ot.presup) {
+      const precioIva = +ot.presup
+      nuevosItems.push({
+        id: uid(), producto_id: 'ot-servicio',
+        producto_nombre: `Servicio: ${ot.trabajo.slice(0, 80)}`,
+        cantidad: 1, precio_neto: Math.round(precioIva / (1 + IVA)),
+        precio_iva: precioIva, descuento: 0, subtotal: Math.round(precioIva / (1 + IVA)),
+      })
+    }
+    for (const r of ot.repuestos ?? []) {
+      const precioIva = r.precio
+      nuevosItems.push({
+        id: uid(), producto_id: r.productId ?? ('rep-' + uid()),
+        producto_nombre: r.name,
+        cantidad: r.qty, precio_neto: Math.round(precioIva / (1 + IVA)),
+        precio_iva: precioIva, descuento: 0, subtotal: Math.round(precioIva / (1 + IVA) * r.qty),
+      })
+    }
+    if (nuevosItems.length) setItems(nuevosItems)
+  }
+
+  function deseleccionarOT() {
+    setOtSeleccionada(null)
+    setItems([])
+    setCliente('')
+  }
+
   function abrirCobrar() {
     if (!items.length) return
     setMetodoSel(metodos?.[0]?.id ?? 'efectivo')
@@ -116,8 +165,8 @@ export function POSTab() {
         branchNombre: '',
         bodega_id: cajaAbierta?.bodegaId ?? '',
         cajaId: sesionAbierta?.cajaId ?? '',
-        otId: null,
-        otNum: null,
+        otId: otSeleccionada?.id ?? null,
+        otNum: otSeleccionada?.num ?? null,
         items: items.map(it => ({
           id: it.id,
           producto_id: it.producto_id,
@@ -133,6 +182,19 @@ export function POSTab() {
         fecha_creacion: today(),
       }
       await guardarVentas.mutateAsync([...(ventas ?? []), venta])
+      if (otSeleccionada) {
+        const ordenActualizada = {
+          ...otSeleccionada,
+          status: 'Entregado' as const,
+          venta_id: venta.id,
+          numero_boleta: numero,
+          deliveredAt: today(),
+        }
+        await guardarOrden.mutateAsync(
+          (ordenes ?? []).map(o => o.id === otSeleccionada.id ? ordenActualizada : o)
+        )
+        setOtSeleccionada(null)
+      }
       setItems([])
       setCliente('')
       setCobrarOpen(false)
@@ -146,6 +208,78 @@ export function POSTab() {
     <div className="flex gap-4 h-[calc(100vh-8rem)]">
       {/* Panel izquierdo: buscador + carrito */}
       <div className="flex-1 flex flex-col gap-4 min-w-0">
+        {/* Buscador OT */}
+        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          {otSeleccionada ? (
+            <div className="flex items-center gap-3 px-4 py-3">
+              <span className="flex items-center gap-2 flex-1 text-sm font-medium text-emerald-700 bg-emerald-50 rounded-lg px-3 py-1.5 min-w-0">
+                <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.7-3.7a6 6 0 0 1-7.9 7.9l-6.9 6.9a2.1 2.1 0 0 1-3-3l6.9-6.9a6 6 0 0 1 7.9-7.9l-3.7 3.7z"/>
+                </svg>
+                <span className="truncate">OT #{otSeleccionada.num} — {otSeleccionada.nombre}</span>
+              </span>
+              <button onClick={deseleccionarOT} className="text-gray-400 hover:text-red-500 transition-colors p-1 flex-shrink-0">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          ) : (
+            <div className="p-4">
+              <button
+                onClick={() => setOtPanelOpen(o => !o)}
+                className="flex items-center gap-2 text-sm text-gray-500 hover:text-blue-600 transition-colors w-full text-left"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.7-3.7a6 6 0 0 1-7.9 7.9l-6.9 6.9a2.1 2.1 0 0 1-3-3l6.9-6.9a6 6 0 0 1 7.9-7.9l-3.7 3.7z"/>
+                </svg>
+                <span className="font-medium">Vincular OT</span>
+                {otsListas.length > 0 && (
+                  <span className="ml-1 text-xs bg-amber-100 text-amber-700 font-semibold rounded-full px-2 py-0.5">{otsListas.length} lista{otsListas.length !== 1 ? 's' : ''}</span>
+                )}
+                <svg className={`w-4 h-4 ml-auto transition-transform ${otPanelOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {otPanelOpen && (
+                <div className="mt-3">
+                  <div className="relative mb-2">
+                    <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    <input
+                      value={busquedaOT}
+                      onChange={e => setBusquedaOT(e.target.value)}
+                      placeholder="Buscar por N°, cliente o equipo…"
+                      className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:border-blue-400"
+                    />
+                  </div>
+                  {otsListas.length === 0 ? (
+                    <p className="text-sm text-gray-400 text-center py-3">No hay OTs en estado "Listo"</p>
+                  ) : (
+                    <ul className="border border-gray-100 rounded-lg overflow-hidden shadow-sm">
+                      {otResultados.map(ot => (
+                        <li key={ot.id}>
+                          <button
+                            onClick={() => seleccionarOT(ot)}
+                            className="w-full flex items-center gap-3 px-3 py-2.5 text-sm hover:bg-blue-50 transition-colors text-left border-b border-gray-50 last:border-0"
+                          >
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium text-gray-800">#{ot.num} — {ot.nombre} {ot.apellido ?? ''}</div>
+                              <div className="text-xs text-gray-400 truncate">{ot.modelo ?? ot.trabajo ?? ''}</div>
+                            </div>
+                            {ot.presup && <span className="text-xs font-semibold text-blue-700 flex-shrink-0">{fmt(+ot.presup)}</span>}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         {/* Buscador */}
         <div className="bg-white rounded-xl border border-gray-200 p-4">
           <div className="relative">
