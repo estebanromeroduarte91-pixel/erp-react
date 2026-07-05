@@ -1,8 +1,23 @@
 import type { ReactNode } from 'react'
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
+import { MobileTabBar } from './MobileTabBar'
+import { useIsMobile } from '@/lib/useIsMobile'
 
 export function Shell({ children }: { children: ReactNode }) {
+  const isMobile = useIsMobile()
+
+  if (isMobile) {
+    return (
+      <div style={{ minHeight: '100dvh', background: '#f2f2f7' }}>
+        <main style={{ paddingBottom: 72 }}>
+          {children}
+        </main>
+        <MobileTabBar />
+      </div>
+    )
+  }
+
   return (
     <div style={{ minHeight: '100vh', background: 'var(--gray-50)' }}>
       <Sidebar />

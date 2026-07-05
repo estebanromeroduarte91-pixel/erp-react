@@ -2,6 +2,7 @@ import { useMemo, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useVentas, useGastos, useOrdenes, useBodegas, useMetodosPago, useOCs } from '@/lib/queries'
 import { Spinner } from '@/components/shared/Spinner'
+import { useIsMobile } from '@/lib/useIsMobile'
 
 const fmt = (n: number) => '$' + Math.round(n).toLocaleString('es-CL')
 const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
@@ -244,8 +245,114 @@ export function DashboardPage() {
     }
   }, [ventas, gastos, ocs, ordenes, bodegas, mes, mesAnt, ultimos6])
 
+  const isMobile = useIsMobile()
+
   if (loadV || loadG || loadO || loadOC) {
     return <div className="flex justify-center py-16"><Spinner className="w-8 h-8" /></div>
+  }
+
+  if (isMobile) {
+    const maxBranch = Math.max(...stats.branchStats.map(b => b.total), 1)
+    return (
+      <div style={{ background: '#f2f2f7', minHeight: '100dvh' }}>
+        {/* Header */}
+        <div style={{ background: '#fff', padding: '16px 16px 12px', borderBottom: '0.5px solid #e5e7eb' }}>
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: '#1c1c1e', margin: '0 0 8px' }}>Dashboard</h1>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <div style={{ flex: 1, background: '#f2f2f7', borderRadius: 8, padding: '6px 10px', display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 11, color: '#8e8e93', fontWeight: 600 }}>UF</span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: '#1c1c1e' }}>{uf}</span>
+            </div>
+            <div style={{ flex: 1, background: '#f2f2f7', borderRadius: 8, padding: '6px 10px', display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 11, color: '#8e8e93', fontWeight: 600 }}>USD</span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: '#1c1c1e' }}>{usd}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* KPI scroll horizontal */}
+        <div style={{ display: 'flex', gap: 10, padding: '12px 16px', overflowX: 'auto', scrollbarWidth: 'none' }}>
+          {[
+            { label: 'Ventas', value: fmt(stats.totalVentasMes), curr: stats.totalVentasMes, prev: stats.totalVentasMesAnt, accent: '#007AFF' },
+            { label: 'Utilidad', value: fmt(stats.utilidad), curr: stats.utilidad, prev: stats.totalVentasMesAnt - stats.totalOcsMesAnt - stats.totalGastosMesAnt, accent: '#10b981' },
+            { label: 'Gastos', value: fmt(stats.totalGastosMes), curr: stats.totalGastosMes, prev: stats.totalGastosMesAnt, accent: '#ef4444', inverted: true },
+            { label: 'Compras', value: fmt(stats.totalOcsMes), curr: stats.totalOcsMes, prev: stats.totalOcsMesAnt, accent: '#f59e0b', inverted: true },
+            { label: 'OTs listas', value: String(stats.totalOTMes), curr: stats.totalOTMes, prev: stats.totalOTMesAnt, accent: '#8b5cf6' },
+          ].map(k => {
+            const pct = k.prev ? Math.round(Math.abs((k.curr - k.prev) / k.prev) * 100) : 0
+            const up = k.curr >= (k.prev || 0)
+            const good = k.inverted ? !up : up
+            return (
+              <div key={k.label} style={{ minWidth: 120, background: '#fff', borderRadius: 14, padding: '12px 14px', flexShrink: 0, position: 'relative', overflow: 'hidden' }}>
+                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: k.accent }} />
+                <p style={{ fontSize: 10, fontWeight: 600, color: '#8e8e93', textTransform: 'uppercase', letterSpacing: '.4px', margin: '6px 0 4px' }}>{k.label}</p>
+                <p style={{ fontSize: 17, fontWeight: 800, color: '#1c1c1e', margin: 0, lineHeight: 1 }}>{k.value}</p>
+                {k.prev ? (
+                  <span style={{ display: 'inline-block', fontSize: 10, fontWeight: 700, marginTop: 5, padding: '2px 6px', borderRadius: 20, background: good ? '#dcfce7' : '#fee2e2', color: good ? '#15803d' : '#dc2626' }}>
+                    {up ? '↑' : '↓'} {pct}%
+                  </span>
+                ) : null}
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Por sucursal */}
+        {stats.branchStats.length > 0 && (
+          <>
+            <p style={{ fontSize: 13, fontWeight: 700, color: '#8e8e93', textTransform: 'uppercase', letterSpacing: '.5px', padding: '0 16px', marginBottom: 8 }}>Por sucursal</p>
+            <div style={{ background: '#fff', borderRadius: 14, margin: '0 16px 12px', overflow: 'hidden' }}>
+              {stats.branchStats.map((b, i) => (
+                <div key={i} style={{ padding: '10px 14px', borderBottom: i < stats.branchStats.length - 1 ? '0.5px solid #f2f2f7' : 'none' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: '#1c1c1e' }}>{b.nombre}</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: '#1c1c1e' }}>{fmt(b.total)}</span>
+                  </div>
+                  <div style={{ height: 5, background: '#f2f2f7', borderRadius: 99, overflow: 'hidden' }}>
+                    <div style={{ height: '100%', background: b.color, width: `${Math.round(b.total / maxBranch * 100)}%`, borderRadius: 99 }} />
+                  </div>
+                  <div style={{ display: 'flex', gap: 12, marginTop: 5 }}>
+                    <span style={{ fontSize: 11, color: '#8e8e93' }}>OTs completadas: <strong style={{ color: '#1c1c1e' }}>{b.otComp}</strong></span>
+                    <span style={{ fontSize: 11, color: '#8e8e93' }}>Abiertas: <strong style={{ color: '#1c1c1e' }}>{b.otOpen}</strong></span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* Últimas ventas */}
+        <p style={{ fontSize: 13, fontWeight: 700, color: '#8e8e93', textTransform: 'uppercase', letterSpacing: '.5px', padding: '0 16px', marginBottom: 8 }}>Últimas ventas</p>
+        <div style={{ background: '#fff', borderRadius: 14, margin: '0 16px 12px', overflow: 'hidden' }}>
+          {stats.ultimasVentas.slice(0, 5).map((v, i) => (
+            <div key={v.id} style={{ display: 'flex', alignItems: 'center', padding: '10px 14px', borderBottom: i < 4 ? '0.5px solid #f2f2f7' : 'none', gap: 10 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#1c1c1e' }}>{v.numero}</div>
+                <div style={{ fontSize: 11, color: '#8e8e93' }}>{v.cliente}</div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#1c1c1e' }}>{fmt(+v.total_iva)}</div>
+                <span style={{ fontSize: 10, fontWeight: 700, color: '#007AFF', background: '#dbeafe', padding: '2px 6px', borderRadius: 99 }}>{getMpLabel(v.metodo_pago)}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Últimos gastos */}
+        <p style={{ fontSize: 13, fontWeight: 700, color: '#8e8e93', textTransform: 'uppercase', letterSpacing: '.5px', padding: '0 16px', marginBottom: 8 }}>Últimos gastos</p>
+        <div style={{ background: '#fff', borderRadius: 14, margin: '0 16px 20px', overflow: 'hidden' }}>
+          {stats.ultimosGastos.slice(0, 5).map((g, i) => (
+            <div key={g.id} style={{ display: 'flex', alignItems: 'center', padding: '10px 14px', borderBottom: i < 4 ? '0.5px solid #f2f2f7' : 'none', gap: 10 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#1c1c1e' }}>{g.descripcion}</div>
+                <div style={{ fontSize: 11, color: '#8e8e93' }}>{g.categoria} · {g.fecha}</div>
+              </div>
+              <span style={{ fontSize: 13, fontWeight: 700, color: '#ef4444' }}>{fmt(+g.monto)}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    )
   }
 
   const labels6 = ultimos6.map(m => m.label)

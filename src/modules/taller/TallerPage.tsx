@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useOrdenes, useTraslados, useGuardarOrden } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
+import { useIsMobile } from '@/lib/useIsMobile'
 import { EstadoBadge } from '@/components/shared/Badge'
 import { Money } from '@/components/shared/Money'
 import { Spinner } from '@/components/shared/Spinner'
@@ -130,6 +131,8 @@ export function TallerPage() {
     }
   }, [ordenes, derivadoIds])
 
+  const isMobile = useIsMobile()
+
   function abrirNueva() {
     setEditando(null)
     setModalOpen(true)
@@ -160,6 +163,108 @@ export function TallerPage() {
     return (
       <div className="rounded-xl bg-red-50 border border-red-200 p-6 text-red-700 text-sm">
         Error al cargar órdenes: {String(error)}
+      </div>
+    )
+  }
+
+  const STATUS_DOT: Record<string, string> = {
+    Chequeo: '#f59e0b', Reparación: '#8b5cf6', Listo: '#10b981',
+    Entregado: '#6b7280', 'No reparable': '#ef4444',
+  }
+
+  if (isMobile) {
+    return (
+      <div style={{ background: '#f2f2f7', minHeight: '100dvh' }}>
+        {/* Header */}
+        <div style={{ background: '#fff', padding: '16px 16px 10px', borderBottom: '0.5px solid #e5e7eb', position: 'sticky', top: 0, zIndex: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <h1 style={{ fontSize: 22, fontWeight: 700, color: '#1c1c1e', margin: 0 }}>Órdenes</h1>
+            <button
+              onClick={abrirNueva}
+              style={{ background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 10, padding: '7px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
+            >+ Nueva</button>
+          </div>
+          {/* Filtros */}
+          <div style={{ display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: 2 }}>
+            {ESTADOS_MAIN.map(e => (
+              <button
+                key={e.value}
+                onClick={() => setFiltroEstado(e.value)}
+                style={{
+                  flexShrink: 0, padding: '5px 12px', borderRadius: 99, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+                  fontSize: 12, fontWeight: 600,
+                  background: filtroEstado === e.value ? 'var(--primary)' : '#f2f2f7',
+                  color: filtroEstado === e.value ? '#fff' : '#6b7280',
+                }}
+              >{e.label}</button>
+            ))}
+          </div>
+        </div>
+
+        {/* Search */}
+        <div style={{ padding: '10px 16px 4px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fff', border: '0.5px solid #e5e7eb', borderRadius: 10, padding: '8px 12px' }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#8e8e93" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input
+              value={busqueda}
+              onChange={e => setBusqueda(e.target.value)}
+              placeholder="Buscar por cliente, modelo..."
+              style={{ border: 'none', background: 'none', fontSize: 14, color: '#1c1c1e', outline: 'none', flex: 1, fontFamily: 'inherit' }}
+            />
+          </div>
+        </div>
+
+        {/* Lista */}
+        <div style={{ padding: '8px 16px 16px' }}>
+          {lista.length === 0 ? (
+            <div style={{ textAlign: 'center', paddingTop: 48, color: '#8e8e93' }}>
+              <div style={{ fontSize: 40, marginBottom: 12 }}>🔧</div>
+              <p style={{ fontSize: 15, fontWeight: 600, color: '#3c3c43', margin: 0 }}>Sin órdenes</p>
+              <p style={{ fontSize: 13, marginTop: 4 }}>No hay órdenes con este filtro</p>
+            </div>
+          ) : (
+            <div style={{ background: '#fff', borderRadius: 14, overflow: 'hidden' }}>
+              {lista.map((o, i) => (
+                <button
+                  key={o.id}
+                  onClick={() => setDetalleNum(o.num)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+                    padding: '12px 14px', background: 'none', border: 'none', cursor: 'pointer',
+                    borderBottom: i < lista.length - 1 ? '0.5px solid #f2f2f7' : 'none',
+                    textAlign: 'left',
+                  }}
+                >
+                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: STATUS_DOT[o.status] ?? '#8e8e93', flexShrink: 0 }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: '#8e8e93', marginBottom: 1 }}>#{o.num}</div>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: '#1c1c1e', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{o.nombre}</div>
+                    <div style={{ fontSize: 12, color: '#8e8e93', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{o.modelo ?? o.trabajo ?? ''}</div>
+                  </div>
+                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: STATUS_DOT[o.status] ?? '#8e8e93', background: (STATUS_DOT[o.status] ?? '#888') + '18', padding: '3px 8px', borderRadius: 99, display: 'block', marginBottom: 4 }}>{o.status}</span>
+                    <span style={{ fontSize: 11, color: '#8e8e93' }}>{fmtFecha(o.fecha)}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Modales reutilizados del desktop */}
+        {modalOpen && (
+          <OrdenModal
+            orden={editando}
+            ordenes={ordenes ?? []}
+            onClose={() => setModalOpen(false)}
+          />
+        )}
+        {detalleNum && (
+          <OrdenDetallePage
+            num={detalleNum}
+            onClose={() => setDetalleNum(null)}
+          />
+        )}
       </div>
     )
   }

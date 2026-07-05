@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useVentas, useGastos, useOrdenes, useBodegas, useOCs } from '@/lib/queries'
 import { Spinner } from '@/components/shared/Spinner'
+import { useIsMobile } from '@/lib/useIsMobile'
 
 const fmt = (n: number) => '$' + Math.round(n).toLocaleString('es-CL')
 const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
@@ -192,6 +193,8 @@ export function EstadisticasPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ventas, gastos, ordenes, ocs, bodegas, range, last6])
 
+  const isMobile = useIsMobile()
+
   if (loadV || loadG || loadO || loadOC) return <div className="flex justify-center py-16"><Spinner className="w-8 h-8" /></div>
 
   const TABS: { id: Tab; label: string }[] = [
@@ -202,11 +205,11 @@ export function EstadisticasPage() {
   ]
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, ...(isMobile ? { padding: '0 0 8px' } : {}) }}>
 
       {/* Header + range selector */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-        <h2 style={{ fontSize: 18, fontWeight: 800, color: '#111827', margin: 0, marginRight: 'auto' }}>Estadísticas</h2>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', ...(isMobile ? { background: '#fff', padding: '16px 16px 12px', borderBottom: '0.5px solid #e5e7eb' } : {}) }}>
+        <h2 style={{ fontSize: isMobile ? 22 : 18, fontWeight: 800, color: '#111827', margin: 0, marginRight: 'auto' }}>Estadísticas</h2>
         <div style={{ display: 'flex', gap: 3, background: '#f1f5f9', borderRadius: 8, padding: 3 }}>
           {TABS.map(t => (
             <button
@@ -235,7 +238,7 @@ export function EstadisticasPage() {
       </div>
 
       {/* KPIs */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)', gap: 12 }}>
         <div style={CARD}>
           <p style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 4, marginTop: 0 }}>Ventas totales</p>
           <p style={{ fontSize: 26, fontWeight: 800, color: '#111827', lineHeight: 1.1, margin: 0 }}>{fmt(stats.totalVentas)}</p>
@@ -254,7 +257,7 @@ export function EstadisticasPage() {
       </div>
 
       {/* Row 2: ventas por suc / utilidad por suc / top productos */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: 12 }}>
 
         {/* Ventas por sucursal */}
         <div style={CARD}>
@@ -295,7 +298,7 @@ export function EstadisticasPage() {
       </div>
 
       {/* Row 3: gastos / compras / órdenes — últimos 6 meses */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: 12 }}>
 
         {/* Gastos por mes */}
         <div style={CARD}>
