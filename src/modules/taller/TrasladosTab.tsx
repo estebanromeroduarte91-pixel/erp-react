@@ -307,7 +307,7 @@ export function TrasladosTab() {
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
           </svg>
-          Nuevo traslado
+          Derivar OT
         </button>
       </div>
 
@@ -329,8 +329,8 @@ export function TrasladosTab() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50">
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">N°</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Equipo</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">OT</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Cliente / Equipo</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Técnico externo</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Envío</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Días fuera</th>
@@ -339,19 +339,24 @@ export function TrasladosTab() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {activosFiltrados.map((t) => (
+                {activosFiltrados.map((t) => {
+                  const ordenVinculada = ordenes?.find((o) => o.id === t.order_id)
+                  return (
                   <tr key={t.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-4 py-3 font-mono font-bold text-blue-600 text-xs">
-                      {String(t.numero || '—').padStart(4, '0')}
+                    <td className="px-4 py-3">
+                      {ordenVinculada ? (
+                        <span className="font-mono font-bold text-blue-600 text-sm">#{ordenVinculada.num}</span>
+                      ) : (
+                        <span className="text-xs text-gray-400">—</span>
+                      )}
                     </td>
                     <td className="px-4 py-3">
-                      <p className="font-medium text-gray-800">{t.equipo}</p>
-                      {t.cliente && <p className="text-xs text-gray-400">{t.cliente}</p>}
-                      {t.order_id && (
-                        <p className="text-xs text-gray-400">
-                          OT: {ordenes?.find((o) => o.id === t.order_id)?.num ?? t.order_id}
-                        </p>
-                      )}
+                      <p className="font-medium text-gray-800">
+                        {ordenVinculada ? [ordenVinculada.nombre, ordenVinculada.apellido].filter(Boolean).join(' ') : t.cliente || t.equipo}
+                      </p>
+                      <p className="text-xs text-gray-400">
+                        {ordenVinculada ? (ordenVinculada.modelo ?? t.equipo) : t.equipo}
+                      </p>
                     </td>
                     <td className="px-4 py-3">
                       <p className="font-medium text-gray-700">{t.tecnico}</p>
@@ -382,7 +387,8 @@ export function TrasladosTab() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -594,26 +600,38 @@ function TrasladoModal({
         <div className="overflow-y-auto px-6 py-4 space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2">
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Equipo / descripción *</label>
+              <label className="text-xs font-medium text-gray-600 mb-1 block">Orden de trabajo a derivar *</label>
+              <select value={form.order_id} onChange={(e) => {
+                const ot = ordenes.find(o => o.id === e.target.value)
+                setForm(f => ({
+                  ...f,
+                  order_id: e.target.value,
+                  cliente: ot ? [ot.nombre, ot.apellido].filter(Boolean).join(' ') : f.cliente,
+                  equipo: ot ? (ot.modelo ?? f.equipo) : f.equipo,
+                }))
+              }}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
+                <option value="">Seleccionar OT…</option>
+                {ordenes.filter((o) => o.status !== 'Entregado').map((o) => (
+                  <option key={o.id} value={o.id}>#{o.num} — {o.nombre} {o.apellido ?? ''} · {o.modelo ?? ''}</option>
+                ))}
+              </select>
+              {form.order_id && (() => {
+                const ot = ordenes.find(o => o.id === form.order_id)
+                return ot ? (
+                  <div className="mt-2 bg-blue-50 rounded-lg px-3 py-2 text-xs text-blue-700">
+                    <span className="font-semibold">{[ot.nombre, ot.apellido].filter(Boolean).join(' ')}</span>
+                    {ot.modelo && <span className="text-blue-500 ml-2">· {ot.modelo}</span>}
+                    {ot.trabajo && <span className="block text-blue-400 mt-0.5 truncate">{ot.trabajo}</span>}
+                  </div>
+                ) : null
+              })()}
+            </div>
+            <div className="col-span-2">
+              <label className="text-xs font-medium text-gray-600 mb-1 block">Equipo / descripción</label>
               <input value={form.equipo} onChange={(e) => set('equipo', e.target.value)}
                 placeholder="Ej: iPhone 14 Pro Max negro"
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Cliente</label>
-              <input value={form.cliente} onChange={(e) => set('cliente', e.target.value)}
-                placeholder="Nombre del cliente"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Orden de trabajo vinculada</label>
-              <select value={form.order_id} onChange={(e) => set('order_id', e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
-                <option value="">Sin vincular</option>
-                {ordenes.filter((o) => o.status !== 'Entregado').map((o) => (
-                  <option key={o.id} value={o.id}>#{o.num} — {o.nombre}</option>
-                ))}
-              </select>
             </div>
           </div>
 
