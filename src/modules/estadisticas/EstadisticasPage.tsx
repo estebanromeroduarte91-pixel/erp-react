@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useRef } from 'react'
 import { useVentas, useGastos, useOrdenes, useBodegas, useOCs } from '@/lib/queries'
 import { Spinner } from '@/components/shared/Spinner'
 import { useIsMobile } from '@/lib/useIsMobile'
@@ -14,6 +14,8 @@ function today() { return new Date().toISOString().slice(0, 10) }
 function getRange(tab: Tab, from: string, to: string): { from: string; to: string } {
   const t = today()
   if (tab === 'custom' && from && to) return { from, to }
+  if (tab === 'custom' && from) return { from, to: t }
+  if (tab === 'custom' && to) return { from: to, to }
   if (tab === '7d') {
     const d = new Date(t); d.setDate(d.getDate() - 6)
     return { from: d.toISOString().slice(0, 10), to: t }
@@ -109,6 +111,8 @@ export function EstadisticasPage() {
   const [tab, setTab] = useState<Tab>('mes')
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
+  const fromRef = useRef<HTMLInputElement>(null)
+  const toRef = useRef<HTMLInputElement>(null)
 
   const last6 = useMemo(() => getLast6(), [])
   const range = useMemo(() => getRange(tab, from, to), [tab, from, to])
@@ -225,15 +229,38 @@ export function EstadisticasPage() {
           ))}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 7, padding: '5px 9px' }}>
-            <input type="date" value={from} onChange={e => { setFrom(e.target.value); if (e.target.value && to) setTab('custom') }}
-              style={{ border: 'none', background: 'none', fontFamily: 'inherit', fontSize: 12, fontWeight: 600, color: '#374151', outline: 'none', cursor: 'pointer', width: 115 }} />
-          </label>
+          <div
+            onClick={() => fromRef.current?.showPicker()}
+            style={{ display: 'flex', alignItems: 'center', background: tab === 'custom' && from ? '#eff6ff' : '#f9fafb', border: `1px solid ${tab === 'custom' && from ? '#93c5fd' : '#e5e7eb'}`, borderRadius: 7, padding: '5px 9px', cursor: 'pointer' }}
+          >
+            <input
+              ref={fromRef}
+              type="date"
+              value={from}
+              onChange={e => {
+                setFrom(e.target.value)
+                setTab('custom')
+                if (e.target.value && !to) setTimeout(() => toRef.current?.showPicker(), 100)
+              }}
+              style={{ border: 'none', background: 'none', fontFamily: 'inherit', fontSize: 12, fontWeight: 600, color: '#374151', outline: 'none', cursor: 'pointer', width: 110, pointerEvents: 'none' }}
+            />
+          </div>
           <span style={{ fontSize: 11, color: '#d1d5db', fontWeight: 600 }}>→</span>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 7, padding: '5px 9px' }}>
-            <input type="date" value={to} onChange={e => { setTo(e.target.value); if (from && e.target.value) setTab('custom') }}
-              style={{ border: 'none', background: 'none', fontFamily: 'inherit', fontSize: 12, fontWeight: 600, color: '#374151', outline: 'none', cursor: 'pointer', width: 115 }} />
-          </label>
+          <div
+            onClick={() => toRef.current?.showPicker()}
+            style={{ display: 'flex', alignItems: 'center', background: tab === 'custom' && to ? '#eff6ff' : '#f9fafb', border: `1px solid ${tab === 'custom' && to ? '#93c5fd' : '#e5e7eb'}`, borderRadius: 7, padding: '5px 9px', cursor: 'pointer' }}
+          >
+            <input
+              ref={toRef}
+              type="date"
+              value={to}
+              onChange={e => {
+                setTo(e.target.value)
+                setTab('custom')
+              }}
+              style={{ border: 'none', background: 'none', fontFamily: 'inherit', fontSize: 12, fontWeight: 600, color: '#374151', outline: 'none', cursor: 'pointer', width: 110, pointerEvents: 'none' }}
+            />
+          </div>
         </div>
       </div>
 
