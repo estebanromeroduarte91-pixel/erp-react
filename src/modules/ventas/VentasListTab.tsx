@@ -38,7 +38,7 @@ export function VentasListTab() {
   const { esAdmin } = useAuth()
 
   const [busqueda, setBusqueda] = useState('')
-  const [filtroEstado, setFiltroEstado] = useState<'todas' | 'pagada' | 'anulada'>('todas')
+  const [filtroEstado, setFiltroEstado] = useState<'todas' | 'pagada' | 'anulada' | 'pendiente'>('todas')
   const [periodo, setPeriodo] = useState<Periodo>('mes')
   const [desde, setDesde] = useState('')
   const [hasta, setHasta] = useState('')
@@ -69,6 +69,15 @@ export function VentasListTab() {
     }, 0)
   }
 
+  const historico = useMemo(() => {
+    const todas = (ventas ?? []).filter(v => v.estado === 'pagada')
+    return {
+      count: todas.length,
+      total: todas.reduce((s, v) => s + (v.total_iva ?? 0), 0),
+      utilidad: calcUtilidad(todas),
+    }
+  }, [ventas, prodsMap])
+
   const activas = useMemo(() => (ventas ?? []).filter(v => v.estado !== 'anulada'), [ventas])
   const periodoFiltrado = useMemo(() => filtrarPorFecha(activas, periodo, desde, hasta), [activas, periodo, desde, hasta])
 
@@ -89,9 +98,9 @@ export function VentasListTab() {
 
   const lista = useMemo(() => {
     let arr = [...(ventas ?? [])].sort((a, b) => b.fecha.localeCompare(a.fecha))
-    const base = filtrarPorFecha(arr.filter(v => v.estado !== 'anulada' || filtroEstado === 'anulada' || filtroEstado === 'todas' ? true : false), periodo, desde, hasta)
-    let filtered = filtroEstado === 'todas' ? filtrarPorFecha(arr, periodo, desde, hasta) : filtrarPorFecha(arr.filter(v => v.estado === filtroEstado), periodo, desde, hasta)
-    void base
+    let filtered = filtroEstado === 'todas'
+      ? filtrarPorFecha(arr, periodo, desde, hasta)
+      : filtrarPorFecha(arr.filter(v => v.estado === filtroEstado), periodo, desde, hasta)
     if (busqueda.trim()) {
       const q = busqueda.toLowerCase().replace(/[.\-]/g, '')
       filtered = filtered.filter(v =>
@@ -174,31 +183,52 @@ export function VentasListTab() {
         </div>
       </div>
 
-      {/* Desglose métodos de pago */}
-      {metodosSorted.length > 0 && (
+      {/* 2-col: Métodos de pago | Resumen histórico */}
+      <div className="grid grid-cols-2 gap-4">
         <div className="bg-white rounded-xl border border-gray-200 p-4">
           <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">Métodos de pago — {PERIODO_LABEL[periodo]}</p>
-          <div className="space-y-3">
-            {metodosSorted.map(([k, { total, count }]) => {
-              const pct = totalVentas > 0 ? Math.round(total / totalVentas * 100) : 0
-              return (
-                <div key={k}>
-                  <div className="flex justify-between items-center mb-1">
-                    <span className="text-sm font-semibold text-gray-700">{mpMap[k] ?? k}</span>
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs text-gray-400">{count} venta{count !== 1 ? 's' : ''} · {pct}%</span>
-                      <span className="text-sm font-bold text-gray-900">{fmt(total)}</span>
+          {metodosSorted.length === 0 ? (
+            <p className="text-xs text-gray-400">Sin ventas en este período</p>
+          ) : (
+            <div className="space-y-3">
+              {metodosSorted.map(([k, { total, count }]) => {
+                const pct = totalVentas > 0 ? Math.round(total / totalVentas * 100) : 0
+                return (
+                  <div key={k}>
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-sm font-semibold text-gray-700">{mpMap[k] ?? k}</span>
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs text-gray-400">{count} venta{count !== 1 ? 's' : ''} · {pct}%</span>
+                        <span className="text-sm font-bold text-gray-900">{fmt(total)}</span>
+                      </div>
+                    </div>
+                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-blue-600 rounded-full transition-all" style={{ width: `${pct}%` }} />
                     </div>
                   </div>
-                  <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                    <div className="h-full bg-blue-600 rounded-full transition-all" style={{ width: `${pct}%` }} />
-                  </div>
-                </div>
-              )
-            })}
+                )
+              })}
+            </div>
+          )}
+        </div>
+        <div className="bg-white rounded-xl border border-gray-200 p-4">
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">Resumen histórico</p>
+          <div className="space-y-4">
+            <div>
+              <p className="text-xs text-gray-400 mb-0.5">Total ventas registradas</p>
+              <p className="text-2xl font-extrabold text-gray-900">{historico.count}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-400 mb-0.5">Acumulado histórico</p>
+              <p className="text-2xl font-extrabold text-emerald-600">{fmt(historico.total)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-400 mb-0.5">Utilidad histórica total</p>
+              <p className={`text-2xl font-extrabold ${historico.utilidad >= 0 ? 'text-violet-600' : 'text-red-500'}`}>{fmt(historico.utilidad)}</p>
+            </div>
           </div>
         </div>
-      )}
+      </div>
 
       {/* Tabla */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
@@ -212,11 +242,11 @@ export function VentasListTab() {
               className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:border-blue-400" />
           </div>
           <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
-            {(['todas', 'pagada', 'anulada'] as const).map(e => (
+            {([['todas', 'Todas'], ['pagada', 'Pagadas'], ['pendiente', 'Pendiente'], ['anulada', 'Anuladas']] as const).map(([e, lbl]) => (
               <button key={e} onClick={() => { setFiltroEstado(e); setPage(PAGE_SIZE) }}
                 className={['px-3 py-1.5 text-sm font-medium rounded-lg transition',
                   filtroEstado === e ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'].join(' ')}>
-                {e === 'todas' ? 'Todas' : e === 'pagada' ? 'Pagadas' : 'Anuladas'}
+                {lbl}
               </button>
             ))}
           </div>

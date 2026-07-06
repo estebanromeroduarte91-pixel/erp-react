@@ -52,11 +52,15 @@ export function POSTab() {
   const [otSeleccionada, setOtSeleccionada] = useState<Orden | null>(null)
   const [otPanelOpen, setOtPanelOpen] = useState(false)
   const [cliente, setCliente] = useState('')
+  const [clienteRut, setClienteRut] = useState('')
+  const [clienteTel, setClienteTel] = useState('')
+  const [clienteEmail, setClienteEmail] = useState('')
   const [tipoDoc, setTipoDoc] = useState<'boleta' | 'factura' | 'ticket'>('boleta')
-  const [cobrarOpen, setCobrarOpen] = useState(false)
   const [metodoSel, setMetodoSel] = useState<string>('')
   const [guardando, setGuardando] = useState(false)
   const busRef = useRef<HTMLInputElement>(null)
+
+  const metodoActual = metodoSel || metodos?.[0]?.id || ''
 
   const sesionAbierta = useMemo(() => sesiones?.find(s => s.fecha === today() && s.estado === 'abierta'), [sesiones])
   const cajaAbierta = useMemo(() => sesionAbierta ? cajas?.find(c => c.id === sesionAbierta.cajaId) : undefined, [sesionAbierta, cajas])
@@ -144,16 +148,23 @@ export function POSTab() {
     setOtSeleccionada(null)
     setItems([])
     setCliente('')
+    setClienteRut('')
+    setClienteTel('')
+    setClienteEmail('')
   }
 
-  function abrirCobrar() {
-    if (!items.length) return
-    setMetodoSel(metodos?.[0]?.id ?? 'efectivo')
-    setCobrarOpen(true)
+  function limpiarCarrito() {
+    setItems([])
+    setBusqueda('')
+    setCliente('')
+    setClienteRut('')
+    setClienteTel('')
+    setClienteEmail('')
+    setOtSeleccionada(null)
   }
 
   async function confirmarVenta() {
-    if (!metodoSel) return
+    if (!metodoActual || !items.length) return
     setGuardando(true)
     try {
       const nextNum = await incrementarContador.mutateAsync()
@@ -164,7 +175,7 @@ export function POSTab() {
         fecha: today(),
         estado: 'pagada',
         cliente: cliente.trim() || 'Cliente genérico',
-        metodo_pago: metodoSel,
+        metodo_pago: metodoActual,
         tipo_doc: tipoDoc,
         branchId: cajaAbierta?.sucursalId ?? '',
         branchNombre: '',
@@ -226,7 +237,9 @@ export function POSTab() {
       }
       setItems([])
       setCliente('')
-      setCobrarOpen(false)
+      setClienteRut('')
+      setClienteTel('')
+      setClienteEmail('')
       setBusqueda('')
     } finally {
       setGuardando(false)
@@ -402,125 +415,137 @@ export function POSTab() {
         </div>
       </div>
 
-      {/* Panel derecho: resumen + cobrar */}
-      <div className="w-72 flex flex-col gap-4 flex-shrink-0">
-        {/* Cliente */}
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <label className="text-xs font-semibold text-gray-500 uppercase block mb-2">Cliente</label>
-          <input
-            value={cliente}
-            onChange={e => setCliente(e.target.value)}
-            placeholder="Cliente genérico"
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400"
-          />
-        </div>
+      {/* Panel derecho */}
+      <div className="w-72 flex flex-col flex-shrink-0 bg-gray-50 rounded-xl border border-gray-200 overflow-hidden">
+        <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
 
-        {/* Tipo de documento */}
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <label className="text-xs font-semibold text-gray-500 uppercase block mb-2">Documento</label>
-          <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
-            {([['boleta', 'Boleta'], ['factura', 'Factura'], ['ticket', 'Sin doc.']] as const).map(([val, lbl]) => (
-              <button
-                key={val}
-                onClick={() => setTipoDoc(val)}
-                className={['flex-1 py-1.5 text-xs font-semibold rounded-md transition',
-                  tipoDoc === val ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'].join(' ')}
-              >{lbl}</button>
-            ))}
+          {/* Cliente */}
+          <div>
+            <label className="text-xs font-semibold text-gray-500 uppercase block mb-1.5">Cliente</label>
+            <input
+              value={cliente}
+              onChange={e => setCliente(e.target.value)}
+              placeholder="Cliente genérico"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:border-blue-400"
+            />
+            {cliente.trim() && (
+              <div className="mt-2 flex flex-col gap-1.5">
+                <input
+                  value={clienteRut}
+                  onChange={e => setClienteRut(e.target.value)}
+                  placeholder="RUT (ej: 12.345.678-9)"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs bg-white focus:outline-none focus:border-blue-400"
+                />
+                <input
+                  value={clienteTel}
+                  onChange={e => setClienteTel(e.target.value)}
+                  placeholder="Teléfono"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs bg-white focus:outline-none focus:border-blue-400"
+                />
+                <input
+                  value={clienteEmail}
+                  onChange={e => setClienteEmail(e.target.value)}
+                  placeholder="Email"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs bg-white focus:outline-none focus:border-blue-400"
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Método de pago */}
+          <div>
+            <label className="text-xs font-semibold text-gray-500 uppercase block mb-1.5">Método de pago</label>
+            <div className="flex flex-col gap-1.5">
+              {(metodos ?? []).map(m => {
+                const active = metodoActual === m.id
+                return (
+                  <button
+                    key={m.id}
+                    onClick={() => setMetodoSel(m.id)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 10,
+                      padding: '10px 12px', borderRadius: 10, width: '100%',
+                      textAlign: 'left', cursor: 'pointer', transition: 'all .15s',
+                      border: active ? '2px solid #3b82f6' : '1.5px solid #e5e7eb',
+                      background: active ? '#eff6ff' : '#fff',
+                    }}
+                  >
+                    <span style={{ color: active ? '#2563eb' : '#6b7280', flexShrink: 0 }}>
+                      <IconoMetodo id={m.id} />
+                    </span>
+                    <span style={{ flex: 1 }}>
+                      <span style={{ display: 'block', fontWeight: 600, fontSize: 13, color: active ? '#1d4ed8' : '#111827' }}>{m.label}</span>
+                      {m.desc && <span style={{ display: 'block', fontSize: 11, color: '#9ca3af' }}>{m.desc}</span>}
+                    </span>
+                    {active && (
+                      <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#3b82f6" strokeWidth={2.5} style={{ flexShrink: 0 }}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Tipo de documento */}
+          <div>
+            <label className="text-xs font-semibold text-gray-500 uppercase block mb-1.5">Documento</label>
+            <div className="flex gap-1 bg-gray-200 p-1 rounded-lg">
+              {([['boleta', 'Boleta'], ['factura', 'Factura'], ['ticket', 'Sin doc.']] as const).map(([val, lbl]) => (
+                <button
+                  key={val}
+                  onClick={() => setTipoDoc(val)}
+                  className={['flex-1 py-1.5 text-xs font-semibold rounded-md transition',
+                    tipoDoc === val ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'].join(' ')}
+                >{lbl}</button>
+              ))}
+            </div>
+          </div>
+
+          {/* Totales */}
+          <div className="border-t border-gray-200 pt-3">
+            <div className="space-y-1.5 text-sm">
+              <div className="flex justify-between text-gray-500">
+                <span>Subtotal neto</span>
+                <span>{fmt(totalNeto)}</span>
+              </div>
+              <div className="flex justify-between text-gray-500">
+                <span>IVA 19%</span>
+                <span>{fmt(totalIva - totalNeto)}</span>
+              </div>
+              <div className="flex justify-between font-bold text-base text-gray-900 pt-1.5 border-t border-gray-200 mt-1.5">
+                <span>Total</span>
+                <span className="text-blue-700">{fmt(totalIva)}</span>
+              </div>
+            </div>
+            {sesionAbierta && (
+              <div className="mt-3 text-xs text-gray-400 bg-green-50 rounded-lg px-3 py-2 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
+                Caja abierta — {cajaAbierta?.nombre ?? 'Sin nombre'}
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Resumen */}
-        <div className="bg-white rounded-xl border border-gray-200 p-4 flex-1">
-          <p className="text-xs font-semibold text-gray-500 uppercase mb-4">Resumen</p>
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between text-gray-600">
-              <span>Subtotal (neto)</span>
-              <span>{fmt(totalNeto)}</span>
-            </div>
-            <div className="flex justify-between text-gray-600">
-              <span>IVA (19%)</span>
-              <span>{fmt(totalIva - totalNeto)}</span>
-            </div>
-            <div className="flex justify-between font-bold text-lg text-gray-900 border-t border-gray-100 pt-3 mt-3">
-              <span>Total</span>
-              <span className="text-blue-700">{fmt(totalIva)}</span>
-            </div>
-          </div>
-
-          {sesionAbierta && (
-            <div className="mt-4 text-xs text-gray-400 bg-green-50 rounded-lg px-3 py-2 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
-              Caja abierta — {cajaAbierta?.nombre ?? 'Sin nombre'}
-            </div>
-          )}
+        {/* Footer acciones */}
+        <div className="p-4 border-t border-gray-200 bg-white flex flex-col gap-2">
+          <button
+            onClick={confirmarVenta}
+            disabled={!items.length || guardando}
+            className="w-full bg-gray-900 text-white font-bold py-3.5 rounded-xl text-base hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition"
+          >
+            {guardando ? 'Registrando…' : `Cobrar ${items.length > 0 ? fmt(totalIva) : ''}`}
+          </button>
+          <button
+            onClick={limpiarCarrito}
+            disabled={!items.length && !cliente}
+            className="w-full text-xs text-gray-400 hover:text-gray-600 py-1 transition disabled:opacity-30"
+          >
+            Limpiar carrito
+          </button>
         </div>
-
-        {/* Botón cobrar */}
-        <button
-          onClick={abrirCobrar}
-          disabled={!items.length}
-          className="w-full bg-blue-600 text-white font-bold py-4 rounded-xl text-lg hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition"
-        >
-          Cobrar {items.length > 0 ? fmt(totalIva) : ''}
-        </button>
       </div>
-
-      {/* Modal cobrar */}
-      {cobrarOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-        >
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm flex flex-col">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-              <h3 className="text-base font-bold text-gray-900">Confirmar cobro</h3>
-              <button onClick={() => setCobrarOpen(false)} className="text-gray-400 hover:text-gray-600 p-1">
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <div className="px-6 py-5 flex flex-col gap-5">
-              <div className="text-center">
-                <p className="text-xs text-gray-400 mb-1">Total a cobrar</p>
-                <p className="text-4xl font-extrabold text-blue-700">{fmt(totalIva)}</p>
-                <p className="text-xs text-gray-400 mt-1">{items.length} producto(s)</p>
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Método de pago</p>
-                <div className="flex gap-2 flex-wrap">
-                  {(metodos ?? []).map(m => (
-                    <button
-                      key={m.id}
-                      onClick={() => setMetodoSel(m.id)}
-                      className={[
-                        'flex-1 min-w-[80px] py-3 px-2 rounded-xl border-2 text-sm font-semibold transition',
-                        metodoSel === m.id
-                          ? 'border-blue-600 bg-blue-50 text-blue-700'
-                          : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300',
-                      ].join(' ')}
-                    >
-                      <span className="block mb-1"><IconoMetodo id={m.id} /></span>
-                      {m.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-            <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-100 bg-gray-50 rounded-b-2xl">
-              <button
-                onClick={() => setCobrarOpen(false)}
-                className="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-100 transition"
-              >Cancelar</button>
-              <button
-                onClick={confirmarVenta}
-                disabled={!metodoSel || guardando}
-                className="px-5 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition"
-              >{guardando ? 'Guardando…' : 'Registrar venta'}</button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

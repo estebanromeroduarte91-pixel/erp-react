@@ -175,7 +175,7 @@ export interface Venta {
   id: string
   numero: string          // 'VTA-00001'
   fecha: string           // 'YYYY-MM-DD'
-  estado: 'pagada' | 'anulada'
+  estado: 'pagada' | 'anulada' | 'pendiente'
   cliente: string
   metodo_pago: string     // id del método ('efectivo', 'tarjeta', 'transfer')
   branchId: string
