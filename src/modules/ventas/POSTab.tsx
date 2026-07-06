@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef } from 'react'
-import { useProductos, useVentas, useGuardarVentas, useMetodosPago, useCajaSesiones, useCajas, useIncrementarContadorVenta, useOrdenes, useGuardarOrden } from '@/lib/queries'
+import { useProductos, useGuardarProductos, useVentas, useGuardarVentas, useMetodosPago, useCajaSesiones, useCajas, useIncrementarContadorVenta, useOrdenes, useGuardarOrden, useMovimientos, useGuardarMovimientos } from '@/lib/queries'
 import type { VentaItem, Venta, Orden } from '@/types'
 
 const IVA = 0.19
@@ -34,13 +34,16 @@ function lineNeto(it: VentaItem) {
 
 export function POSTab() {
   const { data: productos } = useProductos()
+  const guardarProductos = useGuardarProductos()
   const { data: ventas } = useVentas()
   const { data: ordenes } = useOrdenes()
   const { data: metodos } = useMetodosPago()
   const { data: sesiones } = useCajaSesiones()
   const { data: cajas } = useCajas()
+  const { data: movimientos } = useMovimientos()
   const guardarVentas = useGuardarVentas()
   const guardarOrden = useGuardarOrden()
+  const guardarMovimientos = useGuardarMovimientos()
   const incrementarContador = useIncrementarContadorVenta()
 
   const [items, setItems] = useState<VentaItem[]>([])
@@ -49,6 +52,7 @@ export function POSTab() {
   const [otSeleccionada, setOtSeleccionada] = useState<Orden | null>(null)
   const [otPanelOpen, setOtPanelOpen] = useState(false)
   const [cliente, setCliente] = useState('')
+  const [tipoDoc, setTipoDoc] = useState<'boleta' | 'factura' | 'ticket'>('boleta')
   const [cobrarOpen, setCobrarOpen] = useState(false)
   const [metodoSel, setMetodoSel] = useState<string>('')
   const [guardando, setGuardando] = useState(false)
@@ -161,6 +165,7 @@ export function POSTab() {
         estado: 'pagada',
         cliente: cliente.trim() || 'Cliente genérico',
         metodo_pago: metodoSel,
+        tipo_doc: tipoDoc,
         branchId: cajaAbierta?.sucursalId ?? '',
         branchNombre: '',
         bodega_id: cajaAbierta?.bodegaId ?? '',
@@ -182,6 +187,30 @@ export function POSTab() {
         fecha_creacion: today(),
       }
       await guardarVentas.mutateAsync([...(ventas ?? []), venta])
+
+      // Movimiento de inventario: salida por venta
+      const prodsSalida = venta.items.filter(it => it.producto_id && it.producto_id !== 'ot-servicio' && !it.producto_id.startsWith('rep-'))
+      if (prodsSalida.length > 0) {
+        const hora = new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })
+        const mov = {
+          id: uid(), fecha: today(), hora,
+          tipo: 'salida' as const,
+          productos: prodsSalida.map(it => ({ producto_id: it.producto_id!, producto_nombre: it.producto_nombre, cantidad: it.cantidad })),
+          bodega_origen: cajaAbierta ? (cajaAbierta.nombre ?? '') : '',
+          referencia: venta.numero,
+          referencia_id: venta.id,
+          notas: 'Venta registrada',
+        }
+        await guardarMovimientos.mutateAsync([mov, ...(movimientos ?? [])])
+        // Descontar stock de productos
+        const prodsActualizados = (productos ?? []).map(p => {
+          const vendido = prodsSalida.find(it => it.producto_id === p.id)
+          if (!vendido) return p
+          return { ...p, stock: Math.max(0, (p.stock ?? 0) - vendido.cantidad) }
+        })
+        await guardarProductos.mutateAsync(prodsActualizados)
+      }
+
       if (otSeleccionada) {
         const ordenActualizada = {
           ...otSeleccionada,
@@ -384,6 +413,21 @@ export function POSTab() {
             placeholder="Cliente genérico"
             className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400"
           />
+        </div>
+
+        {/* Tipo de documento */}
+        <div className="bg-white rounded-xl border border-gray-200 p-4">
+          <label className="text-xs font-semibold text-gray-500 uppercase block mb-2">Documento</label>
+          <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
+            {([['boleta', 'Boleta'], ['factura', 'Factura'], ['ticket', 'Sin doc.']] as const).map(([val, lbl]) => (
+              <button
+                key={val}
+                onClick={() => setTipoDoc(val)}
+                className={['flex-1 py-1.5 text-xs font-semibold rounded-md transition',
+                  tipoDoc === val ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'].join(' ')}
+              >{lbl}</button>
+            ))}
+          </div>
         </div>
 
         {/* Resumen */}

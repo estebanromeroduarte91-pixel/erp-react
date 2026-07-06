@@ -185,6 +185,7 @@ export interface Venta {
   otId: string | null
   otNum: string | null
   items: VentaItem[]
+  tipo_doc?: 'boleta' | 'factura' | 'ticket'
   total: number           // neto
   total_iva: number       // con IVA
   fecha_creacion: string
