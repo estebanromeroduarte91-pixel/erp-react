@@ -5,7 +5,7 @@ import { useAuth } from '@/context/AuthContext'
 import {
   useOCs, useGuardarOCs, useOCLog, useGuardarOCLog,
   useIncrementarContadorOC, useProductos, useBodegas,
-  useProveedores, useGuardarProductos,
+  useProveedores, useGuardarProveedores, useGuardarProductos,
   usePlanCuentas, useAsientos, useGuardarAsientos,
 } from '@/lib/queries'
 import { asientoDeOC, asientoIdDeOC, nextNumeroAsiento } from '@/lib/contabilidad'
@@ -285,10 +285,84 @@ function newItem(): OCItem {
   return { id: uid(), producto_id: '', producto_nombre: '', cantidad: 1, precio_neto: 0, precio_iva: 0, precio_unitario: 0, subtotal: 0, bodega_id: '', bodega_nombre: '' }
 }
 
+// ─── Sub-modal: Nuevo Proveedor ───────────────────────────────
+
+function ModalNuevoProveedor({
+  onGuardar,
+  onClose,
+}: {
+  onGuardar: (data: { nombre: string; rut?: string; telefono?: string; email?: string }) => void
+  onClose: () => void
+}) {
+  const [nombre, setNombre] = useState('')
+  const [rut, setRut] = useState('')
+  const [telefono, setTelefono] = useState('')
+  const [email, setEmail] = useState('')
+
+  const labelStyle: React.CSSProperties = { display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--gray-700)', marginBottom: 4 }
+
+  function handleGuardar() {
+    if (!nombre.trim()) return alert('El nombre del proveedor es requerido')
+    onGuardar({
+      nombre: nombre.trim(),
+      rut: rut.trim() || undefined,
+      telefono: telefono.trim() || undefined,
+      email: email.trim() || undefined,
+    })
+  }
+
+  return (
+    <div
+      style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(0,0,0,.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 420, boxShadow: '0 20px 60px rgba(0,0,0,.25)' }}>
+        <div style={{ padding: '16px 22px', borderBottom: '1px solid var(--gray-100)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>Nuevo proveedor</h3>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: 'var(--gray-500)', lineHeight: 1 }}>×</button>
+        </div>
+        <div style={{ padding: '18px 22px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div>
+            <label style={labelStyle}>Nombre <span style={{ color: 'var(--danger, #dc2626)' }}>*</span></label>
+            <input
+              autoFocus value={nombre} onChange={e => setNombre(e.target.value)}
+              placeholder="Nombre del proveedor" style={{ width: '100%' }}
+              onKeyDown={e => { if (e.key === 'Enter') handleGuardar() }}
+            />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={labelStyle}>RUT</label>
+              <input value={rut} onChange={e => setRut(e.target.value)} placeholder="12.345.678-9" style={{ width: '100%' }} />
+            </div>
+            <div>
+              <label style={labelStyle}>Teléfono</label>
+              <input value={telefono} onChange={e => setTelefono(e.target.value)} placeholder="+56 9 …" style={{ width: '100%' }} />
+            </div>
+          </div>
+          <div>
+            <label style={labelStyle}>Email</label>
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="proveedor@empresa.com" style={{ width: '100%' }} />
+          </div>
+        </div>
+        <div style={{ padding: '14px 22px', borderTop: '1px solid var(--gray-100)', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <button onClick={onClose} style={{ padding: '9px 20px', border: '1.5px solid var(--gray-300)', borderRadius: 8, background: '#fff', cursor: 'pointer', fontWeight: 600 }}>Cancelar</button>
+          <button onClick={handleGuardar} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 20px', background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}>
+            <svg style={{ width: 15, height: 15 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+            Guardar y seleccionar
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Modal: Nueva / Editar OC ─────────────────────────────────
 
 function ModalNuevaOC({
-  ocEdit, proveedores, bodegas, productos, onSave, onClose,
+  ocEdit, proveedores, bodegas, productos, onSave, onClose, onCrearProveedor,
 }: {
   ocEdit?: OC
   proveedores: Proveedor[]
@@ -296,8 +370,10 @@ function ModalNuevaOC({
   productos: Producto[]
   onSave: (data: Partial<OC> & { id?: string }) => void
   onClose: () => void
+  onCrearProveedor: (data: { nombre: string; rut?: string; telefono?: string; email?: string }) => Promise<Proveedor>
 }) {
   const [prov, setProv] = useState({ id: ocEdit?.proveedor_id ?? '', nombre: ocEdit?.proveedor_nombre ?? '' })
+  const [nuevoProvOpen, setNuevoProvOpen] = useState(false)
   const [bodegaDef, setBodegaDef] = useState({ id: ocEdit?.bodega_id ?? '', nombre: ocEdit?.bodega_nombre ?? '' })
   const [fecha, setFecha] = useState(ocEdit?.fecha ?? today())
   const [fechaEntrega, setFechaEntrega] = useState(ocEdit?.fecha_entrega ?? '')
@@ -347,7 +423,17 @@ function ModalNuevaOC({
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
             <div>
               <label style={labelStyle}>Proveedor <span style={{ color: 'var(--danger, #dc2626)' }}>*</span></label>
-              <ProveedorCombo value={prov} onChange={setProv} proveedores={proveedores} />
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <ProveedorCombo value={prov} onChange={setProv} proveedores={proveedores} />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setNuevoProvOpen(true)}
+                  title="Agregar nuevo proveedor"
+                  style={{ flexShrink: 0, height: 36, padding: '0 10px', border: '1.5px solid var(--gray-300)', borderRadius: 8, background: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 20, color: 'var(--primary)', lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                >+</button>
+              </div>
             </div>
             <div>
               <label style={labelStyle}>Bodega por defecto <span style={{ fontSize: 11, color: 'var(--gray-400)', fontWeight: 400, textTransform: 'none' }}>(se aplica a todas las líneas)</span></label>
@@ -412,6 +498,16 @@ function ModalNuevaOC({
           </button>
         </div>
       </div>
+      {nuevoProvOpen && (
+        <ModalNuevoProveedor
+          onGuardar={async data => {
+            const nuevo = await onCrearProveedor(data)
+            setProv({ id: nuevo.id, nombre: nuevo.nombre })
+            setNuevoProvOpen(false)
+          }}
+          onClose={() => setNuevoProvOpen(false)}
+        />
+      )}
     </div>
   )
 }
@@ -976,6 +1072,7 @@ export function ComprasPage() {
   const guardarOCs = useGuardarOCs()
   const guardarOCLog = useGuardarOCLog()
   const incrementarContador = useIncrementarContadorOC()
+  const guardarProveedores = useGuardarProveedores()
   const guardarProductos = useGuardarProductos()
   const { data: planCuentas } = usePlanCuentas()
   const { data: asientos } = useAsientos()
@@ -991,6 +1088,12 @@ export function ComprasPage() {
   function showToast(msg: string) {
     setToast(msg)
     setTimeout(() => setToast(null), 2500)
+  }
+
+  async function handleCrearProveedor(data: { nombre: string; rut?: string; telefono?: string; email?: string }): Promise<Proveedor> {
+    const nuevo: Proveedor = { id: uid(), nombre: data.nombre, rut: data.rut, telefono: data.telefono, email: data.email, fecha_creacion: today() }
+    await guardarProveedores.mutateAsync([...proveedores, nuevo])
+    return nuevo
   }
 
   const counts: Partial<Record<FiltroTab, number>> = {
@@ -1299,6 +1402,7 @@ export function ComprasPage() {
           productos={productos}
           onSave={handleSaveOC}
           onClose={() => setModal({ type: 'none' })}
+          onCrearProveedor={handleCrearProveedor}
         />
       )}
       {modal.type === 'recibir' && modalOC && (
