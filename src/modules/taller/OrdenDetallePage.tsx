@@ -5,7 +5,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useOrdenes, useGuardarOrden, useMsgTemplates, useSeguimientoConfig, useChecklist, useProductos, useGuardarProductos, useBodegas, useTraslados } from '@/lib/queries'
 import { DerivarModal } from './DerivarModal'
 import { useAuth } from '@/context/AuthContext'
-import { sendEmail, buildEmailAprobacion, buildEmailInspeccion, buildEmailListo } from '@/lib/email'
+import { sendEmail, buildEmailIngreso, buildEmailAprobacion, buildEmailInspeccion, buildEmailListo } from '@/lib/email'
 import { supabase } from '@/lib/supabase'
 import { EstadoBadge } from '@/components/shared/Badge'
 import { Money } from '@/components/shared/Money'
@@ -54,6 +54,8 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
   const [checkItems, setCheckItems] = useState<CheckItem[]>([])
   const [enviandoEmail, setEnviandoEmail] = useState(false)
   const [emailOk, setEmailOk] = useState(false)
+  const [enviandoEmailDirecto, setEnviandoEmailDirecto] = useState(false)
+  const [emailOkDirecto, setEmailOkDirecto] = useState(false)
   const [aprobEnviando, setAprobEnviando] = useState(false)
   const [aprobMsg, setAprobMsg] = useState<{ msg: string; type: 'ok' | 'err' } | null>(null)
 
@@ -201,6 +203,62 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
   function enviarWhatsApp() {
     if (!notif?.waMsg || !orden.tel) return
     window.open(`https://wa.me/${orden.tel.replace(/\D/g, '')}?text=${encodeURIComponent(notif.waMsg)}`, '_blank')
+  }
+
+  async function enviarEmailDirecto() {
+    if (!orden.email || !empresaId || enviandoEmailDirecto) return
+    setEnviandoEmailDirecto(true)
+    try {
+      const vars = buildVars()
+      const branch = bodegas.find(b => b.id === orden.branchId)
+      const branchNombre = branch?.nombre ?? branch?.name ?? segCfg?.nombreTaller ?? ''
+      const tallerNombre = segCfg?.nombreTaller ?? 'TallerPro'
+      const status = orden.status as EstadoOrden
+
+      let asunto: string
+      let html: string
+
+      if (status === 'Listo' || status === 'Entregado') {
+        const msgTexto = msgTemplates?.listo_email
+          ? rellenarTemplate(msgTemplates.listo_email, vars)
+          : `Hola ${orden.nombre}, tu ${orden.modelo ?? 'equipo'} ${status === 'Listo' ? 'está listo para retirar' : 'ha sido entregado'}.`
+        asunto = asuntoListo(status)
+        html = buildListoHtml(msgTexto)
+      } else if (status === 'Chequeo') {
+        const msgTexto = msgTemplates?.ingreso_email
+          ? rellenarTemplate(msgTemplates.ingreso_email, vars)
+          : `Hola ${orden.nombre}, tu ${orden.modelo ?? 'equipo'} ha ingresado a nuestro taller y será revisado a la brevedad.`
+        asunto = `Tu equipo ha ingresado — #OT-${String(orden.num).padStart(4, '0')}`
+        html = buildEmailIngreso({
+          tallerNombre,
+          logoUrl: segCfg?.logoUrl,
+          msgTexto,
+          orden: {
+            num: orden.num, modelo: orden.modelo ?? '', nombre: orden.nombre ?? '',
+            serie: orden.serie, color: orden.color, estadoFisico: orden.estadoFisico,
+            trabajo: orden.trabajo, rut: orden.rut, tel: orden.tel, email: orden.email,
+          },
+          branchNombre,
+          branchDir: branch?.direccion,
+          branchTel: branch?.tel,
+          branchEmail: branch?.email,
+          fotos: orden.photosIngreso,
+        })
+      } else {
+        // Reparación u otro estado intermedio
+        const msgTexto = msgTemplates?.listo_email
+          ? rellenarTemplate(msgTemplates.listo_email, vars)
+          : `Hola ${orden.nombre}, tu ${orden.modelo ?? 'equipo'} se encuentra actualmente en reparación.`
+        asunto = `Tu equipo está en reparación — #OT-${String(orden.num).padStart(4, '0')}`
+        html = buildListoHtml(msgTexto)
+      }
+
+      await sendEmail(empresaId, orden.email, asunto, html)
+      setEmailOkDirecto(true)
+      setTimeout(() => setEmailOkDirecto(false), 4000)
+    } finally {
+      setEnviandoEmailDirecto(false)
+    }
   }
 
   function handleFotosInspec(e: React.ChangeEvent<HTMLInputElement>) {
@@ -887,15 +945,21 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
               <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-gray-50 border border-gray-100 text-xs text-gray-400">Sin teléfono</div>
             )}
             {o.email ? (
-              <button onClick={() => {
-                if (!o.email || !empresaId) return
-                void sendEmail(empresaId, o.email, `Orden #${o.num} — ${o.status}`, `<p>Hola ${o.nombre}, te informamos sobre tu orden #${o.num}.</p>`)
-              }}
-                className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-xl bg-blue-50 border border-blue-200 hover:bg-blue-100 transition text-sm font-medium text-blue-800">
-                <svg className="w-4 h-4 text-blue-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
-                Enviar email
+              <button
+                onClick={enviarEmailDirecto}
+                disabled={enviandoEmailDirecto || emailOkDirecto}
+                className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-xl bg-blue-50 border border-blue-200 hover:bg-blue-100 transition text-sm font-medium text-blue-800 disabled:opacity-60"
+              >
+                {emailOkDirecto ? (
+                  <svg className="w-4 h-4 text-green-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                ) : (
+                  <svg className="w-4 h-4 text-blue-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                )}
+                <span>{emailOkDirecto ? 'Email enviado' : enviandoEmailDirecto ? 'Enviando…' : 'Enviar email'}</span>
               </button>
             ) : (
               <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-gray-50 border border-gray-100 text-xs text-gray-400">Sin email</div>
