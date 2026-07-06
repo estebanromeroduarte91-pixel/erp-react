@@ -7,10 +7,11 @@ import {
   useIncrementarContadorOC, useProductos, useBodegas,
   useProveedores, useGuardarProveedores, useGuardarProductos,
   usePlanCuentas, useAsientos, useGuardarAsientos,
+  useMovimientos, useGuardarMovimientos,
 } from '@/lib/queries'
 import { asientoDeOC, asientoIdDeOC, nextNumeroAsiento } from '@/lib/contabilidad'
 import { formatRut } from '@/lib/rut'
-import type { OC, OCItem, OCRecepcion, OCLogEntry, EstadoOC, Producto, Bodega, Proveedor } from '@/types'
+import type { OC, OCItem, OCRecepcion, OCLogEntry, EstadoOC, Producto, Bodega, Proveedor, Movimiento } from '@/types'
 
 // ─── Helpers ──────────────────────────────────────────────────
 
@@ -1083,6 +1084,8 @@ export function ComprasPage() {
   const { data: planCuentas } = usePlanCuentas()
   const { data: asientos } = useAsientos()
   const guardarAsientos = useGuardarAsientos()
+  const { data: movimientos = [] } = useMovimientos()
+  const guardarMovimientos = useGuardarMovimientos()
 
   // Recalculate dynamic estado
   const ocs: OC[] = rawOcs.map(o => {
@@ -1158,20 +1161,45 @@ export function ComprasPage() {
         fecha_recepcion: nuevoEstado === 'recibida' ? today() : o.fecha_recepcion,
       }
     })
-    // Update product stock
-    if (productos.length > 0) {
-      const updatedProds = [...productos]
-      for (const ri of recepcion.items) {
-        if (!ri.producto_id) continue
-        const idx = updatedProds.findIndex(p => p.id === ri.producto_id)
-        if (idx >= 0) updatedProds[idx] = { ...updatedProds[idx], stock: (+updatedProds[idx].stock! || 0) + ri.cantidad }
+    try {
+      if (productos.length > 0) {
+        const updatedProds = [...productos]
+        for (const ri of recepcion.items) {
+          if (!ri.producto_id) continue
+          const idx = updatedProds.findIndex(p => p.id === ri.producto_id)
+          if (idx < 0) continue
+          const p = updatedProds[idx]
+          const nuevoStock = (+p.stock! || 0) + ri.cantidad
+          const sucursales = { ...(p.stock_sucursales ?? {}) }
+          sucursales[recepcion.bodega_id] = (sucursales[recepcion.bodega_id] ?? 0) + ri.cantidad
+          updatedProds[idx] = { ...p, stock: nuevoStock, stock_sucursales: sucursales }
+        }
+        await guardarProductos.mutateAsync(updatedProds)
       }
-      await guardarProductos.mutateAsync(updatedProds)
+      // Registrar movimiento de entrada
+      const mov: Movimiento = {
+        id: uid(),
+        fecha: today(),
+        hora: new Date().toTimeString().slice(0, 5),
+        tipo: 'entrada',
+        bodega_destino: recepcion.bodega_id,
+        referencia: updated.find(o => o.id === ocId)?.numero,
+        referencia_id: ocId,
+        notas: recepcion.notas,
+        productos: recepcion.items
+          .filter(ri => ri.producto_id)
+          .map(ri => ({ producto_id: ri.producto_id, producto_nombre: ri.producto_nombre, cantidad: ri.cantidad, direccion: '+' as const })),
+      }
+      if (mov.productos.length > 0) {
+        await guardarMovimientos.mutateAsync([...movimientos, mov])
+      }
+      await guardarOCs.mutateAsync(updated)
+      setModal({ type: 'none' })
+      const oc2 = updated.find(o => o.id === ocId)
+      showToast(oc2?.estado === 'recibida' ? 'OC completamente recibida' : 'Recepción parcial guardada')
+    } catch (e) {
+      showToast('Error al guardar la recepción: ' + (e instanceof Error ? e.message : 'error desconocido'))
     }
-    await guardarOCs.mutateAsync(updated)
-    setModal({ type: 'none' })
-    const oc2 = updated.find(o => o.id === ocId)
-    showToast(oc2?.estado === 'recibida' ? 'OC completamente recibida' : 'Recepción parcial guardada')
   }
 
   async function handleConfirmar(ocId: string, folio: string, metodoPago: string) {

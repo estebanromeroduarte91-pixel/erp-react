@@ -26,5 +26,8 @@ export async function dbSet(empresaId: string, clave: string, datos: unknown): P
     [{ empresa_id: empresaId, clave, datos, actualizado_en: new Date().toISOString() }],
     { onConflict: 'empresa_id,clave' },
   )
-  if (error) console.error(`dbSet(${clave}):`, error.message)
+  if (error) {
+    console.error(`dbSet(${clave}):`, error.message)
+    throw new Error(error.message)
+  }
 }
