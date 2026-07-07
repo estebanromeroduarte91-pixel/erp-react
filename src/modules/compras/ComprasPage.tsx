@@ -526,10 +526,12 @@ function ModalRecibirOC({
 }: {
   oc: OC
   bodegas: Bodega[]
-  onConfirm: (recepcion: OCRecepcion) => void
+  onConfirm: (recepciones: OCRecepcion[]) => void
   onClose: () => void
 }) {
-  const [bodegaId, setBodegaId] = useState('')
+  const [itemBodegas, setItemBodegas] = useState<Record<string, string>>(() =>
+    Object.fromEntries(oc.items.map(it => [it.id, it.bodega_id || oc.bodega_id || '']))
+  )
   const [qtys, setQtys] = useState<Record<string, number>>(() => {
     const init: Record<string, number> = {}
     for (const it of oc.items) init[it.id] = Math.max(0, it.cantidad - getCantRecibida(oc, it.id))
@@ -538,15 +540,31 @@ function ModalRecibirOC({
   const [notas, setNotas] = useState('')
 
   const recsPrev = oc.recepciones ?? []
-  const bodNombre = bodegas.find(b => b.id === bodegaId)?.nombre ?? bodegas.find(b => b.id === bodegaId)?.name ?? ''
 
   function handleConfirm() {
-    if (!bodegaId) return alert('Selecciona una bodega')
     const recItems = oc.items
       .filter(it => (qtys[it.id] ?? 0) > 0)
-      .map(it => ({ prod_item_id: it.id, producto_id: it.producto_id, producto_nombre: it.producto_nombre, cantidad: qtys[it.id] }))
+      .map(it => ({
+        prod_item_id: it.id, producto_id: it.producto_id,
+        producto_nombre: it.producto_nombre, cantidad: qtys[it.id],
+        _bodega_id: itemBodegas[it.id] || '',
+      }))
     if (!recItems.length) return alert('Ingresa al menos una cantidad mayor a 0')
-    onConfirm({ id: uid(), fecha: today(), bodega_id: bodegaId, bodega_nombre: bodNombre, notas: notas.trim() || undefined, items: recItems })
+    const sinBodega = recItems.filter(ri => !ri._bodega_id)
+    if (sinBodega.length > 0) return alert(`Selecciona bodega para: ${sinBodega.map(r => r.producto_nombre).join(', ')}`)
+    const byBodega = new Map<string, typeof recItems>()
+    for (const ri of recItems) {
+      if (!byBodega.has(ri._bodega_id)) byBodega.set(ri._bodega_id, [])
+      byBodega.get(ri._bodega_id)!.push(ri)
+    }
+    const recepciones: OCRecepcion[] = Array.from(byBodega.entries()).map(([bodId, items]) => ({
+      id: uid(), fecha: today(),
+      bodega_id: bodId,
+      bodega_nombre: bodegas.find(b => b.id === bodId)?.nombre ?? bodegas.find(b => b.id === bodId)?.name ?? '',
+      notas: notas.trim() || undefined,
+      items: items.map(({ _bodega_id: _b, ...rest }) => rest),
+    }))
+    onConfirm(recepciones)
   }
 
   return (
@@ -562,16 +580,6 @@ function ModalRecibirOC({
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', flex: 1, minHeight: 0 }}>
           <div style={{ padding: 20, overflowY: 'auto', borderRight: '1px solid var(--gray-100)' }}>
-            <div style={{ marginBottom: 16 }}>
-              <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--gray-500)', textTransform: 'uppercase', marginBottom: 4 }}>
-                Bodega que recibe <span style={{ color: 'var(--danger, #dc2626)' }}>*</span>
-              </label>
-              <select value={bodegaId} onChange={e => setBodegaId(e.target.value)} style={{ width: '100%', fontSize: 14, fontWeight: 600 }}>
-                <option value="">-- Seleccionar bodega --</option>
-                {bodegas.map(b => <option key={b.id} value={b.id}>{b.nombre ?? b.name}</option>)}
-              </select>
-              {!bodegas.length && <p style={{ fontSize: 12, color: '#d97706', marginTop: 4 }}>No hay bodegas creadas.</p>}
-            </div>
             <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--gray-500)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>Ítems de la OC</div>
             <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid var(--gray-200)', borderRadius: 8 }}>
               <thead>
@@ -590,7 +598,14 @@ function ModalRecibirOC({
                     <tr key={it.id} style={{ borderBottom: '1px solid var(--gray-100)' }}>
                       <td style={{ padding: '10px 14px' }}>
                         <div style={{ fontWeight: 600, fontSize: 13.5, color: 'var(--gray-800)' }}>{it.producto_nombre || '—'}</div>
-                        {it.bodega_nombre && <div style={{ fontSize: 11, color: 'var(--gray-400)', marginTop: 2 }}>{it.bodega_nombre}</div>}
+                        <select
+                          value={itemBodegas[it.id] || ''}
+                          onChange={e => setItemBodegas(prev => ({ ...prev, [it.id]: e.target.value }))}
+                          style={{ fontSize: 11, marginTop: 4, width: '100%', border: '1px solid var(--gray-300)', borderRadius: 4, padding: '2px 4px', color: 'var(--gray-700)' }}
+                        >
+                          <option value="">-- Bodega --</option>
+                          {bodegas.map(b => <option key={b.id} value={b.id}>{b.nombre ?? b.name}</option>)}
+                        </select>
                       </td>
                       <td style={{ padding: '10px', textAlign: 'center', fontSize: 13 }}>{it.cantidad}</td>
                       <td style={{ padding: '10px', textAlign: 'center' }}>
@@ -1150,10 +1165,10 @@ export function ComprasPage() {
     }
   }
 
-  async function handleRecibir(ocId: string, recepcion: OCRecepcion) {
+  async function handleRecibir(ocId: string, recepciones: OCRecepcion[]) {
     const updated = ocs.map(o => {
       if (o.id !== ocId) return o
-      const recs = [...(o.recepciones ?? []), recepcion]
+      const recs = [...(o.recepciones ?? []), ...recepciones]
       const nuevoEstado = calcularEstadoOC({ ...o, recepciones: recs })
       return {
         ...o, recepciones: recs, estado: nuevoEstado,
@@ -1164,35 +1179,31 @@ export function ComprasPage() {
     try {
       if (productos.length > 0) {
         const updatedProds = [...productos]
-        for (const ri of recepcion.items) {
-          if (!ri.producto_id) continue
-          const idx = updatedProds.findIndex(p => p.id === ri.producto_id)
-          if (idx < 0) continue
-          const p = updatedProds[idx]
-          const nuevoStock = (+p.stock! || 0) + ri.cantidad
-          const sucursales = { ...(p.stock_sucursales ?? {}) }
-          sucursales[recepcion.bodega_id] = (sucursales[recepcion.bodega_id] ?? 0) + ri.cantidad
-          updatedProds[idx] = { ...p, stock: nuevoStock, stock_sucursales: sucursales }
+        for (const rec of recepciones) {
+          for (const ri of rec.items) {
+            if (!ri.producto_id) continue
+            const idx = updatedProds.findIndex(p => p.id === ri.producto_id)
+            if (idx < 0) continue
+            const p = updatedProds[idx]
+            const nuevoStock = (+p.stock! || 0) + ri.cantidad
+            const sucursales = { ...(p.stock_sucursales ?? {}) }
+            sucursales[rec.bodega_id] = (sucursales[rec.bodega_id] ?? 0) + ri.cantidad
+            updatedProds[idx] = { ...p, stock: nuevoStock, stock_sucursales: sucursales }
+          }
         }
         await guardarProductos.mutateAsync(updatedProds)
       }
-      // Registrar movimiento de entrada
-      const mov: Movimiento = {
-        id: uid(),
-        fecha: today(),
-        hora: new Date().toTimeString().slice(0, 5),
-        tipo: 'entrada',
-        bodega_destino: recepcion.bodega_id,
-        referencia: updated.find(o => o.id === ocId)?.numero,
-        referencia_id: ocId,
-        notas: recepcion.notas,
-        productos: recepcion.items
+      const ocNumero = updated.find(o => o.id === ocId)?.numero
+      const nuevosMovs: Movimiento[] = []
+      for (const rec of recepciones) {
+        const movProds = rec.items
           .filter(ri => ri.producto_id)
-          .map(ri => ({ producto_id: ri.producto_id, producto_nombre: ri.producto_nombre, cantidad: ri.cantidad, direccion: '+' as const })),
+          .map(ri => ({ producto_id: ri.producto_id, producto_nombre: ri.producto_nombre, cantidad: ri.cantidad, direccion: '+' as const }))
+        if (movProds.length > 0) {
+          nuevosMovs.push({ id: uid(), fecha: today(), hora: new Date().toTimeString().slice(0, 5), tipo: 'entrada', bodega_destino: rec.bodega_id, referencia: ocNumero, referencia_id: ocId, notas: rec.notas, productos: movProds })
+        }
       }
-      if (mov.productos.length > 0) {
-        await guardarMovimientos.mutateAsync([...movimientos, mov])
-      }
+      if (nuevosMovs.length > 0) await guardarMovimientos.mutateAsync([...movimientos, ...nuevosMovs])
       await guardarOCs.mutateAsync(updated)
       setModal({ type: 'none' })
       const oc2 = updated.find(o => o.id === ocId)
@@ -1443,7 +1454,7 @@ export function ComprasPage() {
         <ModalRecibirOC
           oc={modalOC}
           bodegas={bodegas}
-          onConfirm={rec => handleRecibir(modal.ocId, rec)}
+          onConfirm={recs => handleRecibir(modal.ocId, recs)}
           onClose={() => setModal({ type: 'none' })}
         />
       )}
