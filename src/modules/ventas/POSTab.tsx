@@ -122,6 +122,9 @@ export function POSTab() {
     setBusquedaOT('')
     setOtPanelOpen(false)
     setCliente([ot.nombre, ot.apellido].filter(Boolean).join(' '))
+    setClienteRut(ot.rut ?? '')
+    setClienteTel(ot.tel ?? '')
+    setClienteEmail(ot.email ?? '')
     const nuevosItems: VentaItem[] = []
     if (ot.trabajo && ot.presup) {
       const precioIva = +ot.presup
