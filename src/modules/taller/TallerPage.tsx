@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { useOrdenes, useTraslados, useGuardarOrden } from '@/lib/queries'
+import { useOrdenes, useTraslados, useGuardarOrden, useBodegas } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { useIsMobile } from '@/lib/useIsMobile'
 import { EstadoBadge } from '@/components/shared/Badge'
@@ -16,7 +16,7 @@ import { MensajesTab } from '@/modules/config/MensajesTab'
 import { TerminosTab } from '@/modules/config/TerminosTab'
 import { EquiposConfigTab } from './EquiposConfigTab'
 import { totalOrden } from './utils'
-import type { EstadoOrden, Orden } from '@/types'
+import type { Bodega, EstadoOrden, Orden } from '@/types'
 
 type TallerTab = 'ordenes' | 'derivados' | 'equipos' | 'settings'
 type TallerConfigTab = 'seguimiento' | 'checklist' | 'notificaciones' | 'terminos' | 'equipos-config'
@@ -80,9 +80,11 @@ export function TallerPage() {
 
   const { data: ordenes, isLoading, error } = useOrdenes()
   const { data: traslados } = useTraslados()
+  const { data: bodegas = [] } = useBodegas()
   const guardarOrden = useGuardarOrden()
   const { esAdmin } = useAuth()
   const [configTab, setConfigTab] = useState<TallerConfigTab>('seguimiento')
+  const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null)
   const [filtroEstado, setFiltroEstado] = useState<EstadoOrden | 'todos' | 'Derivado'>('todos')
   const [busqueda, setBusqueda] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
@@ -101,6 +103,7 @@ export function TallerPage() {
 
   const lista = useMemo(() => {
     let r = ordenes ?? []
+    if (esAdmin && selectedBranchId) r = r.filter((o) => o.branchId === selectedBranchId)
     if (filtroEstado === 'todos') {
       r = r.filter((o) => o.status !== 'Entregado')
     } else if (filtroEstado === 'Derivado') {
@@ -120,18 +123,18 @@ export function TallerPage() {
       )
     }
     return r
-  }, [ordenes, filtroEstado, busqueda, derivadoIds])
+  }, [ordenes, filtroEstado, busqueda, derivadoIds, esAdmin, selectedBranchId])
 
   // Stats
   const stats = useMemo(() => {
-    const all = ordenes ?? []
+    const all = (ordenes ?? []).filter((o) => !esAdmin || !selectedBranchId || o.branchId === selectedBranchId)
     return {
       abiertas:  all.filter((o) => o.status !== 'Entregado').length,
       listos:    all.filter((o) => o.status === 'Listo').length,
       entregadas: all.filter((o) => o.status === 'Entregado').length,
       derivadas:  derivadoIds.size,
     }
-  }, [ordenes, derivadoIds])
+  }, [ordenes, derivadoIds, esAdmin, selectedBranchId])
 
   const isMobile = useIsMobile()
 
@@ -275,6 +278,7 @@ export function TallerPage() {
           <OrdenModal
             orden={editando}
             ordenes={ordenes ?? []}
+            defaultBranchId={selectedBranchId ?? undefined}
             onClose={() => setModalOpen(false)}
           />
         )}
@@ -348,6 +352,32 @@ export function TallerPage() {
       )}
 
       {tallerTab === 'ordenes' && (<>
+
+        {esAdmin && !selectedBranchId ? (
+          <BranchSelector
+            bodegas={bodegas}
+            ordenes={ordenes ?? []}
+            onSelect={(id) => { setSelectedBranchId(id); setFiltroEstado('todos') }}
+          />
+        ) : (<>
+
+        {/* Breadcrumb sucursal — solo admin dentro de una sucursal */}
+        {esAdmin && selectedBranchId && (() => {
+          const b = bodegas.find(x => x.id === selectedBranchId)
+          return (
+            <div className="flex items-center gap-2 mb-4 bg-blue-50 border border-blue-200 rounded-xl px-4 py-2.5">
+              <div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />
+              <span className="text-sm font-semibold text-blue-800">{b?.nombre ?? b?.name ?? 'Sucursal'}</span>
+              <button
+                onClick={() => { setSelectedBranchId(null); setFiltroEstado('todos') }}
+                className="ml-auto text-xs font-medium text-blue-600 hover:text-blue-800 flex items-center gap-1"
+              >
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+                Volver a sucursales
+              </button>
+            </div>
+          )
+        })()}
 
         {/* Stats cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
@@ -542,11 +572,14 @@ export function TallerPage() {
           )}
         </div>
 
+        </>)}
+
         {/* Modal nueva / editar orden */}
         {modalOpen && (
           <OrdenModal
             orden={editando}
             ordenes={ordenes ?? []}
+            defaultBranchId={selectedBranchId ?? undefined}
             onClose={() => setModalOpen(false)}
           />
         )}
@@ -621,6 +654,83 @@ export function TallerPage() {
         )}
 
       </>)}
+    </div>
+  )
+}
+
+function BranchSelector({
+  bodegas, ordenes, onSelect,
+}: {
+  bodegas: Bodega[]
+  ordenes: Orden[]
+  onSelect: (id: string) => void
+}) {
+  if (!bodegas.length) {
+    return (
+      <div className="text-center py-16 text-gray-400 text-sm">
+        No hay sucursales configuradas. Ve a Configuración para crearlas.
+      </div>
+    )
+  }
+  return (
+    <div>
+      <p className="text-sm text-gray-500 mb-4">Selecciona una sucursal para ver y gestionar sus órdenes.</p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {bodegas.map((b) => {
+          const bo = ordenes.filter((o) => o.branchId === b.id)
+          const abiertas = bo.filter((o) => o.status !== 'Entregado').length
+          const reparacion = bo.filter((o) => o.status === 'Reparación').length
+          const listas = bo.filter((o) => o.status === 'Listo').length
+          const ultima = bo.length ? bo.reduce((a, c) => (!a.fecha || c.fecha > a.fecha ? c : a), bo[0]) : null
+          const dias = ultima ? Math.floor((Date.now() - new Date(ultima.fecha).getTime()) / 86400000) : null
+          const nombre = b.nombre ?? b.name ?? 'Sin nombre'
+          return (
+            <div
+              key={b.id}
+              onClick={() => onSelect(b.id)}
+              className="bg-white border border-gray-200 rounded-2xl overflow-hidden cursor-pointer hover:border-blue-400 hover:shadow-md transition-all group"
+            >
+              <div className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-xl bg-gray-100 border border-gray-200 flex items-center justify-center flex-shrink-0">
+                    <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+                      <polyline points="9 22 9 12 15 12 15 22" />
+                    </svg>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-gray-900 truncate">{nombre}</div>
+                    <div className="text-xs text-gray-400 truncate mt-0.5">{b.direccion || 'Sin dirección'}</div>
+                  </div>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 border-t border-gray-100">
+                {[
+                  { label: 'Abiertas', value: abiertas, color: abiertas > 0 ? 'text-amber-600' : 'text-gray-700' },
+                  { label: 'Reparación', value: reparacion, color: 'text-gray-700' },
+                  { label: 'Listas', value: listas, color: listas > 0 ? 'text-green-600' : 'text-gray-700' },
+                ].map((s, i) => (
+                  <div key={i} className={`py-3 text-center ${i < 2 ? 'border-r border-gray-100' : ''}`}>
+                    <div className={`text-xl font-bold ${s.color}`}>{s.value}</div>
+                    <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 mt-0.5">{s.label}</div>
+                  </div>
+                ))}
+              </div>
+              <div className="px-4 py-2.5 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
+                <span className="text-xs text-gray-400">
+                  {dias === null ? 'Sin órdenes aún' : dias === 0 ? 'Última OT: hoy' : `Última OT: hace ${dias} día${dias !== 1 ? 's' : ''}`}
+                </span>
+                <span className="text-xs font-semibold text-blue-600 flex items-center gap-1 group-hover:gap-2 transition-all">
+                  Ver órdenes
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" />
+                  </svg>
+                </span>
+              </div>
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }

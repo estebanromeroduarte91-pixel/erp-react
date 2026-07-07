@@ -18,6 +18,7 @@ interface Props {
   orden: Orden | null
   ordenes: Orden[]
   onClose: () => void
+  defaultBranchId?: string
 }
 
 function nextNum(ordenes: Orden[]): string {
@@ -53,7 +54,7 @@ function rellenarTemplate(tpl: string, vars: Record<string, string>): string {
   return tpl.replace(/\{\{(\w+)\}\}/g, (_, k) => vars[k] ?? '')
 }
 
-export function OrdenModal({ orden, ordenes, onClose }: Props) {
+export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) {
   const { empresaId, branchId: userBranchId } = useAuth()
   const guardar = useGuardarOrden()
   const { data: clientes } = useClientes()
@@ -392,7 +393,7 @@ export function OrdenModal({ orden, ordenes, onClose }: Props) {
         repuestos,
         checkIngreso: checkFinal,
         photosIngreso: fotos,
-        branchId: userBranchId ?? undefined,
+        branchId: userBranchId ?? defaultBranchId ?? undefined,
       }
       nuevasOrdenes = [nuevaOrden, ...ordenes]
     }
