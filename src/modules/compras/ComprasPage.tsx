@@ -1133,7 +1133,6 @@ export function ComprasPage() {
     } else {
       const counter = await incrementarContador.mutateAsync()
       const oc: OC = {
-        id: uid(),
         numero: 'OC-' + String(counter).padStart(5, '0'),
         estado: 'borrador',
         fecha_creacion: today(),
@@ -1143,6 +1142,7 @@ export function ComprasPage() {
         items: [],
         total: 0,
         ...data,
+        id: uid(),
       }
       await guardarOCs.mutateAsync([...ocs, oc])
       setModal({ type: 'none' })
