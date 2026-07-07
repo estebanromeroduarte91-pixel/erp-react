@@ -66,13 +66,15 @@ export function ClientesTab() {
 
   const stats = useMemo(() => {
     if (!seleccionado) return null
-    const nombreNorm = seleccionado.nombre.toLowerCase()
-    const ots = (ordenes ?? []).filter(o =>
-      (seleccionado.rut && o.rut && o.rut.replace(/\D/g,'') === seleccionado.rut.replace(/\D/g,'')) ||
-      o.nombre?.toLowerCase().includes(nombreNorm)
-    )
+    const rutClean = seleccionado.rut ? seleccionado.rut.replace(/\D/g, '') : ''
+    const nombreCompleto = `${seleccionado.nombre} ${seleccionado.apellido ?? ''}`.trim().toLowerCase()
+    const ots = (ordenes ?? []).filter(o => {
+      if (rutClean && o.rut) return o.rut.replace(/\D/g, '') === rutClean
+      const oNombre = `${o.nombre ?? ''} ${o.apellido ?? ''}`.trim().toLowerCase()
+      return oNombre === nombreCompleto
+    })
     const bols = (ventas ?? []).filter(v =>
-      v.cliente?.toLowerCase().includes(nombreNorm)
+      v.cliente?.trim().toLowerCase() === nombreCompleto
     )
     const totalVentas = bols.reduce((s, v) => s + (+v.total_iva || 0), 0)
     return { ots, boletas: bols, totalVentas }

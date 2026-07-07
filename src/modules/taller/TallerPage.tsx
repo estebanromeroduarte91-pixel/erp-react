@@ -132,7 +132,7 @@ export function TallerPage() {
       abiertas:  all.filter((o) => o.status !== 'Entregado').length,
       listos:    all.filter((o) => o.status === 'Listo').length,
       entregadas: all.filter((o) => o.status === 'Entregado').length,
-      derivadas:  derivadoIds.size,
+      derivadas:  all.filter((o) => derivadoIds.has(o.id) && o.status !== 'Entregado').length,
     }
   }, [ordenes, derivadoIds, esAdmin, selectedBranchId])
 
