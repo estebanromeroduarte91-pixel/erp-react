@@ -31,12 +31,13 @@ interface FormData {
   modelo: string; serie: string; color: string; pin: string; pinType: 'text' | 'pattern'
   estadoFisico: string; trabajo: string; tecnico: string
   presup: string; costo: string; status: EstadoOrden; fechaEstimada: string
+  numero_boleta: string
 }
 
 const EMPTY: FormData = {
   nombre: '', apellido: '', tel: '', email: '', rut: '', modelo: '', serie: '',
   color: '', pin: '', pinType: 'text', estadoFisico: '', trabajo: '', tecnico: '',
-  presup: '', costo: '', status: 'Chequeo', fechaEstimada: '',
+  presup: '', costo: '', status: 'Chequeo', fechaEstimada: '', numero_boleta: '',
 }
 
 // Capitaliza la primera letra de cada palabra (nombres) o solo del string (textos libres)
@@ -75,6 +76,7 @@ export function OrdenModal({ orden, ordenes, onClose }: Props) {
       trabajo: orden.trabajo ?? '', tecnico: orden.tecnico ?? '',
       presup: String(orden.presup ?? ''), costo: String(orden.costo ?? ''),
       status: orden.status ?? 'Chequeo', fechaEstimada: orden.fechaEstimada ?? '',
+      numero_boleta: orden.numero_boleta ?? '',
     } : EMPTY,
   )
   const [repuestos, setRepuestos] = useState<Repuesto[]>(orden?.repuestos ?? [])
@@ -376,6 +378,7 @@ export function OrdenModal({ orden, ordenes, onClose }: Props) {
       const actualizada = (base: Orden): Orden => ({
         ...base, ...form, repuestos, checkIngreso: checkFinal, photosIngreso: fotos, _draft: false,
         branchId: base.branchId ?? userBranchId ?? undefined,
+        numero_boleta: base.numero_boleta || form.numero_boleta?.trim() || undefined,
       })
       nuevasOrdenes = existe
         ? ordenes.map((o) => (o.id === draftId ? actualizada(o) : o))
@@ -609,6 +612,29 @@ export function OrdenModal({ orden, ordenes, onClose }: Props) {
                   {ESTADOS_OT.map((s) => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
+              {form.status === 'Entregado' && (
+                <div>
+                  <label className="text-xs font-medium text-gray-600 mb-1 block">N° Boleta / Venta</label>
+                  {orden?.numero_boleta ? (
+                    <div className="flex items-center justify-between w-full border border-green-200 rounded-lg px-3 py-2 text-sm bg-green-50 text-green-800 font-medium">
+                      <span>{orden.numero_boleta}</span>
+                      <svg className="w-4 h-4 text-green-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                      </svg>
+                    </div>
+                  ) : (
+                    <input
+                      value={form.numero_boleta}
+                      onChange={(e) => set('numero_boleta', e.target.value)}
+                      placeholder="Ej: B-00094 (opcional)"
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400"
+                    />
+                  )}
+                  <p className="text-[11px] text-gray-400 mt-1">
+                    {orden?.numero_boleta ? 'Boleta registrada — no se puede modificar.' : 'Una vez guardado, queda bloqueado para evitar doble facturación.'}
+                  </p>
+                </div>
+              )}
               <div className="col-span-2">
                 <label className="text-xs font-medium text-gray-600 mb-1 block">Estado físico del equipo</label>
                 <textarea value={form.estadoFisico} onChange={(e) => set('estadoFisico', capFirst(e.target.value))}

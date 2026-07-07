@@ -90,6 +90,8 @@ export function TallerPage() {
   const [detalleNum, setDetalleNum] = useState<string | null>(null)
   const [ordenAEliminar, setOrdenAEliminar] = useState<Orden | null>(null)
   const [eliminando, setEliminando] = useState(false)
+  const [ordenAReabrir, setOrdenAReabrir] = useState<Orden | null>(null)
+  const [reabriendo, setReabriendo] = useState(false)
 
   // IDs de órdenes con traslados activos (no retornados)
   const derivadoIds = useMemo(
@@ -149,6 +151,19 @@ export function TallerPage() {
     await guardarOrden.mutateAsync((ordenes ?? []).filter((o) => o.id !== ordenAEliminar.id))
     setEliminando(false)
     setOrdenAEliminar(null)
+  }
+
+  async function confirmarReabrir() {
+    if (!ordenAReabrir) return
+    setReabriendo(true)
+    try {
+      await guardarOrden.mutateAsync(
+        (ordenes ?? []).map((o) => o.id === ordenAReabrir.id ? { ...o, status: 'Listo' as EstadoOrden } : o)
+      )
+      setOrdenAReabrir(null)
+    } finally {
+      setReabriendo(false)
+    }
   }
 
   if (isLoading) {
@@ -494,6 +509,20 @@ export function TallerPage() {
                           <Money value={totalOrden(o)} />
                         </td>
                         <td className="px-4 py-3 text-right whitespace-nowrap">
+                          {o.status === 'Entregado' && (o.numero_boleta || o.venta_id) && (
+                            <span className="inline-flex items-center gap-1 bg-green-50 text-green-700 border border-green-200 rounded-full px-2 py-0.5 text-[10px] font-semibold mr-2">
+                              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                              {o.numero_boleta || 'Con venta'}
+                            </span>
+                          )}
+                          {o.status === 'Entregado' && !o.numero_boleta && !o.venta_id && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setOrdenAReabrir(o) }}
+                              className="mr-2 text-xs text-amber-600 hover:underline font-medium"
+                            >
+                              Reabrir
+                            </button>
+                          )}
                           <button
                             onClick={(e) => { e.stopPropagation(); abrirEditar(o) }}
                             className="text-xs text-blue-600 hover:underline font-medium"
@@ -559,6 +588,40 @@ export function TallerPage() {
                 <button onClick={confirmarEliminar} disabled={eliminando}
                   className="px-4 py-2 text-sm font-semibold text-white bg-red-500 rounded-lg hover:bg-red-600 transition disabled:opacity-60">
                   {eliminando ? 'Eliminando…' : 'Eliminar'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {ordenAReabrir && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4"
+            onClick={(e) => { if (e.target === e.currentTarget && !reabriendo) setOrdenAReabrir(null) }}>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-5">
+              <div className="flex gap-3 items-start">
+                <div className="w-9 h-9 rounded-full bg-amber-50 flex items-center justify-center flex-shrink-0">
+                  <svg className="w-5 h-5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-sm font-semibold text-gray-900">Reabrir orden #{ordenAReabrir.num}</h3>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {[ordenAReabrir.nombre, ordenAReabrir.apellido].filter(Boolean).join(' ')} · {ordenAReabrir.modelo || '—'}
+                  </p>
+                  <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-3 leading-relaxed">
+                    Volverá al estado <strong>Listo para entregar</strong> y aparecerá en la lista activa.
+                  </p>
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 mt-5">
+                <button onClick={() => setOrdenAReabrir(null)} disabled={reabriendo}
+                  className="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-100 transition disabled:opacity-60">
+                  Cancelar
+                </button>
+                <button onClick={confirmarReabrir} disabled={reabriendo}
+                  className="px-4 py-2 text-sm font-semibold text-white bg-amber-500 rounded-lg hover:bg-amber-600 transition disabled:opacity-60">
+                  {reabriendo ? 'Reabriendo…' : 'Reabrir orden'}
                 </button>
               </div>
             </div>
