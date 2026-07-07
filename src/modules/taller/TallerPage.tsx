@@ -242,7 +242,7 @@ export function TallerPage() {
                   <div style={{ width: 8, height: 8, borderRadius: '50%', background: STATUS_DOT[o.status] ?? '#8e8e93', flexShrink: 0 }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 11, fontWeight: 700, color: '#8e8e93', marginBottom: 1 }}>#{o.num}</div>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: '#1c1c1e', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{o.nombre}</div>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: '#1c1c1e', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{[o.nombre, o.apellido].filter(Boolean).join(' ')}</div>
                     <div style={{ fontSize: 12, color: '#8e8e93', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{o.modelo ?? o.trabajo ?? ''}</div>
                   </div>
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>
@@ -473,7 +473,7 @@ export function TallerPage() {
                           </span>
                         </td>
                         <td className="px-4 py-3">
-                          <p className="font-medium text-gray-800">{o.nombre}</p>
+                          <p className="font-medium text-gray-800">{[o.nombre, o.apellido].filter(Boolean).join(' ')}</p>
                           {o.tel && <p className="text-xs text-gray-400">{o.tel}</p>}
                         </td>
                         <td className="px-4 py-3 text-gray-600">{o.modelo || '—'}</td>
