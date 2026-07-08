@@ -283,6 +283,8 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
   }
 
   function printLabel() {
+    if (!o) return
+    const branch = bodegas.find(b => b.id === o.branchId)
     const tallerNom = segCfg?.nombreTaller ?? 'Steve Docs'
     const sucNom = branch?.nombre ?? branch?.name ?? ''
     const footer = [tallerNom, sucNom].filter(Boolean).join(' — ')
