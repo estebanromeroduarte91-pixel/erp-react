@@ -314,7 +314,7 @@ function DetailPanel({ cliente, stats, esAdmin, onEditar, onEliminar }: {
             const s = STATUS_BADGE[o.status] ?? { bg: '#f1f5f9', color: '#475569' }
             return (
               <button key={o.id} onClick={() => setOtNum(String(o.num))}
-                style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '12px 24px', borderBottom: '0.5px solid #f5f5f5', background: 'none', border: 'none', borderBottom: '0.5px solid #f5f5f5', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}
+                style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '12px 24px', borderTop: 'none', borderLeft: 'none', borderRight: 'none', borderBottom: '0.5px solid #f5f5f5', background: 'none', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}
                 onMouseEnter={e => (e.currentTarget.style.background = '#f9fafb')}
                 onMouseLeave={e => (e.currentTarget.style.background = 'none')}>
                 <div style={{ flex: 1, minWidth: 0 }}>
