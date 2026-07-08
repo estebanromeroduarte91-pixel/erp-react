@@ -6,19 +6,30 @@ import type { Caja, MetodoPago } from '@/types'
 function uid() { return Math.random().toString(36).slice(2) + Date.now().toString(36) }
 
 const ICON_OPTIONS = [
-  { value: 'cash',     label: 'Efectivo' },
-  { value: 'card',     label: 'Tarjeta' },
-  { value: 'bank',     label: 'Transferencia' },
-  { value: 'wallet',   label: 'Wallet' },
-  { value: 'qr',       label: 'QR / Código' },
+  { value: 'cash',   label: 'Efectivo' },
+  { value: 'card',   label: 'Tarjeta' },
+  { value: 'bank',   label: 'Transferencia' },
+  { value: 'wallet', label: 'Wallet' },
+  { value: 'qr',     label: 'QR / Código' },
 ]
 
-function iconClass(icon: string) {
-  const map: Record<string, string> = {
-    cash: 'ti-cash', card: 'ti-credit-card', bank: 'ti-building-bank',
-    wallet: 'ti-wallet', qr: 'ti-qrcode',
-  }
-  return map[icon] ?? 'ti-cash'
+function MetodoIcon({ icon }: { icon: string }) {
+  const cls = 'w-[18px] h-[18px] text-gray-400'
+  if (icon === 'card') return (
+    <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+  )
+  if (icon === 'bank') return (
+    <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path d="M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11M20 10v11M8 10v11M12 10v11M16 10v11"/></svg>
+  )
+  if (icon === 'wallet') return (
+    <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path d="M21 12V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5"/><path d="M16 12h5v4h-5a2 2 0 0 1 0-4z"/></svg>
+  )
+  if (icon === 'qr') return (
+    <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3zM17 17h3v3h-3zM14 20h3"/></svg>
+  )
+  return (
+    <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+  )
 }
 
 export function VentasConfigTab() {
@@ -143,11 +154,10 @@ export function VentasConfigTab() {
             <div key={m.id} className="flex items-center gap-3 px-3.5 py-3 border border-gray-200 rounded-lg">
               <svg className="w-4 h-4 text-gray-300 cursor-grab flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="9" cy="5" r="1" fill="currentColor"/><circle cx="9" cy="12" r="1" fill="currentColor"/><circle cx="9" cy="19" r="1" fill="currentColor"/><circle cx="15" cy="5" r="1" fill="currentColor"/><circle cx="15" cy="12" r="1" fill="currentColor"/><circle cx="15" cy="19" r="1" fill="currentColor"/></svg>
               <div className="w-9 h-9 rounded-lg bg-gray-50 border border-gray-200 flex items-center justify-center flex-shrink-0">
-                <i className={`ti ${iconClass(m.icon)} text-gray-400`} style={{ fontSize: 17 }} aria-hidden />
+                <MetodoIcon icon={m.icon} />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-gray-900">{m.label}</p>
-                <p className="text-xs text-gray-400 mt-0.5">{m.desc}</p>
               </div>
               <div className="flex items-center gap-1 flex-shrink-0">
                 <button onClick={() => moverMetodo(i, -1)} disabled={i === 0} className="w-7 h-7 border border-gray-200 rounded-md flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-50 transition disabled:opacity-30" title="Subir">
