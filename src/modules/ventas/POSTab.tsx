@@ -188,7 +188,12 @@ export function POSTab() {
   const totalIva = items.reduce((s, it) => s + lineTotal(it), 0)
   const totalNeto = items.reduce((s, it) => s + lineNeto(it), 0)
 
-  const otsListas = useMemo(() => (ordenes ?? []).filter(o => o.status === 'Listo'), [ordenes])
+  const otsListas = useMemo(() => {
+    const todas = (ordenes ?? []).filter(o => o.status !== 'Entregado' && o.status !== 'No reparable')
+    const bId = cajaAbierta?.sucursalId
+    if (!bId) return todas
+    return todas.filter(o => !o.branchId || o.branchId === bId)
+  }, [ordenes, cajaAbierta])
   const otResultados = useMemo(() => {
     const q = busquedaOT.trim().toLowerCase()
     if (!q) return otsListas.slice(0, 6)
@@ -336,10 +341,18 @@ export function POSTab() {
           notas: 'Venta registrada',
         }
         await guardarMovimientos.mutateAsync([mov, ...(movimientos ?? [])])
-        // Descontar stock de productos
+        // Descontar stock de productos (por bodega si está configurada)
+        const bodegaId = cajaAbierta?.bodegaId
         const prodsActualizados = (productos ?? []).map(p => {
           const vendido = prodsSalida.find(it => it.producto_id === p.id)
           if (!vendido) return p
+          if (bodegaId) {
+            const actual = p.stock_sucursales?.[bodegaId] ?? p.stock ?? 0
+            return {
+              ...p,
+              stock_sucursales: { ...(p.stock_sucursales ?? {}), [bodegaId]: Math.max(0, actual - vendido.cantidad) },
+            }
+          }
           return { ...p, stock: Math.max(0, (p.stock ?? 0) - vendido.cantidad) }
         })
         await guardarProductos.mutateAsync(prodsActualizados)
@@ -644,6 +657,11 @@ export function POSTab() {
                     <span>
                       <span className="font-medium text-gray-800">{p.nombre}</span>
                       {p.sku && <span className="ml-2 text-xs text-gray-400">{p.sku}</span>}
+                      {(() => {
+                        const bodId = cajaAbierta?.bodegaId
+                        const stk = bodId ? (p.stock_sucursales?.[bodId] ?? p.stock ?? 0) : (p.stock ?? 0)
+                        return <span className="ml-2 text-xs text-gray-400">· Stock: {stk}</span>
+                      })()}
                     </span>
                     <span className="font-semibold text-blue-700">{fmt(p.precio_venta ?? 0)}</span>
                   </button>
