@@ -38,6 +38,27 @@ function splitNombre(full: string): [string, string] {
   return [parts[0] ?? '', parts.slice(1).join(' ')]
 }
 
+const APPLE_FIXES: [RegExp, string][] = [
+  [/\bIphone\b/g, 'iPhone'],
+  [/\bIpad\b/g, 'iPad'],
+  [/\bIpod\b/g, 'iPod'],
+  [/\bImac\b/g, 'iMac'],
+  [/\bMacbook\b/g, 'MacBook'],
+  [/\bAirpods\b/g, 'AirPods'],
+  [/\bAirpod\b/g, 'AirPod'],
+  [/\bHomepod\b/g, 'HomePod'],
+  [/\bApple Tv\b/g, 'Apple TV'],
+  [/\bApplewatch\b/g, 'Apple Watch'],
+  [/\bMacos\b/g, 'macOS'],
+  [/\bIos\b/g, 'iOS'],
+]
+
+function toAppleCase(s: string): string {
+  let r = s.toLowerCase().replace(/\b\w/g, c => c.toUpperCase())
+  for (const [pattern, replacement] of APPLE_FIXES) r = r.replace(pattern, replacement)
+  return r
+}
+
 function getBranchId(bodegas: { id: string; nombre?: string; name?: string }[], sucursal: string): string | undefined {
   const q = sucursal.toLowerCase().trim()
   const b = bodegas.find(x => {
@@ -107,8 +128,8 @@ export function HistorialImportTab() {
           const tel = safeStr(row['Teléfono'])
           const email = safeStr(row['Correo'])
           const sucursal = safeStr(row['Sucursal'])
-          const marca = safeStr(row['Marca'])
-          const modelo = safeStr(row['Modelo'])
+          const marca = toAppleCase(safeStr(row['Marca']))
+          const modelo = toAppleCase(safeStr(row['Modelo']))
           const modeloCompleto = marca ? `${modelo} [${marca}]` : modelo
 
           const branchId = getBranchId(bodegas, sucursal)
