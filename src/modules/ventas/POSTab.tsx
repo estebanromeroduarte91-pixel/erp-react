@@ -378,7 +378,13 @@ export function POSTab() {
           <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0">
             {/* ti-cash-register */}
             <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 5h12l2 6H4l2-6zM4 11h16v8a1 1 0 01-1 1H5a1 1 0 01-1-1v-8zM10 15h4M12 13v4" />
+              <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 5h12a1 1 0 0 1 1 1v2a1 1 0 0 1 -1 1h-12a1 1 0 0 1 -1 -1v-2a1 1 0 0 1 1 -1z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 9h14v9a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 14m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 14m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 17.5h6" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v3" />
             </svg>
           </div>
           <div>
