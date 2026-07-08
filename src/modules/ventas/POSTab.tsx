@@ -370,51 +370,74 @@ export function POSTab() {
 
   // Gate: no caja open for this branch
   if (!sesionAbierta) {
+    const fechaLarga = new Date().toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
     return (
-      <div className="flex items-center justify-center h-[calc(100vh-8rem)]">
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm w-full max-w-md overflow-hidden">
-          <div className="px-6 py-5 border-b border-gray-100">
-            <h2 className="text-base font-bold text-gray-900">Abrir caja del día</h2>
-            <p className="text-xs text-gray-400 mt-0.5">{today()}</p>
+      <div className="flex flex-col h-[calc(100vh-8rem)]">
+        {/* Header de página */}
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0">
+            <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 9h18M9 21V9m6 12V9M3 9a2 2 0 012-2h14a2 2 0 012 2M3 9l2-4h14l2 4" />
+            </svg>
           </div>
-          {cajasActivas.length === 0 ? (
-            <div className="px-6 py-8 text-center">
-              <p className="text-sm text-gray-400">No hay cajas configuradas para esta sucursal.</p>
-              <p className="text-xs text-gray-400 mt-1">Configura cajas en Configuración › Ventas.</p>
+          <div>
+            <p className="text-base font-semibold text-gray-900">Punto de venta</p>
+            <p className="text-xs text-gray-400 capitalize">{fechaLarga}</p>
+          </div>
+        </div>
+
+        {cajasActivas.length === 0 ? (
+          <div className="bg-white rounded-2xl border border-gray-200 p-8 text-center max-w-lg">
+            <p className="text-sm text-gray-400">No hay cajas configuradas para esta sucursal.</p>
+            <p className="text-xs text-gray-400 mt-1">Configura cajas en Configuración › Ventas.</p>
+          </div>
+        ) : (
+          <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden max-w-lg">
+            {/* Estado del día */}
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+              <div>
+                <p className="text-xs text-gray-400 uppercase tracking-wide font-medium">Estado del día</p>
+                <p className="text-sm font-semibold text-gray-700 mt-0.5">Sin sesión activa</p>
+              </div>
+              <span className="inline-flex items-center gap-1.5 bg-red-50 text-red-600 text-xs font-semibold px-3 py-1.5 rounded-full">
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m0 0v2m0-2h2m-2 0H10M12 11V9m0 0V7m0 2h2m-2 0H10m2-6a9 9 0 110 18A9 9 0 0112 3z" /></svg>
+                Caja cerrada
+              </span>
             </div>
-          ) : (
-            <div className="px-6 py-5 space-y-4">
-              {cajasActivas.length > 1 && (
-                <div>
-                  <label className="text-xs font-medium text-gray-600 block mb-1.5">Caja</label>
-                  <div className="flex gap-2 flex-wrap">
-                    {cajasActivas.map(c => (
-                      <button key={c.id}
-                        onClick={() => setCajaSelId(c.id)}
-                        className={['px-4 py-2 rounded-xl border-2 text-sm font-semibold transition',
-                          (cajaParaAbrir?.id === c.id)
-                            ? 'border-blue-600 bg-blue-50 text-blue-700'
-                            : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'].join(' ')}>
-                        {c.nombre}
-                      </button>
-                    ))}
-                  </div>
+
+            <div className="px-6 py-5 space-y-5">
+              {/* Selector de caja */}
+              <div>
+                <label className="text-xs font-medium text-gray-500 block mb-2">Selecciona la caja</label>
+                <div className="flex gap-2 flex-wrap">
+                  {cajasActivas.map(c => (
+                    <button key={c.id} onClick={() => setCajaSelId(c.id)}
+                      className={['flex items-center gap-2 px-4 py-2 rounded-xl border-2 text-sm font-medium transition',
+                        (cajaParaAbrir?.id === c.id)
+                          ? 'border-blue-500 bg-blue-50 text-blue-700'
+                          : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'].join(' ')}>
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0H5m14 0h2M5 21H3M9 7h6M9 11h6M9 15h4" /></svg>
+                      {c.nombre}
+                    </button>
+                  ))}
                 </div>
-              )}
+              </div>
+
+              {/* Fondo + Responsable */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs font-medium text-gray-600 block mb-1">Fondo inicial</label>
+                  <label className="text-xs font-medium text-gray-500 block mb-2">Fondo inicial</label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">$</span>
                     <input type="number" value={fondo} onChange={e => setFondo(e.target.value)}
                       placeholder="0"
-                      className="w-full pl-6 pr-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+                      className="w-full pl-6 pr-3 py-2.5 border border-gray-200 rounded-xl text-sm bg-gray-50 focus:outline-none focus:border-blue-400 transition" />
                   </div>
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-gray-600 block mb-1">Responsable</label>
+                  <label className="text-xs font-medium text-gray-500 block mb-2">Responsable</label>
                   <select value={responsable} onChange={e => setResponsable(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm bg-gray-50 focus:outline-none focus:border-blue-400 transition">
                     {usuariosPos.length === 0 && (
                       <option value={nombreUsuario || ''}>{nombreUsuario || '—'}</option>
                     )}
@@ -424,18 +447,27 @@ export function POSTab() {
                   </select>
                 </div>
               </div>
+
+              {/* Info sucursal */}
               {cajaParaAbrir && (
-                <div className="text-xs text-gray-400 bg-gray-50 rounded-lg px-3 py-2">
-                  Caja: <span className="font-medium text-gray-600">{cajaParaAbrir.nombre}</span>
+                <div className="flex items-center gap-2 text-xs text-gray-400 border-t border-gray-100 pt-4">
+                  <span className="w-1.5 h-1.5 rounded-full bg-gray-300 flex-shrink-0" />
+                  Sucursal <span className="font-medium text-gray-500 ml-1">{cajaParaAbrir.nombre}</span>
+                  <span className="ml-auto">Sin ventas registradas hoy</span>
                 </div>
               )}
+            </div>
+
+            {/* Botón */}
+            <div className="px-6 pb-6">
               <button onClick={abrirCaja} disabled={guardandoCaja || !cajaParaAbrir}
-                className="w-full bg-blue-600 text-white font-semibold py-3 rounded-xl hover:bg-blue-700 disabled:opacity-60 transition">
+                className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white font-semibold py-3 rounded-xl hover:bg-blue-700 disabled:opacity-60 transition text-sm">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" /></svg>
                 {guardandoCaja ? 'Abriendo…' : 'Abrir caja'}
               </button>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     )
   }
