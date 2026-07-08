@@ -21,12 +21,6 @@ export function VentasPage() {
     setTab(resolveTab(searchParams.get('tab')))
   }, [searchParams])
 
-  const tabs: { key: Tab; label: string }[] = [
-    { key: 'lista', label: 'Ventas' },
-    { key: 'pos',   label: 'Punto de venta' },
-    { key: 'caja',  label: 'Caja' },
-  ]
-
   return (
     <div className="h-full flex flex-col">
       {tab === 'lista' && <VentasListTab />}
