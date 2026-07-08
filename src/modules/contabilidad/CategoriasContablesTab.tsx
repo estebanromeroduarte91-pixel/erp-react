@@ -6,9 +6,24 @@ import type { GastoCat } from '@/types'
 function uid() { return Math.random().toString(36).slice(2) + Date.now().toString(36) }
 
 const COLORES = [
-  '#3b82f6', '#8b5cf6', '#f59e0b', '#10b981', '#f97316', '#ec4899',
-  '#6b7280', '#14b8a6', '#0ea5e9', '#ef4444', '#64748b', '#94a3b8',
-  '#a855f7', '#22c55e', '#e11d48', '#06b6d4', '#d97706', '#0d9488',
+  '#ef4444', // rojo
+  '#f97316', // naranja
+  '#eab308', // amarillo
+  '#84cc16', // lima
+  '#22c55e', // verde
+  '#0d9488', // teal
+  '#0ea5e9', // celeste
+  '#3b82f6', // azul
+  '#6366f1', // índigo
+  '#8b5cf6', // violeta
+  '#c026d3', // fucsia
+  '#ec4899', // rosa
+  '#64748b', // gris pizarra
+  '#78716c', // gris cálido
+  '#b45309', // marrón/café
+  '#166534', // verde oscuro
+  '#1e40af', // azul marino
+  '#9f1239', // carmesí
 ]
 
 export function CategoriasContablesTab() {
