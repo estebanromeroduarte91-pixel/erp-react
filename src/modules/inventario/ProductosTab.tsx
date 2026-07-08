@@ -65,6 +65,7 @@ export function ProductosTab() {
   const [filtroBodega, setFiltroBodega] = useState('')
   const [filtroCat, setFiltroCat]   = useState('')
   const [filtroSub, setFiltroSub]   = useState('')
+  const [filtroTipo, setFiltroTipo] = useState<'producto' | 'servicio' | ''>('')
   const [bajosStock, setBajosStock] = useState(false)
   const [modalOpen, setModalOpen]       = useState(false)
   const [editando, setEditando]         = useState<Producto | null>(null)
@@ -90,6 +91,7 @@ export function ProductosTab() {
   const lista = useMemo(() => {
     let r = productos ?? []
     // filtroBodega solo cambia la columna de stock visible, no filtra productos
+    if (filtroTipo) r = r.filter(p => (p.tipo ?? 'producto') === filtroTipo)
     if (filtroCat)  r = r.filter(p => p.categoria === filtroCat)
     if (filtroSub)  r = r.filter(p => p.subcategoria === filtroSub)
     if (bajosStock) r = r.filter(p => {
@@ -102,12 +104,12 @@ export function ProductosTab() {
       r = r.filter(p => p.nombre.toLowerCase().includes(q) || p.sku?.toLowerCase().includes(q))
     }
     return r
-  }, [productos, filtroBodega, filtroCat, filtroSub, bajosStock, busqueda])
+  }, [productos, filtroBodega, filtroCat, filtroSub, filtroTipo, bajosStock, busqueda])
 
-  const hayFiltros = !!(filtroBodega || filtroCat || filtroSub || bajosStock || busqueda)
+  const hayFiltros = !!(filtroBodega || filtroCat || filtroSub || filtroTipo || bajosStock || busqueda)
 
   function limpiarFiltros() {
-    setBusqueda(''); setFiltroBodega(''); setFiltroCat(''); setFiltroSub(''); setBajosStock(false)
+    setBusqueda(''); setFiltroBodega(''); setFiltroCat(''); setFiltroSub(''); setFiltroTipo(''); setBajosStock(false)
   }
 
   function cambiarCat(cat: string) {
@@ -271,6 +273,17 @@ export function ProductosTab() {
               {subcategorias.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
           )}
+
+          {/* Tipo */}
+          <select value={filtroTipo} onChange={e => setFiltroTipo(e.target.value as 'producto' | 'servicio' | '')}
+            className={[
+              'text-sm border rounded-lg px-3 py-1.5 focus:outline-none focus:border-blue-400',
+              filtroTipo === 'servicio' ? 'border-violet-400 bg-violet-50 text-violet-700 font-semibold' : 'border-gray-200 bg-gray-50',
+            ].join(' ')}>
+            <option value="">Todos los tipos</option>
+            <option value="producto">Productos</option>
+            <option value="servicio">Servicios</option>
+          </select>
 
           {/* Bajo stock */}
           <button onClick={() => setBajosStock(v => !v)}
