@@ -124,7 +124,7 @@ export function TallerPage() {
           o.rut?.toLowerCase().includes(q),
       )
     }
-    return r
+    return [...r].sort((a, b) => (b.fecha ?? '').localeCompare(a.fecha ?? ''))
   }, [ordenes, filtroEstado, busqueda, derivadoIds, esAdmin, selectedBranchId])
 
   // Stats
