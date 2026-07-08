@@ -285,6 +285,24 @@ export function useGuardarCajaSesiones() {
   })
 }
 
+export function useGuardarCajas() {
+  const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (cajas: Caja[]) => dbSet(empresaId!, 'cajas_perifericas', cajas),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['cajas_perifericas', empresaId] }),
+  })
+}
+
+export function useGuardarMetodosPago() {
+  const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (metodos: MetodoPago[]) => dbSet(empresaId!, 'metodos_pago', metodos),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['metodos_pago', empresaId] }),
+  })
+}
+
 export function useNextVentaNum() {
   const { empresaId } = useAuth()
   return useQuery({

@@ -3,13 +3,14 @@ import { useSearchParams } from 'react-router-dom'
 import { POSTab } from './POSTab'
 import { VentasListTab } from './VentasListTab'
 import { CajaTab } from './CajaTab'
+import { VentasConfigTab } from './VentasConfigTab'
 
-type Tab = 'pos' | 'lista' | 'caja'
+type Tab = 'pos' | 'lista' | 'caja' | 'config'
 
 function resolveTab(param: string | null): Tab {
   if (param === 'pos') return 'pos'
   if (param === 'caja') return 'caja'
-  // /ventas sin param → "Resumen" = lista de ventas
+  if (param === 'config') return 'config'
   return 'lista'
 }
 
@@ -22,10 +23,11 @@ export function VentasPage() {
   }, [searchParams])
 
   return (
-    <div className="h-full flex flex-col">
-      {tab === 'lista' && <VentasListTab />}
-      {tab === 'pos'   && <POSTab />}
-      {tab === 'caja'  && <CajaTab />}
+    <div className="h-full flex flex-col overflow-y-auto">
+      {tab === 'lista'  && <VentasListTab />}
+      {tab === 'pos'    && <POSTab />}
+      {tab === 'caja'   && <CajaTab />}
+      {tab === 'config' && <VentasConfigTab />}
     </div>
   )
 }
