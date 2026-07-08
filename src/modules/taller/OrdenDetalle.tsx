@@ -78,7 +78,18 @@ export function OrdenDetalle({ orden: o, ordenes, onClose, onEditar }: Props) {
   const [inspecFotos, setInspecFotos] = useState<string[]>(o.inspeccion?.fotos ?? [])
   const [showQrInspec, setShowQrInspec] = useState(false)
   const [guardandoInspec, setGuardandoInspec] = useState(false)
+  const [reenviarOpen, setReenviarOpen] = useState(false)
   const fileInspecRef = useRef<HTMLInputElement>(null)
+  const reenviarRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!reenviarOpen) return
+    function handleClick(e: MouseEvent) {
+      if (reenviarRef.current && !reenviarRef.current.contains(e.target as Node)) setReenviarOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [reenviarOpen])
 
   const total = totalOrden(o)
   const pipelineIdx = PIPELINE.indexOf(o.status as EstadoOrden)
@@ -288,16 +299,16 @@ export function OrdenDetalle({ orden: o, ordenes, onClose, onEditar }: Props) {
     e.target.value = ''
   }
 
-  async function guardarInspeccion(enviarCorreo = false) {
+  async function guardarInspeccion(modo: 'solo' | 'correo' | 'whatsapp' = 'solo') {
     setGuardandoInspec(true)
     const inspeccion: Inspeccion = { fotos: inspecFotos, notas: inspecNotas, fecha: new Date().toISOString() }
     const actualizadas = ordenes.map(x => x.id === o.id ? { ...x, inspeccion } : x)
     await guardar.mutateAsync(actualizadas)
 
-    if (enviarCorreo && o.email && empresaId) {
+    if (modo === 'correo' && o.email && empresaId) {
       const tpl = msgTemplates?.inspeccion_email ?? ''
       const vars = buildVars(o.num)
-      const msgTexto = tpl ? tpl.replace(/\{\{(\w+)\}\}/g, (_, k) => (vars as Record<string, string>)[k] ?? '') : ''
+      const msgTexto = tpl ? rellenarTemplate(tpl, { ...vars, diagnostico: inspecNotas }) : inspecNotas
       const html = buildEmailInspeccion({
         tallerNombre: segCfg?.nombreTaller ?? 'TallerPro',
         logoUrl: segCfg?.logoUrl,
@@ -307,6 +318,17 @@ export function OrdenDetalle({ orden: o, ordenes, onClose, onEditar }: Props) {
         fotos: inspecFotos,
       })
       void sendEmail(empresaId, o.email, `Inspección de equipo — ${o.modelo} #OT-${String(o.num).padStart(4, '0')}`, html)
+    }
+
+    if (modo === 'whatsapp' && o.tel) {
+      const tpl = msgTemplates?.inspeccion_wa ?? ''
+      const vars = buildVars(o.num)
+      const msg = tpl
+        ? rellenarTemplate(tpl, { ...vars, diagnostico: inspecNotas })
+        : `Hola ${o.nombre ?? ''}, te informamos que realizamos la inspección de tu ${o.modelo ?? 'equipo'} (OT #${o.num}).\n\nDiagnóstico:\n${inspecNotas}`
+      const tel = o.tel.replace(/\D/g, '')
+      const telWa = tel.startsWith('56') ? tel : '56' + tel
+      window.open(`https://wa.me/${telWa}?text=${encodeURIComponent(msg)}`, '_blank')
     }
 
     setGuardandoInspec(false)
@@ -503,18 +525,44 @@ export function OrdenDetalle({ orden: o, ordenes, onClose, onEditar }: Props) {
                     </div>
                   )}
 
-                  <div className="flex justify-end gap-2">
+                  <div className="flex justify-end gap-2 flex-wrap items-center">
                     <button onClick={() => setShowInspeccion(false)}
                       className="px-3 py-1.5 text-xs font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition">Cancelar</button>
-                    <button onClick={() => guardarInspeccion(false)} disabled={guardandoInspec}
+                    <button onClick={() => guardarInspeccion('solo')} disabled={guardandoInspec}
                       className="px-3 py-1.5 text-xs font-semibold text-gray-700 bg-gray-100 border border-gray-200 rounded-lg hover:bg-gray-200 disabled:opacity-60 transition">
                       {guardandoInspec ? 'Guardando…' : 'Guardar'}
                     </button>
-                    {o.email && (
-                      <button onClick={() => guardarInspeccion(true)} disabled={guardandoInspec}
-                        className="px-3 py-1.5 text-xs font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition">
-                        {guardandoInspec ? 'Guardando…' : 'Guardar y enviar correo'}
-                      </button>
+                    {(o.tel || o.email) && (
+                      <div ref={reenviarRef} className="relative">
+                        <button
+                          onClick={() => setReenviarOpen(v => !v)}
+                          disabled={guardandoInspec}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-600 border border-blue-200 bg-blue-50 rounded-lg hover:bg-blue-100 disabled:opacity-60 transition">
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                          Reenviar
+                          <svg className={`w-3 h-3 transition-transform ${reenviarOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                        </button>
+                        {reenviarOpen && (
+                          <div className="absolute bottom-full right-0 mb-2 w-48 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden z-10">
+                            {o.tel && (
+                              <button
+                                onClick={() => { setReenviarOpen(false); guardarInspeccion('whatsapp') }}
+                                className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition border-b border-gray-100">
+                                <svg className="w-4 h-4 text-green-500 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.127.558 4.123 1.532 5.855L.057 23.01a.75.75 0 0 0 .931.931l5.163-1.476A11.943 11.943 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.9 0-3.68-.524-5.2-1.435l-.373-.222-3.865 1.105 1.105-3.851-.24-.386A9.96 9.96 0 0 1 2 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/></svg>
+                                Por WhatsApp
+                              </button>
+                            )}
+                            {o.email && (
+                              <button
+                                onClick={() => { setReenviarOpen(false); guardarInspeccion('correo') }}
+                                className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition">
+                                <svg className="w-4 h-4 text-blue-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                                Por correo
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>
