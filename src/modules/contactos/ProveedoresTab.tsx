@@ -83,7 +83,6 @@ export function ProveedoresTab() {
                 <tr className="border-b border-gray-100 bg-gray-50">
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Nombre</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">RUT</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Contacto</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Teléfono</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Email</th>
                   <th className="px-4 py-3" />
@@ -97,7 +96,6 @@ export function ProveedoresTab() {
                       {p.notas && <p className="text-xs text-gray-400 truncate max-w-48">{p.notas}</p>}
                     </td>
                     <td className="px-4 py-3 text-gray-500 text-xs">{p.rut || '—'}</td>
-                    <td className="px-4 py-3 text-gray-600 text-xs">{p.contacto || '—'}</td>
                     <td className="px-4 py-3 text-gray-600 text-xs">{p.telefono || '—'}</td>
                     <td className="px-4 py-3">
                       {p.email
