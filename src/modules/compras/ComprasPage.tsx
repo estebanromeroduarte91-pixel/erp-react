@@ -1180,11 +1180,10 @@ export function ComprasPage() {
   }
 
   async function handleConfirmar(ocId: string, folio: string, metodoPago: string) {
+    const sinFactura = !folio.trim() || folio.trim().toUpperCase() === 'SIN FACTURA'
     const ocConfirmada = { ...(ocs.find(o => o.id === ocId)!), estado: 'confirmada' as EstadoOC, folio_factura: folio, metodo_pago: metodoPago, fecha_confirmacion: today() }
     const updated = ocs.map(o => o.id === ocId ? ocConfirmada : o)
     await guardarOCs.mutateAsync(updated)
-    // Genera el asiento contable de la compra (con/sin IVA según haya factura)
-    const sinFactura = !folio.trim() || folio.trim().toUpperCase() === 'SIN FACTURA'
     const listaAs = asientos ?? []
     const existente = listaAs.find(a => a.id === asientoIdDeOC(ocId))
     const asiento = asientoDeOC(ocConfirmada, metodoPago, sinFactura, planCuentas ?? [], existente?.numero ?? nextNumeroAsiento(listaAs))
