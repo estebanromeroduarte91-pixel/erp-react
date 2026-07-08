@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef } from 'react'
-import { useProductos, useGuardarProductos, useVentas, useGuardarVentas, useMetodosPago, useCajaSesiones, useCajas, useGuardarCajaSesiones, useIncrementarContadorVenta, useOrdenes, useGuardarOrden, useMovimientos, useGuardarMovimientos } from '@/lib/queries'
+import { useProductos, useGuardarProductos, useVentas, useGuardarVentas, useMetodosPago, useCajaSesiones, useCajas, useGuardarCajaSesiones, useIncrementarContadorVenta, useOrdenes, useGuardarOrden, useMovimientos, useGuardarMovimientos, useUserProfiles, useUserCargoMap, useCargos, CARGOS_DEFAULT } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import type { VentaItem, Venta, Orden, CajaSesion } from '@/types'
 
@@ -49,11 +49,14 @@ export function POSTab() {
   const guardarOrden = useGuardarOrden()
   const guardarMovimientos = useGuardarMovimientos()
   const incrementarContador = useIncrementarContadorVenta()
+  const { data: userProfiles } = useUserProfiles()
+  const { data: userCargoMap } = useUserCargoMap()
+  const { data: cargosCustom } = useCargos()
 
   // Caja management state
   const [cajaSelId, setCajaSelId] = useState<string>('')
   const [fondo, setFondo] = useState('')
-  const [responsable, setResponsable] = useState('')
+  const [responsable, setResponsable] = useState(nombreUsuario || '')
   const [cerrando, setCerrando] = useState(false)
   const [conteoEfect, setConteoEfect] = useState('')
   const [obsCierre, setObsCierre] = useState('')
@@ -74,6 +77,18 @@ export function POSTab() {
   const busRef = useRef<HTMLInputElement>(null)
 
   const metodoActual = metodoSel || metodos?.[0]?.id || ''
+
+  // Usuarios con acceso a ventas (POS)
+  const usuariosPos = useMemo(() => {
+    const todos = (userProfiles ?? []).filter(u => u.activo !== false)
+    const todosCargos = [...CARGOS_DEFAULT, ...(cargosCustom ?? [])]
+    return todos.filter(u => {
+      if (u.role === 'admin') return true
+      const cargoId = userCargoMap?.[u.id]?.cargoId
+      const cargo = todosCargos.find(c => c.id === cargoId)
+      return cargo?.permisos?.ventas === true
+    })
+  }, [userProfiles, userCargoMap, cargosCustom])
 
   // Cajas filtered by branch
   const cajasActivas = useMemo(() => {
@@ -395,9 +410,15 @@ export function POSTab() {
                 </div>
                 <div>
                   <label className="text-xs font-medium text-gray-600 block mb-1">Responsable</label>
-                  <input value={responsable} onChange={e => setResponsable(e.target.value)}
-                    placeholder={nombreUsuario || 'Nombre'}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+                  <select value={responsable} onChange={e => setResponsable(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
+                    {usuariosPos.length === 0 && (
+                      <option value={nombreUsuario || ''}>{nombreUsuario || '—'}</option>
+                    )}
+                    {usuariosPos.map(u => (
+                      <option key={u.id} value={u.nombre}>{u.nombre}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
               {cajaParaAbrir && (
