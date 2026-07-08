@@ -54,7 +54,6 @@ type PreviewRow = {
   trabajo: string
   fecha: string
   total: number
-  sucursal: string
 }
 
 export function HistorialImportTab() {
@@ -171,7 +170,6 @@ export function HistorialImportTab() {
           trabajo: o.trabajo ?? '',
           fecha: o.fecha ? new Date(o.fecha).toLocaleDateString('es-CL') : '',
           total: o.presup ?? 0,
-          sucursal,
         })))
         setEstado('preview')
       } catch (err) {
