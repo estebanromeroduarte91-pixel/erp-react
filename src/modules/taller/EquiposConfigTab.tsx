@@ -184,10 +184,16 @@ function ExcelImportSection() {
   async function confirmar() {
     setEstado('subiendo')
     try {
-      await guardarEquipos.mutateAsync([...(equipos ?? []), ...nuevos])
-      if (marcasNuevas.length > 0) {
-        await guardarMar.mutateAsync([...marcasConfig, ...marcasNuevas])
-      }
+      const allEquipos = [...(equipos ?? []), ...nuevos]
+      await guardarEquipos.mutateAsync(allEquipos)
+      // Sincronizar: todas las marcas presentes en el catálogo completo → tp_marcas_equipo
+      const todasLasMarcas = [
+        ...new Set([
+          ...marcasConfig,
+          ...allEquipos.map(e => e.marca ?? '').filter(Boolean),
+        ]),
+      ].sort()
+      await guardarMar.mutateAsync(todasLasMarcas)
       setEstado('listo')
     } catch (err) {
       setErrorMsg(String(err))
