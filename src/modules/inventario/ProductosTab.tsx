@@ -7,7 +7,7 @@ import { Spinner } from '@/components/shared/Spinner'
 import { ProductoModal } from './ProductoModal'
 import type { Producto } from '@/types'
 
-type ImportRow = { sku: string; nombre: string; costoNeto: number; precio: number; stock: number; categoria: string; subcategoria: string; enlace: string }
+type ImportRow = { sku: string; nombre: string; costoNeto: number; precio: number; stock: number; categoria: string; subcategoria: string; enlace: string; tipo: 'producto' | 'servicio' }
 
 function parseExcel(file: File): Promise<ImportRow[]> {
   return new Promise((resolve, reject) => {
@@ -22,16 +22,21 @@ function parseExcel(file: File): Promise<ImportRow[]> {
           const col = Object.keys(row).find(k => keys.some(kk => norm(k) === norm(kk)))
           return col ? String(row[col]).trim() : ''
         }
-        const rows = raw.map(row => ({
-          sku:         find(row, 'sku'),
-          nombre:      find(row, 'producto', 'nombre', 'name'),
-          costoNeto:   Number(find(row, 'costo neto', 'costo', 'cost')) || 0,
-          precio:      Number(find(row, 'precio venta', 'precio', 'price')) || 0,
-          stock:       Number(find(row, 'stock')) || 0,
-          categoria:   find(row, 'categoria', 'categoría', 'category'),
-          subcategoria:find(row, 'subcategoria', 'subcategoría', 'subcategory'),
-          enlace:      find(row, 'enlace', 'link', 'url'),
-        })).filter(r => r.nombre)
+        const rows = raw.map(row => {
+          const tipoRaw = find(row, 'tipo', 'type').toLowerCase()
+          const tipo: 'producto' | 'servicio' = tipoRaw === 'servicio' || tipoRaw === 'service' ? 'servicio' : 'producto'
+          return {
+            sku:         find(row, 'sku'),
+            nombre:      find(row, 'producto', 'nombre', 'name'),
+            costoNeto:   Number(find(row, 'costo neto', 'costo', 'cost')) || 0,
+            precio:      Number(find(row, 'precio venta', 'precio', 'price')) || 0,
+            stock:       Number(find(row, 'stock')) || 0,
+            categoria:   find(row, 'categoria', 'categoría', 'category'),
+            subcategoria:find(row, 'subcategoria', 'subcategoría', 'subcategory'),
+            enlace:      find(row, 'enlace', 'link', 'url'),
+            tipo,
+          }
+        }).filter(r => r.nombre)
         resolve(rows)
       } catch (err) { reject(err) }
     }
@@ -161,10 +166,11 @@ export function ProductosTab() {
           subcategoria: r.subcategoria,
           precio_compra: r.costoNeto,
           precio_venta: r.precio,
-          stock: r.stock,
-          stock_min: 0,
+          stock: r.tipo === 'servicio' ? undefined : r.stock,
+          stock_min: r.tipo === 'servicio' ? undefined : 0,
           enlace: r.enlace,
           descripcion: '',
+          tipo: r.tipo,
         }
       })
       await guardar.mutateAsync([...base, ...nuevos])
