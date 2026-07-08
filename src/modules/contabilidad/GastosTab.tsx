@@ -411,15 +411,15 @@ function GastoModal({ cats, gasto, subcatsPorCat, onClose, onGuardar }: {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider block mb-1.5">Monto</label>
-              <div className="flex items-center gap-1.5 border border-gray-200 rounded-lg px-3 py-2 bg-gray-50 focus-within:border-blue-400 transition">
-                <span className="text-sm text-gray-400">$</span>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400 pointer-events-none">$</span>
                 <input
                   type="number" value={monto} onChange={e => setMonto(e.target.value)}
                   autoFocus placeholder="0"
-                  className="flex-1 text-sm font-medium bg-transparent border-0 outline-none text-gray-900 placeholder-gray-300 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                  className="w-full pl-7 pr-12 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:outline-none focus:border-blue-400 transition [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                   onKeyDown={e => e.key === 'Enter' && handleGuardar()}
                 />
-                <span className="text-xs text-gray-300">CLP</span>
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-300 pointer-events-none">CLP</span>
               </div>
             </div>
             <div>
