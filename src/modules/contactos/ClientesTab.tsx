@@ -4,6 +4,7 @@ import { useAuth } from '@/context/AuthContext'
 import { useIsMobile } from '@/lib/useIsMobile'
 import { Spinner } from '@/components/shared/Spinner'
 import { formatRut } from '@/lib/rut'
+import { OrdenDetallePage } from '@/modules/taller/OrdenDetallePage'
 import type { Cliente } from '@/types'
 
 function uid() { return Math.random().toString(36).slice(2) + Date.now().toString(36) }
@@ -211,6 +212,7 @@ function DetailPanel({ cliente, stats, esAdmin, onEditar, onEliminar }: {
   onEliminar: () => void
 }) {
   const [vista, setVista] = useState<null | 'boletas' | 'ots'>(null)
+  const [otNum, setOtNum] = useState<string | null>(null)
 
   const p = avatarPalette(cliente.id)
   const nombre = `${cliente.nombre} ${cliente.apellido ?? ''}`.trim()
@@ -221,7 +223,15 @@ function DetailPanel({ cliente, stats, esAdmin, onEditar, onEliminar }: {
   const ultimas3Ots = (stats?.ots ?? []).slice(0, 3)
 
   // Resetear vista al cambiar de cliente
-  useEffect(() => { setVista(null) }, [cliente.id])
+  useEffect(() => { setVista(null); setOtNum(null) }, [cliente.id])
+
+  if (otNum) {
+    return (
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', background: '#fff', overflow: 'hidden' }}>
+        <OrdenDetallePage num={otNum} onClose={() => setOtNum(null)} />
+      </div>
+    )
+  }
 
   const headerActions = (
     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -303,7 +313,10 @@ function DetailPanel({ cliente, stats, esAdmin, onEditar, onEliminar }: {
           ) : ots.map((o) => {
             const s = STATUS_BADGE[o.status] ?? { bg: '#f1f5f9', color: '#475569' }
             return (
-              <div key={o.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 24px', borderBottom: '0.5px solid #f5f5f5' }}>
+              <button key={o.id} onClick={() => setOtNum(String(o.num))}
+                style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '12px 24px', borderBottom: '0.5px solid #f5f5f5', background: 'none', border: 'none', borderBottom: '0.5px solid #f5f5f5', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}
+                onMouseEnter={e => (e.currentTarget.style.background = '#f9fafb')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'none')}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p style={{ margin: '0 0 2px', fontSize: 13, fontWeight: 600, color: '#111' }}>
                     #{o.num} — {o.modelo || 'Sin modelo'}
@@ -319,7 +332,10 @@ function DetailPanel({ cliente, stats, esAdmin, onEditar, onEliminar }: {
                     <span style={{ fontSize: 12, fontWeight: 600, color: '#111' }}>${Math.round(+o.presup).toLocaleString('es-CL')}</span>
                   )}
                 </div>
-              </div>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#d1d5db" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                  <polyline points="9 18 15 12 9 6"/>
+                </svg>
+              </button>
             )
           })}
         </div>
