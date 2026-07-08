@@ -389,6 +389,9 @@ export function TallerPage() {
             iconBg="bg-amber-100 text-amber-700"
             label="Órdenes abiertas"
             value={stats.abiertas}
+            active={filtroEstado === 'todos'}
+            activeBorder="border-amber-400"
+            activeBg="bg-amber-50"
             onClick={() => setFiltroEstado('todos')}
           />
           <StatCard
@@ -397,6 +400,9 @@ export function TallerPage() {
             label="Listos para entregar"
             value={stats.listos}
             valueColor="text-green-700"
+            active={filtroEstado === 'Listo'}
+            activeBorder="border-green-400"
+            activeBg="bg-green-50"
             onClick={() => setFiltroEstado('Listo')}
           />
           <StatCard
@@ -405,6 +411,9 @@ export function TallerPage() {
             label="Órdenes entregadas"
             value={stats.entregadas}
             valueColor="text-purple-700"
+            active={filtroEstado === 'Entregado'}
+            activeBorder="border-purple-400"
+            activeBg="bg-purple-50"
             onClick={() => setFiltroEstado('Entregado')}
           />
         </div>
@@ -739,7 +748,7 @@ function BranchSelector({
 }
 
 function StatCard({
-  icon, iconBg, label, value, valueColor = 'text-gray-900', onClick,
+  icon, iconBg, label, value, valueColor = 'text-gray-900', onClick, active = false, activeBorder = 'border-purple-400', activeBg = 'bg-purple-50',
 }: {
   icon: React.ReactNode
   iconBg: string
@@ -747,11 +756,19 @@ function StatCard({
   value: number
   valueColor?: string
   onClick?: () => void
+  active?: boolean
+  activeBorder?: string
+  activeBg?: string
 }) {
   return (
     <button
       onClick={onClick}
-      className="bg-white rounded-xl border border-gray-200 p-4 flex items-start gap-3 text-left hover:shadow-sm transition w-full"
+      className={[
+        'rounded-xl border p-4 flex items-start gap-3 text-left transition w-full',
+        active
+          ? `${activeBg} ${activeBorder} border-2 shadow-sm`
+          : 'bg-white border-gray-200 hover:shadow-sm',
+      ].join(' ')}
     >
       <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${iconBg}`}>
         {icon}
