@@ -191,7 +191,7 @@ function ItemRow({
       precio_neto: pn,
       precio_iva: Math.round(pn * (1 + IVA)),
       precio_unitario: pn,
-      subtotal: item.cantidad * pn,
+      subtotal: item.cantidad * Math.round(pn * (1 + IVA)),
     })
     setQ(p.nombre)
     setOpen(false)
@@ -246,7 +246,7 @@ function ItemRow({
         <input type="number" value={item.cantidad} min={1} step={1}
           onChange={e => {
             const qty = +e.target.value || 1
-            onUpdate(item.id, { cantidad: qty, subtotal: qty * item.precio_neto })
+            onUpdate(item.id, { cantidad: qty, subtotal: qty * item.precio_iva })
           }}
           style={{ width: 62, textAlign: 'center' }}
         />
@@ -255,7 +255,7 @@ function ItemRow({
         <input type="text" inputMode="numeric" value={fmtMiles(item.precio_neto)} placeholder="Neto"
           onChange={e => {
             const pn = parseMiles(e.target.value)
-            onUpdate(item.id, { precio_neto: pn, precio_iva: Math.round(pn * (1 + IVA)), precio_unitario: pn, subtotal: item.cantidad * pn })
+            onUpdate(item.id, { precio_neto: pn, precio_iva: Math.round(pn * (1 + IVA)), precio_unitario: pn, subtotal: item.cantidad * Math.round(pn * (1 + IVA)) })
           }}
           style={{ width: 88 }}
         />
@@ -265,7 +265,7 @@ function ItemRow({
           onChange={e => {
             const pi = parseMiles(e.target.value)
             const pn = Math.round(pi / (1 + IVA))
-            onUpdate(item.id, { precio_neto: pn, precio_iva: pi, precio_unitario: pn, subtotal: item.cantidad * pn })
+            onUpdate(item.id, { precio_neto: pn, precio_iva: pi, precio_unitario: pn, subtotal: item.cantidad * pi })
           }}
           style={{ width: 88 }}
         />
@@ -802,7 +802,7 @@ function ModalVerOC({
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-      <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 860, maxHeight: '92vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,.2)' }}>
+      <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 680, maxHeight: '92vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,.2)' }}>
 
         {/* Header */}
         <div style={{ padding: '18px 24px', borderBottom: '1px solid var(--gray-100)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -852,7 +852,7 @@ function ModalVerOC({
               </div>
             </div>
             <div style={{ padding: '12px 20px', borderRight: '1px solid var(--gray-100)', borderTop: '1px solid var(--gray-100)' }}>
-              <div style={detailLabel}>Bodegas con recepciones</div>
+              <div style={detailLabel}>Bodega</div>
               <div style={detailValue}>{bodUniq.length ? bodUniq.join(', ') : '—'}</div>
             </div>
             <div style={{ padding: '12px 20px', borderTop: '1px solid var(--gray-100)' }}>
@@ -868,83 +868,49 @@ function ModalVerOC({
             </div>
           )}
 
-          {/* Two-column: items + recepciones */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 290px', minHeight: 200 }}>
-            {/* Items */}
-            <div style={{ borderRight: '1px solid var(--gray-100)', overflowX: 'auto' }}>
-              <div style={{ padding: '12px 16px 8px', fontSize: 11, fontWeight: 700, color: 'var(--gray-500)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Ítems de la Orden</div>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ background: 'var(--gray-50)' }}>
-                    <th style={thStyle}>Producto</th>
-                    <th style={{ ...thStyle, textAlign: 'center', width: 64 }}>Ord.</th>
-                    <th style={{ ...thStyle, textAlign: 'center', width: 64 }}>Rec.</th>
-                    <th style={{ ...thStyle, textAlign: 'center', width: 64 }}>Pend.</th>
-                    <th style={{ ...thStyle, textAlign: 'right', width: 90 }}>Subtotal</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map(it => {
-                    const rec = getCantRecibida(oc, it.id)
-                    const pend = Math.max(0, it.cantidad - rec)
-                    const pct = it.cantidad > 0 ? Math.round((rec / it.cantidad) * 100) : 0
-                    return (
-                      <tr key={it.id} style={{ borderBottom: '1px solid var(--gray-100)' }}>
-                        <td style={{ padding: '10px 14px' }}>
-                          <div style={{ fontWeight: 600, fontSize: 13 }}>{it.producto_nombre || '—'}</div>
-                          <div style={{ height: 3, background: 'var(--gray-200)', borderRadius: 3, marginTop: 4, overflow: 'hidden', width: '100%' }}>
-                            <div style={{ height: 3, background: pct >= 100 ? '#059669' : '#f59e0b', width: `${pct}%`, borderRadius: 3 }} />
-                          </div>
-                        </td>
-                        <td style={{ padding: '10px', textAlign: 'center', color: 'var(--gray-600)', fontSize: 13 }}>{it.cantidad}</td>
-                        <td style={{ padding: '10px', textAlign: 'center', fontWeight: 600, fontSize: 13, color: rec >= it.cantidad ? '#059669' : 'var(--primary)' }}>{rec}</td>
-                        <td style={{ padding: '10px', textAlign: 'center', color: pend > 0 ? '#d97706' : 'var(--gray-400)', fontWeight: pend > 0 ? 600 : 400, fontSize: 13 }}>
-                          {pend > 0 ? pend : '✓'}
-                        </td>
-                        <td style={{ padding: '10px', textAlign: 'right', fontWeight: 600 }}>{fmt$(it.subtotal)}</td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-                <tfoot>
-                  <tr style={{ background: 'var(--gray-50)' }}>
-                    <td colSpan={4} style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 700, fontSize: 13 }}>TOTAL</td>
-                    <td style={{ padding: '10px', textAlign: 'right', fontWeight: 700, fontSize: 15, color: 'var(--primary)' }}>{fmt$(oc.total ?? 0)}</td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-
-            {/* Recepciones sidebar */}
-            <div style={{ padding: 16, background: 'var(--gray-50)', overflowY: 'auto', maxHeight: 400 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--gray-500)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>
-                📋 Recepciones ({recepciones.length})
-              </div>
-              {recepciones.length === 0
-                ? <div style={{ textAlign: 'center', padding: 24, color: 'var(--gray-400)', fontSize: 13 }}>Sin recepciones aún</div>
-                : recepciones.slice().reverse().map((r, ri) => (
-                  <div key={r.id} style={{ marginBottom: 14, border: '1px solid var(--gray-200)', borderRadius: 10, overflow: 'hidden' }}>
-                    <div style={{ background: '#fff', padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--gray-100)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ background: 'var(--primary)', color: '#fff', borderRadius: '50%', width: 26, height: 26, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700 }}>
-                          {recepciones.length - ri}
-                        </span>
-                        <strong style={{ fontSize: 13, color: 'var(--gray-800)' }}>🏭 {r.bodega_nombre}</strong>
-                      </div>
-                      <span style={{ fontSize: 12, color: 'var(--gray-400)' }}>{fmtDate(r.fecha)}</span>
-                    </div>
-                    <div style={{ padding: '10px 14px' }}>
-                      {r.items.map(i => (
-                        <div key={i.prod_item_id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', borderBottom: '1px solid var(--gray-100)', fontSize: 13 }}>
-                          <span style={{ color: 'var(--gray-700)' }}>{i.producto_nombre}</span>
-                          <span style={{ fontWeight: 700, color: 'var(--primary)', background: 'var(--primary-light)', padding: '2px 10px', borderRadius: 20 }}>{i.cantidad} un.</span>
+          {/* Items */}
+          <div style={{ overflowX: 'auto' }}>
+            <div style={{ padding: '12px 20px 8px', fontSize: 11, fontWeight: 700, color: 'var(--gray-500)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Ítems de la orden</div>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ background: 'var(--gray-50)' }}>
+                  <th style={thStyle}>Producto</th>
+                  <th style={{ ...thStyle, textAlign: 'center', width: 64 }}>Ord.</th>
+                  <th style={{ ...thStyle, textAlign: 'center', width: 64 }}>Rec.</th>
+                  <th style={{ ...thStyle, textAlign: 'center', width: 64 }}>Pend.</th>
+                  <th style={{ ...thStyle, textAlign: 'right', width: 90 }}>Subtotal</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map(it => {
+                  const rec = getCantRecibida(oc, it.id)
+                  const pend = Math.max(0, it.cantidad - rec)
+                  const pct = it.cantidad > 0 ? Math.round((rec / it.cantidad) * 100) : 0
+                  return (
+                    <tr key={it.id} style={{ borderBottom: '1px solid var(--gray-100)' }}>
+                      <td style={{ padding: '10px 20px' }}>
+                        <div style={{ fontWeight: 600, fontSize: 13 }}>{it.producto_nombre || '—'}</div>
+                        <div style={{ height: 3, background: 'var(--gray-200)', borderRadius: 3, marginTop: 4, overflow: 'hidden', width: '100%' }}>
+                          <div style={{ height: 3, background: pct >= 100 ? '#059669' : '#f59e0b', width: `${pct}%`, borderRadius: 3 }} />
                         </div>
-                      ))}
-                      {r.notas && <div style={{ fontSize: 12, color: 'var(--gray-400)', marginTop: 6, fontStyle: 'italic' }}>📝 {r.notas}</div>}
-                    </div>
-                  </div>
-                ))}
-            </div>
+                      </td>
+                      <td style={{ padding: '10px', textAlign: 'center', color: 'var(--gray-600)', fontSize: 13 }}>{it.cantidad}</td>
+                      <td style={{ padding: '10px', textAlign: 'center', fontWeight: 600, fontSize: 13, color: rec >= it.cantidad ? '#059669' : 'var(--primary)' }}>{rec}</td>
+                      <td style={{ padding: '10px', textAlign: 'center', color: pend > 0 ? '#d97706' : 'var(--gray-400)', fontWeight: pend > 0 ? 600 : 400, fontSize: 13 }}>
+                        {pend > 0 ? pend : '✓'}
+                      </td>
+                      <td style={{ padding: '10px 20px', textAlign: 'right', fontWeight: 600 }}>{fmt$(it.subtotal)}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+              <tfoot>
+                <tr style={{ background: 'var(--gray-50)' }}>
+                  <td colSpan={4} style={{ padding: '10px 20px', textAlign: 'right', fontWeight: 700, fontSize: 13 }}>TOTAL</td>
+                  <td style={{ padding: '10px 20px', textAlign: 'right', fontWeight: 700, fontSize: 15, color: 'var(--primary)' }}>{fmt$(oc.total ?? 0)}</td>
+                </tr>
+              </tfoot>
+            </table>
           </div>
         </div>
 
