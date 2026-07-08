@@ -96,6 +96,7 @@ export interface Producto {
   subcategoria?: string
   descripcion?: string
   enlace?: string
+  tipo?: 'producto' | 'servicio'
 }
 
 export interface Bodega {

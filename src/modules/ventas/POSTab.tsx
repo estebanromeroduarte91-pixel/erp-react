@@ -346,6 +346,7 @@ export function POSTab() {
         const prodsActualizados = (productos ?? []).map(p => {
           const vendido = prodsSalida.find(it => it.producto_id === p.id)
           if (!vendido) return p
+          if (p.tipo === 'servicio') return p
           if (bodegaId) {
             const actual = p.stock_sucursales?.[bodegaId] ?? p.stock ?? 0
             return {
@@ -657,11 +658,14 @@ export function POSTab() {
                     <span>
                       <span className="font-medium text-gray-800">{p.nombre}</span>
                       {p.sku && <span className="ml-2 text-xs text-gray-400">{p.sku}</span>}
-                      {(() => {
-                        const bodId = cajaAbierta?.bodegaId
-                        const stk = bodId ? (p.stock_sucursales?.[bodId] ?? p.stock ?? 0) : (p.stock ?? 0)
-                        return <span className="ml-2 text-xs text-gray-400">· Stock: {stk}</span>
-                      })()}
+                      {p.tipo === 'servicio'
+                        ? <span className="ml-2 text-xs text-violet-500 font-medium">· Servicio</span>
+                        : (() => {
+                            const bodId = cajaAbierta?.bodegaId
+                            const stk = bodId ? (p.stock_sucursales?.[bodId] ?? p.stock ?? 0) : (p.stock ?? 0)
+                            return <span className="ml-2 text-xs text-gray-400">· Stock: {stk}</span>
+                          })()
+                      }
                     </span>
                     <span className="font-semibold text-blue-700">{fmt(p.precio_venta ?? 0)}</span>
                   </button>

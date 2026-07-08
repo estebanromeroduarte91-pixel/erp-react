@@ -88,6 +88,7 @@ export function ProductosTab() {
     if (filtroCat)  r = r.filter(p => p.categoria === filtroCat)
     if (filtroSub)  r = r.filter(p => p.subcategoria === filtroSub)
     if (bajosStock) r = r.filter(p => {
+      if (p.tipo === 'servicio') return false
       const st = filtroBodega ? stockSucursal(p, filtroBodega) : stockTotal(p)
       return st <= (p.stock_min ?? 0)
     })
@@ -363,7 +364,11 @@ export function ProductosTab() {
                       <td className="px-4 py-3 text-right font-semibold text-green-700">
                         {p.precio_venta ? <Money value={p.precio_venta} /> : '—'}
                       </td>
-                      {displayBodegas.length > 0 ? (
+                      {p.tipo === 'servicio' ? (
+                        <td className="px-4 py-3 text-right">
+                          <span className="text-base font-bold text-violet-500">∞</span>
+                        </td>
+                      ) : displayBodegas.length > 0 ? (
                         displayBodegas.map(b => (
                           <td key={b.id} className="px-4 py-3 text-right">
                             <StockBadge value={p.stock_sucursales?.[b.id] ?? 0} min={p.stock_min} />

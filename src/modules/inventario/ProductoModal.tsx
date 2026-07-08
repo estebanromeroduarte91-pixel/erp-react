@@ -21,6 +21,7 @@ export function ProductoModal({ producto, productos, bodegas, onClose }: Props) 
   const guardar = useGuardarProductos()
   const isEditing = !!producto
 
+  const [tipo, setTipo] = useState<'producto' | 'servicio'>(producto?.tipo ?? 'producto')
   const [nombre, setNombre] = useState(producto?.nombre ?? '')
   const [sku, setSku] = useState(() => producto?.sku ?? (isEditing ? '' : nextSku(productos)))
   const [unidad, setUnidad] = useState(producto?.unidad ?? 'unidad')
@@ -34,6 +35,8 @@ export function ProductoModal({ producto, productos, bodegas, onClose }: Props) 
   const [descripcion, setDescripcion] = useState(producto?.descripcion ?? '')
   const [error, setError] = useState('')
   const [guardando, setGuardando] = useState(false)
+
+  const esServicio = tipo === 'servicio'
 
   const tieneSucs = bodegas.length > 0
 
@@ -56,12 +59,13 @@ export function ProductoModal({ producto, productos, bodegas, onClose }: Props) 
       unidad,
       precio_compra: +precioCompra || 0,
       precio_venta: +precioVenta || 0,
-      stock: tieneSucs ? undefined : +stock || 0,
-      stock_min: +stockMin || 0,
-      stock_sucursales: tieneSucs ? stockSucs : undefined,
+      stock: esServicio ? undefined : (tieneSucs ? undefined : +stock || 0),
+      stock_min: esServicio ? undefined : (+stockMin || 0),
+      stock_sucursales: esServicio ? undefined : (tieneSucs ? stockSucs : undefined),
       categoria: categoria.trim() || undefined,
       subcategoria: subcategoria.trim() || undefined,
       descripcion: descripcion.trim() || undefined,
+      tipo,
     }
 
     let nuevos: Producto[]
@@ -98,9 +102,27 @@ export function ProductoModal({ producto, productos, bodegas, onClose }: Props) 
         {/* Body */}
         <div className="overflow-y-auto px-6 py-4 space-y-4">
 
+          {/* Tipo */}
+          <div className="flex gap-2 p-1 bg-gray-100 rounded-xl w-fit">
+            {(['producto', 'servicio'] as const).map(t => (
+              <button key={t} onClick={() => setTipo(t)}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition ${
+                  tipo === t
+                    ? t === 'producto' ? 'bg-blue-600 text-white shadow-sm' : 'bg-violet-600 text-white shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}>
+                {t === 'producto'
+                  ? <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 10V11"/></svg>
+                  : <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11.42 15.17L17.25 21A2.652 2.652 0 0021 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 11-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 004.486-6.336l-3.276 3.277a3.004 3.004 0 01-2.25-2.25l3.276-3.276a4.5 4.5 0 00-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437l1.745-1.437m6.615 8.206L15.75 15.75M4.867 19.125h.008v.008h-.008v-.008z"/></svg>
+                }
+                {t === 'producto' ? 'Producto' : 'Servicio'}
+              </button>
+            ))}
+          </div>
+
           {/* Datos básicos */}
           <section>
-            <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Datos del producto</h4>
+            <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">{esServicio ? 'Datos del servicio' : 'Datos del producto'}</h4>
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2">
                 <Field label="Nombre *" value={nombre} onChange={setNombre} placeholder="Ej: Pantalla iPhone 14" />
@@ -143,30 +165,37 @@ export function ProductoModal({ producto, productos, bodegas, onClose }: Props) 
             </div>
           </section>
 
-          {/* Stock */}
-          <section>
-            <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Stock</h4>
-            {tieneSucs ? (
-              <div className="space-y-2">
-                {bodegas.map((b) => (
-                  <div key={b.id} className="flex items-center gap-3">
-                    <span className="text-sm text-gray-700 flex-1">{b.nombre ?? b.name}</span>
-                    <input
-                      type="number" min="0"
-                      value={stockSucs[b.id] ?? 0}
-                      onChange={(e) => setStockSucs((s) => ({ ...s, [b.id]: +e.target.value || 0 }))}
-                      className="w-24 border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-right bg-gray-50 focus:outline-none focus:border-blue-400"
-                    />
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Stock actual" type="number" value={stock} onChange={setStock} placeholder="0" />
-                <Field label="Stock mínimo" type="number" value={stockMin} onChange={setStockMin} placeholder="0" />
-              </div>
-            )}
-          </section>
+          {/* Stock — solo productos */}
+          {esServicio ? (
+            <div className="flex items-center gap-2.5 px-4 py-3 bg-violet-50 border border-violet-200 rounded-xl text-sm text-violet-700">
+              <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 10.5H21A7.5 7.5 0 106 18.75M13.5 10.5V3M13.5 10.5l3-3m-3 3l-3-3"/></svg>
+              Los servicios no tienen stock. Se pueden vender sin límite.
+            </div>
+          ) : (
+            <section>
+              <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Stock</h4>
+              {tieneSucs ? (
+                <div className="space-y-2">
+                  {bodegas.map((b) => (
+                    <div key={b.id} className="flex items-center gap-3">
+                      <span className="text-sm text-gray-700 flex-1">{b.nombre ?? b.name}</span>
+                      <input
+                        type="number" min="0"
+                        value={stockSucs[b.id] ?? 0}
+                        onChange={(e) => setStockSucs((s) => ({ ...s, [b.id]: +e.target.value || 0 }))}
+                        className="w-24 border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-right bg-gray-50 focus:outline-none focus:border-blue-400"
+                      />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="Stock actual" type="number" value={stock} onChange={setStock} placeholder="0" />
+                  <Field label="Stock mínimo" type="number" value={stockMin} onChange={setStockMin} placeholder="0" />
+                </div>
+              )}
+            </section>
+          )}
 
           {error && <p className="text-sm text-red-600 font-medium">{error}</p>}
         </div>
