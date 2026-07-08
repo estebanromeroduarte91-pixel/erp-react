@@ -315,8 +315,20 @@ function ExcelImportSection() {
 export function EquiposConfigTab() {
   const { data: categorias, isLoading: loadCat } = useCatEquipo()
   const { data: marcas, isLoading: loadMar } = useMarcasEquipo()
+  const { data: equipos } = useEquipos()
   const guardarCat = useGuardarCatEquipo()
   const guardarMar = useGuardarMarcasEquipo()
+  const syncedRef = useRef(false)
+
+  // Auto-sync: marcas presentes en el catálogo de equipos → tp_marcas_equipo
+  useEffect(() => {
+    if (!equipos || !marcas || guardarMar.isPending || syncedRef.current) return
+    const brandsInCatalog = [...new Set(equipos.map(e => e.marca ?? '').filter(Boolean))]
+    const missing = brandsInCatalog.filter(b => !marcas.includes(b))
+    if (missing.length === 0) return
+    syncedRef.current = true
+    guardarMar.mutateAsync([...new Set([...marcas, ...brandsInCatalog])].sort())
+  }, [equipos, marcas])
 
   if (loadCat || loadMar) return <div className="flex justify-center py-16"><Spinner className="w-8 h-8" /></div>
 
