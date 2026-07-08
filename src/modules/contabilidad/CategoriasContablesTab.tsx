@@ -5,7 +5,11 @@ import type { GastoCat } from '@/types'
 
 function uid() { return Math.random().toString(36).slice(2) + Date.now().toString(36) }
 
-const COLORES = ['#3b82f6', '#8b5cf6', '#f59e0b', '#10b981', '#f97316', '#ec4899', '#6b7280', '#14b8a6', '#0ea5e9', '#ef4444', '#64748b', '#94a3b8']
+const COLORES = [
+  '#3b82f6', '#8b5cf6', '#f59e0b', '#10b981', '#f97316', '#ec4899',
+  '#6b7280', '#14b8a6', '#0ea5e9', '#ef4444', '#64748b', '#94a3b8',
+  '#a855f7', '#22c55e', '#e11d48', '#06b6d4', '#d97706', '#0d9488',
+]
 
 export function CategoriasContablesTab() {
   const { data: cats, isLoading } = useGastoCats()
@@ -90,6 +94,7 @@ export function CategoriasContablesTab() {
       {modalOpen && (
         <CategoriaModal
           cat={editando}
+          catsExistentes={cats ?? []}
           onClose={() => { setModalOpen(false); setEditando(null) }}
           onGuardar={guardarCategoria}
         />
@@ -98,13 +103,19 @@ export function CategoriasContablesTab() {
   )
 }
 
-function CategoriaModal({ cat, onClose, onGuardar }: {
+function nextColor(catsExistentes: GastoCat[]): string {
+  const usados = new Set(catsExistentes.map(c => c.color))
+  return COLORES.find(c => !usados.has(c)) ?? COLORES[catsExistentes.length % COLORES.length]
+}
+
+function CategoriaModal({ cat, catsExistentes, onClose, onGuardar }: {
   cat: GastoCat | null
+  catsExistentes: GastoCat[]
   onClose: () => void
   onGuardar: (c: GastoCat, nombreAnterior?: string) => Promise<void>
 }) {
   const [nombre, setNombre] = useState(cat?.nombre ?? '')
-  const [color, setColor] = useState(cat?.color ?? COLORES[0])
+  const [color, setColor] = useState(cat?.color ?? nextColor(catsExistentes))
   const [guardando, setGuardando] = useState(false)
 
   async function submit() {
