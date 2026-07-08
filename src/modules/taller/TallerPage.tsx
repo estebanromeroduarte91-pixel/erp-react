@@ -15,11 +15,12 @@ import { ChecklistConfigTab } from '@/modules/config/ChecklistConfigTab'
 import { MensajesTab } from '@/modules/config/MensajesTab'
 import { TerminosTab } from '@/modules/config/TerminosTab'
 import { EquiposConfigTab } from './EquiposConfigTab'
+import { HistorialImportTab } from './HistorialImportTab'
 import { totalOrden } from './utils'
 import type { Bodega, EstadoOrden, Orden } from '@/types'
 
 type TallerTab = 'ordenes' | 'derivados' | 'equipos' | 'settings'
-type TallerConfigTab = 'seguimiento' | 'checklist' | 'notificaciones' | 'terminos' | 'equipos-config'
+type TallerConfigTab = 'seguimiento' | 'checklist' | 'notificaciones' | 'terminos' | 'equipos-config' | 'historial'
 
 const CONFIG_TABS: { id: TallerConfigTab; label: string }[] = [
   { id: 'seguimiento',    label: 'Seguimiento' },
@@ -27,6 +28,7 @@ const CONFIG_TABS: { id: TallerConfigTab; label: string }[] = [
   { id: 'notificaciones', label: 'Notificaciones' },
   { id: 'terminos',       label: 'Términos' },
   { id: 'equipos-config', label: 'Equipos' },
+  { id: 'historial',      label: 'Subir historial' },
 ]
 
 
@@ -348,6 +350,7 @@ export function TallerPage() {
           {configTab === 'notificaciones' && <MensajesTab />}
           {configTab === 'terminos'       && <TerminosTab />}
           {configTab === 'equipos-config' && <EquiposConfigTab />}
+          {configTab === 'historial'      && <HistorialImportTab />}
         </div>
       )}
 
