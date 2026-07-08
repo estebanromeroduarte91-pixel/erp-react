@@ -1,6 +1,7 @@
 import { useState, useMemo, useRef } from 'react'
-import { useProductos, useGuardarProductos, useVentas, useGuardarVentas, useMetodosPago, useCajaSesiones, useCajas, useIncrementarContadorVenta, useOrdenes, useGuardarOrden, useMovimientos, useGuardarMovimientos } from '@/lib/queries'
-import type { VentaItem, Venta, Orden } from '@/types'
+import { useProductos, useGuardarProductos, useVentas, useGuardarVentas, useMetodosPago, useCajaSesiones, useCajas, useGuardarCajaSesiones, useIncrementarContadorVenta, useOrdenes, useGuardarOrden, useMovimientos, useGuardarMovimientos } from '@/lib/queries'
+import { useAuth } from '@/context/AuthContext'
+import type { VentaItem, Venta, Orden, CajaSesion } from '@/types'
 
 const IVA = 0.19
 
@@ -23,6 +24,7 @@ function IconoMetodo({ id }: { id: string }) {
 
 function uid() { return Math.random().toString(36).slice(2) + Date.now().toString(36) }
 function today() { return new Date().toISOString().split('T')[0] }
+function nowTime() { return new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }) }
 function fmt(n: number) { return '$' + Math.round(n).toLocaleString('es-CL') }
 
 function lineTotal(it: VentaItem) {
@@ -33,6 +35,7 @@ function lineNeto(it: VentaItem) {
 }
 
 export function POSTab() {
+  const { nombre: nombreUsuario, branchId } = useAuth()
   const { data: productos } = useProductos()
   const guardarProductos = useGuardarProductos()
   const { data: ventas } = useVentas()
@@ -42,9 +45,19 @@ export function POSTab() {
   const { data: cajas } = useCajas()
   const { data: movimientos } = useMovimientos()
   const guardarVentas = useGuardarVentas()
+  const guardarSesiones = useGuardarCajaSesiones()
   const guardarOrden = useGuardarOrden()
   const guardarMovimientos = useGuardarMovimientos()
   const incrementarContador = useIncrementarContadorVenta()
+
+  // Caja management state
+  const [cajaSelId, setCajaSelId] = useState<string>('')
+  const [fondo, setFondo] = useState('')
+  const [responsable, setResponsable] = useState('')
+  const [cerrando, setCerrando] = useState(false)
+  const [conteoEfect, setConteoEfect] = useState('')
+  const [obsCierre, setObsCierre] = useState('')
+  const [guardandoCaja, setGuardandoCaja] = useState(false)
 
   const [items, setItems] = useState<VentaItem[]>([])
   const [busqueda, setBusqueda] = useState('')
@@ -62,8 +75,96 @@ export function POSTab() {
 
   const metodoActual = metodoSel || metodos?.[0]?.id || ''
 
-  const sesionAbierta = useMemo(() => sesiones?.find(s => s.fecha === today() && s.estado === 'abierta'), [sesiones])
+  // Cajas filtered by branch
+  const cajasActivas = useMemo(() => {
+    const todas = (cajas ?? []).filter(c => c.activa !== false)
+    return branchId ? todas.filter(c => c.sucursalId === branchId) : todas
+  }, [cajas, branchId])
+
+  const cajaParaAbrir = cajasActivas.find(c => c.id === cajaSelId) ?? cajasActivas[0]
+
+  const sesionAbierta = useMemo(() => {
+    return sesiones?.find(s =>
+      s.fecha === today() && s.estado === 'abierta' &&
+      (branchId ? s.branchId === branchId : true) &&
+      cajasActivas.some(c => c.id === s.cajaId)
+    )
+  }, [sesiones, branchId, cajasActivas])
+
   const cajaAbierta = useMemo(() => sesionAbierta ? cajas?.find(c => c.id === sesionAbierta.cajaId) : undefined, [sesionAbierta, cajas])
+
+  // Totales del día para cierre
+  const totalesHoy = useMemo(() => {
+    if (!cajaAbierta) return { efectivo: 0, debito: 0, credito: 0, transferencia: 0, otro: 0, _total: 0, _count: 0 }
+    const mpMap: Record<string, string> = {}
+    ;(metodos ?? []).forEach(m => { mpMap[m.id] = (m.label ?? '').toLowerCase() })
+    const ventasHoy = (ventas ?? []).filter(v =>
+      v.estado !== 'anulada' && v.fecha === today() && v.cajaId === cajaAbierta.id
+    )
+    const totales = { efectivo: 0, debito: 0, credito: 0, transferencia: 0, otro: 0, _total: 0, _count: 0 }
+    ventasHoy.forEach(v => {
+      const label = mpMap[v.metodo_pago] ?? v.metodo_pago ?? ''
+      const monto = +v.total_iva || 0
+      totales._total += monto; totales._count++
+      if (label.includes('efect')) totales.efectivo += monto
+      else if (label.includes('debit') || label.includes('deb')) totales.debito += monto
+      else if (label.includes('credit') || label.includes('cred')) totales.credito += monto
+      else if (label.includes('transf')) totales.transferencia += monto
+      else totales.otro += monto
+    })
+    return totales
+  }, [ventas, cajaAbierta, metodos])
+
+  const esperadoEfect = totalesHoy.efectivo + (sesionAbierta?.apertura?.montoInicial ?? 0)
+  const contado = parseFloat(conteoEfect) || 0
+  const diferencia = contado - esperadoEfect
+
+  async function abrirCaja() {
+    if (!cajaParaAbrir) return
+    setGuardandoCaja(true)
+    const nuevaSesion: CajaSesion = {
+      id: 'cs-' + Date.now(),
+      branchId: cajaParaAbrir.sucursalId ?? '',
+      cajaId: cajaParaAbrir.id,
+      fecha: today(),
+      estado: 'abierta',
+      apertura: {
+        hora: nowTime(),
+        responsable: responsable.trim() || nombreUsuario || '—',
+        montoInicial: parseFloat(fondo) || 0,
+      },
+      cierre: null,
+    }
+    await guardarSesiones.mutateAsync([...(sesiones ?? []), nuevaSesion])
+    setFondo('')
+    setResponsable('')
+    setGuardandoCaja(false)
+  }
+
+  async function cerrarCaja() {
+    if (!sesionAbierta) return
+    setGuardandoCaja(true)
+    const updated = (sesiones ?? []).map(s =>
+      s.id === sesionAbierta.id
+        ? {
+          ...s, estado: 'cerrada' as const,
+          cierre: {
+            hora: nowTime(),
+            conteoEfectivo: contado,
+            diferencia,
+            observaciones: obsCierre.trim(),
+            totalVentas: totalesHoy._total,
+            conteo: totalesHoy._count,
+          },
+        }
+        : s
+    )
+    await guardarSesiones.mutateAsync(updated)
+    setCerrando(false)
+    setConteoEfect('')
+    setObsCierre('')
+    setGuardandoCaja(false)
+  }
 
   const totalIva = items.reduce((s, it) => s + lineTotal(it), 0)
   const totalNeto = items.reduce((s, it) => s + lineNeto(it), 0)
@@ -247,6 +348,143 @@ export function POSTab() {
     } finally {
       setGuardando(false)
     }
+  }
+
+  // Gate: no caja open for this branch
+  if (!sesionAbierta) {
+    return (
+      <div className="flex items-center justify-center h-[calc(100vh-8rem)]">
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm w-full max-w-md overflow-hidden">
+          <div className="px-6 py-5 border-b border-gray-100">
+            <h2 className="text-base font-bold text-gray-900">Abrir caja del día</h2>
+            <p className="text-xs text-gray-400 mt-0.5">{today()}</p>
+          </div>
+          {cajasActivas.length === 0 ? (
+            <div className="px-6 py-8 text-center">
+              <p className="text-sm text-gray-400">No hay cajas configuradas para esta sucursal.</p>
+              <p className="text-xs text-gray-400 mt-1">Configura cajas en Configuración › Ventas.</p>
+            </div>
+          ) : (
+            <div className="px-6 py-5 space-y-4">
+              {cajasActivas.length > 1 && (
+                <div>
+                  <label className="text-xs font-medium text-gray-600 block mb-1.5">Caja</label>
+                  <div className="flex gap-2 flex-wrap">
+                    {cajasActivas.map(c => (
+                      <button key={c.id}
+                        onClick={() => setCajaSelId(c.id)}
+                        className={['px-4 py-2 rounded-xl border-2 text-sm font-semibold transition',
+                          (cajaParaAbrir?.id === c.id)
+                            ? 'border-blue-600 bg-blue-50 text-blue-700'
+                            : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'].join(' ')}>
+                        {c.nombre}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-medium text-gray-600 block mb-1">Fondo inicial</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">$</span>
+                    <input type="number" value={fondo} onChange={e => setFondo(e.target.value)}
+                      placeholder="0"
+                      className="w-full pl-6 pr-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-600 block mb-1">Responsable</label>
+                  <input value={responsable} onChange={e => setResponsable(e.target.value)}
+                    placeholder={nombreUsuario || 'Nombre'}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+                </div>
+              </div>
+              {cajaParaAbrir && (
+                <div className="text-xs text-gray-400 bg-gray-50 rounded-lg px-3 py-2">
+                  Caja: <span className="font-medium text-gray-600">{cajaParaAbrir.nombre}</span>
+                </div>
+              )}
+              <button onClick={abrirCaja} disabled={guardandoCaja || !cajaParaAbrir}
+                className="w-full bg-blue-600 text-white font-semibold py-3 rounded-xl hover:bg-blue-700 disabled:opacity-60 transition">
+                {guardandoCaja ? 'Abriendo…' : 'Abrir caja'}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // Closing modal overlay
+  if (cerrando) {
+    return (
+      <div className="flex items-center justify-center h-[calc(100vh-8rem)]">
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm w-full max-w-md overflow-hidden">
+          <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
+            <div>
+              <h2 className="text-base font-bold text-gray-900">Cerrar caja</h2>
+              <p className="text-xs text-gray-400 mt-0.5">{cajaAbierta?.nombre} · {today()}</p>
+            </div>
+            <button onClick={() => setCerrando(false)} className="text-gray-400 hover:text-gray-600 p-1">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+          </div>
+          <div className="px-6 py-5 space-y-4">
+            <div className="space-y-2">
+              {[
+                { label: 'Sistema espera (efectivo + fondo)', value: esperadoEfect },
+                ...(totalesHoy.debito > 0 ? [{ label: 'Débito', value: totalesHoy.debito }] : []),
+                ...(totalesHoy.credito > 0 ? [{ label: 'Crédito', value: totalesHoy.credito }] : []),
+                ...(totalesHoy.transferencia > 0 ? [{ label: 'Transferencia', value: totalesHoy.transferencia }] : []),
+              ].map((row, i) => (
+                <div key={i} className="flex justify-between items-center bg-gray-50 rounded-lg px-4 py-2 text-sm">
+                  <span className="text-gray-500">{row.label}</span>
+                  <span className="text-gray-700">{fmt(row.value)}</span>
+                </div>
+              ))}
+              <div className="flex justify-between items-center bg-blue-50 rounded-lg px-4 py-2.5 text-sm">
+                <span className="font-semibold text-blue-700">Total ventas ({totalesHoy._count})</span>
+                <span className="font-bold text-blue-700">{fmt(totalesHoy._total)}</span>
+              </div>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-600 block mb-1">Efectivo contado</label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">$</span>
+                <input type="number" value={conteoEfect} onChange={e => setConteoEfect(e.target.value)}
+                  autoFocus placeholder="0"
+                  className="w-full pl-6 pr-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+              </div>
+              {conteoEfect && (
+                <p className={['text-sm font-semibold mt-1.5',
+                  diferencia === 0 ? 'text-gray-400' : diferencia > 0 ? 'text-green-600' : 'text-red-600'].join(' ')}>
+                  {diferencia === 0 ? 'Cuadrado exacto'
+                    : diferencia > 0 ? `Sobrante ${fmt(diferencia)}`
+                    : `Faltante ${fmt(Math.abs(diferencia))}`}
+                </p>
+              )}
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-600 block mb-1">Observaciones</label>
+              <textarea value={obsCierre} onChange={e => setObsCierre(e.target.value)}
+                rows={2} placeholder="Ej: faltante de $5.000..."
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:outline-none focus:border-blue-400 resize-none" />
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setCerrando(false)}
+                className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-100 transition">
+                Cancelar
+              </button>
+              <button onClick={cerrarCaja} disabled={guardandoCaja}
+                className="flex-1 bg-gray-900 text-white font-semibold py-2.5 rounded-xl hover:bg-gray-800 disabled:opacity-60 transition">
+                {guardandoCaja ? 'Cerrando…' : 'Confirmar cierre'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -522,12 +760,10 @@ export function POSTab() {
                 <span className="text-blue-700">{fmt(totalIva)}</span>
               </div>
             </div>
-            {sesionAbierta && (
-              <div className="mt-3 text-xs text-gray-400 bg-green-50 rounded-lg px-3 py-2 flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
-                Caja abierta — {cajaAbierta?.nombre ?? 'Sin nombre'}
-              </div>
-            )}
+            <div className="mt-3 text-xs text-gray-400 bg-green-50 rounded-lg px-3 py-2 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
+              {cajaAbierta?.nombre ?? 'Caja abierta'} · {sesionAbierta.apertura.hora}
+            </div>
           </div>
         </div>
 
@@ -546,6 +782,12 @@ export function POSTab() {
             className="w-full text-xs text-gray-400 hover:text-gray-600 py-1 transition disabled:opacity-30"
           >
             Limpiar carrito
+          </button>
+          <button
+            onClick={() => setCerrando(true)}
+            className="w-full text-xs text-gray-500 hover:text-gray-800 border border-gray-200 rounded-lg py-1.5 transition"
+          >
+            Cerrar caja →
           </button>
         </div>
       </div>

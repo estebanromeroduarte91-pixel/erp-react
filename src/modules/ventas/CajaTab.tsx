@@ -11,7 +11,7 @@ function nowTime() {
 function fmt(n: number) { return '$' + Math.round(n).toLocaleString('es-CL') }
 
 export function CajaTab() {
-  const { nombre: nombreUsuario } = useAuth()
+  const { nombre: nombreUsuario, branchId } = useAuth()
   const { data: cajas, isLoading: cargandoCajas } = useCajas()
   const { data: sesiones, isLoading: cargandoSes } = useCajaSesiones()
   const { data: ventas } = useVentas()
@@ -26,7 +26,10 @@ export function CajaTab() {
   const [obsCliente, setObsCliente] = useState('')
   const [guardando, setGuardando] = useState(false)
 
-  const cajasActivas = useMemo(() => (cajas ?? []).filter(c => c.activa !== false), [cajas])
+  const cajasActivas = useMemo(() => {
+    const todas = (cajas ?? []).filter(c => c.activa !== false)
+    return branchId ? todas.filter(c => c.sucursalId === branchId) : todas
+  }, [cajas, branchId])
   const cajaActual = cajasActivas.find(c => c.id === cajaSelId) ?? cajasActivas[0]
 
   const sesionHoy = useMemo(() => {
