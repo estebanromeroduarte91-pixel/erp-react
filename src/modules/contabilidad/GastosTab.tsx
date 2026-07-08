@@ -416,7 +416,7 @@ function GastoModal({ cats, gasto, subcatsPorCat, onClose, onGuardar }: {
                 <input
                   type="number" value={monto} onChange={e => setMonto(e.target.value)}
                   autoFocus placeholder="0"
-                  className="flex-1 text-sm font-medium bg-transparent outline-none text-gray-900 placeholder-gray-300 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                  className="flex-1 text-sm font-medium bg-transparent border-0 outline-none text-gray-900 placeholder-gray-300 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                   onKeyDown={e => e.key === 'Enter' && handleGuardar()}
                 />
                 <span className="text-xs text-gray-300">CLP</span>
