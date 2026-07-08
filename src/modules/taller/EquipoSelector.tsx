@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
-import { useEquipos, useGuardarEquipos, useCatEquipo } from '@/lib/queries'
+import { useEquipos, useGuardarEquipos, useCatEquipo, useMarcasEquipo } from '@/lib/queries'
 import { useAnchorRect, fixedDropdownStyle } from '@/lib/useAnchorRect'
 import type { Equipo } from '@/types'
 
@@ -12,30 +12,41 @@ function displayName(e: Equipo): string {
   return e.marca ? `${e.modelo} [${e.marca}]` : (e.modelo ?? '')
 }
 
-// Selector de equipo desde el catálogo tp_equipos, con buscador, texto libre
-// y alta rápida al catálogo (mismo comportamiento que el modelo-AC del ERP vanilla).
 export function EquipoSelector({ value, onChange }: Props) {
   const { data: equipos } = useEquipos()
   const { data: categorias = [] } = useCatEquipo()
+  const { data: marcasConfig = [] } = useMarcasEquipo()
   const guardarEquipos = useGuardarEquipos()
 
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState('')
+  const [activeBrand, setActiveBrand] = useState<string | null>(null)
   const [nuevo, setNuevo] = useState(false)
   const [form, setForm] = useState({ marca: '', modelo: '', categoria: 'Teléfono' })
   const wrapRef = useRef<HTMLDivElement>(null)
   const { ref: fieldRef, rect } = useAnchorRect<HTMLDivElement>(open)
 
+  // Marcas únicas presentes en el catálogo
+  const marcasEnCatalogo = useMemo(() => {
+    const set = new Set((equipos ?? []).map(e => e.marca ?? '').filter(Boolean))
+    return Array.from(set).sort()
+  }, [equipos])
+
+  // Marcas para pills: las del catálogo (y las configuradas que estén en catálogo)
+  const brandPills = marcasEnCatalogo
+
   const lista = useMemo(() => {
     const all = equipos ?? []
-    if (!q.trim()) return all
-    const s = q.toLowerCase()
-    return all.filter((e) =>
-      (e.modelo ?? '').toLowerCase().includes(s) ||
-      (e.marca ?? '').toLowerCase().includes(s) ||
-      (e.categoria ?? '').toLowerCase().includes(s),
-    )
-  }, [equipos, q])
+    let r = activeBrand ? all.filter(e => e.marca === activeBrand) : all
+    if (q.trim()) {
+      const s = q.toLowerCase()
+      r = r.filter(e =>
+        (e.modelo ?? '').toLowerCase().includes(s) ||
+        (e.marca ?? '').toLowerCase().includes(s),
+      )
+    }
+    return r
+  }, [equipos, q, activeBrand])
 
   useEffect(() => {
     function onClick(e: MouseEvent) {
@@ -49,13 +60,13 @@ export function EquipoSelector({ value, onChange }: Props) {
 
   function seleccionar(e: Equipo) {
     onChange(displayName(e))
-    setOpen(false); setQ('')
+    setOpen(false); setQ(''); setActiveBrand(null)
   }
 
   function usarTextoLibre() {
     if (!q.trim()) return
     onChange(q.trim())
-    setOpen(false); setQ('')
+    setOpen(false); setQ(''); setActiveBrand(null)
   }
 
   async function agregarAlCatalogo() {
@@ -68,24 +79,30 @@ export function EquipoSelector({ value, onChange }: Props) {
     }
     await guardarEquipos.mutateAsync([...(equipos ?? []), nuevoEq])
     onChange(displayName(nuevoEq))
-    setNuevo(false); setOpen(false); setQ('')
+    setNuevo(false); setOpen(false); setQ(''); setActiveBrand(null)
     setForm({ marca: '', modelo: '', categoria: 'Teléfono' })
   }
+
+  // Opciones de marca para el select: configuradas + las que ya están en catálogo
+  const marcasSelect = useMemo(() => {
+    const all = new Set([...marcasConfig, ...marcasEnCatalogo])
+    return Array.from(all).sort()
+  }, [marcasConfig, marcasEnCatalogo])
 
   return (
     <div className="relative" ref={wrapRef}>
       {/* Campo */}
       <div
         ref={fieldRef}
-        onClick={() => setOpen((o) => !o)}
-        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 cursor-pointer flex items-center justify-between gap-2 focus:border-blue-400"
+        onClick={() => setOpen(o => !o)}
+        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 cursor-pointer flex items-center justify-between gap-2"
       >
         <span className={value ? 'text-gray-800' : 'text-gray-400'}>
           {value || 'Seleccionar equipo…'}
         </span>
         <div className="flex items-center gap-1">
           {value && (
-            <button type="button" onClick={(e) => { e.stopPropagation(); onChange('') }}
+            <button type="button" onClick={e => { e.stopPropagation(); onChange('') }}
               className="text-gray-400 hover:text-gray-600 p-0.5">
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -100,37 +117,57 @@ export function EquipoSelector({ value, onChange }: Props) {
 
       {/* Dropdown */}
       {open && (
-        <div style={fixedDropdownStyle(rect, { maxHeight: 340 })} className="bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden">
+        <div style={fixedDropdownStyle(rect, { maxHeight: 420 })} className="bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden">
           {!nuevo ? (
             <>
+              {/* Buscador */}
               <div className="p-2 border-b border-gray-100">
                 <div className="relative">
                   <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
                     fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
-                  <input autoFocus value={q} onChange={(e) => setQ(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && lista.length === 0 && usarTextoLibre()}
+                  <input autoFocus value={q} onChange={e => setQ(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && lista.length === 0 && usarTextoLibre()}
                     placeholder="Buscar marca o modelo…"
                     className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:border-blue-400" />
                 </div>
               </div>
 
-              <div className="max-h-56 overflow-y-auto">
+              {/* Brand pills */}
+              {brandPills.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 px-3 py-2 border-b border-gray-100">
+                  {brandPills.map(b => (
+                    <button key={b} type="button"
+                      onClick={() => setActiveBrand(prev => prev === b ? null : b)}
+                      className={[
+                        'px-3 py-1 text-xs rounded-full border transition',
+                        activeBrand === b
+                          ? 'bg-blue-600 text-white border-blue-600 font-medium'
+                          : 'bg-gray-50 text-gray-600 border-gray-200 hover:border-blue-400 hover:text-blue-600',
+                      ].join(' ')}>
+                      {b}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Lista de modelos */}
+              <div className="overflow-y-auto" style={{ maxHeight: 220 }}>
                 {lista.length === 0 ? (
                   <div className="p-3 space-y-2">
                     {q.trim() && (
                       <button onClick={usarTextoLibre}
                         className="w-full text-left px-3 py-2 text-sm text-blue-600 font-medium hover:bg-blue-50 rounded-lg">
-                        Usar “{q.trim()}” como modelo
+                        Usar "{q.trim()}" como modelo
                       </button>
                     )}
                     <p className="text-xs text-gray-400 text-center py-2">
-                      {(equipos ?? []).length === 0 ? 'Catálogo vacío' : 'Sin resultados'}
+                      {(equipos ?? []).length === 0 ? 'Catálogo vacío — sube un Excel en Configuración' : 'Sin resultados'}
                     </p>
                   </div>
                 ) : (
-                  lista.map((e) => (
+                  lista.map(e => (
                     <button key={e.id} onClick={() => seleccionar(e)}
                       className="w-full text-left px-4 py-2.5 text-sm hover:bg-blue-50 transition flex items-center justify-between">
                       <span className="font-medium text-gray-800">
@@ -144,7 +181,7 @@ export function EquipoSelector({ value, onChange }: Props) {
                 )}
               </div>
 
-              <button onClick={() => { setNuevo(true); setForm((f) => ({ ...f, modelo: q.trim() })) }}
+              <button onClick={() => { setNuevo(true); setForm(f => ({ ...f, modelo: q.trim() })) }}
                 className="w-full text-left px-4 py-2.5 text-sm text-blue-600 font-semibold border-t border-gray-100 hover:bg-blue-50 transition flex items-center gap-1.5">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -155,15 +192,17 @@ export function EquipoSelector({ value, onChange }: Props) {
           ) : (
             <div className="p-3 space-y-2">
               <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Nuevo equipo</p>
-              <input value={form.marca} onChange={(e) => setForm((f) => ({ ...f, marca: e.target.value }))}
-                placeholder="Marca (Ej: Apple)"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
-              <input value={form.modelo} onChange={(e) => setForm((f) => ({ ...f, modelo: e.target.value }))}
+              <select value={form.marca} onChange={e => setForm(f => ({ ...f, marca: e.target.value }))}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
+                <option value="">Seleccionar marca…</option>
+                {marcasSelect.map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
+              <input value={form.modelo} onChange={e => setForm(f => ({ ...f, modelo: e.target.value }))}
                 placeholder="Modelo (Ej: iPhone 15 Pro)"
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
-              <select value={form.categoria} onChange={(e) => setForm((f) => ({ ...f, categoria: e.target.value }))}
+              <select value={form.categoria} onChange={e => setForm(f => ({ ...f, categoria: e.target.value }))}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
-                {categorias.map((c) => <option key={c} value={c}>{c}</option>)}
+                {categorias.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
               <div className="flex gap-2 justify-end pt-1">
                 <button onClick={() => setNuevo(false)}
