@@ -409,16 +409,16 @@ function GastoModal({ cats, gasto, subcatsPorCat, onClose, onGuardar }: {
 
           {/* Monto input */}
           <div>
-            <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider block mb-2">Monto</label>
-            <div className="flex items-center gap-2 border border-gray-200 rounded-xl px-4 py-3 bg-gray-50 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-50 transition">
-              <span className="text-xl font-semibold text-gray-300">$</span>
+            <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider block mb-1.5">Monto</label>
+            <div className="flex items-center gap-1.5 border border-gray-200 rounded-lg px-3 py-2 bg-gray-50 focus-within:border-blue-400 transition">
+              <span className="text-sm text-gray-400">$</span>
               <input
                 type="number" value={monto} onChange={e => setMonto(e.target.value)}
                 autoFocus placeholder="0"
-                className="flex-1 text-xl font-bold bg-transparent border-none outline-none text-gray-900 placeholder-gray-300 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                className="flex-1 text-sm font-medium bg-transparent outline-none text-gray-900 placeholder-gray-300 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                 onKeyDown={e => e.key === 'Enter' && handleGuardar()}
               />
-              <span className="text-xs font-medium text-gray-300 bg-white border border-gray-200 rounded px-2 py-0.5">CLP</span>
+              <span className="text-xs text-gray-300">CLP</span>
             </div>
           </div>
 
