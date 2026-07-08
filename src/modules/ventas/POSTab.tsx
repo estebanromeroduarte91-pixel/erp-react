@@ -1,6 +1,7 @@
 import { useState, useMemo, useRef } from 'react'
 import { useProductos, useGuardarProductos, useVentas, useGuardarVentas, useMetodosPago, useCajaSesiones, useCajas, useGuardarCajaSesiones, useIncrementarContadorVenta, useOrdenes, useGuardarOrden, useMovimientos, useGuardarMovimientos, useUserProfiles, useUserCargoMap, useCargos, CARGOS_DEFAULT } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
+import { IconCashRegister, IconLock, IconLockOpen, IconBuildingStore } from '@tabler/icons-react'
 import type { VentaItem, Venta, Orden, CajaSesion } from '@/types'
 
 const IVA = 0.19
@@ -376,15 +377,7 @@ export function POSTab() {
         {/* Header de página */}
         <div className="flex items-center gap-3 mb-6">
           <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0">
-            {/* ti-cash-register */}
-            <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-              <rect x="5" y="4" width="14" height="5" rx="1" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 9h16v10a2 2 0 01-2 2H6a2 2 0 01-2-2V9z" />
-              <circle cx="9" cy="14" r="1" />
-              <circle cx="15" cy="14" r="1" />
-              <path strokeLinecap="round" d="M8 18h8" />
-              <path strokeLinecap="round" d="M12 4v5" />
-            </svg>
+            <IconCashRegister size={20} stroke={1.8} className="text-blue-600" />
           </div>
           <div>
             <p className="text-base font-semibold text-gray-900">Punto de venta</p>
@@ -406,8 +399,7 @@ export function POSTab() {
                 <p className="text-sm font-semibold text-gray-700 mt-0.5">Sin sesión activa</p>
               </div>
               <span className="inline-flex items-center gap-1.5 bg-red-50 text-red-600 text-xs font-semibold px-3 py-1.5 rounded-full">
-                {/* ti-lock */}
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><rect x="5" y="11" width="14" height="10" rx="2" /><path strokeLinecap="round" strokeLinejoin="round" d="M8 11V7a4 4 0 018 0v4" /></svg>
+                <IconLock size={14} stroke={2} />
                 Caja cerrada
               </span>
             </div>
@@ -423,8 +415,7 @@ export function POSTab() {
                         (cajaParaAbrir?.id === c.id)
                           ? 'border-blue-500 bg-blue-50 text-blue-700'
                           : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'].join(' ')}>
-                      {/* ti-building-store */}
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M3 21h18M4 21V10.5M20 21V10.5M4.5 10.5h15L18 4H6L4.5 10.5zM9 21v-5h6v5M9 10.5V7m3 3.5V7m3 3.5V7" /></svg>
+                      <IconBuildingStore size={16} stroke={1.8} />
                       {c.nombre}
                     </button>
                   ))}
@@ -470,8 +461,7 @@ export function POSTab() {
             <div className="px-6 pb-6">
               <button onClick={abrirCaja} disabled={guardandoCaja || !cajaParaAbrir}
                 className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white font-semibold py-3 rounded-xl hover:bg-blue-700 disabled:opacity-60 transition text-sm">
-                {/* ti-lock-open */}
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><rect x="5" y="11" width="14" height="10" rx="2" /><path strokeLinecap="round" strokeLinejoin="round" d="M8 11V7a4 4 0 018 0" /></svg>
+                <IconLockOpen size={16} stroke={2} />
                 {guardandoCaja ? 'Abriendo…' : 'Abrir caja'}
               </button>
             </div>
