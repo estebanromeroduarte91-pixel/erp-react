@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react'
-import { useGastos, useGuardarGastos, useGastoCats, usePlanCuentas, useCatCuentaMap, useAsientos, useGuardarAsientos } from '@/lib/queries'
+import { useState, useMemo, useRef } from 'react'
+import { useGastos, useGuardarGastos, useGastoCats, useGuardarGastoCats, usePlanCuentas, useCatCuentaMap, useAsientos, useGuardarAsientos } from '@/lib/queries'
 import { asientoDeGasto, asientoIdDeGasto, nextNumeroAsiento } from '@/lib/contabilidad'
 import { Spinner } from '@/components/shared/Spinner'
 import type { Gasto, GastoCat } from '@/types'
@@ -48,10 +48,29 @@ export function GastosTab() {
     await guardarAsientos.mutateAsync((asientos ?? []).filter((a) => a.id !== id))
   }
 
+  const guardarCats = useGuardarGastoCats()
   const [busqueda, setBusqueda] = useState('')
   const [filtroCat, setFiltroCat] = useState<string | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
   const [editando, setEditando] = useState<Gasto | null>(null)
+
+  // Drag & drop de pills
+  const dragIdx = useRef<number | null>(null)
+  const [dragOver, setDragOver] = useState<number | null>(null)
+
+  function onDragStart(i: number) { dragIdx.current = i }
+  function onDragEnter(i: number) { setDragOver(i) }
+  function onDragEnd() {
+    const from = dragIdx.current
+    if (from === null || dragOver === null || from === dragOver) {
+      dragIdx.current = null; setDragOver(null); return
+    }
+    const next = [...(cats ?? [])]
+    const [moved] = next.splice(from, 1)
+    next.splice(dragOver, 0, moved)
+    guardarCats.mutateAsync(next)
+    dragIdx.current = null; setDragOver(null)
+  }
 
   const catMap = useMemo(() => {
     const m: Record<string, GastoCat> = {}
@@ -220,7 +239,7 @@ export function GastosTab() {
         </div>
       )}
 
-      {/* Pills de categorías */}
+      {/* Pills de categorías (arrastrables) */}
       {(cats ?? []).length > 0 && (
         <div className="flex flex-wrap gap-2 mb-4">
           <button
@@ -229,12 +248,19 @@ export function GastosTab() {
               filtroCat === null ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'].join(' ')}>
             Todas
           </button>
-          {(cats ?? []).map(c => (
+          {(cats ?? []).map((c, i) => (
             <button
               key={c.id}
+              draggable
+              onDragStart={() => onDragStart(i)}
+              onDragEnter={() => onDragEnter(i)}
+              onDragOver={e => e.preventDefault()}
+              onDragEnd={onDragEnd}
               onClick={() => setFiltroCat(filtroCat === c.nombre ? null : c.nombre)}
-              className={['px-3 py-1 rounded-full text-xs font-semibold border transition flex items-center gap-1.5',
-                filtroCat === c.nombre ? 'text-white border-transparent' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'].join(' ')}
+              className={['px-3 py-1 rounded-full text-xs font-semibold border transition flex items-center gap-1.5 cursor-grab active:cursor-grabbing select-none',
+                filtroCat === c.nombre ? 'text-white border-transparent' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400',
+                dragOver === i && dragIdx.current !== i ? 'ring-2 ring-offset-1 ring-blue-400 scale-105' : '',
+              ].join(' ')}
               style={filtroCat === c.nombre ? { background: c.color, borderColor: c.color } : {}}>
               <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: c.color }} />
               {c.nombre}
