@@ -266,7 +266,7 @@ export function TallerPage() {
                     <div style={{ fontSize: 12, color: '#8e8e93', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{o.modelo ?? o.trabajo ?? ''}</div>
                   </div>
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: STATUS_DOT[o.status] ?? '#8e8e93', background: (STATUS_DOT[o.status] ?? '#888') + '18', padding: '3px 8px', borderRadius: 99, display: 'block', marginBottom: 4 }}>{o.status}</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: STATUS_DOT[o.status] ?? '#8e8e93', background: (STATUS_DOT[o.status] ?? '#888') + '18', padding: '3px 8px', borderRadius: 99, display: 'block', marginBottom: 4 }}>{o.subestado ?? o.status}</span>
                     <span style={{ fontSize: 11, color: '#8e8e93' }}>{fmtFecha(o.fecha)}</span>
                   </div>
                 </button>
@@ -528,7 +528,7 @@ export function TallerPage() {
                         <td className="px-4 py-3 text-gray-600">{o.modelo || '—'}</td>
                         <td className="px-4 py-3">
                           <div className="flex items-center flex-wrap gap-1.5">
-                            <EstadoBadge estado={o.status} />
+                            <EstadoBadge estado={o.status} subestado={o.subestado} />
                             {isDerived && (
                               <span className="inline-flex items-center gap-1 bg-amber-100 text-amber-800 rounded-full px-2 py-0.5 text-xs font-semibold">
                                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>

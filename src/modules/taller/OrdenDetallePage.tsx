@@ -49,6 +49,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
 
   const [editarOpen, setEditarOpen] = useState(false)
   const [showDerivar, setShowDerivar] = useState(false)
+  const [pendingEstado, setPendingEstado] = useState<EstadoOrden | null>(null)
   const [notif, setNotif] = useState<{ estado: EstadoOrden; waMsg: string; emailMsg: string } | null>(null)
   const [checklistOpen, setChecklistOpen] = useState(false)
   const [checkItems, setCheckItems] = useState<CheckItem[]>([])
@@ -182,25 +183,31 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
       : `Orden #OT-${String(orden.num).padStart(4, '0')} entregada`
   }
 
-  async function cambiarEstado(estado: EstadoOrden) {
-    if (orden.status === estado) return
-    const actualizadas = (ordenes ?? []).map(x => x.id === orden.id ? { ...x, status: estado } : x)
+  async function cambiarEstadoConSubestado(estado: EstadoOrden, subestado: string) {
+    const actualizadas = (ordenes ?? []).map(x => x.id === orden.id ? { ...x, status: estado, subestado } : x)
     await guardar.mutateAsync(actualizadas)
+    setPendingEstado(null)
     setEmailOk(false)
     const vars = buildVars()
     const esListo = estado === 'Listo' || estado === 'Entregado'
     const waMsg = esListo && msgTemplates?.listo_wa ? rellenarTemplate(msgTemplates.listo_wa, vars) : ''
     const emailMsg = esListo && msgTemplates?.listo_email ? rellenarTemplate(msgTemplates.listo_email, vars) : ''
-
-    // Auto-envío del email diseñado al poner Listo / Entregado
     if (esListo && emailMsg && orden.email && empresaId) {
       void sendEmail(empresaId, orden.email, asuntoListo(estado), buildListoHtml(emailMsg))
       setEmailOk(true)
     }
-
-    // Popup: WhatsApp siempre; email solo si no se pudo auto-enviar (sin empresaId)
     const mostrarEmail = esListo && emailMsg && orden.email && !empresaId
     if (waMsg || mostrarEmail) setNotif({ estado, waMsg, emailMsg: mostrarEmail ? emailMsg : '' })
+  }
+
+  async function cambiarEstado(estado: EstadoOrden) {
+    if (orden.status === estado) return
+    if (estado === 'Listo' || estado === 'Entregado') {
+      setPendingEstado(estado)
+      return
+    }
+    const actualizadas = (ordenes ?? []).map(x => x.id === orden.id ? { ...x, status: estado } : x)
+    await guardar.mutateAsync(actualizadas)
   }
 
   async function enviarEmail() {
@@ -593,7 +600,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
           <span className="text-sm font-semibold text-gray-800">Orden #{o.num}</span>
         </div>
         <div className="flex items-center gap-3">
-          <EstadoBadge estado={o.status} />
+          <EstadoBadge estado={o.status} subestado={o.subestado} />
           {(() => {
             const derivado = traslados.some(t => t.order_id === o.id && t.estado !== 'retornado')
             return (
@@ -1108,6 +1115,40 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
           </div>
         </div>
       </div>
+
+      {/* Modal subestado al poner Listo / Entregado */}
+      {pendingEstado && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xs overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-100">
+              <h3 className="font-semibold text-gray-900">Mover a <span className="text-blue-600">{pendingEstado}</span></h3>
+              <p className="text-xs text-gray-400 mt-0.5">¿Cuál fue el resultado de la reparación?</p>
+            </div>
+            <div className="p-3 flex flex-col gap-2">
+              {([
+                { label: 'Reparado',          icon: 'M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
+                { label: 'Sin solución',       icon: 'M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z' },
+                { label: 'No reparado',        icon: 'M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
+                { label: 'No presento falla',  icon: 'M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
+              ] as const).map(({ label, icon }) => (
+                <button key={label} onClick={() => void cambiarEstadoConSubestado(pendingEstado, label)}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-gray-200 text-sm font-medium text-gray-700 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 transition">
+                  <svg className="w-4 h-4 flex-shrink-0 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d={icon} />
+                  </svg>
+                  {label}
+                </button>
+              ))}
+            </div>
+            <div className="px-3 pb-3">
+              <button onClick={() => setPendingEstado(null)}
+                className="w-full py-2.5 text-sm text-gray-400 hover:text-gray-600 transition">
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal notificación al cambiar estado */}
       {notif && (

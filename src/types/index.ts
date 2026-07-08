@@ -52,6 +52,7 @@ export interface Orden {
   checkIngreso?: CheckItem[]
   photosIngreso?: string[]
   branchId?: string
+  subestado?: string
   _draft?: boolean
   // Inspección / salida / cierre (mismos campos que el ERP vanilla)
   inspeccion?: Inspeccion
