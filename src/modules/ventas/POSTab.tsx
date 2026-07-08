@@ -78,6 +78,14 @@ export function POSTab() {
 
   const metodoActual = metodoSel || metodos?.[0]?.id || ''
 
+  // Cajas filtered by branch
+  const cajasActivas = useMemo(() => {
+    const todas = (cajas ?? []).filter(c => c.activa !== false)
+    return branchId ? todas.filter(c => c.sucursalId === branchId) : todas
+  }, [cajas, branchId])
+
+  const cajaParaAbrir = cajasActivas.find(c => c.id === cajaSelId) ?? cajasActivas[0]
+
   // Usuarios con acceso a ventas (POS) filtrados por sucursal de la caja seleccionada
   const usuariosPos = useMemo(() => {
     const todos = (userProfiles ?? []).filter(u => u.activo !== false)
@@ -92,14 +100,6 @@ export function POSTab() {
       return userCargoMap?.[u.id]?.branchId === sucursalId
     })
   }, [userProfiles, userCargoMap, cargosCustom, cajaParaAbrir])
-
-  // Cajas filtered by branch
-  const cajasActivas = useMemo(() => {
-    const todas = (cajas ?? []).filter(c => c.activa !== false)
-    return branchId ? todas.filter(c => c.sucursalId === branchId) : todas
-  }, [cajas, branchId])
-
-  const cajaParaAbrir = cajasActivas.find(c => c.id === cajaSelId) ?? cajasActivas[0]
 
   const sesionAbierta = useMemo(() => {
     return sesiones?.find(s =>
