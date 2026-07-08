@@ -66,7 +66,18 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
   const [showQrInspec, setShowQrInspec] = useState(false)
   const [guardandoInspec, setGuardandoInspec] = useState(false)
   const [enviandoInspec, setEnviandoInspec] = useState(false)
+  const [reenviarOpen, setReenviarOpen] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
+  const reenviarRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!reenviarOpen) return
+    function handleClick(e: MouseEvent) {
+      if (reenviarRef.current && !reenviarRef.current.contains(e.target as Node)) setReenviarOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [reenviarOpen])
 
   // Fotos de ingreso
   const [showFotosIngreso, setShowFotosIngreso] = useState(false)
@@ -286,8 +297,9 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
     setShowInspeccion(false)
   }
 
-  async function guardarYEnviarInspeccion() {
-    if (!orden.email) { setAprobMsg({ msg: 'La orden no tiene email del cliente.', type: 'err' }); return }
+  async function guardarYEnviarInspeccion(canal: 'correo' | 'whatsapp') {
+    if (canal === 'correo' && !orden.email) { setAprobMsg({ msg: 'La orden no tiene email del cliente.', type: 'err' }); return }
+    if (canal === 'whatsapp' && !orden.tel) { setAprobMsg({ msg: 'La orden no tiene teléfono del cliente.', type: 'err' }); return }
     if (!empresaId) { setAprobMsg({ msg: 'No se pudo identificar la empresa. Recarga la página.', type: 'err' }); return }
     setEnviandoInspec(true)
     try {
@@ -296,24 +308,35 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
       await guardar.mutateAsync(actualizadas)
 
       const tplVars: Record<string, string> = {
-        nombre: orden.nombre ?? '', modelo: orden.modelo ?? '', orden: orden.num ?? '', serie: orden.serie ?? '',
+        nombre: orden.nombre ?? '', modelo: orden.modelo ?? '', orden: orden.num ?? '',
+        serie: orden.serie ?? '', diagnostico: inspecNotas,
       }
-      const rawTpl = msgTemplates?.inspeccion_email ?? `Hola {{nombre}}, al abrir tu {{modelo}} para la reparación detectamos algunos detalles que queremos informarte antes de continuar.`
-      const msgTexto = rawTpl.split(/\n\n/)[0].replace(/\{\{(\w+)\}\}/g, (_, k: string) => tplVars[k] ?? '')
 
-      const html = buildEmailInspeccion({
-        tallerNombre: segCfg?.nombreTaller ?? 'TallerPro',
-        logoUrl: segCfg?.logoUrl,
-        msgTexto,
-        orden: { num: orden.num ?? '', modelo: orden.modelo ?? '', nombre: orden.nombre ?? '', serie: orden.serie },
-        notas: inspecNotas,
-        fotos: inspecFotos,
-      })
-      const asunto = `Reporte de inspección — ${orden.modelo ?? 'Equipo'} #OT-${String(orden.num).padStart(4, '0')}`
-      const res = await sendEmail(empresaId, orden.email, asunto, html)
-      setAprobMsg(res.ok
-        ? { msg: `Reporte enviado a ${orden.email}`, type: 'ok' }
-        : { msg: 'Guardado, pero el email falló: ' + (res.error ?? 'error desconocido'), type: 'err' })
+      if (canal === 'correo') {
+        const rawTpl = msgTemplates?.inspeccion_email ?? `Hola {{nombre}}, al abrir tu {{modelo}} para la reparación detectamos algunos detalles que queremos informarte antes de continuar.`
+        const msgTexto = rawTpl.split(/\n\n/)[0].replace(/\{\{(\w+)\}\}/g, (_, k: string) => tplVars[k] ?? '')
+        const html = buildEmailInspeccion({
+          tallerNombre: segCfg?.nombreTaller ?? 'TallerPro',
+          logoUrl: segCfg?.logoUrl,
+          msgTexto,
+          orden: { num: orden.num ?? '', modelo: orden.modelo ?? '', nombre: orden.nombre ?? '', serie: orden.serie },
+          notas: inspecNotas,
+          fotos: inspecFotos,
+        })
+        const asunto = `Reporte de inspección — ${orden.modelo ?? 'Equipo'} #OT-${String(orden.num).padStart(4, '0')}`
+        const res = await sendEmail(empresaId, orden.email!, asunto, html)
+        setAprobMsg(res.ok
+          ? { msg: `Reporte enviado a ${orden.email}`, type: 'ok' }
+          : { msg: 'Guardado, pero el email falló: ' + (res.error ?? 'error desconocido'), type: 'err' })
+      }
+
+      if (canal === 'whatsapp') {
+        const rawTpl = msgTemplates?.inspeccion_wa ?? `Hola {{nombre}}, te informamos que realizamos la inspección de tu {{modelo}} (OT #{{orden}}).\n\nDiagnóstico:\n{{diagnostico}}`
+        const msg = rawTpl.replace(/\{\{(\w+)\}\}/g, (_, k: string) => tplVars[k] ?? '')
+        const tel = (orden.tel ?? '').replace(/\D/g, '')
+        const telWa = tel.startsWith('56') ? tel : '56' + tel
+        window.open(`https://wa.me/${telWa}?text=${encodeURIComponent(msg)}`, '_blank')
+      }
     } catch (e) {
       setAprobMsg({ msg: 'Error inesperado: ' + (e as Error).message, type: 'err' })
     } finally {
@@ -1194,14 +1217,38 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
                 className="px-4 py-2 text-sm font-semibold text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-60 transition">
                 {guardandoInspec ? 'Guardando…' : 'Guardar'}
               </button>
-              <button onClick={guardarYEnviarInspeccion} disabled={guardandoInspec || enviandoInspec || !o.email}
-                title={!o.email ? 'La orden no tiene email del cliente' : undefined}
-                className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition">
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5"/>
-                </svg>
-                {enviandoInspec ? 'Enviando…' : 'Guardar y enviar al cliente'}
-              </button>
+              {(o.tel || o.email) && (
+                <div ref={reenviarRef} className="relative">
+                  <button
+                    onClick={() => setReenviarOpen(v => !v)}
+                    disabled={guardandoInspec || enviandoInspec}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-blue-600 border border-blue-200 bg-blue-50 rounded-lg hover:bg-blue-100 disabled:opacity-60 transition">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                    {enviandoInspec ? 'Enviando…' : 'Reenviar'}
+                    <svg className={`w-3 h-3 transition-transform ${reenviarOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                  </button>
+                  {reenviarOpen && (
+                    <div className="absolute bottom-full right-0 mb-2 w-48 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden z-10">
+                      {o.tel && (
+                        <button
+                          onClick={() => { setReenviarOpen(false); void guardarYEnviarInspeccion('whatsapp') }}
+                          className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition border-b border-gray-100">
+                          <svg className="w-4 h-4 text-green-500 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.127.558 4.123 1.532 5.855L.057 23.01a.75.75 0 0 0 .931.931l5.163-1.476A11.943 11.943 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.9 0-3.68-.524-5.2-1.435l-.373-.222-3.865 1.105 1.105-3.851-.24-.386A9.96 9.96 0 0 1 2 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/></svg>
+                          Por WhatsApp
+                        </button>
+                      )}
+                      {o.email && (
+                        <button
+                          onClick={() => { setReenviarOpen(false); void guardarYEnviarInspeccion('correo') }}
+                          className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition">
+                          <svg className="w-4 h-4 text-blue-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                          Por correo
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
