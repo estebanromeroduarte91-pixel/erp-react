@@ -169,7 +169,7 @@ export function HistorialImportTab() {
           modelo: o.modelo ?? '',
           trabajo: o.trabajo ?? '',
           fecha: o.fecha ? new Date(o.fecha).toLocaleDateString('es-CL') : '',
-          total: o.presup ?? 0,
+          total: +(o.presup ?? 0),
         })))
         setEstado('preview')
       } catch (err) {
