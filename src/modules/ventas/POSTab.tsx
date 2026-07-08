@@ -376,8 +376,9 @@ export function POSTab() {
         {/* Header de página */}
         <div className="flex items-center gap-3 mb-6">
           <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0">
+            {/* ti-cash-register */}
             <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 9h18M9 21V9m6 12V9M3 9a2 2 0 012-2h14a2 2 0 012 2M3 9l2-4h14l2 4" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 5h12l2 6H4l2-6zM4 11h16v8a1 1 0 01-1 1H5a1 1 0 01-1-1v-8zM10 15h4M12 13v4" />
             </svg>
           </div>
           <div>
@@ -400,7 +401,8 @@ export function POSTab() {
                 <p className="text-sm font-semibold text-gray-700 mt-0.5">Sin sesión activa</p>
               </div>
               <span className="inline-flex items-center gap-1.5 bg-red-50 text-red-600 text-xs font-semibold px-3 py-1.5 rounded-full">
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m0 0v2m0-2h2m-2 0H10M12 11V9m0 0V7m0 2h2m-2 0H10m2-6a9 9 0 110 18A9 9 0 0112 3z" /></svg>
+                {/* ti-lock */}
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><rect x="5" y="11" width="14" height="10" rx="2" /><path strokeLinecap="round" strokeLinejoin="round" d="M8 11V7a4 4 0 018 0v4" /></svg>
                 Caja cerrada
               </span>
             </div>
@@ -416,7 +418,8 @@ export function POSTab() {
                         (cajaParaAbrir?.id === c.id)
                           ? 'border-blue-500 bg-blue-50 text-blue-700'
                           : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'].join(' ')}>
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0H5m14 0h2M5 21H3M9 7h6M9 11h6M9 15h4" /></svg>
+                      {/* ti-building-store */}
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M3 21h18M4 21V10.5M20 21V10.5M4.5 10.5h15L18 4H6L4.5 10.5zM9 21v-5h6v5M9 10.5V7m3 3.5V7m3 3.5V7" /></svg>
                       {c.nombre}
                     </button>
                   ))}
@@ -462,7 +465,8 @@ export function POSTab() {
             <div className="px-6 pb-6">
               <button onClick={abrirCaja} disabled={guardandoCaja || !cajaParaAbrir}
                 className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white font-semibold py-3 rounded-xl hover:bg-blue-700 disabled:opacity-60 transition text-sm">
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" /></svg>
+                {/* ti-lock-open */}
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><rect x="5" y="11" width="14" height="10" rx="2" /><path strokeLinecap="round" strokeLinejoin="round" d="M8 11V7a4 4 0 018 0" /></svg>
                 {guardandoCaja ? 'Abriendo…' : 'Abrir caja'}
               </button>
             </div>
