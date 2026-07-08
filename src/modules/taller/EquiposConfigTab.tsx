@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import * as XLSX from 'xlsx'
 import { useCatEquipo, useGuardarCatEquipo, useMarcasEquipo, useGuardarMarcasEquipo, useEquipos, useGuardarEquipos } from '@/lib/queries'
 import { Spinner } from '@/components/shared/Spinner'
@@ -15,6 +15,8 @@ function ListaEditable({
 }) {
   const [lista, setLista] = useState<string[]>(items)
   const [nuevo, setNuevo] = useState('')
+
+  useEffect(() => { setLista(items) }, [items])
   const [editIdx, setEditIdx] = useState<number | null>(null)
   const [editVal, setEditVal] = useState('')
   const [guardado, setGuardado] = useState(false)
