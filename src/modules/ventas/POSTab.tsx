@@ -425,7 +425,7 @@ export function POSTab() {
               {/* Fondo + Responsable */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs font-medium text-gray-500 block mb-2">Fondo inicial</label>
+                  <label className="text-xs font-medium text-gray-500 block mb-2">Efectivo inicial</label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">$</span>
                     <input type="number" value={fondo} onChange={e => setFondo(e.target.value)}
