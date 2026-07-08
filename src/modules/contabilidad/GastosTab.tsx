@@ -388,61 +388,63 @@ function GastoModal({ cats, gasto, subcatsPorCat, onClose, onGuardar }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden">
 
-        {/* Header con monto destacado */}
-        <div className="flex items-start justify-between px-6 pt-5 pb-4 border-b border-gray-100">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100">
           <div>
             <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">
               {gasto ? 'Editar gasto' : 'Nuevo gasto'}
             </p>
-            <p className="text-3xl font-bold text-gray-900 leading-none">{montoFmt}</p>
+            <p className="text-2xl font-semibold text-gray-900 leading-none">{montoFmt}</p>
           </div>
-          <button onClick={onClose} className="mt-1 w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition text-gray-500">
+          <button onClick={onClose} className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition text-gray-500">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
 
-        <div className="px-6 py-5 space-y-5 overflow-y-auto">
+        <div className="px-6 py-5 overflow-y-auto space-y-4">
 
-          {/* Monto input */}
-          <div>
-            <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider block mb-1.5">Monto</label>
-            <div className="flex items-center gap-1.5 border border-gray-200 rounded-lg px-3 py-2 bg-gray-50 focus-within:border-blue-400 transition">
-              <span className="text-sm text-gray-400">$</span>
-              <input
-                type="number" value={monto} onChange={e => setMonto(e.target.value)}
-                autoFocus placeholder="0"
-                className="flex-1 text-sm font-medium bg-transparent outline-none text-gray-900 placeholder-gray-300 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                onKeyDown={e => e.key === 'Enter' && handleGuardar()}
-              />
-              <span className="text-xs text-gray-300">CLP</span>
+          {/* Fila 1: Monto + Descripción */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider block mb-1.5">Monto</label>
+              <div className="flex items-center gap-1.5 border border-gray-200 rounded-lg px-3 py-2 bg-gray-50 focus-within:border-blue-400 transition">
+                <span className="text-sm text-gray-400">$</span>
+                <input
+                  type="number" value={monto} onChange={e => setMonto(e.target.value)}
+                  autoFocus placeholder="0"
+                  className="flex-1 text-sm font-medium bg-transparent outline-none text-gray-900 placeholder-gray-300 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                  onKeyDown={e => e.key === 'Enter' && handleGuardar()}
+                />
+                <span className="text-xs text-gray-300">CLP</span>
+              </div>
+            </div>
+            <div>
+              <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider block mb-1.5">Descripción</label>
+              <input type="text" value={descripcion}
+                onChange={e => { const v = e.target.value; setDescripcion(v.charAt(0).toUpperCase() + v.slice(1)) }}
+                placeholder="Ej: Agua y luz de octubre"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:outline-none focus:border-blue-400 transition" />
             </div>
           </div>
 
-          {/* Descripción */}
-          <div>
-            <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider block mb-2">Descripción</label>
-            <input type="text" value={descripcion} onChange={e => { const v = e.target.value; setDescripcion(v.charAt(0).toUpperCase() + v.slice(1)) }}
-              placeholder="Ej: Agua y luz de octubre"
-              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-gray-50 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-50 transition" />
-          </div>
-
-          {/* Categorías como pills */}
+          {/* Categorías */}
           <div>
             <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider block mb-2">Categoría</label>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-1.5">
               {cats.map(c => {
                 const sel = categoria === c.nombre
                 return (
                   <button key={c.id} type="button" onClick={() => setCategoria(c.nombre)}
-                    className="flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition border"
+                    className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition border"
                     style={sel
-                      ? { borderColor: c.color, background: c.color + '15', color: c.color, borderWidth: '1.5px' }
-                      : { borderColor: '#e5e7eb', background: '#f9fafb', color: '#6b7280', borderWidth: '1px' }}>
-                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: c.color }} />
+                      ? { borderColor: c.color, background: c.color, color: '#fff' }
+                      : { borderColor: '#e5e7eb', background: '#f9fafb', color: '#6b7280' }}>
+                    <span className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                      style={{ background: sel ? 'rgba(255,255,255,0.7)' : c.color }} />
                     {c.nombre}
                   </button>
                 )
@@ -450,58 +452,58 @@ function GastoModal({ cats, gasto, subcatsPorCat, onClose, onGuardar }: {
             </div>
           </div>
 
-          {/* Subcategoría */}
-          <div>
-            <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider block mb-2">
-              Subcategoría <span className="normal-case font-normal text-gray-300">(opcional)</span>
-            </label>
-            <div className="relative">
-              <input type="text" value={subcategoria}
-                onChange={e => { const v = e.target.value; setSubcategoria(v.charAt(0).toUpperCase() + v.slice(1)); setSubOpen(true) }}
-                onFocus={() => setSubOpen(true)}
-                onBlur={() => setTimeout(() => setSubOpen(false), 180)}
-                placeholder="Ej: Candela, Sucursal Centro…"
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-gray-50 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-50 transition" />
-              {subOpen && subSugerencias.length > 0 && (
-                <div className="absolute z-10 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
-                  {subSugerencias.map((s, i) => (
-                    <button key={s} type="button" onMouseDown={() => { setSubcategoria(s); setSubOpen(false) }}
-                      className={['w-full text-left px-4 py-2.5 text-sm flex items-center gap-2 transition',
-                        s === subCanonica ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700 hover:bg-gray-50',
-                        i > 0 ? 'border-t border-gray-50' : ''].join(' ')}>
-                      {s === subCanonica && (
-                        <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
-                      )}
-                      {s}
-                    </button>
-                  ))}
-                </div>
+          {/* Fila 2: Subcategoría + Método + Fecha */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider block mb-1.5">
+                Subcategoría <span className="normal-case font-normal text-gray-300">(opcional)</span>
+              </label>
+              <div className="relative">
+                <input type="text" value={subcategoria}
+                  onChange={e => { const v = e.target.value; setSubcategoria(v.charAt(0).toUpperCase() + v.slice(1)); setSubOpen(true) }}
+                  onFocus={() => setSubOpen(true)}
+                  onBlur={() => setTimeout(() => setSubOpen(false), 180)}
+                  placeholder="Ej: Candela, Sucursal Centro…"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:outline-none focus:border-blue-400 transition" />
+                {subOpen && subSugerencias.length > 0 && (
+                  <div className="absolute z-10 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+                    {subSugerencias.map((s, i) => (
+                      <button key={s} type="button" onMouseDown={() => { setSubcategoria(s); setSubOpen(false) }}
+                        className={['w-full text-left px-4 py-2.5 text-sm flex items-center gap-2 transition',
+                          s === subCanonica ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700 hover:bg-gray-50',
+                          i > 0 ? 'border-t border-gray-50' : ''].join(' ')}>
+                        {s === subCanonica && (
+                          <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {seUnifica && (
+                <p className="text-[11px] text-amber-600 mt-1 flex items-center gap-1">
+                  <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  Se unificará con "{subCanonica}"
+                </p>
               )}
             </div>
-            {seUnifica && (
-              <p className="text-[11px] text-amber-600 mt-1.5 flex items-center gap-1">
-                <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                Se unificará con "{subCanonica}"
-              </p>
-            )}
-          </div>
-
-          {/* Método y Fecha */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider block mb-2">Método</label>
-              <select value={metodo} onChange={e => setMetodo(e.target.value)}
-                className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm bg-gray-50 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-50 transition">
-                {METODOS.map(m => <option key={m}>{m}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider block mb-2">Fecha</label>
-              <input type="date" value={fecha} onChange={e => setFecha(e.target.value)}
-                onClick={e => (e.currentTarget as HTMLInputElement).showPicker?.()}
-                className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm bg-gray-50 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-50 transition cursor-pointer" />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider block mb-1.5">Método</label>
+                <select value={metodo} onChange={e => setMetodo(e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400 transition">
+                  {METODOS.map(m => <option key={m}>{m}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider block mb-1.5">Fecha</label>
+                <input type="date" value={fecha} onChange={e => setFecha(e.target.value)}
+                  onClick={e => (e.currentTarget as HTMLInputElement).showPicker?.()}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400 transition cursor-pointer" />
+              </div>
             </div>
           </div>
 
@@ -513,11 +515,11 @@ function GastoModal({ cats, gasto, subcatsPorCat, onClose, onGuardar }: {
         {/* Footer */}
         <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-100 bg-gray-50">
           <button onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-100 transition">
+            className="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-100 transition">
             Cancelar
           </button>
           <button onClick={handleGuardar} disabled={guardando}
-            className="px-5 py-2 text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 disabled:opacity-60 transition flex items-center gap-1.5">
+            className="px-5 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition flex items-center gap-1.5">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
             </svg>
