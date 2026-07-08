@@ -117,7 +117,7 @@ export function TallerPage() {
       const q = busqueda.toLowerCase()
       r = r.filter(
         (o) =>
-          o.nombre?.toLowerCase().includes(q) ||
+          `${o.nombre ?? ''} ${o.apellido ?? ''}`.toLowerCase().includes(q) ||
           String(o.num).includes(q) ||
           o.modelo?.toLowerCase().includes(q) ||
           o.tel?.includes(q) ||
