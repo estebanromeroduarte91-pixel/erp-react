@@ -313,13 +313,13 @@ export function DashboardPage() {
     <div style={{ background: C.card, border: `0.5px solid ${C.border}`, borderRadius: 12, padding: '12px 14px' }}>
       <SectionLabel text="Total gastado" />
       {[
-        { icon: '🛒', label: 'Órdenes de compra', value: stats.totalOC },
-        { icon: '📄', label: 'Gastos operacionales', value: stats.totalGastos },
+        { label: 'Órdenes de compra', value: stats.totalOC, to: '/compras' },
+        { label: 'Gastos operacionales', value: stats.totalGastos, to: '/contabilidad' },
       ].map((row, i, arr) => (
-        <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: i < arr.length - 1 ? `0.5px solid ${C.border}` : 'none' }}>
-          <span style={{ fontSize: 13, color: C.textSecondary }}>{row.label}</span>
+        <Link key={row.label} to={row.to} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: i < arr.length - 1 ? `0.5px solid ${C.border}` : 'none', textDecoration: 'none' }}>
+          <span style={{ fontSize: 13, color: '#2563eb' }}>{row.label}</span>
           <span style={{ fontSize: 13, fontWeight: 600, color: C.textPrimary }}>{fmt(row.value)}</span>
-        </div>
+        </Link>
       ))}
       <div style={{ marginTop: 10, paddingTop: 10, borderTop: `0.5px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
         <span style={{ fontSize: 13, color: C.textSecondary }}>Total salida</span>
