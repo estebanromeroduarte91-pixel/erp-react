@@ -90,7 +90,7 @@ export function DashboardPage() {
   const { data: ocs,     isLoading: loadOC } = useOCs()
   const { isLoading: loadO } = useOrdenes()
   const { data: bodegasRaw = [] } = useBodegas()
-  const bodegas = useMemo(() => [...bodegasRaw].sort((a, b) => (a.nombre ?? a.name ?? '').localeCompare(b.nombre ?? b.name ?? '', 'es')), [bodegasRaw])
+  const bodegas = useMemo(() => [...bodegasRaw].sort((a, b) => (b.nombre ?? b.name ?? '').localeCompare(a.nombre ?? a.name ?? '', 'es')), [bodegasRaw])
   const { data: metodos  = [] } = useMetodosPago()
 
   const [rango, setRango]             = useState<Rango>('mes')
