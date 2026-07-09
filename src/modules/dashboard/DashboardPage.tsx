@@ -77,7 +77,7 @@ export function DashboardPage() {
   const { data: ventas,  isLoading: loadV } = useVentas()
   const { data: gastos,  isLoading: loadG } = useGastos()
   const { data: ocs,     isLoading: loadOC } = useOCs()
-  const { data: ordenes, isLoading: loadO } = useOrdenes()
+  const { isLoading: loadO } = useOrdenes()
   const { data: bodegas  = [] } = useBodegas()
   const { data: metodos  = [] } = useMetodosPago()
 
