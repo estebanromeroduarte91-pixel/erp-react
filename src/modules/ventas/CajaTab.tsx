@@ -28,7 +28,8 @@ export function CajaTab() {
 
   const cajasActivas = useMemo(() => {
     const todas = (cajas ?? []).filter(c => c.activa !== false)
-    return branchId ? todas.filter(c => c.sucursalId === branchId) : todas
+    if (!branchId) return todas
+    return todas.filter(c => !c.sucursalId || c.sucursalId === branchId)
   }, [cajas, branchId])
   const cajaActual = cajasActivas.find(c => c.id === cajaSelId) ?? cajasActivas[0]
 

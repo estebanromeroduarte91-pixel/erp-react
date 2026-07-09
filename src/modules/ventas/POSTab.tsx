@@ -82,7 +82,8 @@ export function POSTab() {
   // Cajas filtered by branch
   const cajasActivas = useMemo(() => {
     const todas = (cajas ?? []).filter(c => c.activa !== false)
-    return branchId ? todas.filter(c => c.sucursalId === branchId) : todas
+    if (!branchId) return todas
+    return todas.filter(c => !c.sucursalId || c.sucursalId === branchId)
   }, [cajas, branchId])
 
   const cajaParaAbrir = cajasActivas.find(c => c.id === cajaSelId) ?? cajasActivas[0]
@@ -105,10 +106,9 @@ export function POSTab() {
   const sesionAbierta = useMemo(() => {
     return sesiones?.find(s =>
       s.fecha === today() && s.estado === 'abierta' &&
-      (branchId ? s.branchId === branchId : true) &&
       cajasActivas.some(c => c.id === s.cajaId)
     )
-  }, [sesiones, branchId, cajasActivas])
+  }, [sesiones, cajasActivas])
 
   const cajaAbierta = useMemo(() => sesionAbierta ? cajas?.find(c => c.id === sesionAbierta.cajaId) : undefined, [sesionAbierta, cajas])
 
