@@ -191,9 +191,16 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
   }
 
   function toggleCheck(idx: number) {
-    setCheckIngreso((list) => list.map((item, i) =>
-      i === idx ? { ...item, checked: !item.checked } : item
-    ))
+    setCheckIngreso((list) => list.map((item, i) => {
+      if (i !== idx) return item
+      if (!item.checked && item.estado !== 'no_funciona') return { ...item, checked: true, estado: 'ok' as const }
+      if (item.estado === 'ok') return { ...item, checked: false, estado: 'no_funciona' as const }
+      return { ...item, checked: false, estado: undefined }
+    }))
+  }
+
+  function marcarTodoNoFunciona() {
+    setCheckIngreso(list => list.map(item => ({ ...item, checked: false, estado: 'no_funciona' as const })))
   }
 
   // Buscador de repuestos
@@ -784,26 +791,35 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
             <div className="bg-gray-50 rounded-xl p-3 space-y-0.5">
               {/* Ítems configurables */}
               {checkIngreso.map((item, i) => (
-                <label key={i} className="flex items-center gap-2.5 py-1.5 cursor-pointer hover:bg-white rounded-lg px-2 transition">
-                  <input
-                    type="checkbox"
-                    checked={item.checked}
-                    onChange={() => toggleCheck(i)}
-                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-400"
-                  />
-                  <span className="text-sm text-gray-700">{item.label}</span>
-                </label>
+                <div key={i} onClick={() => toggleCheck(i)}
+                  className="flex items-center gap-2.5 py-1.5 cursor-pointer hover:bg-white rounded-lg px-2 transition select-none">
+                  {item.estado === 'ok' ? (
+                    <span className="w-5 h-5 flex-shrink-0 rounded-md bg-green-100 border border-green-300 flex items-center justify-center">
+                      <svg className="w-3 h-3 stroke-green-600" fill="none" viewBox="0 0 24 24" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>
+                    </span>
+                  ) : item.estado === 'no_funciona' ? (
+                    <span className="w-5 h-5 flex-shrink-0 rounded-md bg-red-100 border border-red-300 flex items-center justify-center">
+                      <svg className="w-3 h-3 stroke-red-600" fill="none" viewBox="0 0 24 24" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </span>
+                  ) : (
+                    <span className="w-5 h-5 flex-shrink-0 rounded-md bg-white border border-gray-300" />
+                  )}
+                  <span className="text-sm flex-1 text-gray-700">{item.label}</span>
+                  {item.estado === 'no_funciona' && (
+                    <span className="text-xs text-red-500 font-medium">No funciona</span>
+                  )}
+                </div>
               ))}
               {/* Separador + especiales */}
               {checkIngreso.length > 0 && (
                 <div className="border-t border-gray-200 mt-2 pt-2 space-y-0.5">
                   <label className="flex items-center gap-2.5 py-1.5 cursor-pointer hover:bg-white rounded-lg px-2 transition">
-                    <input type="checkbox" checked={checkApagado} onChange={(e) => setCheckApagado(e.target.checked)}
+                    <input type="checkbox" checked={checkApagado} onChange={(e) => { setCheckApagado(e.target.checked); if (e.target.checked) marcarTodoNoFunciona() }}
                       className="w-4 h-4 rounded border-gray-300 text-red-500 focus:ring-red-400" />
                     <span className="text-sm font-medium text-red-600">Llega apagado</span>
                   </label>
                   <label className="flex items-center gap-2.5 py-1.5 cursor-pointer hover:bg-white rounded-lg px-2 transition">
-                    <input type="checkbox" checked={checkMojado} onChange={(e) => setCheckMojado(e.target.checked)}
+                    <input type="checkbox" checked={checkMojado} onChange={(e) => { setCheckMojado(e.target.checked); if (e.target.checked) marcarTodoNoFunciona() }}
                       className="w-4 h-4 rounded border-gray-300 text-blue-500 focus:ring-blue-400" />
                     <span className="text-sm font-medium text-blue-600 flex items-center gap-1.5">
                       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
