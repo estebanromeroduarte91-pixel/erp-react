@@ -266,7 +266,7 @@ export function TallerPage() {
                     <div style={{ fontSize: 12, color: '#8e8e93', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{o.modelo ?? o.trabajo ?? ''}</div>
                   </div>
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: STATUS_DOT[o.status] ?? '#8e8e93', background: (STATUS_DOT[o.status] ?? '#888') + '18', padding: '3px 8px', borderRadius: 99, display: 'block', marginBottom: 4 }}>{o.subestado ?? o.status}</span>
+                    <span style={{ display: 'block', marginBottom: 4 }}><EstadoBadge estado={o.status} subestado={o.subestado} /></span>
                     <span style={{ fontSize: 11, color: '#8e8e93' }}>{fmtFecha(o.fecha)}</span>
                   </div>
                 </button>
