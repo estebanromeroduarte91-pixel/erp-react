@@ -595,12 +595,13 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
   const content = (
     <>
       {/* Topbar */}
-      <div className="flex items-center justify-between px-6 py-3 border-b border-gray-200 bg-white flex-shrink-0">
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between px-3 md:px-6 py-3 border-b border-gray-200 bg-white flex-shrink-0 gap-2">
+        <div className="flex flex-col gap-0.5">
           <span className="text-sm font-semibold text-gray-800">Orden #{o.num}</span>
+          <div className="md:hidden"><EstadoBadge estado={o.status} subestado={o.subestado} /></div>
         </div>
-        <div className="flex items-center gap-3">
-          <EstadoBadge estado={o.status} subestado={o.subestado} />
+        <div className="flex items-center gap-2">
+          <div className="hidden md:block"><EstadoBadge estado={o.status} subestado={o.subestado} /></div>
           {(() => {
             const derivado = traslados.some(t => t.order_id === o.id && t.estado !== 'retornado')
             return (
@@ -616,7 +617,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
             )
           })()}
           <button onClick={printLabel}
-            className="flex items-center gap-1.5 text-sm font-semibold text-gray-600 border border-gray-200 rounded-lg px-3 py-1.5 hover:bg-gray-50 transition">
+            className="hidden md:flex items-center gap-1.5 text-sm font-semibold text-gray-600 border border-gray-200 rounded-lg px-3 py-1.5 hover:bg-gray-50 transition">
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>
             </svg>
@@ -641,10 +642,10 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
       </div>
 
       {/* 3 columnas */}
-      <div className="flex flex-1 min-h-0 overflow-hidden">
+      <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-auto md:overflow-hidden">
 
         {/* ── Col 1: Cliente + Equipo + Trabajo ── */}
-        <div className="w-80 flex-shrink-0 border-r border-gray-200 overflow-y-auto flex flex-col">
+        <div className="w-full md:w-80 md:flex-shrink-0 border-b md:border-b-0 md:border-r border-gray-200 md:overflow-y-auto flex flex-col">
 
           {/* Cliente */}
           <div className="p-5 border-b border-gray-200">
@@ -715,7 +716,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
         </div>
 
         {/* ── Col 2: Repuestos (destacado) + Checklist + Inspección + Fotos ── */}
-        <div className="flex-1 border-r border-gray-200 overflow-y-auto flex flex-col">
+        <div className="w-full md:flex-1 border-b md:border-b-0 md:border-r border-gray-200 md:overflow-y-auto flex flex-col">
 
           {/* ── REPUESTOS — sección principal ── */}
           <div className="p-5 border-b border-gray-200">
@@ -971,7 +972,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
         </div>
 
         {/* ── Col 3: Pipeline + Acciones ── */}
-        <div className="w-64 flex-shrink-0 flex flex-col overflow-y-auto">
+        <div className="w-full md:w-64 md:flex-shrink-0 flex flex-col md:overflow-y-auto">
           {/* Pipeline vertical */}
           <div className="p-5 border-b border-gray-200">
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">Estado</p>
@@ -1517,7 +1518,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
   if (onClose) {
     return createPortal(
       <div
-        className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4"
+        className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-2 md:p-4"
         onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
       >
         <div className="bg-white rounded-2xl w-full max-w-6xl shadow-2xl flex flex-col overflow-hidden"
