@@ -207,20 +207,42 @@ export function DashboardPage() {
     </div>
   )
 
-  const inputDateStyle: React.CSSProperties = {
-    flex: 1, fontSize: 13, padding: '8px 10px',
-    border: `0.5px solid ${C.border}`, borderRadius: 10,
-    background: C.card, color: C.textPrimary,
-    fontFamily: 'inherit', outline: 'none',
-    WebkitAppearance: 'none', appearance: 'none',
-    minWidth: 0,
-  }
+  const DateField = ({ value, onChange, label }: { value: string; onChange: (v: string) => void; label: string }) => (
+    <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
+      <input
+        type="date"
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        onClick={e => { try { (e.target as HTMLInputElement).showPicker() } catch {} }}
+        style={{
+          width: '100%', fontSize: 13, padding: '8px 10px',
+          border: `0.5px solid ${C.border}`, borderRadius: 10,
+          background: C.card, fontFamily: 'inherit', outline: 'none',
+          WebkitAppearance: 'none', appearance: 'none',
+          color: value ? C.textPrimary : 'transparent',
+          boxSizing: 'border-box',
+        }}
+      />
+      {!value && (
+        <div style={{
+          position: 'absolute', inset: 0, display: 'flex', alignItems: 'center',
+          padding: '0 10px', pointerEvents: 'none', gap: 4,
+        }}>
+          <span style={{ fontSize: 13, color: C.textMuted, flex: 1 }}>{label}</span>
+          <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+            <rect x="1" y="2.5" width="13" height="11.5" rx="2" stroke={C.textMuted} strokeWidth="1.1"/>
+            <path d="M1 6h13M5 1v3M10 1v3" stroke={C.textMuted} strokeWidth="1.1" strokeLinecap="round"/>
+          </svg>
+        </div>
+      )}
+    </div>
+  )
 
   const RangoCustom = () => rango === 'rango' ? (
     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-      <input type="date" value={customDesde} onChange={e => setCustomDesde(e.target.value)} onClick={e => { try { (e.target as HTMLInputElement).showPicker() } catch {} }} style={inputDateStyle} />
+      <DateField value={customDesde} onChange={setCustomDesde} label="Desde" />
       <span style={{ fontSize: 12, color: C.textMuted, flexShrink: 0 }}>—</span>
-      <input type="date" value={customHasta} onChange={e => setCustomHasta(e.target.value)} onClick={e => { try { (e.target as HTMLInputElement).showPicker() } catch {} }} style={inputDateStyle} />
+      <DateField value={customHasta} onChange={setCustomHasta} label="Hasta" />
     </div>
   ) : null
 
