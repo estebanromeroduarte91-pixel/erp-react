@@ -334,28 +334,43 @@ export function ProductosTab() {
           {/* Cards — mobile */}
           <div className="md:hidden divide-y divide-gray-100">
             {lista.map(p => {
-              const st = filtroBodega ? stockSucursal(p, filtroBodega) : stockTotal(p)
+              const displayBodegas = bdList.length > 0
+                ? (filtroBodega ? bdList.filter(b => b.id === filtroBodega) : bdList)
+                : []
               return (
-                <div key={p.id} className="px-4 py-3 flex items-start justify-between gap-3 active:bg-gray-50 cursor-pointer"
+                <div key={p.id} className="px-4 py-3 active:bg-gray-50 cursor-pointer"
                   onClick={() => abrirEditar(p)}>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-gray-900 truncate mb-0.5">{p.nombre}</p>
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      {p.categoria && (
-                        <span className="text-xs text-gray-400">{p.categoria}</span>
-                      )}
-                      {p.subcategoria && (
-                        <span className="text-xs text-gray-300">· {p.subcategoria}</span>
-                      )}
+                  <div className="flex items-start justify-between gap-3 mb-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-gray-900 truncate mb-1">{p.nombre}</p>
+                      <div className="flex items-center gap-1.5">
+                        {p.categoria && (
+                          <span className="text-xs border border-blue-300 text-blue-600 px-1.5 py-0.5 rounded">
+                            {p.categoria}
+                          </span>
+                        )}
+                        {p.sku && (
+                          <span className="text-xs text-gray-400 font-mono">SKU {p.sku}</span>
+                        )}
+                      </div>
                     </div>
-                    {p.sku && <span className="font-mono text-xs text-gray-300 mt-0.5 block">{p.sku}</span>}
+                    <span className="text-sm font-semibold text-green-700 flex-shrink-0 pt-0.5">
+                      {p.precio_venta ? <Money value={p.precio_venta} /> : '—'}
+                    </span>
                   </div>
-                  <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-                    <StockLabelBadge producto={p} st={st} />
-                    {p.precio_venta ? (
-                      <span className="text-sm font-semibold text-green-700"><Money value={p.precio_venta} /></span>
-                    ) : <span className="text-sm text-gray-300">—</span>}
-                  </div>
+                  {p.tipo === 'servicio' ? (
+                    <p className="text-xs text-gray-400">∞ Disponibilidad ilimitada</p>
+                  ) : displayBodegas.length > 0 ? (
+                    <div className="flex gap-1.5 flex-wrap">
+                      {displayBodegas.map(b => (
+                        <StockLocalBadge key={b.id} nombre={b.nombre ?? b.name ?? ''} value={p.stock_sucursales?.[b.id] ?? 0} min={p.stock_min} />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex gap-1.5 flex-wrap">
+                      <StockLocalBadge nombre="Stock total" value={stockTotal(p)} min={p.stock_min} />
+                    </div>
+                  )}
                 </div>
               )
             })}
@@ -645,12 +660,18 @@ function StockBadge({ value, min }: { value: number | undefined; min?: number })
   )
 }
 
-function StockLabelBadge({ producto: p, st }: { producto: Producto; st: number }) {
-  if (p.tipo === 'servicio')
-    return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-violet-100 text-violet-700">Servicio</span>
-  if (st === 0)
-    return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">Sin stock</span>
-  if (p.stock_min != null && st <= p.stock_min)
-    return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">Bajo · {st}</span>
-  return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">En stock · {st}</span>
+function StockLocalBadge({ nombre, value, min }: { nombre: string; value: number | undefined; min?: number }) {
+  const n = Number(value) || 0
+  const bajo = min != null && n > 0 && n <= min
+  const sinStock = n === 0
+  const cls = sinStock
+    ? 'bg-white text-gray-400 border border-gray-300'
+    : bajo
+      ? 'bg-yellow-50 text-yellow-700'
+      : 'bg-green-50 text-green-700'
+  return (
+    <span className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full ${cls}`}>
+      {nombre} · {n}
+    </span>
+  )
 }
