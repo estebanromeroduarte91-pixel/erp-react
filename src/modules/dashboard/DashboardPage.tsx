@@ -199,6 +199,7 @@ export function DashboardPage() {
           cursor: 'pointer', transition: 'all .15s', fontFamily: 'inherit',
           background: rango === r ? '#1c1c1e' : C.card,
           color: rango === r ? '#fff' : C.textSecondary,
+          WebkitAppearance: 'none', appearance: 'none',
         }}>
           {r === 'hoy' ? 'Hoy' : r === 'mes' ? 'Mes' : r === 'año' ? 'Año' : 'Rango'}
         </button>
