@@ -207,13 +207,20 @@ export function DashboardPage() {
     </div>
   )
 
+  const inputDateStyle: React.CSSProperties = {
+    flex: 1, fontSize: 13, padding: '8px 10px',
+    border: `0.5px solid ${C.border}`, borderRadius: 10,
+    background: C.card, color: C.textPrimary,
+    fontFamily: 'inherit', outline: 'none',
+    WebkitAppearance: 'none', appearance: 'none',
+    minWidth: 0,
+  }
+
   const RangoCustom = () => rango === 'rango' ? (
     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-      <input type="date" value={customDesde} onChange={e => setCustomDesde(e.target.value)}
-        style={{ flex: 1, fontSize: 13, padding: '6px 10px', border: `0.5px solid ${C.border}`, borderRadius: 8, background: C.bg, color: C.textPrimary, fontFamily: 'inherit' }} />
-      <span style={{ fontSize: 12, color: C.textMuted }}>—</span>
-      <input type="date" value={customHasta} onChange={e => setCustomHasta(e.target.value)}
-        style={{ flex: 1, fontSize: 13, padding: '6px 10px', border: `0.5px solid ${C.border}`, borderRadius: 8, background: C.bg, color: C.textPrimary, fontFamily: 'inherit' }} />
+      <input type="date" value={customDesde} onChange={e => setCustomDesde(e.target.value)} style={inputDateStyle} />
+      <span style={{ fontSize: 12, color: C.textMuted, flexShrink: 0 }}>—</span>
+      <input type="date" value={customHasta} onChange={e => setCustomHasta(e.target.value)} style={inputDateStyle} />
     </div>
   ) : null
 
