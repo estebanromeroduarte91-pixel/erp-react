@@ -218,9 +218,9 @@ export function DashboardPage() {
 
   const RangoCustom = () => rango === 'rango' ? (
     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-      <input type="date" value={customDesde} onChange={e => setCustomDesde(e.target.value)} style={inputDateStyle} />
+      <input type="date" value={customDesde} onChange={e => setCustomDesde(e.target.value)} onClick={e => { try { (e.target as HTMLInputElement).showPicker() } catch {} }} style={inputDateStyle} />
       <span style={{ fontSize: 12, color: C.textMuted, flexShrink: 0 }}>—</span>
-      <input type="date" value={customHasta} onChange={e => setCustomHasta(e.target.value)} style={inputDateStyle} />
+      <input type="date" value={customHasta} onChange={e => setCustomHasta(e.target.value)} onClick={e => { try { (e.target as HTMLInputElement).showPicker() } catch {} }} style={inputDateStyle} />
     </div>
   ) : null
 
