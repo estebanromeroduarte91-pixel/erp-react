@@ -316,67 +316,69 @@ export function ProductosTab() {
         </div>
       </div>
 
-      {/* Lista */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        {lista.length === 0 ? (
-          <div className="py-16 text-center text-gray-400 text-sm">
-            {hayFiltros ? (
-              <div>
-                <p className="mb-3">Sin resultados para los filtros seleccionados</p>
-                <button onClick={limpiarFiltros}
-                  className="text-blue-600 hover:underline text-sm font-medium">
-                  Limpiar filtros
-                </button>
-              </div>
-            ) : 'No hay productos todavía'}
-          </div>
-        ) : (<>
-          {/* Cards — mobile */}
-          <div className="md:hidden divide-y divide-gray-100">
-            {lista.map(p => {
-              const displayBodegas = bdList.length > 0
-                ? (filtroBodega ? bdList.filter(b => b.id === filtroBodega) : bdList)
-                : []
-              return (
-                <div key={p.id} className="px-4 py-3 active:bg-gray-50 cursor-pointer"
-                  onClick={() => abrirEditar(p)}>
-                  <div className="flex items-start justify-between gap-3 mb-2">
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-gray-900 truncate mb-1">{p.nombre}</p>
-                      <div className="flex items-center gap-1.5">
-                        {p.categoria && (
-                          <span className="text-xs border border-blue-300 text-blue-600 px-1.5 py-0.5 rounded">
-                            {p.categoria}
-                          </span>
-                        )}
-                        {p.sku && (
-                          <span className="text-xs text-gray-400 font-mono">SKU {p.sku}</span>
-                        )}
-                      </div>
+      {/* Lista — empty state */}
+      {lista.length === 0 && (
+        <div className="bg-white rounded-xl border border-gray-200 py-16 text-center text-gray-400 text-sm">
+          {hayFiltros ? (
+            <div>
+              <p className="mb-3">Sin resultados para los filtros seleccionados</p>
+              <button onClick={limpiarFiltros}
+                className="text-blue-600 hover:underline text-sm font-medium">
+                Limpiar filtros
+              </button>
+            </div>
+          ) : 'No hay productos todavía'}
+        </div>
+      )}
+
+      {lista.length > 0 && (<>
+        {/* Cards — mobile */}
+        <div className="md:hidden rounded-xl p-2 flex flex-col gap-1.5" style={{ background: '#f2f2f7' }}>
+          {lista.map(p => {
+            const displayBodegas = bdList.length > 0
+              ? (filtroBodega ? bdList.filter(b => b.id === filtroBodega) : bdList)
+              : []
+            return (
+              <div key={p.id} className="bg-white rounded-lg px-3.5 py-3 cursor-pointer active:opacity-80"
+                onClick={() => abrirEditar(p)}>
+                <div className="flex items-start justify-between gap-3 mb-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-gray-900 truncate mb-1">{p.nombre}</p>
+                    <div className="flex items-center gap-1.5">
+                      {p.categoria && (
+                        <span className="text-xs border border-blue-300 text-blue-600 px-1.5 py-0.5 rounded">
+                          {p.categoria}
+                        </span>
+                      )}
+                      {p.sku && (
+                        <span className="text-xs text-gray-400 font-mono">SKU {p.sku}</span>
+                      )}
                     </div>
-                    <span className="text-sm font-semibold text-green-700 flex-shrink-0 pt-0.5">
-                      {p.precio_venta ? <Money value={p.precio_venta} /> : '—'}
-                    </span>
                   </div>
-                  {p.tipo === 'servicio' ? (
-                    <p className="text-xs text-gray-400">∞ Disponibilidad ilimitada</p>
-                  ) : displayBodegas.length > 0 ? (
-                    <div className="flex gap-1.5 flex-wrap">
-                      {displayBodegas.map(b => (
-                        <StockLocalBadge key={b.id} nombre={b.nombre ?? b.name ?? ''} value={p.stock_sucursales?.[b.id] ?? 0} min={p.stock_min} />
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="flex gap-1.5 flex-wrap">
-                      <StockLocalBadge nombre="Stock total" value={stockTotal(p)} min={p.stock_min} />
-                    </div>
-                  )}
+                  <span className="text-sm font-semibold text-green-700 flex-shrink-0 pt-0.5">
+                    {p.precio_venta ? <Money value={p.precio_venta} /> : '—'}
+                  </span>
                 </div>
-              )
-            })}
-          </div>
-          {/* Tabla — desktop */}
-          <div className="hidden md:block overflow-x-auto">
+                {p.tipo === 'servicio' ? (
+                  <p className="text-xs text-gray-400">∞ Disponibilidad ilimitada</p>
+                ) : displayBodegas.length > 0 ? (
+                  <div className="flex gap-1.5 flex-wrap">
+                    {displayBodegas.map(b => (
+                      <StockLocalBadge key={b.id} nombre={b.nombre ?? b.name ?? ''} value={p.stock_sucursales?.[b.id] ?? 0} min={p.stock_min} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex gap-1.5 flex-wrap">
+                    <StockLocalBadge nombre="Stock total" value={stockTotal(p)} min={p.stock_min} />
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+        {/* Tabla — desktop */}
+        <div className="hidden md:block bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50">
@@ -455,8 +457,8 @@ export function ProductosTab() {
               </tbody>
             </table>
           </div>
-        </>)}
-      </div>
+        </div>
+      </>)}
 
       {modalOpen && (
         <ProductoModal
