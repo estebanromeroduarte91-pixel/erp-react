@@ -1233,14 +1233,14 @@ export function ComprasPage() {
       </div>
 
       {/* Section tabs */}
-      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-5 w-fit">
+      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-5 w-full md:w-fit">
         {([
           { id: 'ocs',  label: 'Órdenes de Compra' },
           { id: 'kits', label: 'Kits / Equipos' },
         ] as { id: Section; label: string }[]).map(s => (
           <button key={s.id} onClick={() => setSection(s.id)}
             className={[
-              'px-4 py-1.5 text-sm font-medium rounded-lg transition',
+              'flex-1 md:flex-none px-4 py-1.5 text-sm font-medium rounded-lg transition text-center',
               section === s.id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700',
             ].join(' ')}>
             {s.label}
@@ -1256,7 +1256,7 @@ export function ComprasPage() {
 
       <div style={{ background: '#fff', borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,.06)', border: '1px solid var(--gray-100)', overflow: 'hidden' }}>
         {/* Filter tabs */}
-        <div style={{ display: 'flex', borderBottom: '1px solid var(--gray-100)', overflowX: 'auto' }}>
+        <div style={{ display: 'flex', borderBottom: '1px solid var(--gray-100)', flexWrap: 'wrap' }}>
           {FILTRO_TABS.map(({ key, label }) => (
             <button key={key} onClick={() => setFiltro(key)}
               style={{
@@ -1319,7 +1319,42 @@ export function ComprasPage() {
             </p>
           </div>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
+          <>
+          {/* Cards — mobile */}
+          <div className="md:hidden divide-y divide-gray-100">
+            {displayedOCs.map(o => (
+              <div key={o.id} className="px-4 py-3 active:bg-gray-50 cursor-pointer"
+                onClick={() => setModal({ type: 'ver', ocId: o.id })}>
+                <div className="flex items-center justify-between mb-1">
+                  <strong style={{ color: 'var(--primary)', fontFamily: 'monospace', fontSize: 12 }}>{o.numero}</strong>
+                  <EstadoBadge estado={o.estado} />
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--gray-800)' }}>{o.proveedor_nombre || '—'}</span>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--gray-900)', flexShrink: 0 }}>{fmt$(o.total ?? 0)}</span>
+                </div>
+                <div className="flex items-center justify-between mt-1">
+                  <span style={{ fontSize: 11, color: 'var(--gray-400)' }}>{fmtDate(o.fecha)} · {(o.items ?? []).length} ítem(s)</span>
+                  <div className="flex gap-1.5" onClick={e => e.stopPropagation()}>
+                    {(o.estado === 'borrador' || o.estado === 'parcial') && (
+                      <button onClick={() => setModal({ type: 'recibir', ocId: o.id })}
+                        style={{ fontSize: 11, fontWeight: 600, padding: '3px 8px', background: '#059669', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}>
+                        Recibir
+                      </button>
+                    )}
+                    {(o.estado === 'recibida' || o.estado === 'parcial') && (
+                      <button onClick={() => setModal({ type: 'confirmar', ocId: o.id })}
+                        style={{ fontSize: 11, fontWeight: 600, padding: '3px 8px', background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}>
+                        Confirmar
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          {/* Tabla — desktop */}
+          <div className="hidden md:block" style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ background: 'var(--gray-50)' }}>
@@ -1388,6 +1423,7 @@ export function ComprasPage() {
               </tbody>
             </table>
           </div>
+          </>
         )}
       </div>
 

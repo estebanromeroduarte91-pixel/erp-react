@@ -6,10 +6,10 @@ import { MovimientosTab } from './MovimientosTab'
 import { CategoriasTab } from './CategoriasTab'
 type Tab = 'productos' | 'categorias' | 'bodegas' | 'movimientos'
 
-const TABS: { id: Tab; label: string }[] = [
+const TABS: { id: Tab; label: string; labelMobile?: string }[] = [
   { id: 'productos',   label: 'Productos' },
   { id: 'categorias',  label: 'Categorías' },
-  { id: 'bodegas',     label: 'Bodegas / Sucursales' },
+  { id: 'bodegas',     label: 'Bodegas / Sucursales', labelMobile: 'Bodegas' },
   { id: 'movimientos', label: 'Movimientos' },
 ]
 
@@ -34,14 +34,15 @@ export function InventarioPage() {
         <h2 className="text-xl font-bold text-gray-900">Inventario</h2>
       </div>
 
-      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-5 w-fit">
+      <div className="grid grid-cols-2 md:flex gap-1 bg-gray-100 p-1 rounded-xl mb-5 w-full md:w-fit">
         {TABS.map((t) => (
           <button key={t.id} onClick={() => setTab(t.id)}
             className={[
-              'px-4 py-1.5 text-sm font-medium rounded-lg transition',
+              'px-2 md:px-4 py-1.5 text-sm font-medium rounded-lg transition text-center',
               tab === t.id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700',
             ].join(' ')}>
-            {t.label}
+            <span className="md:hidden">{t.labelMobile ?? t.label}</span>
+            <span className="hidden md:inline">{t.label}</span>
           </button>
         ))}
       </div>

@@ -35,11 +35,11 @@ export function ConfigPage() {
         <h2 className="text-xl font-bold text-gray-900">Configuración</h2>
       </div>
 
-      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-6 w-fit flex-wrap">
+      <div className="grid grid-cols-2 md:flex gap-1 bg-gray-100 p-1 rounded-xl mb-6 w-full md:w-fit">
         {tabs.map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
             className={[
-              'px-4 py-1.5 text-sm font-medium rounded-lg transition',
+              'px-2 md:px-4 py-1.5 text-sm font-medium rounded-lg transition text-center',
               tab === t.key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700',
             ].join(' ')}>
             {t.label}

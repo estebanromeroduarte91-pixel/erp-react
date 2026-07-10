@@ -159,7 +159,7 @@ export function GastosTab() {
   return (
     <div>
       {/* KPIs */}
-      <div className="grid grid-cols-3 gap-4 mb-5">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-5">
         <div className="bg-white rounded-xl border border-gray-200 p-4">
           <p className="text-xs font-semibold text-gray-400 uppercase mb-1">Gasto del mes</p>
           <p className="text-2xl font-extrabold text-gray-900">{fmt(totalMes)}</p>
@@ -301,7 +301,7 @@ export function GastosTab() {
                         </p>
                       </div>
                       <p className="text-sm font-bold text-gray-900 flex-shrink-0">{fmt(+g.monto || 0)}</p>
-                      <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                      <div className="flex gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                         <button onClick={() => abrirEditar(g)} className="text-xs text-blue-600 hover:underline font-medium px-1">Editar</button>
                         <button onClick={() => eliminar(g)} className="text-xs text-red-500 hover:underline font-medium px-1">Eliminar</button>
                       </div>

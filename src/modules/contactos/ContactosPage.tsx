@@ -19,11 +19,11 @@ export function ContactosPage() {
         <h2 className="text-xl font-bold text-gray-900">Contactos</h2>
       </div>
 
-      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-5 w-fit">
+      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-5 w-full md:w-fit">
         {(['clientes', 'proveedores'] as Tab[]).map((t) => (
           <button key={t} onClick={() => setTab(t)}
             className={[
-              'px-4 py-1.5 text-sm font-medium rounded-lg transition capitalize',
+              'flex-1 md:flex-none px-4 py-1.5 text-sm font-medium rounded-lg transition text-center capitalize',
               tab === t ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700',
             ].join(' ')}>
             {t === 'clientes' ? 'Clientes' : 'Proveedores'}

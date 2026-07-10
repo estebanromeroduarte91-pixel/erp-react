@@ -162,7 +162,7 @@ export function VentasListTab() {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         <div className="bg-white rounded-xl border border-gray-200 p-4 border-t-2 border-t-emerald-500">
           <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Ventas c/IVA</p>
           <p className="text-xs text-blue-600 font-medium mb-2">{PERIODO_LABEL[periodo]}</p>
@@ -184,7 +184,7 @@ export function VentasListTab() {
       </div>
 
       {/* 2-col: Métodos de pago | Resumen histórico */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-white rounded-xl border border-gray-200 p-4">
           <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">Métodos de pago — {PERIODO_LABEL[periodo]}</p>
           {metodosSorted.length === 0 ? (
@@ -241,10 +241,10 @@ export function VentasListTab() {
               placeholder="Buscar por número o cliente..."
               className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:border-blue-400" />
           </div>
-          <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
+          <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-full md:w-auto">
             {([['todas', 'Todas'], ['pagada', 'Pagadas'], ['pendiente', 'Pendiente'], ['anulada', 'Anuladas']] as const).map(([e, lbl]) => (
               <button key={e} onClick={() => { setFiltroEstado(e); setPage(PAGE_SIZE) }}
-                className={['px-3 py-1.5 text-sm font-medium rounded-lg transition',
+                className={['flex-1 md:flex-none px-2 md:px-3 py-1.5 text-xs md:text-sm font-medium rounded-lg transition text-center',
                   filtroEstado === e ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'].join(' ')}>
                 {lbl}
               </button>
@@ -264,7 +264,31 @@ export function VentasListTab() {
           </div>
         ) : (
           <>
-            <div className="overflow-x-auto">
+            {/* Cards — mobile */}
+            <div className="md:hidden divide-y divide-gray-100">
+              {visible.map(v => (
+                <div key={v.id} className="px-4 py-3 active:bg-gray-50 cursor-pointer" onClick={() => setDetalle(v)}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-mono text-xs font-semibold text-blue-600">{v.numero}</span>
+                    <span className={`font-bold text-sm ${v.estado === 'anulada' ? 'line-through text-gray-400' : 'text-gray-900'}`}>
+                      {fmt(v.total_iva)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-medium text-gray-800 truncate">{v.cliente || '—'}</span>
+                    <span className={['inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0',
+                      v.estado === 'pagada' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'].join(' ')}>
+                      {v.estado === 'pagada' ? 'Pagada' : 'Anulada'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {mpMap[v.metodo_pago] ?? v.metodo_pago ?? '—'} · {v.tipo_doc ?? 'boleta'} · {v.fecha}
+                  </p>
+                </div>
+              ))}
+            </div>
+            {/* Tabla — desktop */}
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-100 bg-gray-50">
