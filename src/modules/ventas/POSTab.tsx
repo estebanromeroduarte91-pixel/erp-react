@@ -24,7 +24,7 @@ function IconoMetodo({ id }: { id: string }) {
 }
 
 function uid() { return Math.random().toString(36).slice(2) + Date.now().toString(36) }
-function today() { return new Date().toISOString().split('T')[0] }
+function today() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` }
 function nowTime() { return new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }) }
 function fmt(n: number) { return '$' + Math.round(n).toLocaleString('es-CL') }
 

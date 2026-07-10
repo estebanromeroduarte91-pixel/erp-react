@@ -10,10 +10,13 @@ const fmt = (n: number) => '$' + Math.round(n).toLocaleString('es-CL')
 const SUC_COLORS = ['#378ADD', '#1D9E75', '#7F77DD', '#D85A30', '#BA7517', '#64748b']
 const MP_COLORS  = ['#378ADD', '#7F77DD', '#1D9E75', '#D85A30', '#BA7517', '#64748b']
 
-// ── Date helpers ──────────────────────────────────────────────
-function hoyStr()  { return new Date().toISOString().slice(0, 10) }
-function mesStr()  { return new Date().toISOString().slice(0, 7) }
-function añoStr()  { return new Date().toISOString().slice(0, 4) }
+// ── Date helpers (local time, not UTC) ────────────────────────
+function localDateStr(d = new Date()) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+function hoyStr()  { return localDateStr() }
+function mesStr()  { return localDateStr().slice(0, 7) }
+function añoStr()  { return String(new Date().getFullYear()) }
 
 function periodoDesdeHasta(rango: Rango, customDesde: string, customHasta: string) {
   if (rango === 'hoy') return { desde: hoyStr(), hasta: hoyStr() }
