@@ -1,18 +1,18 @@
 import type { EstadoOrden } from '@/types'
 
 const COLORES: Record<string, string> = {
-  'Chequeo':           'bg-yellow-100 text-yellow-800',
-  'Reparación':        'bg-blue-100 text-blue-800',
-  'Listo':             'bg-green-100 text-green-800',
-  'Entregado':         'bg-gray-100 text-gray-600',
+  'Chequeo':           'bg-amber-100 text-amber-700',
+  'Reparación':        'bg-purple-100 text-purple-700',
+  'Listo':             'bg-green-100 text-green-700',
+  'Entregado':         'bg-gray-100 text-gray-500',
   'No reparable':      'bg-red-100 text-red-700',
 }
 
 const COLORES_SUB: Record<string, string> = {
-  'Reparado':          'bg-green-100 text-green-800',
-  'Sin solución':      'bg-yellow-100 text-yellow-800',
+  'Reparado':          'bg-green-100 text-green-700',
+  'Sin solución':      'bg-amber-100 text-amber-700',
   'No reparado':       'bg-red-100 text-red-700',
-  'No presento falla': 'bg-blue-100 text-blue-800',
+  'No presento falla': 'bg-purple-100 text-purple-700',
 }
 
 export function EstadoBadge({ estado, subestado }: { estado: EstadoOrden | string; subestado?: string }) {
