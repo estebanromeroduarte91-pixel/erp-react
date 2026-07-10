@@ -96,10 +96,11 @@ export function DashboardPage() {
   const bodegas = useMemo(() => [...bodegasRaw].sort((a, b) => (b.nombre ?? b.name ?? '').localeCompare(a.nombre ?? a.name ?? '', 'es')), [bodegasRaw])
   const { data: metodos  = [] } = useMetodosPago()
 
-  const [rango, setRango]             = useState<Rango>('mes')
+  const [rango, setRango]             = useState<Rango>('hoy')
   const [customDesde, setCustomDesde] = useState('')
   const [customHasta, setCustomHasta] = useState('')
   const [tabMp, setTabMp]             = useState(0)
+  const [expandedMp, setExpandedMp]   = useState<string | null>(null)
 
   const isMobile = useIsMobile()
 
@@ -112,6 +113,16 @@ export function DashboardPage() {
     return m
   }, [metodos])
   const getMpLabel = (id: string) => mpById[id] || (id ? id.charAt(0).toUpperCase() + id.slice(1) : '—')
+
+  const drillVentas = useMemo(() => {
+    if (!expandedMp) return []
+    const vArr = (ventas ?? []).filter(v => v.estado !== 'anulada' && inPeriod(v.fecha, desde, hasta))
+    const bId = bodegas[tabMp]?.id
+    const byBranch = bodegas.length > 0 && bId ? vArr.filter(v => v.branchId === bId) : vArr
+    return byBranch
+      .filter(v => (v.metodo_pago || 'otro') === expandedMp)
+      .sort((a, b) => b.fecha.localeCompare(a.fecha))
+  }, [ventas, desde, hasta, tabMp, expandedMp, bodegas])
 
   const stats = useMemo(() => {
     const vArr  = (ventas  ?? []).filter(v => v.estado !== 'anulada')
@@ -269,7 +280,7 @@ export function DashboardPage() {
         {tienesSucs && bodegas.length > 0 && (
           <div style={{ display: 'grid', gridTemplateColumns: `repeat(${bodegas.length}, 1fr)`, borderBottom: `0.5px solid ${C.border}` }}>
             {bodegas.map((b, i) => (
-              <button key={b.id} onClick={() => setTabMp(i)} style={{
+              <button key={b.id} onClick={() => { setTabMp(i); setExpandedMp(null) }} style={{
                 padding: '8px 4px', fontSize: 12,
                 fontWeight: tabMp === i ? 700 : 400,
                 color: tabMp === i ? C.textPrimary : C.textMuted,
@@ -291,12 +302,47 @@ export function DashboardPage() {
           <>
             {mpActivos.sorted.map(([id, total], i) => {
               const pct = mpActivos.totalSuc > 0 ? Math.round(total / mpActivos.totalSuc * 100) : 0
+              const isOpen = expandedMp === id
               return (
-                <div key={id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', borderBottom: i < mpActivos.sorted.length - 1 ? `0.5px solid ${C.border}` : 'none' }}>
-                  <div style={{ width: 7, height: 7, borderRadius: '50%', background: MP_COLORS[i] ?? '#64748b', flexShrink: 0 }} />
-                  <span style={{ fontSize: 13, color: C.textSecondary, flex: 1 }}>{getMpLabel(id)}</span>
-                  <span style={{ fontSize: 11, color: C.textMuted, marginRight: 4 }}>{pct}%</span>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: C.textPrimary }}>{fmt(total)}</span>
+                <div key={id}>
+                  <button
+                    onClick={() => setExpandedMp(isOpen ? null : id)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+                      padding: '9px 0', background: 'transparent', border: 'none',
+                      borderBottom: (!isOpen && i < mpActivos.sorted.length - 1) ? `0.5px solid ${C.border}` : 'none',
+                      cursor: 'pointer', fontFamily: 'inherit',
+                    }}
+                  >
+                    <div style={{ width: 7, height: 7, borderRadius: '50%', background: MP_COLORS[i] ?? '#64748b', flexShrink: 0 }} />
+                    <span style={{ fontSize: 13, color: isOpen ? '#2563eb' : C.textSecondary, flex: 1, textAlign: 'left', fontWeight: isOpen ? 600 : 400 }}>{getMpLabel(id)}</span>
+                    <span style={{ fontSize: 11, color: C.textMuted, marginRight: 4 }}>{pct}%</span>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: C.textPrimary, marginRight: 6 }}>{fmt(total)}</span>
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ flexShrink: 0, transition: 'transform .2s', transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+                      <path d="M2 4l4 4 4-4" stroke={isOpen ? '#2563eb' : C.textMuted} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </button>
+
+                  {isOpen && (
+                    <div style={{ background: C.bg, borderRadius: 8, margin: '4px 0 8px', padding: '0 10px', border: `0.5px solid ${C.border}` }}>
+                      <div style={{ padding: '8px 0 6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `0.5px solid ${C.border}` }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '.4px' }}>{drillVentas.length} ventas</span>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '.4px' }}>{fmt(total)} total</span>
+                      </div>
+                      {drillVentas.length === 0
+                        ? <p style={{ textAlign: 'center', color: C.textMuted, fontSize: 12, padding: '12px 0', margin: 0 }}>Sin ventas</p>
+                        : drillVentas.map((v, vi) => (
+                          <div key={v.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: vi < drillVentas.length - 1 ? `0.5px solid ${C.border}` : 'none' }}>
+                            <div>
+                              <p style={{ fontSize: 12, fontWeight: 600, color: '#2563eb', margin: 0 }}>{v.numero}</p>
+                              <p style={{ fontSize: 11, color: C.textMuted, margin: 0 }}>{v.cliente || '—'}</p>
+                            </div>
+                            <span style={{ fontSize: 13, fontWeight: 600, color: C.textPrimary }}>{fmt(+v.total_iva)}</span>
+                          </div>
+                        ))
+                      }
+                    </div>
+                  )}
                 </div>
               )
             })}
