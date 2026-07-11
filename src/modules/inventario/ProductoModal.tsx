@@ -131,7 +131,7 @@ export function ProductoModal({ producto, productos, bodegas, onClose }: Props) 
               <div>
                 <label className="text-xs font-medium text-gray-600 mb-1 block">Unidad</label>
                 <select value={unidad} onChange={(e) => setUnidad(e.target.value)}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
                   {['unidad', 'par', 'caja', 'kg', 'litro', 'metro', 'servicio'].map((u) => (
                     <option key={u} value={u}>{u}</option>
                   ))}
@@ -141,7 +141,7 @@ export function ProductoModal({ producto, productos, bodegas, onClose }: Props) 
                 <label className="text-xs font-medium text-gray-600 mb-1 block">Categoría</label>
                 <input value={categoria} onChange={(e) => setCategoria(e.target.value)}
                   list="cats-list" placeholder="Ej: Pantallas"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
                 <datalist id="cats-list">
                   {cats.map((c) => <option key={c} value={c} />)}
                 </datalist>
@@ -151,7 +151,7 @@ export function ProductoModal({ producto, productos, bodegas, onClose }: Props) 
                 <label className="text-xs font-medium text-gray-600 mb-1 block">Descripción</label>
                 <textarea value={descripcion} onChange={(e) => setDescripcion(e.target.value)}
                   rows={2} placeholder="Descripción opcional..."
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400 resize-none" />
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400 resize-none" />
               </div>
             </div>
           </section>
@@ -183,7 +183,7 @@ export function ProductoModal({ producto, productos, bodegas, onClose }: Props) 
                         type="number" min="0"
                         value={stockSucs[b.id] ?? 0}
                         onChange={(e) => setStockSucs((s) => ({ ...s, [b.id]: +e.target.value || 0 }))}
-                        className="w-24 border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-right bg-gray-50 focus:outline-none focus:border-blue-400"
+                        className="w-24 border border-gray-200 rounded-lg px-3 py-1.5 text-base md:text-sm text-right bg-gray-50 focus:outline-none focus:border-blue-400"
                       />
                     </div>
                   ))}
@@ -223,7 +223,7 @@ function Field({ label, value, onChange, placeholder, type = 'text' }: {
     <div>
       <label className="text-xs font-medium text-gray-600 mb-1 block">{label}</label>
       <input type={type} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
-        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
     </div>
   )
 }
