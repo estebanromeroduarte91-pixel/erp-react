@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
+import { CambiarPasswordModal } from '@/components/shared/CambiarPasswordModal'
 
 const TABS = [
   {
@@ -64,6 +65,7 @@ export function MobileTabBar() {
   const { pathname } = useLocation()
   const { logout } = useAuth()
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [pwOpen, setPwOpen] = useState(false)
 
   const masActive = MAS_ITEMS.some(i => i.to === pathname)
 
@@ -106,6 +108,22 @@ export function MobileTabBar() {
           </Link>
         ))}
         <div style={{ borderTop: '1px solid var(--gray-100)', margin: '8px 0 0' }}>
+          <button
+            onClick={() => { setDrawerOpen(false); setPwOpen(true) }}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 14,
+              padding: '13px 24px', width: '100%',
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: 'var(--gray-700)', fontSize: 15, fontWeight: 500, fontFamily: 'inherit',
+            }}
+          >
+            <span style={{ width: 28, display: 'flex', justifyContent: 'center' }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+              </svg>
+            </span>
+            Cambiar contraseña
+          </button>
           <button
             onClick={() => { setDrawerOpen(false); logout() }}
             style={{
