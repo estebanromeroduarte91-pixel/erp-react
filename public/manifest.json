@@ -1,0 +1,17 @@
+{
+  "name": "ERP",
+  "short_name": "ERP",
+  "description": "Gestión empresarial",
+  "start_url": "/#/dashboard",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#3656e6",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any"
+    }
+  ]
+}

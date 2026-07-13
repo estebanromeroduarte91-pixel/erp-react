@@ -30,7 +30,7 @@ function AppRoutes() {
   return (
     <Shell>
       <Routes>
-        <Route path="/" element={<Navigate to="/taller" replace />} />
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/taller" element={<TallerPage />} />
 <Route path="/dashboard"     element={<DashboardPage />} />
         <Route path="/inventario"    element={<InventarioPage />} />
