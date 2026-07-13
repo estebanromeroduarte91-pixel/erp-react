@@ -221,7 +221,7 @@ export function EstadisticasPage() {
               onClick={() => { setTab(t.id); setFrom(''); setTo('') }}
               style={{
                 flexShrink: 0, padding: '6px 14px', border: 'none', borderRadius: 99, fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', transition: 'all .15s',
-                background: tab === t.id ? '#1D1D1F' : '#F2F2F7',
+                background: tab === t.id ? '#3656e6' : '#F2F2F7',
                 color: tab === t.id ? '#fff' : '#6b7280',
               }}
             >{t.label}</button>
