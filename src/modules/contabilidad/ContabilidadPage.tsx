@@ -41,10 +41,8 @@ export function ContabilidadPage() {
       <div className="flex gap-2 overflow-x-auto pb-1 mb-5" style={{ scrollbarWidth: 'none' }}>
         {tabs.map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
-            className={[
-              'flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition',
-              tab === t.key ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200',
-            ].join(' ')}>
+            className="flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition"
+            style={{ background: tab === t.key ? '#3656e6' : '#f2f2f7', color: tab === t.key ? '#fff' : '#6b7280' }}>
             {t.label}
           </button>
         ))}
