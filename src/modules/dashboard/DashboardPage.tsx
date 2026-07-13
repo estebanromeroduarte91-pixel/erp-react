@@ -195,9 +195,9 @@ export function DashboardPage() {
       {(['hoy', 'mes', 'año', 'rango'] as Rango[]).map(r => (
         <button key={r} onClick={() => setRango(r)} style={{
           padding: '7px 0', fontSize: 13, fontWeight: 500, textAlign: 'center',
-          borderRadius: 20, border: `0.5px solid ${rango === r ? '#1c1c1e' : C.border}`,
+          borderRadius: 20, border: `0.5px solid ${rango === r ? '#3656e6' : C.border}`,
           cursor: 'pointer', transition: 'all .15s', fontFamily: 'inherit',
-          background: rango === r ? '#1c1c1e' : C.card,
+          background: rango === r ? '#3656e6' : C.card,
           color: rango === r ? '#fff' : C.textSecondary,
           WebkitAppearance: 'none', appearance: 'none',
         }}>

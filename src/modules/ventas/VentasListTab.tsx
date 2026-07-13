@@ -139,7 +139,7 @@ export function VentasListTab() {
               onClick={() => { setPeriodo(p); setPage(PAGE_SIZE) }}
               className={['px-3 py-1.5 text-xs font-semibold transition',
                 i > 0 ? 'border-l border-gray-200' : '',
-                periodo === p ? 'bg-gray-900 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'].join(' ')}
+                periodo === p ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'].join(' ')}
             >{PERIODO_LABEL[p]}</button>
           ))}
         </div>

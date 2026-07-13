@@ -245,7 +245,7 @@ export function GastosTab() {
           <button
             onClick={() => setFiltroCat(null)}
             className={['px-3 py-1 rounded-full text-xs font-semibold border transition',
-              filtroCat === null ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'].join(' ')}>
+              filtroCat === null ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'].join(' ')}>
             Todas
           </button>
           {(cats ?? []).map((c, i) => (

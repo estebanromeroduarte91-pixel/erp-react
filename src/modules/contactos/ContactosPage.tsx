@@ -14,7 +14,7 @@ export function ContactosPage() {
   }, [searchParams])
 
   return (
-    <div>
+    <div className="px-4 md:px-0">
       <div className="flex items-center justify-between mb-5">
         <h2 className="text-xl font-bold text-gray-900">Contactos</h2>
       </div>

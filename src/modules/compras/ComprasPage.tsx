@@ -1219,7 +1219,7 @@ export function ComprasPage() {
   const modalOC = modalOcId ? ocs.find(o => o.id === modalOcId) : undefined
 
   return (
-    <div>
+    <div className="px-4 md:px-0">
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
         <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: 'var(--gray-800)' }}>Compras</h2>
@@ -1233,16 +1233,14 @@ export function ComprasPage() {
       </div>
 
       {/* Section tabs */}
-      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-5 w-full md:w-fit">
+      <div className="flex gap-2 overflow-x-auto pb-1 mb-5" style={{ scrollbarWidth: 'none' }}>
         {([
           { id: 'ocs',  label: 'Órdenes de Compra' },
           { id: 'kits', label: 'Kits / Equipos' },
         ] as { id: Section; label: string }[]).map(s => (
           <button key={s.id} onClick={() => setSection(s.id)}
-            className={[
-              'flex-1 md:flex-none px-4 py-1.5 text-sm font-medium rounded-lg transition text-center',
-              section === s.id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700',
-            ].join(' ')}>
+            className="flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition"
+            style={{ background: section === s.id ? '#3656e6' : '#f2f2f7', color: section === s.id ? '#fff' : '#6b7280' }}>
             {s.label}
           </button>
         ))}
