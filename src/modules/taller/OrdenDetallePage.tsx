@@ -206,7 +206,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
       setPendingEstado(estado)
       return
     }
-    const actualizadas = (ordenes ?? []).map(x => x.id === orden.id ? { ...x, status: estado } : x)
+    const actualizadas = (ordenes ?? []).map(x => x.id === orden.id ? { ...x, status: estado, subestado: undefined } : x)
     await guardar.mutateAsync(actualizadas)
   }
 

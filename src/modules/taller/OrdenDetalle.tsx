@@ -146,7 +146,7 @@ export function OrdenDetalle({ orden: o, ordenes, onClose, onEditar }: Props) {
 
   async function cambiarEstado(estado: EstadoOrden) {
     if (o.status === estado) return
-    const actualizadas = ordenes.map(x => x.id === o.id ? { ...x, status: estado } : x)
+    const actualizadas = ordenes.map(x => x.id === o.id ? { ...x, status: estado, subestado: undefined } : x)
     await guardar.mutateAsync(actualizadas)
 
     const vars = buildVars(o.num)
