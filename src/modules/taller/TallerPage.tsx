@@ -334,12 +334,12 @@ export function TallerPage() {
 
       {tallerTab === 'settings' && (
         <div>
-          <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-6 w-fit flex-wrap">
+          <div className="flex gap-2 overflow-x-auto pb-1 mb-6" style={{ scrollbarWidth: 'none' }}>
             {CONFIG_TABS.map(t => (
               <button key={t.id} onClick={() => setConfigTab(t.id)}
                 className={[
-                  'px-4 py-1.5 text-sm font-medium rounded-lg transition',
-                  configTab === t.id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700',
+                  'flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition',
+                  configTab === t.id ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200',
                 ].join(' ')}>
                 {t.label}
               </button>

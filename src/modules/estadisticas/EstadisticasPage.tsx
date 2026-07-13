@@ -214,16 +214,15 @@ export function EstadisticasPage() {
       {/* Header + range selector */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', ...(isMobile ? { background: '#fff', padding: '16px 16px 12px', borderBottom: '0.5px solid #e5e7eb' } : {}) }}>
         <h2 style={{ fontSize: isMobile ? 22 : 18, fontWeight: 800, color: '#111827', margin: 0, marginRight: 'auto' }}>Estadísticas</h2>
-        <div style={{ display: 'flex', gap: 3, background: '#f1f5f9', borderRadius: 8, padding: 3 }}>
+        <div style={{ display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none' }}>
           {TABS.map(t => (
             <button
               key={t.id}
               onClick={() => { setTab(t.id); setFrom(''); setTo('') }}
               style={{
-                padding: '4px 10px', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', transition: 'all .15s',
-                background: tab === t.id ? '#fff' : 'transparent',
-                color: tab === t.id ? '#1a1d23' : '#6b7280',
-                boxShadow: tab === t.id ? '0 1px 4px rgba(0,0,0,.1)' : 'none',
+                flexShrink: 0, padding: '6px 14px', border: 'none', borderRadius: 99, fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', transition: 'all .15s',
+                background: tab === t.id ? '#1D1D1F' : '#F2F2F7',
+                color: tab === t.id ? '#fff' : '#6b7280',
               }}
             >{t.label}</button>
           ))}

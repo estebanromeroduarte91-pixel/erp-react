@@ -19,12 +19,12 @@ export function ContactosPage() {
         <h2 className="text-xl font-bold text-gray-900">Contactos</h2>
       </div>
 
-      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-5 w-full md:w-fit">
+      <div className="flex gap-2 overflow-x-auto pb-1 mb-5" style={{ scrollbarWidth: 'none' }}>
         {(['clientes', 'proveedores'] as Tab[]).map((t) => (
           <button key={t} onClick={() => setTab(t)}
             className={[
-              'flex-1 md:flex-none px-4 py-1.5 text-sm font-medium rounded-lg transition text-center capitalize',
-              tab === t ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700',
+              'flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition',
+              tab === t ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200',
             ].join(' ')}>
             {t === 'clientes' ? 'Clientes' : 'Proveedores'}
           </button>
