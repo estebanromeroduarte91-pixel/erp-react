@@ -1,0 +1,15 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# Sirve la app desde la raíz del dominio (no /erp-react/ como en GitHub Pages)
+[build.environment]
+  VITE_BASE_PATH = "/"
+
+# Fallback SPA: cualquier ruta que no sea un archivo real sirve index.html.
+# Netlify sirve primero los archivos estáticos existentes (foto-orden.html, assets, etc.),
+# así que esto solo aplica a rutas inexistentes.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
