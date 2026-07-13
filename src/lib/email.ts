@@ -387,8 +387,10 @@ export function buildEmailAprobacion(d: AprobacionEmailData): string {
   return emailShell(d.tallerNombre, d.logoUrl, body)
 }
 
-// URL de la página externa que sube fotos desde el iPhone (misma que el ERP vanilla).
-// La página escribe las fotos directo en `tp_orders`; el realtime de useOrdenes las recibe.
+// URL de la página que sube fotos desde el iPhone. Ahora vive en el mismo deploy
+// (public/foto-orden.html), así que usamos el origin actual y el QR queda en el
+// dominio propio (pixit.cl) automáticamente. La página escribe las fotos directo
+// en `tp_orders`; el realtime de useOrdenes las recibe.
 export function urlFotosQR(empresaId: string, ordenId: string, tipo: 'ingreso' | 'inspeccion' | 'salida' | 'traslado' = 'ingreso'): string {
-  return `https://erp-stevedocs.netlify.app/foto-orden.html?e=${empresaId}&o=${ordenId}&tipo=${tipo}`
+  return `${window.location.origin}/foto-orden.html?e=${empresaId}&o=${ordenId}&tipo=${tipo}`
 }
