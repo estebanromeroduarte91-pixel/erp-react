@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Subir fotos — Orden</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f1f5f9;min-height:100vh;padding:20px 16px 40px}
+.card{background:#fff;border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,.08);overflow:hidden;margin-bottom:16px}
+.header{background:#1e3a5f;padding:20px 20px 16px;text-align:center}
+.badge{display:inline-block;background:#1e40af;color:#93c5fd;font-size:11px;font-weight:600;padding:3px 12px;border-radius:20px;margin-bottom:10px;letter-spacing:.4px}
+.info-body{padding:16px}
+.info-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f1f5f9;font-size:13px}
+.info-row:last-child{border-bottom:none}
+.info-label{color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+.info-val{color:#111827;font-weight:600}
+.upload-area{padding:16px}
+.btn-cam{width:100%;padding:16px;background:#2563eb;color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:10px;font-family:inherit}
+.btn-gal{width:100%;padding:14px;background:#f1f5f9;color:#374151;border:1.5px solid #e5e7eb;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;font-family:inherit}
+input[type=file]{display:none}
+.photos-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:16px;padding-top:0}
+.photo-thumb{position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;background:#f1f5f9}
+.photo-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.photo-del{position:absolute;top:4px;right:4px;width:24px;height:24px;background:rgba(0,0,0,.65);color:#fff;border:none;border-radius:50%;font-size:16px;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.spinner{display:inline-block;width:28px;height:28px;border:3px solid #e5e7eb;border-top-color:#2563eb;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 12px;display:block}
+@keyframes spin{to{transform:rotate(360deg)}}
+.status-bar{margin:0 16px 12px;padding:12px 14px;border-radius:10px;font-size:13px;font-weight:500;text-align:center;display:none}
+.status-ok{background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;display:block}
+.status-err{background:#fef2f2;color:#991b1b;border:1px solid #fecaca;display:block}
+.status-load{background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;display:block}
+.empty-state{text-align:center;padding:28px 16px;color:#9ca3af;font-size:13px}
+.count-badge{background:#eff6ff;color:#1e40af;font-size:12px;font-weight:600;padding:3px 10px;border-radius:20px}
+.btn-save{width:100%;padding:16px;background:#16a34a;color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;font-family:inherit;margin-top:4px}
+.btn-save:active{opacity:.85}
+.btn-save:disabled{background:#9ca3af;cursor:not-allowed}
+</style>
+</head>
+<body>
+<div id="loading" style="text-align:center;padding:60px 20px;color:#6b7280">
+  <div class="spinner"></div>
+  <p id="loading-msg">Cargando orden...</p>
+</div>
+<div id="app" style="display:none">
+  <div class="card">
+    <div class="header">
+      <div class="badge" id="orden-num">Orden #—</div>
+      <h1 style="color:#fff;font-size:18px;font-weight:700;margin-bottom:4px" id="orden-modelo">—</h1>
+      <p style="color:#93c5fd;font-size:13px" id="orden-cliente">—</p>
+    </div>
+    <div class="info-body">
+      <div class="info-row"><span class="info-label">Estado</span><span class="info-val" id="orden-estado">—</span></div>
+      <div class="info-row"><span class="info-label">Sucursal</span><span class="info-val" id="orden-sucursal">—</span></div>
+    </div>
+  </div>
+  <div class="card">
+    <div style="padding:14px 16px 8px;display:flex;align-items:center;justify-content:space-between">
+      <span style="font-size:14px;font-weight:600;color:#111827" id="fotos-label">Fotos de ingreso</span>
+      <span class="count-badge" id="foto-count">0 fotos</span>
+    </div>
+    <div class="upload-area">
+      <button class="btn-cam" onclick="document.getElementById('cam-input').click()">📷 Tomar foto</button>
+      <button class="btn-gal" onclick="document.getElementById('gal-input').click()">🖼 Elegir desde galería</button>
+      <input id="cam-input" type="file" accept="image/*" capture="environment" onchange="handleFiles(this.files)">
+      <input id="gal-input" type="file" accept="image/*" multiple onchange="handleFiles(this.files)">
+    </div>
+    <div id="status-bar" class="status-bar"></div>
+    <div id="photos-grid" class="photos-grid"></div>
+    <div id="empty-state" class="empty-state">
+      <div style="font-size:36px;margin-bottom:8px">📸</div>
+      <p>Aún no hay fotos.<br>Toma la primera foto del equipo.</p>
+    </div>
+    <div style="padding:0 16px 16px" id="save-btn-wrap" style="display:none">
+      <button class="btn-save" id="btn-guardar" onclick="guardarFotos()">✅ Guardar fotos</button>
+    </div>
+  </div>
+</div>
+<div id="done-screen" style="display:none;text-align:center;padding:60px 20px">
+  <div style="font-size:64px;margin-bottom:16px">✅</div>
+  <h2 style="font-size:22px;color:#111827;font-weight:700;margin-bottom:8px">¡Fotos guardadas!</h2>
+  <p style="color:#6b7280;font-size:14px;margin-bottom:6px" id="done-orden">—</p>
+  <p style="color:#9ca3af;font-size:13px">Puedes cerrar esta pantalla.</p>
+</div>
+<div id="error-screen" style="display:none;text-align:center;padding:40px 20px">
+  <div style="font-size:48px;margin-bottom:12px">⚠️</div>
+  <h2 style="font-size:18px;color:#111827;margin-bottom:8px" id="error-title">Error</h2>
+  <p style="color:#6b7280;font-size:13px;word-break:break-all;line-height:1.6" id="error-msg">—</p>
+  <button onclick="load()" style="margin-top:16px;padding:10px 20px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit">Reintentar</button>
+</div>
+<script>
+const _SB_URL='https://nfcdqdbhrsjhbnbtqewl.supabase.co';
+const _SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5mY2RxZGJocnNqaGJuYnRxZXdsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4MjU0NDksImV4cCI6MjA5NTQwMTQ0OX0.crMaV1oIodW1fTa2oTmYr2rk8hVLJbQPqUFHe6oFAV8';
+const sb=supabase.createClient(_SB_URL,_SB_KEY);
+const params=new URLSearchParams(window.location.search);
+const empresaId=params.get('e');
+const ordenId=params.get('o');
+const tipoFotos=params.get('tipo')||'ingreso'; // 'ingreso' o 'inspeccion'
+let currentOrder=null,allOrders=[];
+
+function getFotos(){ return tipoFotos==='inspeccion'?(currentOrder.inspeccion?.fotos||[]):(currentOrder.photosIngreso||[]); }
+function setFotos(arr){ if(tipoFotos==='inspeccion'){ if(!currentOrder.inspeccion) currentOrder.inspeccion={}; currentOrder.inspeccion.fotos=arr; } else { currentOrder.photosIngreso=arr; } }
+
+function setLoading(msg){ document.getElementById('loading-msg').textContent=msg; }
+function showError(title,msg){ document.getElementById('loading').style.display='none';document.getElementById('app').style.display='none';document.getElementById('error-screen').style.display='block';document.getElementById('error-title').textContent=title;document.getElementById('error-msg').textContent=msg; }
+
+function showStatus(msg,cls){
+  const el=document.getElementById('status-bar');
+  el.className='status-bar '+cls;
+  el.textContent=msg;
+}
+
+function renderPhotos(){
+  const grid=document.getElementById('photos-grid');
+  const empty=document.getElementById('empty-state');
+  const count=document.getElementById('foto-count');
+  const wrap=document.getElementById('save-btn-wrap');
+  const photos=getFotos();
+  count.textContent=photos.length+(photos.length===1?' foto':' fotos');
+  if(!photos.length){grid.innerHTML='';empty.style.display='block';wrap.style.display='none';return;}
+  empty.style.display='none';
+  wrap.style.display='block';
+  grid.innerHTML=photos.map((src,i)=>`<div class="photo-thumb"><img src="${src}" loading="lazy"><button class="photo-del" onclick="deletePhoto(${i})">×</button></div>`).join('');
+}
+
+async function deletePhoto(idx){
+  const arr=getFotos();
+  const backup=[...arr];
+  arr.splice(idx,1);
+  setFotos(arr);
+  const err=await saveOrder();
+  if(err){setFotos(backup);showStatus('Error al eliminar foto','status-err');renderPhotos();return;}
+  renderPhotos();
+}
+
+async function saveOrder(){
+  const idx=allOrders.findIndex(o=>o.id===ordenId);
+  if(idx<0)return null;
+  allOrders[idx]=currentOrder;
+  const {error}=await sb.from('erp_data').upsert({empresa_id:empresaId,clave:'tp_orders',datos:JSON.stringify(allOrders),actualizado_en:new Date().toISOString()},{onConflict:'empresa_id,clave'});
+  return error||null;
+}
+
+async function guardarFotos(){
+  const btn=document.getElementById('btn-guardar');
+  btn.disabled=true;
+  btn.textContent='Guardando...';
+  const err=await saveOrder();
+  if(err){btn.disabled=false;btn.textContent='✅ Guardar fotos';showStatus('Error al guardar. Intenta de nuevo.','status-err');return;}
+  document.getElementById('app').style.display='none';
+  document.getElementById('done-screen').style.display='block';
+  document.getElementById('done-orden').textContent='Orden #OT-'+String(currentOrder.num||'').padStart(4,'0')+' · '+(currentOrder.modelo||'')+(currentOrder.nombre?' · '+currentOrder.nombre:'');
+}
+
+// Comprime/redimensiona la imagen antes de subir para ahorrar storage y datos.
+// Reduce a máx 1400px y JPEG 80% (~200-400KB vs 3-5MB de la cámara). Si falla, sube el original.
+async function compressImage(file, maxDim=1400, quality=0.8){
+  try{
+    if(!file.type||!file.type.startsWith('image/')) return file;
+    const bitmap=await createImageBitmap(file,{imageOrientation:'from-image'});
+    let w=bitmap.width, h=bitmap.height;
+    if(Math.max(w,h)>maxDim){
+      const s=maxDim/Math.max(w,h);
+      w=Math.round(w*s); h=Math.round(h*s);
+    }
+    const canvas=document.createElement('canvas');
+    canvas.width=w; canvas.height=h;
+    canvas.getContext('2d').drawImage(bitmap,0,0,w,h);
+    if(bitmap.close) bitmap.close();
+    const blob=await new Promise(res=>canvas.toBlob(res,'image/jpeg',quality));
+    if(!blob) return file;
+    return blob.size<file.size ? blob : file; // no comprimir si quedó más grande
+  }catch(e){ console.warn('Compresión falló, subo original:',e); return file; }
+}
+
+async function handleFiles(files){
+  if(!files||!files.length)return;
+  showStatus('Subiendo foto...','status-load');
+  let ok=0, lastErr='';
+  for(const file of Array.from(files)){
+    try{
+      const blob=await compressImage(file);
+      const isJpeg=blob!==file;
+      const ext=isJpeg?'jpg':(file.name.split('.').pop()||'jpg').toLowerCase();
+      const contentType=isJpeg?'image/jpeg':(file.type||'image/jpeg');
+      const path=empresaId+'/ordenes/'+ordenId+'/'+Date.now()+'_'+Math.random().toString(36).slice(2)+'.'+ext;
+      const {error}=await sb.storage.from('erp-assets').upload(path,blob,{upsert:true,contentType});
+      if(error){lastErr=error.message||JSON.stringify(error);throw new Error(lastErr);}
+      const {data:urlData}=sb.storage.from('erp-assets').getPublicUrl(path);
+      const arr=getFotos();arr.push(urlData.publicUrl);setFotos(arr);
+      ok++;
+    }catch(e){lastErr=lastErr||e.message||String(e);console.error(e);}
+  }
+  if(ok>0){
+    const saveErr=await saveOrder();
+    if(saveErr){showStatus('⚠️ Fotos subidas pero no guardadas: '+saveErr.message,'status-err');return;}
+  }
+  renderPhotos();
+  if(ok===files.length){
+    showStatus('✅ '+(ok>1?ok+' fotos subidas':'Foto subida')+' correctamente','status-ok');
+    setTimeout(()=>{document.getElementById('status-bar').style.display='none';},3000);
+  }else{
+    showStatus('⚠️ '+ok+' de '+files.length+' fotos subidas. Error: '+lastErr,'status-err');
+  }
+}
+
+async function load(){
+  document.getElementById('loading').style.display='block';
+  document.getElementById('error-screen').style.display='none';
+  document.getElementById('app').style.display='none';
+
+  if(!empresaId||!ordenId){
+    showError('Enlace inválido','Faltan parámetros en el enlace. Verifica que el QR sea correcto.');
+    return;
+  }
+
+  setLoading('Conectando a Supabase...');
+
+  // Timeout de 10 segundos
+  let timedOut=false;
+  const timeoutId=setTimeout(()=>{
+    timedOut=true;
+    showError('Timeout','No se pudo conectar a Supabase en 10 segundos. Verifica tu conexión a internet.');
+  },10000);
+
+  try{
+    setLoading('Cargando datos...');
+    const {data,error}=await sb.from('erp_data').select('datos').eq('empresa_id',empresaId).eq('clave','tp_orders').maybeSingle();
+    clearTimeout(timeoutId);
+    if(timedOut)return;
+
+    if(error){showError('Error Supabase',error.message+'  |  code: '+error.code+'  |  e='+empresaId);return;}
+    if(!data){showError('Sin datos','No se encontraron datos para empresa: '+empresaId);return;}
+
+    const raw=data.datos; allOrders=Array.isArray(raw)?raw:(typeof raw==='string'?JSON.parse(raw):[]);
+    currentOrder=allOrders.find(o=>o.id===ordenId);
+
+    if(!currentOrder){
+      document.getElementById('loading').innerHTML=`
+        <div style="font-size:36px;margin-bottom:12px">⏳</div>
+        <p style="font-size:14px;font-weight:600;color:#111827;margin-bottom:6px">Esperando que se guarde la orden...</p>
+        <p style="font-size:13px;color:#6b7280">Guarda la orden en el PC y esta página se actualizará.</p>
+      `;
+      setTimeout(()=>load(),3000);
+      return;
+    }
+
+    if(tipoFotos==='inspeccion') document.getElementById('fotos-label').textContent='Fotos de inspección';
+    document.getElementById('orden-num').textContent='Orden #OT-'+String(currentOrder.num||'').padStart(4,'0');
+    document.getElementById('orden-modelo').textContent=currentOrder.modelo||'—';
+    document.getElementById('orden-cliente').textContent=currentOrder.nombre||'—';
+    document.getElementById('orden-estado').textContent=currentOrder.status||'—';
+    document.getElementById('orden-sucursal').textContent=currentOrder.branchNombre||'—';
+    renderPhotos();
+    document.getElementById('loading').style.display='none';
+    document.getElementById('app').style.display='block';
+  }catch(e){
+    clearTimeout(timeoutId);
+    if(!timedOut)showError('Error inesperado',e.message||String(e));
+  }
+}
+load();
+</script>
+</body>
+</html>
