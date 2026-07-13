@@ -185,6 +185,8 @@ export function MobileTabBar() {
           <span style={{ fontSize: 10, fontWeight: masActive || drawerOpen ? 700 : 500 }}>Más</span>
         </button>
       </nav>
+
+      <CambiarPasswordModal open={pwOpen} onClose={() => setPwOpen(false)} />
     </>
   )
 }

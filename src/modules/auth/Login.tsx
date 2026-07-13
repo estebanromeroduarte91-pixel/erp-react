@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
+import { supabase } from '@/lib/supabase'
 
 export function Login() {
   const { login } = useAuth()
@@ -9,6 +10,9 @@ export function Login() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [cargando, setCargando] = useState(false)
+
+  const [modo, setModo] = useState<'login' | 'recover'>('login')
+  const [recoverSent, setRecoverSent] = useState(false)
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -24,6 +28,23 @@ export function Login() {
     else navigate('/dashboard', { replace: true })
   }
 
+  async function onRecover(e: React.FormEvent) {
+    e.preventDefault()
+    if (!email) { setError('Ingresa tu email'); return }
+    setError('')
+    setCargando(true)
+    const { error: err } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+      redirectTo: window.location.origin,
+    })
+    setCargando(false)
+    if (err) { setError(err.message); return }
+    setRecoverSent(true)
+  }
+
+  function volverALogin() {
+    setModo('login'); setRecoverSent(false); setError(''); setPassword('')
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#1a2f6e] to-[#3656e6] p-4">
       <div className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-2xl">
@@ -37,38 +58,87 @@ export function Login() {
           <p className="mt-1 text-sm text-gray-400">Gestión empresarial inteligente</p>
         </div>
 
-        <form onSubmit={onSubmit} className="space-y-4">
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-600">Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm outline-none focus:border-[#3656e6]"
-              placeholder="tucorreo@ejemplo.com"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-600">Contraseña</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm outline-none focus:border-[#3656e6]"
-              placeholder="••••••••"
-            />
-          </div>
+        {modo === 'recover' ? (
+          recoverSent ? (
+            <div className="text-center space-y-3">
+              <div className="mx-auto w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
+                <svg className="w-6 h-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+              </div>
+              <p className="font-semibold text-gray-900">Revisa tu correo</p>
+              <p className="text-sm text-gray-500">Te enviamos un enlace a <span className="font-medium text-gray-700">{email}</span> para crear una nueva contraseña. Ábrelo en este mismo dispositivo.</p>
+              <button onClick={volverALogin} className="text-sm font-semibold text-[#3656e6] hover:underline">Volver al inicio de sesión</button>
+            </div>
+          ) : (
+            <form onSubmit={onRecover} className="space-y-4">
+              <p className="text-sm text-gray-500">Ingresa tu email y te enviaremos un enlace para restablecer tu contraseña.</p>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-600">Email</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  autoFocus
+                  className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-base md:text-sm outline-none focus:border-[#3656e6]"
+                  placeholder="tucorreo@ejemplo.com"
+                />
+              </div>
 
-          {error && <p className="text-sm font-medium text-red-600">{error}</p>}
+              {error && <p className="text-sm font-medium text-red-600">{error}</p>}
 
-          <button
-            type="submit"
-            disabled={cargando}
-            className="w-full rounded-lg bg-[#3656e6] py-2.5 text-sm font-semibold text-white transition hover:brightness-105 disabled:opacity-60"
-          >
-            {cargando ? 'Ingresando…' : 'Ingresar'}
-          </button>
-        </form>
+              <button
+                type="submit"
+                disabled={cargando}
+                className="w-full rounded-lg bg-[#3656e6] py-2.5 text-sm font-semibold text-white transition hover:brightness-105 disabled:opacity-60"
+              >
+                {cargando ? 'Enviando…' : 'Enviar enlace'}
+              </button>
+              <button type="button" onClick={volverALogin} className="w-full text-sm font-medium text-gray-500 hover:text-gray-700">
+                Volver al inicio de sesión
+              </button>
+            </form>
+          )
+        ) : (
+          <form onSubmit={onSubmit} className="space-y-4">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-600">Email</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-base md:text-sm outline-none focus:border-[#3656e6]"
+                placeholder="tucorreo@ejemplo.com"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-600">Contraseña</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-base md:text-sm outline-none focus:border-[#3656e6]"
+                placeholder="••••••••"
+              />
+            </div>
+
+            {error && <p className="text-sm font-medium text-red-600">{error}</p>}
+
+            <button
+              type="submit"
+              disabled={cargando}
+              className="w-full rounded-lg bg-[#3656e6] py-2.5 text-sm font-semibold text-white transition hover:brightness-105 disabled:opacity-60"
+            >
+              {cargando ? 'Ingresando…' : 'Ingresar'}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => { setModo('recover'); setError('') }}
+              className="w-full text-sm font-medium text-[#3656e6] hover:underline"
+            >
+              ¿Olvidaste tu contraseña?
+            </button>
+          </form>
+        )}
       </div>
     </div>
   )

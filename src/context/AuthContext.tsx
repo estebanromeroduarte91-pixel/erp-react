@@ -18,8 +18,10 @@ interface AuthState {
 
 interface AuthContextValue extends AuthState {
   esAdmin: boolean  // true solo para el super admin (dueño) — puede eliminar registros
+  recoveryMode: boolean  // true cuando el usuario llegó por el enlace de "olvidé mi contraseña"
   login: (email: string, password: string) => Promise<string | null>
   logout: () => Promise<void>
+  clearRecovery: () => void
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -37,6 +39,7 @@ const ESTADO_INICIAL: AuthState = {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [estado, setEstado] = useState<AuthState>(ESTADO_INICIAL)
+  const [recoveryMode, setRecoveryMode] = useState(false)
 
   // Carga el perfil de la empresa para un usuario autenticado (equivale a _iniciarApp)
   async function cargarPerfil(session: Session) {
@@ -91,7 +94,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (data.session) cargarPerfil(data.session)
       else setEstado({ ...ESTADO_INICIAL, cargando: false })
     })
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      // El enlace de recuperación de contraseña genera una sesión temporal y dispara
+      // PASSWORD_RECOVERY: mostramos la pantalla para fijar la nueva clave.
+      if (event === 'PASSWORD_RECOVERY') setRecoveryMode(true)
       if (session) cargarPerfil(session)
       else setEstado({ ...ESTADO_INICIAL, cargando: false })
     })
@@ -111,9 +117,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut()
   }
 
+  function clearRecovery() {
+    setRecoveryMode(false)
+  }
+
   const esAdmin = estado.rol === 'admin'
 
-  return <AuthContext.Provider value={{ ...estado, esAdmin, login, logout }}>{children}</AuthContext.Provider>
+  return <AuthContext.Provider value={{ ...estado, esAdmin, recoveryMode, login, logout, clearRecovery }}>{children}</AuthContext.Provider>
 }
 
 // eslint-disable-next-line react-refresh/only-export-components

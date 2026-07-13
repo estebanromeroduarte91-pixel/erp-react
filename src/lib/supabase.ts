@@ -9,7 +9,10 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
-    detectSessionInUrl: false,
+    // Necesario para procesar el enlace de recuperación de contraseña (?code=...)
+    // que llega por email y dispara el evento PASSWORD_RECOVERY.
+    detectSessionInUrl: true,
+    flowType: 'pkce', // token en query string → compatible con HashRouter
     storage: window.localStorage,
     storageKey: 'sb-erp-stevedocs-auth',
   },

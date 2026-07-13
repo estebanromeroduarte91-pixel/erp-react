@@ -1,6 +1,7 @@
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { Login } from '@/modules/auth/Login'
+import { ResetPassword } from '@/modules/auth/ResetPassword'
 import { Shell } from '@/components/layout/Shell'
 import { TallerPage } from '@/modules/taller/TallerPage'
 import { InventarioPage } from '@/modules/inventario/InventarioPage'
@@ -15,7 +16,7 @@ import { BuscarPage } from '@/modules/buscar/BuscarPage'
 import { Spinner } from '@/components/shared/Spinner'
 
 function AppRoutes() {
-  const { session, cargando } = useAuth()
+  const { session, cargando, recoveryMode } = useAuth()
 
   if (cargando) {
     return (
@@ -24,6 +25,9 @@ function AppRoutes() {
       </div>
     )
   }
+
+  // Llegó por el enlace de "olvidé mi contraseña" → fijar nueva clave (antes de todo lo demás)
+  if (recoveryMode) return <ResetPassword />
 
   if (!session) return <Login />
 
