@@ -222,7 +222,7 @@ export function DashboardPage() {
         type="date"
         value={value}
         onChange={e => onChange(e.target.value)}
-        onClick={e => { try { (e.target as HTMLInputElement).showPicker() } catch {} }}
+        onClick={e => { if (!isMobile) { try { (e.target as HTMLInputElement).showPicker() } catch {} } }}
         style={{
           width: '100%', fontSize: 16, padding: '8px 10px',
           border: `0.5px solid ${C.border}`, borderRadius: 10,
