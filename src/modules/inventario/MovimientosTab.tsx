@@ -103,10 +103,10 @@ export function MovimientosTab() {
           </svg>
           <input type="text" value={busqueda} onChange={(e) => setBusqueda(e.target.value)}
             placeholder="Buscar producto, referencia..."
-            className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-blue-400" />
+            className="w-full pl-9 pr-3 py-2 text-base md:text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-blue-400" />
         </div>
         <select value={filtroTipo} onChange={(e) => setFiltroTipo(e.target.value)}
-          className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-blue-400 text-gray-600">
+          className="text-base md:text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-blue-400 text-gray-600">
           <option value="">Todos los tipos</option>
           {Object.entries(TIPO_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>

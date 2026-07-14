@@ -183,14 +183,14 @@ export function CajaTab() {
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
                     <input type="number" value={fondo} onChange={e => setFondo(e.target.value)}
                       placeholder="0"
-                      className="w-full pl-6 pr-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+                      className="w-full pl-6 pr-3 py-2 border border-gray-200 rounded-lg text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
                   </div>
                 </div>
                 <div>
                   <label className="text-xs font-medium text-gray-600 block mb-1">Responsable</label>
                   <input value={responsable} onChange={e => setResponsable(e.target.value)}
                     placeholder={nombreUsuario || 'Nombre'}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
                 </div>
               </div>
               <button onClick={abrirCaja} disabled={guardando}
@@ -226,7 +226,7 @@ export function CajaTab() {
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
                   <input type="number" value={conteoEfect} onChange={e => setConteoEfect(e.target.value)}
                     placeholder="0"
-                    className="w-full pl-6 pr-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+                    className="w-full pl-6 pr-3 py-2 border border-gray-200 rounded-lg text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
                 </div>
                 {conteoEfect && (
                   <p className={['text-sm font-semibold mt-1', diferencia === 0 ? 'text-gray-400' : diferencia > 0 ? 'text-green-600' : 'text-red-600'].join(' ')}>
@@ -241,7 +241,7 @@ export function CajaTab() {
                 <label className="text-xs font-medium text-gray-600 block mb-1">Observaciones</label>
                 <textarea value={obsCliente} onChange={e => setObsCliente(e.target.value)}
                   rows={2} placeholder="Ej: faltante de $5.000, se revisará mañana..."
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:outline-none focus:border-blue-400 resize-none" />
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400 resize-none" />
               </div>
 
               <div className="flex gap-3">

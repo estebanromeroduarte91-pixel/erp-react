@@ -141,7 +141,7 @@ export function BuscarPage() {
             value={query}
             onChange={e => setQuery(e.target.value)}
             placeholder="Clientes, boletas, OTs, productos…"
-            style={{ flex: 1, border: 'none', background: 'none', fontSize: 15, color: '#1c1c1e', outline: 'none', fontFamily: 'inherit' }}
+            style={{ flex: 1, border: 'none', background: 'none', fontSize: 16, color: '#1c1c1e', outline: 'none', fontFamily: 'inherit' }}
           />
           {query && (
             <button onClick={() => setQuery('')} style={{ border: 'none', background: '#8e8e93', color: '#fff', borderRadius: '50%', width: 18, height: 18, cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>✕</button>

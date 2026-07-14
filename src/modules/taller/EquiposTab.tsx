@@ -313,10 +313,10 @@ export function EquiposTab() {
           </svg>
           <input type="text" value={busqueda} onChange={e => setBusqueda(e.target.value)}
             placeholder="Buscar marca, modelo…"
-            className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-blue-400" />
+            className="w-full pl-9 pr-3 py-2 text-base md:text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-blue-400" />
         </div>
         <select value={filtroCat} onChange={e => setFiltroCat(e.target.value)}
-          className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white text-gray-600 focus:outline-none focus:border-blue-400">
+          className="text-base md:text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white text-gray-600 focus:outline-none focus:border-blue-400">
           <option value="">Todas las categorías</option>
           {categorias.map((c: string) => <option key={c} value={c}>{c}</option>)}
         </select>
@@ -425,13 +425,13 @@ export function EquiposTab() {
                   <label className="block text-xs font-medium text-gray-600 mb-1">Marca *</label>
                   <input value={form.marca} onChange={e => setForm(f => ({ ...f, marca: e.target.value }))}
                     placeholder="Apple, Samsung…" list="eq-marca-list"
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
                   <datalist id="eq-marca-list">{marcas.map(m => <option key={m} value={m}/>)}</datalist>
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">Categoría *</label>
                   <select value={form.categoria} onChange={e => setForm(f => ({ ...f, categoria: e.target.value }))}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
                     {categorias.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
@@ -440,7 +440,7 @@ export function EquiposTab() {
                 <label className="block text-xs font-medium text-gray-600 mb-1">Modelo *</label>
                 <input value={form.modelo} onChange={e => setForm(f => ({ ...f, modelo: e.target.value }))}
                   placeholder="iPhone 15 Pro, Galaxy S24…"
-                  className={`w-full border rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none transition ${dupWarnings.length ? 'border-amber-400 focus:border-amber-500' : 'border-gray-200 focus:border-blue-400'}`} />
+                  className={`w-full border rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none transition ${dupWarnings.length ? 'border-amber-400 focus:border-amber-500' : 'border-gray-200 focus:border-blue-400'}`} />
                 {/* Aviso de duplicados inline */}
                 {dupWarnings.length > 0 && (
                   <div className="mt-2 bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-2">
@@ -477,7 +477,7 @@ export function EquiposTab() {
                 <label className="block text-xs font-medium text-gray-600 mb-1">Descripción (opcional)</label>
                 <input value={form.descripcion} onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))}
                   placeholder="Notas adicionales…"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
               </div>
             </div>
             <div className="flex justify-end gap-2 px-5 py-4 border-t border-gray-100">

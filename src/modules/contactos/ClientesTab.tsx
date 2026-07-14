@@ -138,7 +138,7 @@ export function ClientesTab() {
               </svg>
               <input value={busqueda} onChange={e => setBusqueda(e.target.value)}
                 placeholder="Buscar…"
-                style={{ width: '100%', paddingLeft: 30, paddingRight: 10, paddingTop: 7, paddingBottom: 7, fontSize: 13, border: '0.5px solid #e5e7eb', borderRadius: 8, background: '#fff', outline: 'none', fontFamily: 'inherit', color: '#111' }} />
+                style={{ width: '100%', paddingLeft: 30, paddingRight: 10, paddingTop: 7, paddingBottom: 7, fontSize: 16, border: '0.5px solid #e5e7eb', borderRadius: 8, background: '#fff', outline: 'none', fontFamily: 'inherit', color: '#111' }} />
             </div>
             <button onClick={abrirNuevo} style={{ background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 8, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -486,7 +486,7 @@ function ContactoModal({ titulo, campos, datos, onClose, onGuardar }: {
               <input type={c.type ?? 'text'} value={form[c.key]}
                 onChange={e => setForm(f => ({ ...f, [c.key]: c.key === 'rut' ? formatRut(e.target.value) : e.target.value }))}
                 placeholder={c.placeholder}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
             </div>
           ))}
           {error && <p className="col-span-2 text-sm text-red-600 font-medium">{error}</p>}

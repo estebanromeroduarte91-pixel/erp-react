@@ -241,7 +241,7 @@ function ModalKit({ kit, productos, categoriasExistentes, onSave, onClose }: Mod
                   onBlur={() => setTimeout(() => setEnlaceOpen(false), 200)}
                   placeholder="Ej: iPhone 13, MacBook Pro 14"
                   autoFocus
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400"
+                  className="w-full px-3 py-2 text-base md:text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400"
                 />
                 {enlaceOpen && filteredEnlaces.length > 0 && dropRect && (
                   <div style={{
@@ -286,7 +286,7 @@ function ModalKit({ kit, productos, categoriasExistentes, onSave, onClose }: Mod
                 onChange={e => setCategoria(e.target.value)}
                 placeholder="Ej: iPhone, MacBook, iPad"
                 list="kit-cat-list"
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400"
+                className="w-full px-3 py-2 text-base md:text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400"
               />
               <datalist id="kit-cat-list">
                 {categoriasExistentes.map(c => <option key={c} value={c} />)}
@@ -355,7 +355,7 @@ function ModalKit({ kit, productos, categoriasExistentes, onSave, onClose }: Mod
                           const id = uid()
                           setComponentes([{ id, nombre: e.target.value, cantidad: 1 }])
                         }}
-                        className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400"
+                        className="w-full px-2 py-1.5 text-base md:text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400"
                       />
                     </td>
                   </tr>
@@ -373,7 +373,7 @@ function ModalKit({ kit, productos, categoriasExistentes, onSave, onClose }: Mod
                               value={c.nombre}
                               onChange={e => updateComp(c.id, 'nombre', e.target.value)}
                               placeholder="Ej: Pantalla OLED, Cámara trasera…"
-                              className="flex-1 px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400"
+                              className="flex-1 px-2 py-1.5 text-base md:text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400"
                               onKeyDown={e => e.key === 'Enter' && addComp()}
                             />
                             {esColor && (
@@ -395,7 +395,7 @@ function ModalKit({ kit, productos, categoriasExistentes, onSave, onClose }: Mod
                             min={1}
                             onChange={e => updateComp(c.id, 'cantidad', e.target.value)}
                             style={{ width: 60, textAlign: 'center' }}
-                            className="px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400"
+                            className="px-2 py-1.5 text-base md:text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400"
                           />
                         </td>
                         <td style={{ padding: '4px 4px', textAlign: 'center' }}>
@@ -539,7 +539,7 @@ export function KitsTab() {
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder="Buscar modelo…"
-                className="pl-8 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:border-blue-400"
+                className="pl-8 pr-3 py-1.5 text-base md:text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:border-blue-400"
                 style={{ width: 200 }}
               />
             </div>

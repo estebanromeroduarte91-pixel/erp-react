@@ -490,7 +490,7 @@ export function OrdenDetalle({ orden: o, ordenes, onClose, onEditar }: Props) {
                   <textarea value={inspecNotas} onChange={e => setInspecNotas(e.target.value)}
                     placeholder="Notas de la inspección: fallas encontradas, diagnóstico..." rows={3}
                     autoCapitalize="sentences"
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400 resize-none" />
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400 resize-none" />
 
                   <div className="flex items-center justify-between">
                     <p className="text-xs font-medium text-gray-500">Fotos de inspección ({inspecFotos.length}/6)</p>

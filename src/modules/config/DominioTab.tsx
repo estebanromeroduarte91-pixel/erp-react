@@ -134,7 +134,7 @@ export function DominioTab() {
                   onChange={e => setInput(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleCrear()}
                   placeholder="empresa.cl"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono bg-gray-50 focus:outline-none focus:border-blue-400"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm font-mono bg-gray-50 focus:outline-none focus:border-blue-400"
                 />
               </div>
               <button onClick={handleCrear} disabled={loading === 'crear'}
@@ -168,7 +168,7 @@ export function DominioTab() {
                     value={domain.from_email ?? ''}
                     onChange={e => setDomain(d => ({ ...d, from_email: e.target.value }))}
                     placeholder={`contacto@${domain.domain}`}
-                    className="w-full border border-green-200 bg-white rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-green-400"
+                    className="w-full border border-green-200 bg-white rounded-lg px-3 py-2 text-base md:text-sm font-mono focus:outline-none focus:border-green-400"
                   />
                 </div>
                 <div>
@@ -177,7 +177,7 @@ export function DominioTab() {
                     value={domain.from_name ?? ''}
                     onChange={e => setDomain(d => ({ ...d, from_name: e.target.value }))}
                     placeholder="Mi Empresa"
-                    className="w-full border border-green-200 bg-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-400"
+                    className="w-full border border-green-200 bg-white rounded-lg px-3 py-2 text-base md:text-sm focus:outline-none focus:border-green-400"
                   />
                 </div>
               </div>

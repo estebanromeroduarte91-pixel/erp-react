@@ -170,13 +170,13 @@ export function DerivarModal({ orden, onClose }: { orden: Orden; onClose: () => 
                 <div className="grid grid-cols-2 gap-2.5">
                   <input value={nuevoTec.nombre} onChange={e => setNuevoTec({ ...nuevoTec, nombre: e.target.value })}
                     placeholder="Nombre / empresa *"
-                    className="col-span-2 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:border-blue-400" />
+                    className="col-span-2 border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-white focus:outline-none focus:border-blue-400" />
                   <input value={nuevoTec.telefono} onChange={e => setNuevoTec({ ...nuevoTec, telefono: e.target.value })}
                     placeholder="+56 9 XXXX XXXX"
-                    className="col-span-2 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:border-blue-400" />
+                    className="col-span-2 border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-white focus:outline-none focus:border-blue-400" />
                   <input value={nuevoTec.notas} onChange={e => setNuevoTec({ ...nuevoTec, notas: e.target.value })}
                     placeholder="Notas (especialidad, dirección…)"
-                    className="col-span-2 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:border-blue-400" />
+                    className="col-span-2 border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-white focus:outline-none focus:border-blue-400" />
                 </div>
                 <div className="flex justify-end gap-2">
                   <button onClick={() => setShowNuevoTec(false)}
@@ -210,7 +210,7 @@ export function DerivarModal({ orden, onClose }: { orden: Orden; onClose: () => 
                   </span>
                   <input value={busqueda} onChange={e => setBusqueda(e.target.value)} autoFocus
                     placeholder="Buscar técnico por nombre o empresa…"
-                    className="flex-1 text-sm outline-none pr-3 bg-transparent" />
+                    className="flex-1 text-base md:text-sm outline-none pr-3 bg-transparent" />
                 </div>
                 {resultados.length > 0 && (
                   <div className="border border-gray-200 rounded-lg mt-2 overflow-hidden divide-y divide-gray-50">
@@ -246,12 +246,12 @@ export function DerivarModal({ orden, onClose }: { orden: Orden; onClose: () => 
               <div className="col-span-2">
                 <label className="text-xs font-medium text-gray-600 mb-1 block">Equipo / descripción *</label>
                 <input value={form.equipo} onChange={e => set('equipo', e.target.value)} placeholder="Ej: iPhone X negro"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
               </div>
               <div>
                 <label className="text-xs font-medium text-gray-600 mb-1 block">Condición al enviar</label>
                 <select value={form.condicion} onChange={e => set('condicion', e.target.value)}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
                   <option value="enciende">Equipo enciende</option>
                   <option value="apagado">Equipo apagado</option>
                 </select>
@@ -259,23 +259,23 @@ export function DerivarModal({ orden, onClose }: { orden: Orden; onClose: () => 
               <div>
                 <label className="text-xs font-medium text-gray-600 mb-1 block">Precio acordado ($)</label>
                 <input type="number" value={form.precio_acordado} onChange={e => set('precio_acordado', e.target.value)} placeholder="0"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
               </div>
               <div>
                 <label className="text-xs font-medium text-gray-600 mb-1 block">Fecha de envío</label>
                 <input type="date" value={form.fecha_envio} onChange={e => set('fecha_envio', e.target.value)}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
               </div>
               <div>
                 <label className="text-xs font-medium text-gray-600 mb-1 block">Retorno estimado</label>
                 <input type="date" value={form.fecha_retorno_est} onChange={e => set('fecha_retorno_est', e.target.value)}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
               </div>
               {existente && (
                 <div className="col-span-2">
                   <label className="text-xs font-medium text-gray-600 mb-1 block">Estado</label>
                   <select value={form.estado} onChange={e => set('estado', e.target.value as EstadoTraslado)}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
                     {(Object.entries(ESTADO_LABEL) as [EstadoTraslado, string][]).map(([k, v]) => (
                       <option key={k} value={k}>{v}</option>
                     ))}
@@ -286,7 +286,7 @@ export function DerivarModal({ orden, onClose }: { orden: Orden; onClose: () => 
                 <label className="text-xs font-medium text-gray-600 mb-1 block">Motivo del traslado</label>
                 <textarea value={form.motivo} onChange={e => set('motivo', e.target.value)} rows={2}
                   placeholder="Qué falla tiene y qué se espera del técnico…"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400 resize-none" />
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400 resize-none" />
               </div>
 
               {/* Evidencia fotográfica */}
@@ -326,7 +326,7 @@ export function DerivarModal({ orden, onClose }: { orden: Orden; onClose: () => 
                 <label className="text-xs font-medium text-gray-600 mb-1 block">Notas adicionales</label>
                 <textarea value={form.notas} onChange={e => set('notas', e.target.value)} rows={2}
                   placeholder="Accesorios incluidos, observaciones…"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400 resize-none" />
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400 resize-none" />
               </div>
             </div>
           </div>

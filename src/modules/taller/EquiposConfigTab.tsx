@@ -68,7 +68,7 @@ function ListaEditable({
                   value={editVal}
                   onChange={e => setEditVal(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter') confirmarEditar(); if (e.key === 'Escape') setEditIdx(null) }}
-                  className="flex-1 text-sm border border-blue-300 rounded-md px-2 py-1 focus:outline-none focus:border-blue-500 bg-white"
+                  className="flex-1 text-base md:text-sm border border-blue-300 rounded-md px-2 py-1 focus:outline-none focus:border-blue-500 bg-white"
                 />
                 <button onClick={confirmarEditar} className="text-xs text-blue-600 font-medium hover:underline">OK</button>
                 <button onClick={() => setEditIdx(null)} className="text-xs text-gray-400 hover:underline">✕</button>
@@ -100,7 +100,7 @@ function ListaEditable({
           onChange={e => setNuevo(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && agregar()}
           placeholder={`Nuevo ${titulo.toLowerCase().slice(0, -1)}…`}
-          className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 bg-gray-50 focus:outline-none focus:border-blue-400"
+          className="flex-1 text-base md:text-sm border border-gray-200 rounded-lg px-3 py-2 bg-gray-50 focus:outline-none focus:border-blue-400"
         />
         <button onClick={agregar} disabled={!nuevo.trim()}
           className="px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-40 transition">

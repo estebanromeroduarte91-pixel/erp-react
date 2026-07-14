@@ -245,12 +245,12 @@ function CajaModal({ caja, bodegas, onClose, onGuardar }: {
             <label htmlFor={`${id}-nombre`} className="text-xs font-medium text-gray-600 mb-1 block">Nombre</label>
             <input id={`${id}-nombre`} value={nombre} onChange={e => setNombre(e.target.value)} autoFocus placeholder="Ej: Caja principal"
               onKeyDown={e => e.key === 'Enter' && submit()}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
           </div>
           <div>
             <label htmlFor={`${id}-suc`} className="text-xs font-medium text-gray-600 mb-1 block">Sucursal</label>
             <select id={`${id}-suc`} value={sucursalId} onChange={e => setSucursalId(e.target.value)}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
               <option value="">Sin sucursal</option>
               {bodegas.map(b => <option key={b.id} value={b.id}>{b.nombre ?? b.name ?? b.id}</option>)}
             </select>
@@ -258,7 +258,7 @@ function CajaModal({ caja, bodegas, onClose, onGuardar }: {
           <div>
             <label htmlFor={`${id}-bod`} className="text-xs font-medium text-gray-600 mb-1 block">Bodega</label>
             <select id={`${id}-bod`} value={bodegaId} onChange={e => setBodegaId(e.target.value)}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
               <option value="">Sin bodega</option>
               {bodegas.map(b => <option key={b.id} value={b.id}>{b.nombre ?? b.name ?? b.id}</option>)}
             </select>
@@ -307,17 +307,17 @@ function MetodoModal({ metodo, onClose, onGuardar }: {
           <div>
             <label htmlFor={`${id}-label`} className="text-xs font-medium text-gray-600 mb-1 block">Nombre</label>
             <input id={`${id}-label`} value={label} onChange={e => setLabel(e.target.value)} autoFocus placeholder="Ej: Efectivo"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
           </div>
           <div>
             <label htmlFor={`${id}-desc`} className="text-xs font-medium text-gray-600 mb-1 block">Descripción</label>
             <input id={`${id}-desc`} value={desc} onChange={e => setDesc(e.target.value)} placeholder="Ej: Billetes y monedas"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
           </div>
           <div>
             <label htmlFor={`${id}-icon`} className="text-xs font-medium text-gray-600 mb-1 block">Icono</label>
             <select id={`${id}-icon`} value={icon} onChange={e => setIcon(e.target.value)}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
               {ICON_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </div>

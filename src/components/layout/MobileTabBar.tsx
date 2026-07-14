@@ -81,11 +81,13 @@ export function MobileTabBar() {
 
       {/* Drawer panel */}
       <div style={{
-        position: 'fixed', left: 0, right: 0, bottom: drawerOpen ? 'calc(56px + max(env(safe-area-inset-bottom), 50px))' : -400, zIndex: 201,
+        position: 'fixed', left: 0, right: 0, bottom: 'calc(56px + max(env(safe-area-inset-bottom), 50px))', zIndex: 201,
         background: '#fff', borderRadius: '20px 20px 0 0',
         padding: '8px 0 8px',
-        transition: 'bottom 0.3s ease',
+        transform: drawerOpen ? 'translateY(0)' : 'translateY(100%)',
+        transition: 'transform 0.3s ease',
         boxShadow: '0 -4px 24px rgba(0,0,0,0.12)',
+        pointerEvents: drawerOpen ? 'auto' : 'none',
       }}>
         <div style={{ width: 36, height: 4, background: '#e5e7eb', borderRadius: 99, margin: '4px auto 16px' }} />
         {MAS_ITEMS.map(item => (

@@ -64,12 +64,12 @@ function PerfilTab({ userId, nombre, currentRole, onClose }: {
       <div>
         <label className="text-xs font-semibold text-gray-600 block mb-1">Nombre</label>
         <input value={nombreEdit} onChange={e => setNombreEdit(e.target.value)}
-          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
       </div>
       <div>
         <label className="text-xs font-semibold text-gray-600 block mb-1">Cargo</label>
         <select value={cargoId} onChange={e => setCargoId(e.target.value)}
-          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
           <option value="__admin">Super-admin (acceso total)</option>
           {cargos.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
         </select>
@@ -78,7 +78,7 @@ function PerfilTab({ userId, nombre, currentRole, onClose }: {
         <div>
           <label className="text-xs font-semibold text-gray-600 block mb-1">Sucursal</label>
           <select value={branchId} onChange={e => setBranchId(e.target.value)}
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
             <option value="">Sin sucursal</option>
             {bodegas.map(b => <option key={b.id} value={b.id}>{b.nombre ?? b.name}</option>)}
           </select>
@@ -141,12 +141,12 @@ function VacacionesTab({ ficha, onUpdate }: {
           <div className="flex-1">
             <label className="text-xs font-medium text-gray-600 block mb-1">Fecha de ingreso</label>
             <input type="date" value={fechaIngreso} onChange={e => setFechaIngreso(e.target.value)}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:border-blue-400" />
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-white focus:outline-none focus:border-blue-400" />
           </div>
           <div className="w-36">
             <label className="text-xs font-medium text-gray-600 block mb-1">Días anuales</label>
             <select value={diasAnualesEdit} onChange={e => setDiasAnualesEdit(e.target.value)}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:border-blue-400">
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-white focus:outline-none focus:border-blue-400">
               <option value="15">15 días (legal)</option>
               <option value="20">20 días (+10 años)</option>
               <option value="25">25 días</option>
@@ -184,12 +184,12 @@ function VacacionesTab({ ficha, onUpdate }: {
           <div>
             <label className="text-xs text-gray-500 block mb-1">Desde</label>
             <input type="date" value={fInicio} onChange={e => setFInicio(e.target.value)}
-              className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+              className="border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
           </div>
           <div>
             <label className="text-xs text-gray-500 block mb-1">Hasta</label>
             <input type="date" value={fFin} min={fInicio} onChange={e => setFFin(e.target.value)}
-              className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+              className="border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
           </div>
           {diasPreview !== null && (
             <div className="px-3 py-2 bg-blue-50 text-blue-700 text-sm font-semibold rounded-lg border border-blue-200">
@@ -199,7 +199,7 @@ function VacacionesTab({ ficha, onUpdate }: {
           <div className="flex-1 min-w-[120px]">
             <label className="text-xs text-gray-500 block mb-1">Estado</label>
             <select value={estado} onChange={e => setEstado(e.target.value as 'aprobado' | 'pendiente')}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
               <option value="aprobado">Aprobado</option>
               <option value="pendiente">Pendiente</option>
             </select>
@@ -207,7 +207,7 @@ function VacacionesTab({ ficha, onUpdate }: {
           <div className="flex-1 min-w-[140px]">
             <label className="text-xs text-gray-500 block mb-1">Nota</label>
             <input value={nota} onChange={e => setNota(e.target.value)} placeholder="Opcional…"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
           </div>
           <button onClick={agregarVacacion} disabled={!fInicio || !fFin || !diasPreview || diasPreview <= 0}
             className="px-4 py-2 text-sm font-semibold bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition">
@@ -294,12 +294,12 @@ function InasistenciasTab({ ficha, onUpdate }: { ficha: FichaUsuario; onUpdate: 
           <div>
             <label className="text-xs text-gray-500 block mb-1">Fecha</label>
             <input type="date" value={fecha} onChange={e => setFecha(e.target.value)}
-              className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+              className="border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
           </div>
           <div className="flex-1 min-w-[140px]">
             <label className="text-xs text-gray-500 block mb-1">Tipo</label>
             <select value={tipo} onChange={e => setTipo(e.target.value as 'sin_aviso' | 'justificada')}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
               <option value="sin_aviso">Sin aviso</option>
               <option value="justificada">Justificada</option>
             </select>
@@ -307,7 +307,7 @@ function InasistenciasTab({ ficha, onUpdate }: { ficha: FichaUsuario; onUpdate: 
           <div className="flex-1 min-w-[160px]">
             <label className="text-xs text-gray-500 block mb-1">Nota</label>
             <input value={nota} onChange={e => setNota(e.target.value)} placeholder="Ej: certificado médico…"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
           </div>
           <button onClick={agregar} disabled={!fecha}
             className="px-4 py-2 text-sm font-semibold bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition">
@@ -448,17 +448,17 @@ function InviteModal({ onClose }: { onClose: () => void }) {
           <div>
             <label className="text-xs font-semibold text-gray-600 block mb-1">Nombre completo</label>
             <input value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Juan Pérez"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
           </div>
           <div>
             <label className="text-xs font-semibold text-gray-600 block mb-1">Email</label>
             <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="juan@empresa.com"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
           </div>
           <div>
             <label className="text-xs font-semibold text-gray-600 block mb-1">Cargo</label>
             <select value={cargoId} onChange={e => setCargoId(e.target.value)}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
               <option value="__superadmin">Super-admin (acceso total)</option>
               {cargos.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
             </select>
@@ -467,7 +467,7 @@ function InviteModal({ onClose }: { onClose: () => void }) {
             <div>
               <label className="text-xs font-semibold text-gray-600 block mb-1">Sucursal</label>
               <select value={branchId} onChange={e => setBranchId(e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
                 <option value="">Sin sucursal asignada</option>
                 {bodegas.map(b => <option key={b.id} value={b.id}>{b.nombre ?? b.name}</option>)}
               </select>

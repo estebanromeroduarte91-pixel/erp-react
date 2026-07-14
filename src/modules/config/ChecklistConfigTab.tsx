@@ -74,7 +74,7 @@ function ChecklistEditor({ titulo, items, onSave, saving }: {
           value={nuevo} onChange={e => setNuevo(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && agregar()}
           placeholder="Nuevo ítem de checklist..."
-          className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400"
+          className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400"
         />
         <button onClick={agregar}
           className="px-3 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition">

@@ -444,13 +444,13 @@ export function POSTab() {
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">$</span>
                     <input type="number" value={fondo} onChange={e => setFondo(e.target.value)}
                       placeholder="0"
-                      className="w-full pl-6 pr-3 py-2.5 border border-gray-200 rounded-xl text-sm bg-gray-50 focus:outline-none focus:border-blue-400 transition" />
+                      className="w-full pl-6 pr-3 py-2.5 border border-gray-200 rounded-xl text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400 transition" />
                   </div>
                 </div>
                 <div>
                   <label className="text-xs font-medium text-gray-500 block mb-2">Responsable</label>
                   <select value={responsable} onChange={e => setResponsable(e.target.value)}
-                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm bg-gray-50 focus:outline-none focus:border-blue-400 transition">
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400 transition">
                     {usuariosPos.length === 0 && (
                       <option value={nombreUsuario || ''}>{nombreUsuario || '—'}</option>
                     )}
@@ -523,7 +523,7 @@ export function POSTab() {
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">$</span>
                 <input type="number" value={conteoEfect} onChange={e => setConteoEfect(e.target.value)}
                   autoFocus placeholder="0"
-                  className="w-full pl-6 pr-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+                  className="w-full pl-6 pr-3 py-2 border border-gray-200 rounded-lg text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
               </div>
               {conteoEfect && (
                 <p className={['text-sm font-semibold mt-1.5',
@@ -538,7 +538,7 @@ export function POSTab() {
               <label className="text-xs font-medium text-gray-600 block mb-1">Observaciones</label>
               <textarea value={obsCierre} onChange={e => setObsCierre(e.target.value)}
                 rows={2} placeholder="Ej: faltante de $5.000..."
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:outline-none focus:border-blue-400 resize-none" />
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400 resize-none" />
             </div>
             <div className="flex gap-3">
               <button onClick={() => setCerrando(false)}
@@ -603,7 +603,7 @@ export function POSTab() {
                       value={busquedaOT}
                       onChange={e => setBusquedaOT(e.target.value)}
                       placeholder="Buscar por N°, cliente o equipo…"
-                      className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:border-blue-400"
+                      className="w-full pl-9 pr-3 py-2 text-base md:text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:border-blue-400"
                     />
                   </div>
                   {otsListas.length === 0 ? (
@@ -644,7 +644,7 @@ export function POSTab() {
               value={busqueda}
               onChange={e => setBusqueda(e.target.value)}
               placeholder="Buscar producto por nombre o SKU..."
-              className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:border-blue-400"
+              className="w-full pl-9 pr-3 py-2 text-base md:text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:border-blue-400"
             />
           </div>
           {resultados.length > 0 && (
@@ -705,7 +705,7 @@ export function POSTab() {
                       <input
                         type="number" min={1} value={it.cantidad}
                         onChange={e => cambiarCantidad(it.id, Number(e.target.value))}
-                        className="w-16 text-center border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-blue-400"
+                        className="w-16 text-center border border-gray-200 rounded-lg px-2 py-1 text-base md:text-sm focus:outline-none focus:border-blue-400"
                       />
                     </td>
                     <td className="px-3 py-3 text-right text-gray-700">{fmt(it.precio_iva)}</td>
@@ -713,7 +713,7 @@ export function POSTab() {
                       <input
                         type="number" min={0} max={100} value={it.descuento}
                         onChange={e => cambiarDescuento(it.id, Number(e.target.value))}
-                        className="w-16 text-center border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-blue-400"
+                        className="w-16 text-center border border-gray-200 rounded-lg px-2 py-1 text-base md:text-sm focus:outline-none focus:border-blue-400"
                       />
                     </td>
                     <td className="px-4 py-3 text-right font-semibold text-gray-900">{fmt(lineTotal(it))}</td>
@@ -744,7 +744,7 @@ export function POSTab() {
               value={cliente}
               onChange={e => setCliente(e.target.value)}
               placeholder="Cliente genérico"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:border-blue-400"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-white focus:outline-none focus:border-blue-400"
             />
             {cliente.trim() && (
               <div className="mt-2 flex flex-col gap-1.5">
@@ -752,19 +752,19 @@ export function POSTab() {
                   value={clienteRut}
                   onChange={e => setClienteRut(e.target.value)}
                   placeholder="RUT (ej: 12.345.678-9)"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs bg-white focus:outline-none focus:border-blue-400"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-base md:text-xs bg-white focus:outline-none focus:border-blue-400"
                 />
                 <input
                   value={clienteTel}
                   onChange={e => setClienteTel(e.target.value)}
                   placeholder="Teléfono"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs bg-white focus:outline-none focus:border-blue-400"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-base md:text-xs bg-white focus:outline-none focus:border-blue-400"
                 />
                 <input
                   value={clienteEmail}
                   onChange={e => setClienteEmail(e.target.value)}
                   placeholder="Email"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs bg-white focus:outline-none focus:border-blue-400"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-base md:text-xs bg-white focus:outline-none focus:border-blue-400"
                 />
               </div>
             )}

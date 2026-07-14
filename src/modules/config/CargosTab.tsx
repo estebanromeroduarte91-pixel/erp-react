@@ -163,11 +163,11 @@ export function CargosTab() {
               onChange={e => setNuevoNombre(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleCrear()}
               placeholder="Ej: Recepcionista"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400 mb-3"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400 mb-3"
             />
             <label className="text-xs font-medium text-gray-600 block mb-1">Rol base del sistema</label>
             <select value={nuevoRol} onChange={e => setNuevoRol(e.target.value as 'tecnico' | 'vendedor' | 'encargado')}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400 mb-5">
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400 mb-5">
               <option value="tecnico">Técnico</option>
               <option value="vendedor">Vendedor</option>
               <option value="encargado">Encargado</option>

@@ -183,7 +183,7 @@ export function GastosTab() {
           </svg>
           <input value={busqueda} onChange={e => setBusqueda(e.target.value)}
             placeholder="Buscar gasto..."
-            className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:border-blue-400" />
+            className="w-full pl-9 pr-3 py-2 text-base md:text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:border-blue-400" />
         </div>
         <button onClick={abrirNuevo}
           className="flex items-center gap-2 bg-blue-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 transition">
@@ -416,7 +416,7 @@ function GastoModal({ cats, gasto, subcatsPorCat, onClose, onGuardar }: {
                 <input
                   type="number" value={monto} onChange={e => setMonto(e.target.value)}
                   autoFocus placeholder="0"
-                  className="w-full pl-7 pr-12 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:outline-none focus:border-blue-400 transition [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                  className="w-full pl-7 pr-12 py-2 border border-gray-200 rounded-lg text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400 transition [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                   onKeyDown={e => e.key === 'Enter' && handleGuardar()}
                 />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-300 pointer-events-none">CLP</span>
@@ -427,7 +427,7 @@ function GastoModal({ cats, gasto, subcatsPorCat, onClose, onGuardar }: {
               <input type="text" value={descripcion}
                 onChange={e => { const v = e.target.value; setDescripcion(v.charAt(0).toUpperCase() + v.slice(1)) }}
                 placeholder="Ej: Agua y luz de octubre"
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:outline-none focus:border-blue-400 transition" />
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400 transition" />
             </div>
           </div>
 
@@ -464,7 +464,7 @@ function GastoModal({ cats, gasto, subcatsPorCat, onClose, onGuardar }: {
                   onFocus={() => setSubOpen(true)}
                   onBlur={() => setTimeout(() => setSubOpen(false), 180)}
                   placeholder="Ej: Candela, Sucursal Centro…"
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:outline-none focus:border-blue-400 transition" />
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400 transition" />
                 {subOpen && subSugerencias.length > 0 && (
                   <div className="absolute z-10 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
                     {subSugerencias.map((s, i) => (
@@ -494,7 +494,7 @@ function GastoModal({ cats, gasto, subcatsPorCat, onClose, onGuardar }: {
               <div>
                 <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider block mb-1.5">Método</label>
                 <select value={metodo} onChange={e => setMetodo(e.target.value)}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400 transition">
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400 transition">
                   {METODOS.map(m => <option key={m}>{m}</option>)}
                 </select>
               </div>
@@ -502,7 +502,7 @@ function GastoModal({ cats, gasto, subcatsPorCat, onClose, onGuardar }: {
                 <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider block mb-1.5">Fecha</label>
                 <input type="date" value={fecha} onChange={e => setFecha(e.target.value)}
                   onClick={e => (e.currentTarget as HTMLInputElement).showPicker?.()}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400 transition cursor-pointer" />
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400 transition cursor-pointer" />
               </div>
             </div>
           </div>

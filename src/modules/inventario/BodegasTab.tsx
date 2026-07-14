@@ -184,33 +184,33 @@ export function BodegasTab() {
                 <label className="text-xs font-medium text-gray-600 block mb-1">Nombre de la sucursal *</label>
                 <input autoFocus value={modal.form.nombre} onChange={e => set('nombre', e.target.value)}
                   placeholder="Ej: La Dehesa, Providencia, Centro…"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
               </div>
               <div>
                 <label className="text-xs font-medium text-gray-600 block mb-1">Dirección</label>
                 <input value={modal.form.direccion} onChange={e => set('direccion', e.target.value)}
                   placeholder="Ej: Av. San Martín 1240, piso 2"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-medium text-gray-600 block mb-1">Teléfono / WhatsApp</label>
                   <input value={modal.form.tel} onChange={e => set('tel', e.target.value)}
                     placeholder="+56 9 XXXX XXXX"
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
                 </div>
                 <div>
                   <label className="text-xs font-medium text-gray-600 block mb-1">Email de contacto</label>
                   <input type="email" value={modal.form.email} onChange={e => set('email', e.target.value)}
                     placeholder="sucursal@taller.cl"
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
                 </div>
               </div>
               <div>
                 <label className="text-xs font-medium text-gray-600 block mb-1">Horario de atención</label>
                 <input value={modal.form.horario} onChange={e => set('horario', e.target.value)}
                   placeholder="Ej: Lun–Vie 10:00–19:00, Sáb 10:00–14:00"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
                 <p className="text-[11px] text-gray-400 mt-1">Este horario aparece en los correos de órdenes listas para retirar.</p>
               </div>
 

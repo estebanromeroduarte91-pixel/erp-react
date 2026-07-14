@@ -90,7 +90,7 @@ export function CategoriasContablesTab() {
             <select
               value={catCuentaMap?.[cat.nombre] ?? 'pc-595'}
               onChange={e => setCuenta(cat.nombre, e.target.value)}
-              className="flex-1 min-w-0 border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
+              className="flex-1 min-w-0 border border-gray-200 rounded-lg px-3 py-1.5 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
               {cuentasGasto.map(c => <option key={c.id} value={c.id}>{c.codigo} — {c.nombre}</option>)}
             </select>
             <div className="flex items-center gap-3 opacity-0 group-hover:opacity-100 transition flex-shrink-0">
@@ -157,7 +157,7 @@ function CategoriaModal({ cat, catsExistentes, onClose, onGuardar }: {
             <label className="text-xs font-medium text-gray-600 mb-1 block">Nombre</label>
             <input value={nombre} onChange={e => setNombre(e.target.value)} autoFocus placeholder="Ej: Servicios"
               onKeyDown={e => e.key === 'Enter' && submit()}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
           </div>
           <div>
             <label className="text-xs font-medium text-gray-600 mb-1.5 block">Color</label>

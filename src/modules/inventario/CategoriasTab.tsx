@@ -45,7 +45,7 @@ function ModalCategoria({
             <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Nombre</label>
             <input type="text" value={nombre} onChange={e => setNombre(e.target.value)}
               placeholder="Ej: Accesorios" autoFocus
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400" />
+              className="w-full px-3 py-2 text-base md:text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400" />
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Subcategorías</label>
@@ -53,7 +53,7 @@ function ModalCategoria({
               <input type="text" value={subInput} onChange={e => setSubInput(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && addSub()}
                 placeholder="Agregar subcategoría..."
-                className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400" />
+                className="flex-1 px-3 py-2 text-base md:text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400" />
               <button onClick={addSub}
                 className="px-3 py-2 text-sm font-semibold bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition">
                 + Add

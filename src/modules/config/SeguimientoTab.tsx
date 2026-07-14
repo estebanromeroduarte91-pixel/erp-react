@@ -64,7 +64,7 @@ export function SeguimientoTab() {
                 value={(form[f.key as keyof SeguimientoConfig] as string) ?? ''}
                 onChange={e => set(f.key as keyof SeguimientoConfig, e.target.value)}
                 placeholder={f.placeholder}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400"
               />
             </div>
           ))}
@@ -82,7 +82,7 @@ export function SeguimientoTab() {
                 type="number" min={0} value={form.dias ?? ''}
                 onChange={e => set('dias', +e.target.value)}
                 placeholder="3"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400"
               />
             </div>
             <div>
@@ -91,7 +91,7 @@ export function SeguimientoTab() {
                 type="text" value={form.asunto ?? ''}
                 onChange={e => set('asunto', e.target.value)}
                 placeholder="Estado de tu reparación"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400"
               />
             </div>
           </div>
@@ -100,7 +100,7 @@ export function SeguimientoTab() {
             <textarea
               value={form.msgApertura ?? ''} onChange={e => set('msgApertura', e.target.value)}
               rows={3} placeholder="Hola {{nombre}}, te informamos que..."
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400 resize-none"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400 resize-none"
             />
           </div>
           <div>
@@ -108,7 +108,7 @@ export function SeguimientoTab() {
             <textarea
               value={form.msgCierre ?? ''} onChange={e => set('msgCierre', e.target.value)}
               rows={2} placeholder="¡Gracias por confiar en nosotros!"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400 resize-none"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400 resize-none"
             />
           </div>
           <div>
@@ -118,7 +118,7 @@ export function SeguimientoTab() {
                 type="url" value={form.logoUrl ?? ''}
                 onChange={e => set('logoUrl', e.target.value)}
                 placeholder="https://... o sube una imagen"
-                className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400"
+                className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400"
               />
               <button
                 type="button"

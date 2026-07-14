@@ -562,7 +562,7 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
                       onChange={(e) => { setBusquedaCliente(e.target.value); setClienteAbierto(true) }}
                       onFocus={() => setClienteAbierto(true)}
                       placeholder="Buscar por nombre, apellido o RUT…"
-                      className="w-full border border-gray-200 rounded-lg pl-9 pr-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400"
+                      className="w-full border border-gray-200 rounded-lg pl-9 pr-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400"
                     />
                     {clienteAbierto && (
                       <div style={fixedDropdownStyle(clienteRect)} className="bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
@@ -618,7 +618,7 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
                 </div>
                 {form.pinType === 'text' ? (
                   <input value={form.pin} onChange={(e) => set('pin', e.target.value)} placeholder="Ej: 1234 (solo si aplica)"
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
                 ) : (
                   <button type="button" onClick={() => setShowPattern(true)}
                     className="w-full flex items-center justify-between border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 hover:border-blue-400 transition">
@@ -632,7 +632,7 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
               <div>
                 <label className="text-xs font-medium text-gray-600 mb-1 block">Estado</label>
                 <select value={form.status} onChange={(e) => set('status', e.target.value)}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
                   {ESTADOS_OT.map((s) => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
@@ -651,7 +651,7 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
                       value={form.numero_boleta}
                       onChange={(e) => set('numero_boleta', e.target.value)}
                       placeholder="Ej: B-00094 (opcional)"
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400"
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400"
                     />
                   )}
                   <p className="text-[11px] text-gray-400 mt-1">
@@ -664,7 +664,7 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
                 <textarea value={form.estadoFisico} onChange={(e) => set('estadoFisico', capFirst(e.target.value))}
                   autoCapitalize="sentences"
                   placeholder="Rayones, grietas, daños visibles..." rows={2}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400 resize-none" />
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400 resize-none" />
               </div>
               <DateField label="Fecha estimada de entrega" value={form.fechaEstimada} onChange={(v) => set('fechaEstimada', v)} />
             </div>
@@ -679,20 +679,20 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
                 <textarea value={form.trabajo} onChange={(e) => set('trabajo', capFirst(e.target.value))}
                   autoCapitalize="sentences"
                   placeholder="Ej: Cambio de pantalla, reparación de conector de carga..." rows={3}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400 resize-none" />
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400 resize-none" />
               </div>
               <div>
                 <label className="text-xs font-medium text-gray-600 mb-1 block">Técnico asignado</label>
                 {usuariosActivos.length > 0 ? (
                   <select value={form.tecnico} onChange={(e) => set('tecnico', e.target.value)}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
                     <option value="">Sin asignar</option>
                     {usuariosActivos.map(u => <option key={u.id} value={u.nombre}>{u.nombre}</option>)}
                   </select>
                 ) : (
                   <input value={form.tecnico} onChange={(e) => set('tecnico', e.target.value)}
                     placeholder="Nombre del técnico"
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
                 )}
               </div>
               <Field label="Presupuesto estimado ($)" type="number" value={form.presup} onChange={(v) => set('presup', v)} placeholder="0" />
@@ -720,7 +720,7 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
                         value={repBusqueda}
                         onChange={(e) => setRepBusqueda(e.target.value)}
                         placeholder="Buscar producto..."
-                        className="w-full text-sm px-3 py-1.5 border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:border-blue-400"
+                        className="w-full text-base md:text-sm px-3 py-1.5 border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:border-blue-400"
                       />
                     </div>
                     <div className="max-h-48 overflow-y-auto">
@@ -775,7 +775,7 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
                       <input
                         type="number" min="1" value={r.qty}
                         onChange={(e) => editarRepuesto(i, 'qty', e.target.value)}
-                        className="w-14 text-center text-sm border border-gray-200 rounded-lg px-1 py-0.5 focus:outline-none focus:border-blue-400"
+                        className="w-14 text-center text-base md:text-sm border border-gray-200 rounded-lg px-1 py-0.5 focus:outline-none focus:border-blue-400"
                       />
                     </div>
                     <div className="flex items-center gap-1">
@@ -783,7 +783,7 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
                       <input
                         type="number" min="0" value={r.precio}
                         onChange={(e) => editarRepuesto(i, 'precio', e.target.value)}
-                        className="w-24 text-sm border border-gray-200 rounded-lg px-2 py-0.5 focus:outline-none focus:border-blue-400"
+                        className="w-24 text-base md:text-sm border border-gray-200 rounded-lg px-2 py-0.5 focus:outline-none focus:border-blue-400"
                       />
                     </div>
                     <button onClick={() => quitarRepuesto(i)} className="text-red-400 hover:text-red-600 p-1">
@@ -985,14 +985,14 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
                   <input value={nuevoCliente.nombre} onChange={(e) => setNuevoCliente((n) => ({ ...n, nombre: e.target.value }))}
                     onBlur={(e) => setNuevoCliente(n => ({ ...n, nombre: capWords(e.target.value) }))}
                     placeholder="Juan" autoFocus autoCapitalize="words" autoCorrect="on"
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
                 </div>
                 <div>
                   <label className="text-xs font-medium text-gray-600 mb-1 block">Apellido</label>
                   <input value={nuevoCliente.apellido} onChange={(e) => setNuevoCliente((n) => ({ ...n, apellido: e.target.value }))}
                     onBlur={(e) => setNuevoCliente(n => ({ ...n, apellido: capWords(e.target.value) }))}
                     placeholder="Pérez" autoCapitalize="words" autoCorrect="on"
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -1000,20 +1000,20 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
                   <label className="text-xs font-medium text-gray-600 mb-1 block">RUT</label>
                   <input value={nuevoCliente.rut} onChange={(e) => setNuevoCliente((n) => ({ ...n, rut: formatRut(e.target.value) }))}
                     placeholder="12.345.678-9"
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
                 </div>
                 <div>
                   <label className="text-xs font-medium text-gray-600 mb-1 block">Teléfono</label>
                   <input value={nuevoCliente.tel} onChange={(e) => setNuevoCliente((n) => ({ ...n, tel: e.target.value }))}
                     placeholder="+56 9 XXXX XXXX"
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
                 </div>
               </div>
               <div>
                 <label className="text-xs font-medium text-gray-600 mb-1 block">Correo electrónico</label>
                 <input type="email" value={nuevoCliente.email} onChange={(e) => setNuevoCliente((n) => ({ ...n, email: e.target.value }))}
                   placeholder="correo@ejemplo.com"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
               </div>
             </div>
             {errorNuevoCliente && (
@@ -1073,7 +1073,7 @@ function Field({ label, value, onChange, placeholder, type = 'text', autoCapital
         placeholder={placeholder}
         autoCapitalize={autoCapitalize}
         autoCorrect="on"
-        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
     </div>
   )
 }
@@ -1087,7 +1087,7 @@ function DateField({ label, value, onChange }: {
       <label className="text-xs font-medium text-gray-600 mb-1 block">{label}</label>
       <div className="relative cursor-pointer" onClick={() => ref.current?.showPicker?.()}>
         <input ref={ref} type="date" value={value} onChange={(e) => onChange(e.target.value)}
-          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400 cursor-pointer" />
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400 cursor-pointer" />
       </div>
     </div>
   )

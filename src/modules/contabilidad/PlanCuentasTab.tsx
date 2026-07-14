@@ -165,26 +165,26 @@ function CuentaModal({ cuenta, plan, onClose, onGuardar }: {
             <div>
               <label className="text-xs font-medium text-gray-600 mb-1 block">Código</label>
               <input value={codigo} onChange={e => { setCodigo(e.target.value); setCodigoTouched(true); setError('') }} autoFocus placeholder="600"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
             </div>
             <div className="col-span-2">
               <label className="text-xs font-medium text-gray-600 mb-1 block">Nombre</label>
               <input value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Publicidad y Marketing"
                 onKeyDown={e => e.key === 'Enter' && submit()}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
             </div>
           </div>
           <div>
             <label className="text-xs font-medium text-gray-600 mb-1 block">Tipo</label>
             <select value={tipo} onChange={e => cambiarTipo(e.target.value as CuentaContable['tipo'])}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
               {TIPOS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
             </select>
           </div>
           <div>
             <label className="text-xs font-medium text-gray-600 mb-1 block">Grupo</label>
             <input value={grupo} onChange={e => setGrupo(e.target.value)} placeholder="Gastos Operacionales"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
           </div>
           {error && (
             <p className="flex items-center gap-1.5 text-xs font-medium text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">

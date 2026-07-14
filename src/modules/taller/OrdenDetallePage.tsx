@@ -1294,7 +1294,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
                 <textarea value={inspecNotas} onChange={e => { const v = e.target.value; setInspecNotas(v.charAt(0).toUpperCase() + v.slice(1)) }}
                   placeholder="Describe lo que encontraste al abrir el equipo: humedad, sulfatación, golpes internos…" rows={4}
                   autoCapitalize="sentences"
-                  className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm bg-gray-50 focus:outline-none focus:border-blue-400 resize-none leading-relaxed" />
+                  className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400 resize-none leading-relaxed" />
               </div>
 
               {/* Fotos */}
@@ -1446,14 +1446,14 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
                 <div className="space-y-2 pt-1">
                   <input autoFocus value={repManualNombre} onChange={e => setRepManualNombre(e.target.value)}
                     placeholder="Nombre del repuesto"
-                    className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:border-blue-400" />
+                    className="w-full text-base md:text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:border-blue-400" />
                   <div className="flex gap-2">
                     <input value={repQty} onChange={e => setRepQty(e.target.value)}
                       type="number" min="1" placeholder="Cant."
-                      className="w-20 text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:border-blue-400" />
+                      className="w-20 text-base md:text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:border-blue-400" />
                     <input value={repPrecio} onChange={e => setRepPrecio(e.target.value)}
                       type="number" min="0" placeholder="Precio unitario"
-                      className="flex-1 text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:border-blue-400" />
+                      className="flex-1 text-base md:text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:border-blue-400" />
                   </div>
                 </div>
               ) : (
@@ -1466,7 +1466,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
                     </svg>
                     <input autoFocus value={repSearch} onChange={e => { setRepSearch(e.target.value); setRepSelected(null) }}
                       placeholder="Buscar producto por nombre o SKU…"
-                      className="w-full text-sm border border-gray-200 rounded-xl pl-9 pr-3 py-2 focus:outline-none focus:border-blue-400" />
+                      className="w-full text-base md:text-sm border border-gray-200 rounded-xl pl-9 pr-3 py-2 focus:outline-none focus:border-blue-400" />
                   </div>
 
                   {/* Lista de resultados */}
@@ -1516,13 +1516,13 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
                           <label className="text-[10px] text-gray-500 font-medium block mb-1">Cantidad</label>
                           <input value={repQty} onChange={e => setRepQty(e.target.value)}
                             type="number" min="1" max={stockTotal(repSelected)}
-                            className="w-20 text-sm border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-blue-400 bg-white" />
+                            className="w-20 text-base md:text-sm border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-blue-400 bg-white" />
                         </div>
                         <div className="flex-1">
                           <label className="text-[10px] text-gray-500 font-medium block mb-1">Precio unitario</label>
                           <input value={repPrecio} onChange={e => setRepPrecio(e.target.value)}
                             type="number" min="0"
-                            className="w-full text-sm border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-blue-400 bg-white" />
+                            className="w-full text-base md:text-sm border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-blue-400 bg-white" />
                         </div>
                       </div>
                     </div>

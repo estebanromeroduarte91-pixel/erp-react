@@ -224,7 +224,7 @@ export function DashboardPage() {
         onChange={e => onChange(e.target.value)}
         onClick={e => { try { (e.target as HTMLInputElement).showPicker() } catch {} }}
         style={{
-          width: '100%', fontSize: 13, padding: '8px 10px',
+          width: '100%', fontSize: 16, padding: '8px 10px',
           border: `0.5px solid ${C.border}`, borderRadius: 10,
           background: C.card, fontFamily: 'inherit', outline: 'none',
           WebkitAppearance: 'none', appearance: 'none',
@@ -426,9 +426,9 @@ export function DashboardPage() {
   const totalSuc = ventasSuc.reduce((s, v) => s + (+v.total_iva || 0), 0)
   const sucModal = sucDetalle ? (
     <div onClick={() => setSucDetalle(null)}
-      style={{ position: 'fixed', inset: 0, zIndex: 400, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+      style={{ position: 'fixed', inset: 0, zIndex: 400, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: isMobile ? 'flex-end' : 'center', justifyContent: 'center', padding: isMobile ? 0 : 20 }}>
       <div onClick={e => e.stopPropagation()}
-        style={{ background: '#fff', width: '100%', maxWidth: 480, maxHeight: '85vh', borderRadius: '18px 18px 0 0', display: 'flex', flexDirection: 'column' }}>
+        style={{ background: '#fff', width: '100%', maxWidth: 480, maxHeight: isMobile ? '85vh' : '80vh', borderRadius: isMobile ? '18px 18px 0 0' : 18, display: 'flex', flexDirection: 'column' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '16px 18px', borderBottom: '0.5px solid #eee' }}>
           <div style={{ flex: 1 }}>
             <p style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#111827' }}>{sucDetalle.nombre}</p>

@@ -296,7 +296,7 @@ export function TrasladosTab() {
           </svg>
           <input type="text" value={busqueda} onChange={(e) => setBusqueda(e.target.value)}
             placeholder="Buscar equipo, técnico, cliente…"
-            className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:border-blue-400" />
+            className="w-full pl-9 pr-3 py-2 text-base md:text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:border-blue-400" />
         </div>
         <button onClick={() => setShowTecnicos(true)}
           className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white hover:bg-gray-50 transition text-gray-600 font-medium">
@@ -373,7 +373,7 @@ export function TrasladosTab() {
                           else cambiarEstado(t.id, nuevo)
                         }}
                         onClick={(e) => e.stopPropagation()}
-                        className={`text-xs font-semibold border rounded-lg px-2 py-1 cursor-pointer ${ESTADO_COLORS[t.estado] ?? ''}`}
+                        className={`text-base md:text-xs font-semibold border rounded-lg px-2 py-1 cursor-pointer ${ESTADO_COLORS[t.estado] ?? ''}`}
                       >
                         {(Object.keys(ESTADO_LABEL) as EstadoTraslado[]).map((k) => (
                           <option key={k} value={k}>{ESTADO_LABEL[k]}</option>
@@ -505,7 +505,7 @@ export function TrasladosTab() {
                   </label>
                   {retEstadoOrden && (
                     <select value={retNuevoEstado} onChange={(e) => setRetNuevoEstado(e.target.value as EstadoOrden)}
-                      className="mt-2.5 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
+                      className="mt-2.5 w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
                       {PIPELINE_ORDEN.map((s) => <option key={s} value={s}>{s}</option>)}
                     </select>
                   )}
@@ -529,13 +529,13 @@ export function TrasladosTab() {
                       <div className="relative">
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
                         <input type="number" value={retMonto} onChange={(e) => setRetMonto(e.target.value)} placeholder="0"
-                          className="w-full border border-gray-200 rounded-lg pl-7 pr-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+                          className="w-full border border-gray-200 rounded-lg pl-7 pr-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
                       </div>
                     </div>
                     <div>
                       <label className="text-xs font-medium text-gray-500 mb-1 block">Forma de pago</label>
                       <select value={retMetodo} onChange={(e) => setRetMetodo(e.target.value)}
-                        className="w-full border border-gray-200 rounded-lg px-2 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
+                        className="w-full border border-gray-200 rounded-lg px-2 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
                         {['Efectivo', 'Transferencia', 'Tarjeta', 'Crédito', 'Cheque'].map((m) => <option key={m}>{m}</option>)}
                       </select>
                     </div>
@@ -610,7 +610,7 @@ function TrasladoModal({
                   equipo: ot ? (ot.modelo ?? f.equipo) : f.equipo,
                 }))
               }}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
                 <option value="">Seleccionar OT…</option>
                 {ordenes.filter((o) => o.status !== 'Entregado').map((o) => (
                   <option key={o.id} value={o.id}>#{o.num} — {o.nombre} {o.apellido ?? ''} · {o.modelo ?? ''}</option>
@@ -631,7 +631,7 @@ function TrasladoModal({
               <label className="text-xs font-medium text-gray-600 mb-1 block">Equipo / descripción</label>
               <input value={form.equipo} onChange={(e) => set('equipo', e.target.value)}
                 placeholder="Ej: iPhone 14 Pro Max negro"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
             </div>
           </div>
 
@@ -653,13 +653,13 @@ function TrasladoModal({
                 <label className="text-xs font-medium text-gray-600 mb-1 block">Nombre del técnico</label>
                 <input value={form.tecnico} onChange={(e) => set('tecnico', e.target.value)}
                   placeholder="Nombre"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
               </div>
               <div>
                 <label className="text-xs font-medium text-gray-600 mb-1 block">Teléfono</label>
                 <input value={form.tecnico_tel} onChange={(e) => set('tecnico_tel', e.target.value)}
                   placeholder="+56 9 XXXX XXXX"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
               </div>
             </div>
           </div>
@@ -668,7 +668,7 @@ function TrasladoModal({
             <div>
               <label className="text-xs font-medium text-gray-600 mb-1 block">Condición al enviar</label>
               <select value={form.condicion} onChange={(e) => set('condicion', e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
                 <option value="enciende">Enciende</option>
                 <option value="apagado">Apagado</option>
                 <option value="regular">Regular</option>
@@ -678,12 +678,12 @@ function TrasladoModal({
               <label className="text-xs font-medium text-gray-600 mb-1 block">Precio acordado ($)</label>
               <input type="number" value={form.precio_acordado} onChange={(e) => set('precio_acordado', e.target.value)}
                 placeholder="0"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
             </div>
             <div>
               <label className="text-xs font-medium text-gray-600 mb-1 block">Estado</label>
               <select value={form.estado} onChange={(e) => set('estado', e.target.value as EstadoTraslado)}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
                 {(Object.entries(ESTADO_LABEL) as [EstadoTraslado, string][]).map(([k, v]) => (
                   <option key={k} value={k}>{v}</option>
                 ))}
@@ -692,31 +692,31 @@ function TrasladoModal({
             <div>
               <label className="text-xs font-medium text-gray-600 mb-1 block">Fecha de envío</label>
               <input type="date" value={form.fecha_envio} onChange={(e) => set('fecha_envio', e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
             </div>
             <div>
               <label className="text-xs font-medium text-gray-600 mb-1 block">Retorno estimado</label>
               <input type="date" value={form.fecha_retorno_est} onChange={(e) => set('fecha_retorno_est', e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
             </div>
             {form.estado === 'retornado' && (
               <div>
                 <label className="text-xs font-medium text-gray-600 mb-1 block">Fecha retorno real</label>
                 <input type="date" value={form.fecha_retorno_real} onChange={(e) => set('fecha_retorno_real', e.target.value)}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
               </div>
             )}
             <div className="col-span-2">
               <label className="text-xs font-medium text-gray-600 mb-1 block">Motivo / trabajo a realizar</label>
               <textarea value={form.motivo} onChange={(e) => set('motivo', e.target.value)}
                 placeholder="Qué debe hacer el técnico externo…" rows={2}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400 resize-none" />
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400 resize-none" />
             </div>
             <div className="col-span-2">
               <label className="text-xs font-medium text-gray-600 mb-1 block">Notas internas</label>
               <textarea value={form.notas} onChange={(e) => set('notas', e.target.value)}
                 placeholder="Observaciones adicionales…" rows={2}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400 resize-none" />
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400 resize-none" />
             </div>
           </div>
         </div>
@@ -780,10 +780,10 @@ function TecnicosModal({
             <div className="flex gap-2">
               <input value={nuevoTecnico.nombre} onChange={(e) => setNuevoTecnico({ ...nuevoTecnico, nombre: e.target.value })}
                 placeholder="Nombre"
-                className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+                className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
               <input value={nuevoTecnico.telefono} onChange={(e) => setNuevoTecnico({ ...nuevoTecnico, telefono: e.target.value })}
                 placeholder="Teléfono"
-                className="w-32 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+                className="w-32 border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
               <button onClick={onAgregar} disabled={!nuevoTecnico.nombre.trim()}
                 className="px-3 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition">
                 +

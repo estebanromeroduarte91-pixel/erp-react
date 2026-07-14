@@ -229,7 +229,7 @@ export function TallerPage() {
               value={busqueda}
               onChange={e => setBusqueda(e.target.value)}
               placeholder="Buscar por cliente, modelo..."
-              style={{ border: 'none', background: 'none', fontSize: 14, color: '#1c1c1e', outline: 'none', flex: 1, fontFamily: 'inherit' }}
+              style={{ border: 'none', background: 'none', fontSize: 16, color: '#1c1c1e', outline: 'none', flex: 1, fontFamily: 'inherit' }}
             />
           </div>
         </div>
@@ -313,7 +313,7 @@ export function TallerPage() {
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
               placeholder="Buscar cliente, N°, RUT, equipo..."
-              className="pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-blue-400 w-64"
+              className="pl-9 pr-3 py-2 text-base md:text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-blue-400 w-64"
             />
           </div>
           <button

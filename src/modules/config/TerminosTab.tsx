@@ -28,7 +28,7 @@ export function TerminosTab() {
           onChange={e => setTexto(e.target.value)}
           rows={14}
           placeholder="Ej: El taller no se responsabiliza por daños previos no declarados al momento del ingreso..."
-          className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm bg-gray-50 focus:outline-none focus:border-blue-400 resize-none"
+          className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400 resize-none"
         />
         <div className="flex items-center gap-3 mt-4">
           <button onClick={handleGuardar} disabled={guardar.isPending}

@@ -601,7 +601,7 @@ function ModalRecibirOC({
                         <select
                           value={itemBodegas[it.id] || ''}
                           onChange={e => setItemBodegas(prev => ({ ...prev, [it.id]: e.target.value }))}
-                          style={{ fontSize: 11, marginTop: 4, width: '100%', border: '1px solid var(--gray-300)', borderRadius: 4, padding: '2px 4px', color: 'var(--gray-700)' }}
+                          style={{ fontSize: 16, marginTop: 4, width: '100%', border: '1px solid var(--gray-300)', borderRadius: 4, padding: '2px 4px', color: 'var(--gray-700)' }}
                         >
                           <option value="">-- Bodega --</option>
                           {bodegas.map(b => <option key={b.id} value={b.id}>{b.nombre ?? b.name}</option>)}
@@ -620,7 +620,7 @@ function ModalRecibirOC({
                           min={0} max={pendiente}
                           disabled={pendiente === 0}
                           onChange={e => setQtys(prev => ({ ...prev, [it.id]: Math.min(+e.target.value || 0, pendiente) }))}
-                          style={{ width: 80, textAlign: 'center', border: '1.5px solid var(--gray-300)', borderRadius: 7, padding: '7px 10px', fontSize: 14, fontWeight: 600, opacity: pendiente === 0 ? 0.4 : 1 }}
+                          style={{ width: 80, textAlign: 'center', border: '1.5px solid var(--gray-300)', borderRadius: 7, padding: '7px 10px', fontSize: 16, fontWeight: 600, opacity: pendiente === 0 ? 0.4 : 1 }}
                         />
                       </td>
                     </tr>
@@ -631,7 +631,7 @@ function ModalRecibirOC({
             <div style={{ marginTop: 14 }}>
               <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--gray-500)', textTransform: 'uppercase', marginBottom: 4 }}>Notas (opcional)</label>
               <input type="text" value={notas} onChange={e => setNotas(e.target.value)}
-                placeholder="Ej: llegó sin embalaje original..." style={{ width: '100%', fontSize: 13 }} />
+                placeholder="Ej: llegó sin embalaje original..." style={{ width: '100%', fontSize: 16 }} />
             </div>
           </div>
           <div style={{ padding: 20, background: 'var(--gray-50)', overflowY: 'auto' }}>
@@ -1295,7 +1295,7 @@ export function ComprasPage() {
               </span>
               <input type="text" value={search} onChange={e => setSearch(e.target.value)}
                 placeholder="Buscar por N° o proveedor..."
-                style={{ marginLeft: 'auto', padding: '6px 12px', border: '1.5px solid var(--gray-200)', borderRadius: 7, fontSize: 13, width: 240 }}
+                style={{ marginLeft: 'auto', padding: '6px 12px', border: '1.5px solid var(--gray-200)', borderRadius: 7, fontSize: 16, width: 240 }}
               />
             </>
           ) : (

@@ -130,7 +130,7 @@ export function EquipoSelector({ value, onChange }: Props) {
                   <input autoFocus value={q} onChange={e => setQ(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && lista.length === 0 && usarTextoLibre()}
                     placeholder="Buscar marca o modelo…"
-                    className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:border-blue-400" />
+                    className="w-full pl-8 pr-3 py-1.5 text-base md:text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:border-blue-400" />
                 </div>
               </div>
 
@@ -193,15 +193,15 @@ export function EquipoSelector({ value, onChange }: Props) {
             <div className="p-3 space-y-2">
               <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Nuevo equipo</p>
               <select value={form.marca} onChange={e => setForm(f => ({ ...f, marca: e.target.value }))}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
                 <option value="">Seleccionar marca…</option>
                 {marcasSelect.map(m => <option key={m} value={m}>{m}</option>)}
               </select>
               <input value={form.modelo} onChange={e => setForm(f => ({ ...f, modelo: e.target.value }))}
                 placeholder="Modelo (Ej: iPhone 15 Pro)"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
               <select value={form.categoria} onChange={e => setForm(f => ({ ...f, categoria: e.target.value }))}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
                 {categorias.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
               <div className="flex gap-2 justify-end pt-1">
