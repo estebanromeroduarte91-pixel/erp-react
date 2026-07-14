@@ -20,7 +20,7 @@ export function EstadoBadge({ estado, subestado }: { estado: EstadoOrden | strin
     ? (COLORES_SUB[subestado] ?? COLORES[estado] ?? 'bg-gray-100 text-gray-600')
     : (COLORES[estado] ?? 'bg-gray-100 text-gray-600')
   return (
-    <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium ${color}`}>
+    <span className={`inline-flex items-center whitespace-nowrap px-2 py-0.5 rounded-full text-xs font-medium ${color}`}>
       {subestado ?? estado ?? '—'}
     </span>
   )
