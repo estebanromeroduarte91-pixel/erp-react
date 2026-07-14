@@ -12,7 +12,7 @@ export type EstadoOrden = 'Chequeo' | 'Reparación' | 'Listo' | 'Entregado' | 'N
 export interface CheckItem {
   label: string
   checked: boolean
-  estado?: 'ok' | 'no_funciona'
+  estado?: 'ok' | 'no_funciona' | 'no_probado'
 }
 
 export interface Repuesto {

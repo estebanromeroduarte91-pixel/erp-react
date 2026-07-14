@@ -146,8 +146,7 @@ export function MobileTabBar() {
       {/* Tab bar */}
       <nav style={{
         position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100,
-        background: 'rgba(255,255,255,0.97)',
-        borderTop: '0.5px solid var(--gray-200)',
+        background: '#fff',
         display: 'flex', alignItems: 'flex-start',
         paddingTop: 8,
         paddingBottom: 'max(env(safe-area-inset-bottom), 50px)',

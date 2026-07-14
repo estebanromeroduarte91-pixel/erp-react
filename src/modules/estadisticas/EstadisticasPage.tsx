@@ -227,11 +227,12 @@ export function EstadisticasPage() {
             >{t.label}</button>
           ))}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, ...(isMobile ? { width: '100%' } : {}) }}>
           <div
-            onClick={() => fromRef.current?.showPicker()}
-            style={{ display: 'flex', alignItems: 'center', background: tab === 'custom' && from ? '#eff6ff' : '#f9fafb', border: `1px solid ${tab === 'custom' && from ? '#93c5fd' : '#e5e7eb'}`, borderRadius: 7, padding: '5px 9px', cursor: 'pointer' }}
+            style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 6, background: tab === 'custom' && from ? '#eff6ff' : '#f9fafb', border: `1px solid ${tab === 'custom' && from ? '#93c5fd' : '#e5e7eb'}`, borderRadius: 8, padding: '8px 11px', cursor: 'pointer', flex: isMobile ? 1 : 'none' }}
           >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={from ? '#3656e6' : '#9ca3af'} strokeWidth="2" strokeLinecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            <span style={{ fontSize: 13, fontWeight: 600, color: from ? '#374151' : '#9ca3af' }}>{from ? from.split('-').reverse().join('/') : 'Desde'}</span>
             <input
               ref={fromRef}
               type="date"
@@ -239,16 +240,16 @@ export function EstadisticasPage() {
               onChange={e => {
                 setFrom(e.target.value)
                 setTab('custom')
-                if (e.target.value && !to) setTimeout(() => toRef.current?.showPicker(), 100)
               }}
-              style={{ border: 'none', background: 'none', fontFamily: 'inherit', fontSize: 12, fontWeight: 600, color: '#374151', outline: 'none', cursor: 'pointer', width: 110, pointerEvents: 'none' }}
+              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0, border: 'none', cursor: 'pointer' }}
             />
           </div>
-          <span style={{ fontSize: 11, color: '#d1d5db', fontWeight: 600 }}>→</span>
+          <span style={{ fontSize: 11, color: '#d1d5db', fontWeight: 600, flexShrink: 0 }}>→</span>
           <div
-            onClick={() => toRef.current?.showPicker()}
-            style={{ display: 'flex', alignItems: 'center', background: tab === 'custom' && to ? '#eff6ff' : '#f9fafb', border: `1px solid ${tab === 'custom' && to ? '#93c5fd' : '#e5e7eb'}`, borderRadius: 7, padding: '5px 9px', cursor: 'pointer' }}
+            style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 6, background: tab === 'custom' && to ? '#eff6ff' : '#f9fafb', border: `1px solid ${tab === 'custom' && to ? '#93c5fd' : '#e5e7eb'}`, borderRadius: 8, padding: '8px 11px', cursor: 'pointer', flex: isMobile ? 1 : 'none' }}
           >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={to ? '#3656e6' : '#9ca3af'} strokeWidth="2" strokeLinecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            <span style={{ fontSize: 13, fontWeight: 600, color: to ? '#374151' : '#9ca3af' }}>{to ? to.split('-').reverse().join('/') : 'Hasta'}</span>
             <input
               ref={toRef}
               type="date"
@@ -257,7 +258,7 @@ export function EstadisticasPage() {
                 setTo(e.target.value)
                 setTab('custom')
               }}
-              style={{ border: 'none', background: 'none', fontFamily: 'inherit', fontSize: 12, fontWeight: 600, color: '#374151', outline: 'none', cursor: 'pointer', width: 110, pointerEvents: 'none' }}
+              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0, border: 'none', cursor: 'pointer' }}
             />
           </div>
         </div>

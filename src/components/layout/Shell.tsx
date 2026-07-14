@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
 import { MobileTabBar } from './MobileTabBar'
+import { PullToRefresh } from './PullToRefresh'
 import { useIsMobile } from '@/lib/useIsMobile'
 
 export function Shell({ children }: { children: ReactNode }) {
@@ -10,9 +11,11 @@ export function Shell({ children }: { children: ReactNode }) {
   if (isMobile) {
     return (
       <div style={{ minHeight: '100dvh', background: '#f2f2f7' }}>
-        <main style={{ paddingBottom: 'calc(72px + max(env(safe-area-inset-bottom), 50px))' }}>
-          {children}
-        </main>
+        <PullToRefresh>
+          <main style={{ paddingBottom: 'calc(72px + max(env(safe-area-inset-bottom), 50px))' }}>
+            {children}
+          </main>
+        </PullToRefresh>
         <MobileTabBar />
       </div>
     )

@@ -101,11 +101,20 @@ export function DashboardPage() {
   const [customHasta, setCustomHasta] = useState('')
   const [tabMp, setTabMp]             = useState(0)
   const [expandedMp, setExpandedMp]   = useState<string | null>(null)
+  const [sucDetalle, setSucDetalle]   = useState<{ id: string; nombre: string } | null>(null)
 
   const isMobile = useIsMobile()
 
   const { desde, hasta } = periodoDesdeHasta(rango, customDesde, customHasta)
   const { desde: pDesde, hasta: pHasta } = prevPeriod(rango, desde, hasta)
+
+  // Ventas de la sucursal seleccionada (para el detalle al tocar una tarjeta)
+  const ventasSuc = useMemo(() => {
+    if (!sucDetalle) return []
+    return (ventas ?? [])
+      .filter(v => v.estado !== 'anulada' && v.branchId === sucDetalle.id && inPeriod(v.fecha, desde, hasta))
+      .sort((a, b) => (b.fecha ?? '').localeCompare(a.fecha ?? ''))
+  }, [ventas, sucDetalle, desde, hasta])
 
   const mpById = useMemo(() => {
     const m: Record<string, string> = {}
@@ -280,7 +289,7 @@ export function DashboardPage() {
           <p style={{ color: C.textMuted, fontSize: 13, textAlign: 'center', padding: '20px 0' }}>Sin ventas en este período</p>
         )}
         {stats.sucursales.map(s => (
-          <div key={s.id} style={{ background: C.card, border: `0.5px solid ${C.border}`, borderRadius: 12, overflow: 'hidden' }}>
+          <div key={s.id} onClick={() => setSucDetalle({ id: s.id, nombre: s.nombre })} style={{ background: C.card, border: `0.5px solid ${C.border}`, borderRadius: 12, overflow: 'hidden', cursor: 'pointer' }}>
             <div style={{ height: 3, background: s.color }} />
             <div style={{ padding: '12px 14px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
@@ -414,9 +423,45 @@ export function DashboardPage() {
   )
 
   // ── Mobile ────────────────────────────────────────────────────
+  const totalSuc = ventasSuc.reduce((s, v) => s + (+v.total_iva || 0), 0)
+  const sucModal = sucDetalle ? (
+    <div onClick={() => setSucDetalle(null)}
+      style={{ position: 'fixed', inset: 0, zIndex: 400, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+      <div onClick={e => e.stopPropagation()}
+        style={{ background: '#fff', width: '100%', maxWidth: 480, maxHeight: '85vh', borderRadius: '18px 18px 0 0', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '16px 18px', borderBottom: '0.5px solid #eee' }}>
+          <div style={{ flex: 1 }}>
+            <p style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#111827' }}>{sucDetalle.nombre}</p>
+            <p style={{ margin: 0, fontSize: 12, color: '#9ca3af' }}>{ventasSuc.length} venta{ventasSuc.length !== 1 ? 's' : ''}</p>
+          </div>
+          <p style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#059669' }}>{fmt(totalSuc)}</p>
+          <button onClick={() => setSucDetalle(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: 4, fontSize: 20, lineHeight: 1 }}>✕</button>
+        </div>
+        <div style={{ overflowY: 'auto', paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}>
+          {ventasSuc.length === 0 ? (
+            <p style={{ textAlign: 'center', color: '#9ca3af', fontSize: 13, padding: '28px 0', margin: 0 }}>Sin ventas en este período</p>
+          ) : ventasSuc.map((v, i) => {
+            const prods = (v.items ?? []).map(it => it.producto_nombre).filter(Boolean).join(', ') || '—'
+            const doc = (v.tipo_doc ?? 'boleta')
+            return (
+              <div key={v.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 18px', borderBottom: i < ventasSuc.length - 1 ? '0.5px solid #f0f0f0' : 'none' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#111827', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{v.cliente || 'Sin cliente'}</p>
+                  <p style={{ margin: 0, fontSize: 12, color: '#6b7280', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{prods} · <span style={{ color: '#9ca3af', textTransform: 'capitalize' }}>{doc} {v.numero}</span></p>
+                </div>
+                <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#059669', whiteSpace: 'nowrap' }}>{fmt(+v.total_iva || 0)}</p>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  ) : null
+
   if (isMobile) {
     return (
       <div style={{ background: C.bg, minHeight: '100dvh', padding: '0 16px 32px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {sucModal}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 14 }}>
           <h1 style={{ fontSize: 22, fontWeight: 700, color: C.textPrimary, margin: 0 }}>Dashboard</h1>
           <span style={{ fontSize: 12, color: C.textMuted }}>{labelRango(rango)}</span>
@@ -432,7 +477,7 @@ export function DashboardPage() {
             <SectionLabel text="Ventas por sucursal" />
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {stats.sucursales.map(s => (
-                <div key={s.id} style={{ background: C.card, border: `0.5px solid ${C.border}`, borderRadius: 12, overflow: 'hidden' }}>
+                <div key={s.id} onClick={() => setSucDetalle({ id: s.id, nombre: s.nombre })} style={{ background: C.card, border: `0.5px solid ${C.border}`, borderRadius: 12, overflow: 'hidden', cursor: 'pointer' }}>
                   <div style={{ height: 3, background: s.color }} />
                   <div style={{ padding: '12px 14px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
@@ -488,6 +533,7 @@ export function DashboardPage() {
   // ── Desktop ───────────────────────────────────────────────────
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {sucModal}
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <h2 style={{ fontSize: 20, fontWeight: 800, color: C.textPrimary, margin: 0 }}>Dashboard</h2>
