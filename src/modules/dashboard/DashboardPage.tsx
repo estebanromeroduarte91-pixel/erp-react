@@ -539,7 +539,6 @@ export function DashboardPage() {
         <h2 style={{ fontSize: 20, fontWeight: 800, color: C.textPrimary, margin: 0 }}>Dashboard</h2>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           <div style={{ width: 300 }}><RangoSelector /></div>
-          <span style={{ fontSize: 12, color: C.textMuted, whiteSpace: 'nowrap' }}>{labelRango(rango)}</span>
         </div>
       </div>
 

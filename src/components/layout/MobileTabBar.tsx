@@ -84,7 +84,7 @@ export function MobileTabBar() {
         position: 'fixed', left: 0, right: 0, bottom: 'calc(56px + max(env(safe-area-inset-bottom), 50px))', zIndex: 201,
         background: '#fff', borderRadius: '20px 20px 0 0',
         padding: '8px 0 8px',
-        transform: drawerOpen ? 'translateY(0)' : 'translateY(100%)',
+        transform: drawerOpen ? 'translateY(0)' : 'translateY(calc(100% + 56px + max(env(safe-area-inset-bottom), 50px)))',
         transition: 'transform 0.3s ease',
         boxShadow: '0 -4px 24px rgba(0,0,0,0.12)',
         pointerEvents: drawerOpen ? 'auto' : 'none',
