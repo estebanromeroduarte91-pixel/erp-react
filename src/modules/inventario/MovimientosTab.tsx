@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useMovimientos, useGuardarMovimientos } from '@/lib/queries'
 import { Spinner } from '@/components/shared/Spinner'
+import type { Movimiento } from '@/types'
 
 const TIPO_LABEL: Record<string, string> = {
   entrada: 'Entrada', salida: 'Salida', ajuste: 'Ajuste', traslado: 'Traslado',
@@ -23,6 +24,82 @@ const TIPO_STYLE: Record<string, { bg: string; text: string; icon: React.ReactNo
     bg: 'bg-[#E6F1FB]', text: 'text-[#0C447C]',
     icon: <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>,
   },
+}
+
+// ── Motivo del movimiento (se deduce del tipo + la referencia) ──
+const ICO = 'w-4 h-4 flex-shrink-0'
+const MOTIVO_ICON = {
+  venta: <svg className={`${ICO} text-[#185FA5]`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.9}><path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.3 2.3c-.6.6-.2 1.7.7 1.7H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>,
+  compra: <svg className={`${ICO} text-[#0F6E56]`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.9}><path strokeLinecap="round" strokeLinejoin="round" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zm10 0a2 2 0 11-4 0 2 2 0 014 0zM3 5h11v9H3V5zm11 3h4l3 3v3h-7V8z" /></svg>,
+  ajuste: <svg className={`${ICO} text-[#854F0B]`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.9}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>,
+  traslado: <svg className={`${ICO} text-[#0C447C]`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.9}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>,
+  reparacion: <svg className={`${ICO} text-[#534AB7]`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.9}><path strokeLinecap="round" strokeLinejoin="round" d="M11.4 15.2L17.3 21a2.7 2.7 0 003.7-3.7l-5.9-5.9M11.4 15.2l2.5-3c.3-.4.7-.6 1.2-.8M11.4 15.2l-4.7 5.7a2.5 2.5 0 11-3.6-3.6l6.9-5.6m5.1-.2c.6-.2 1.2-.2 1.8-.1a4.5 4.5 0 004.5-6.3l-3.3 3.3a3 3 0 01-2.3-2.3l3.3-3.3a4.5 4.5 0 00-6.3 4.5c.1 1.1-.1 2.3-.9 3l-.1.1" /></svg>,
+  generico: <svg className={`${ICO} text-gray-400`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.9}><path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 10V11" /></svg>,
+}
+
+function motivoDe(m: Movimiento): { label: string; icon: React.ReactNode } {
+  const ref = (m.referencia ?? '').toUpperCase()
+  if (ref.startsWith('VTA-'))  return { label: 'Venta',                icon: MOTIVO_ICON.venta }
+  if (ref.startsWith('OC-'))   return { label: 'Ingreso por compra',   icon: MOTIVO_ICON.compra }
+  if (m.tipo === 'ajuste')     return { label: 'Ajuste de stock',      icon: MOTIVO_ICON.ajuste }
+  if (m.tipo === 'traslado')   return { label: 'Traslado',             icon: MOTIVO_ICON.traslado }
+  if (m.tipo === 'salida')     return { label: 'Consumo en reparación', icon: MOTIVO_ICON.reparacion }
+  if (m.tipo === 'entrada')    return { label: 'Ingreso de stock',     icon: MOTIVO_ICON.compra }
+  return { label: TIPO_LABEL[m.tipo] ?? m.tipo, icon: MOTIVO_ICON.generico }
+}
+
+// ── Tarjeta de movimiento (móvil) ──
+const CARD_MAX = 3
+
+function MovimientoCard({ m }: { m: Movimiento }) {
+  const [expanded, setExpanded] = useState(false)
+  const estilo = TIPO_STYLE[m.tipo]
+  const motivo = motivoDe(m)
+  const prods = m.productos ?? []
+  const visibles = expanded ? prods : prods.slice(0, CARD_MAX)
+  const resto = prods.length - CARD_MAX
+
+  return (
+    <div className="bg-white border border-gray-100 rounded-xl px-3.5 py-3">
+      <div className="flex items-center justify-between mb-2">
+        <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-full ${estilo?.bg ?? 'bg-gray-100'} ${estilo?.text ?? 'text-gray-600'}`}>
+          {estilo?.icon}
+          {TIPO_LABEL[m.tipo] ?? m.tipo}
+        </span>
+        <span className="text-[12px] text-gray-400">
+          {m.fecha}{m.hora ? ` · ${m.hora}` : ''}
+        </span>
+      </div>
+
+      <div className="space-y-0.5">
+        {visibles.map((p, i) => (
+          <p key={i} className="text-sm text-gray-800 leading-snug">
+            {p.producto_nombre}
+            <span className="text-gray-400 ml-1.5">×{p.cantidad}</span>
+          </p>
+        ))}
+      </div>
+
+      {resto > 0 && (
+        <button onClick={() => setExpanded(v => !v)}
+          className="w-full text-center text-[12.5px] font-medium rounded-lg py-1.5 mt-2 transition"
+          style={{ background: '#f2f2f7', color: expanded ? '#6b7280' : '#3656e6' }}>
+          {expanded ? 'Ver menos' : `Ver ${resto} producto${resto !== 1 ? 's' : ''} más`}
+        </button>
+      )}
+
+      <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-gray-100">
+        {motivo.icon}
+        <span className="text-[12.5px] text-gray-600 min-w-0">
+          {motivo.label}
+          {prods.length > 1 && <span className="text-gray-400"> · {prods.length} productos</span>}
+        </span>
+        {m.referencia && (
+          <span className="text-[11px] text-gray-400 font-mono ml-auto flex-shrink-0">{m.referencia}</span>
+        )}
+      </div>
+    </div>
+  )
 }
 
 const PILLS_MAX = 3
@@ -112,11 +189,22 @@ export function MovimientosTab() {
         </select>
       </div>
 
-      {/* Tabla */}
-      <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-        {lista.length === 0 ? (
+      {lista.length === 0 && (
+        <div className="bg-white rounded-xl border border-gray-100">
           <p className="text-center text-sm text-gray-400 py-16">Sin movimientos registrados</p>
-        ) : (
+        </div>
+      )}
+
+      {/* Tarjetas — móvil */}
+      {lista.length > 0 && (
+        <div className="md:hidden flex flex-col gap-2">
+          {lista.map((m) => <MovimientoCard key={m.id} m={m} />)}
+        </div>
+      )}
+
+      {/* Tabla — escritorio */}
+      {lista.length > 0 && (
+        <div className="hidden md:block bg-white rounded-xl border border-gray-100 overflow-hidden">
           <table className="w-full text-sm" style={{ tableLayout: 'fixed' }}>
             <colgroup>
               <col style={{ width: '130px' }} />
@@ -163,8 +251,8 @@ export function MovimientosTab() {
               })}
             </tbody>
           </table>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 }

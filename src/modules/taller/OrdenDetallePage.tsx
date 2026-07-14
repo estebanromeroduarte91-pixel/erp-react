@@ -53,6 +53,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
   const [notif, setNotif] = useState<{ estado: EstadoOrden; waMsg: string; emailMsg: string } | null>(null)
   const [checklistOpen, setChecklistOpen] = useState(false)
   const [checkItems, setCheckItems] = useState<CheckItem[]>([])
+  const [lightbox, setLightbox] = useState<string | null>(null)
   const [enviandoEmail, setEnviandoEmail] = useState(false)
   const [emailOk, setEmailOk] = useState(false)
   const [enviandoEmailDirecto, setEnviandoEmailDirecto] = useState(false)
@@ -990,9 +991,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
                   <div className="grid grid-cols-3 gap-2">
                     {o.photosIngreso.map((src, i) => (
                       <div key={i} className="relative aspect-square rounded-xl overflow-hidden border border-gray-200 group">
-                        <a href={src} target="_blank" rel="noreferrer">
-                          <img src={src} alt="" className="w-full h-full object-cover" />
-                        </a>
+                        <img src={src} alt="" onClick={() => setLightbox(src)} className="w-full h-full object-cover cursor-pointer" />
                         <button onClick={() => eliminarFotoIngreso(i)} disabled={guardandoIngreso}
                           className="absolute top-1 right-1 w-5 h-5 bg-black/60 text-white rounded-full text-[10px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition">✕</button>
                       </div>
@@ -1324,7 +1323,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
                   <div className="grid grid-cols-4 gap-2">
                     {inspecFotos.map((src, i) => (
                       <div key={i} className="relative aspect-square rounded-lg overflow-hidden border border-gray-200 group">
-                        <img src={src} alt="" className="w-full h-full object-cover" />
+                        <img src={src} alt="" onClick={() => setLightbox(src)} className="w-full h-full object-cover cursor-pointer" />
                         <button onClick={() => setInspecFotos(f => f.filter((_, j) => j !== i))}
                           className="absolute top-1 right-1 w-5 h-5 bg-black/60 text-white rounded-full text-[10px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition">✕</button>
                       </div>
@@ -1550,24 +1549,42 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
     </>
   )
 
+  const lightboxEl = lightbox ? createPortal(
+    <div className="fixed inset-0 z-[400] flex items-center justify-center bg-black/90 p-4"
+      onClick={() => setLightbox(null)}>
+      <img src={lightbox} alt="" className="max-w-full max-h-full object-contain rounded-lg" />
+      <button onClick={() => setLightbox(null)}
+        className="absolute top-4 right-4 w-9 h-9 flex items-center justify-center rounded-full bg-white/15 text-white text-lg hover:bg-white/25 transition">✕</button>
+    </div>,
+    document.body,
+  ) : null
+
   if (onClose) {
-    return createPortal(
-      <div
-        className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-2 md:p-4"
-        onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
-      >
-        <div className="bg-white rounded-2xl w-full max-w-6xl shadow-2xl flex flex-col overflow-hidden"
-          style={{ height: '90vh' }}>
-          {content}
-        </div>
-      </div>,
-      document.body,
+    return (
+      <>
+        {createPortal(
+          <div
+            className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-2 md:p-4"
+            onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+          >
+            <div className="bg-white rounded-2xl w-full max-w-6xl shadow-2xl flex flex-col overflow-hidden"
+              style={{ height: '90vh' }}>
+              {content}
+            </div>
+          </div>,
+          document.body,
+        )}
+        {lightboxEl}
+      </>
     )
   }
 
   return (
-    <div className="flex flex-col h-full min-h-0">
-      {content}
-    </div>
+    <>
+      <div className="flex flex-col h-full min-h-0">
+        {content}
+      </div>
+      {lightboxEl}
+    </>
   )
 }
