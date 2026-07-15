@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useVentas, useGastos, useOrdenes, useBodegas, useMetodosPago, useOCs } from '@/lib/queries'
+import { useVentas, useGastos, useOrdenes, useBodegas, useMetodosPago, useOCs, useProductos } from '@/lib/queries'
+import { gastosPorSucursal } from '@/lib/gastos'
 import { Spinner } from '@/components/shared/Spinner'
 import { useIsMobile } from '@/lib/useIsMobile'
 
@@ -91,6 +92,7 @@ export function DashboardPage() {
   const { data: ventas,  isLoading: loadV } = useVentas()
   const { data: gastos,  isLoading: loadG } = useGastos()
   const { data: ocs,     isLoading: loadOC } = useOCs()
+  const { data: productos = [] } = useProductos()
   const { isLoading: loadO } = useOrdenes()
   const { data: bodegasRaw = [] } = useBodegas()
   const bodegas = useMemo(() => [...bodegasRaw].sort((a, b) => (b.nombre ?? b.name ?? '').localeCompare(a.nombre ?? a.name ?? '', 'es')), [bodegasRaw])
@@ -143,29 +145,46 @@ export function DashboardPage() {
     const gPer  = gArr.filter(g => inPeriod(g.fecha, desde, hasta))
     const ocPer = ocArr.filter(o => ['recibida', 'confirmada'].includes(o.estado) && inPeriod(o.fecha, desde, hasta))
 
+    // Costo real de lo vendido (FIFO, congelado en la venta). Para ventas sin costo
+    // congelado (anteriores al costeo FIFO), recae en el precio_compra actual del producto.
+    const prodCostoMap = new Map(productos.map(p => [p.id, p.precio_compra ?? 0]))
+    const costoVendido = (lista: typeof vPer) => lista.reduce((s, v) => s + (v.items ?? []).reduce((cs, it) => {
+      if (it.costo_total != null) return cs + it.costo_total
+      if (!it.producto_id) return cs
+      return cs + it.cantidad * (prodCostoMap.get(it.producto_id) ?? 0)
+    }, 0), 0)
+
     const ventasBrutas     = vPer.reduce((s, v) => s + (+v.total_iva || 0), 0)
     const ventasBrutasPrev = vPrev.reduce((s, v) => s + (+v.total_iva || 0), 0)
     const ventasNetas      = vPer.reduce((s, v) => s + (+v.total || 0), 0)
     const totalOC          = ocPer.reduce((s, o) => s + (+o.total || 0), 0)
     const totalGastos      = gPer.reduce((s, g) => s + (+g.monto || 0), 0)
-    const totalSalida      = totalOC + totalGastos
-    const utilidad         = ventasBrutas - totalSalida
-    const margen           = ventasBrutas > 0 ? Math.round(utilidad / ventasBrutas * 100) : 0
+    const totalCosto       = costoVendido(vPer)
+    const totalSalida      = totalCosto + totalGastos
+    const utilidad         = ventasNetas - totalSalida
+    const margen           = ventasNetas > 0 ? Math.round(utilidad / ventasNetas * 100) : 0
     const txCount          = vPer.length
     const ticketProm       = txCount > 0 ? Math.round(ventasBrutas / txCount) : 0
+
+    // Gastos directos de cada sucursal + prorrateo de los "General/Compartido" según % de ventas netas.
+    const ventasNetasPorSucursal: Record<string, number> = {}
+    bodegas.forEach(b => { ventasNetasPorSucursal[b.id] = vPer.filter(v => v.branchId === b.id).reduce((s, v) => s + (+v.total || 0), 0) })
+    const gastosPorSuc = gastosPorSucursal(gPer, bodegas, ventasNetasPorSucursal)
 
     const totalGeneral = ventasBrutas || 1
     const sucursales = bodegas.map((b, i) => {
       const bVPer  = vPer.filter(v => v.branchId === b.id)
       const bVPrev = vPrev.filter(v => v.branchId === b.id)
+      const bNeta  = bVPer.reduce((s, v) => s + (+v.total || 0), 0)
       return {
         id: b.id,
         nombre: b.nombre ?? b.name ?? 'Sucursal',
         total:  bVPer.reduce((s, v) => s + (+v.total_iva || 0), 0),
         totalPrev: bVPrev.reduce((s, v) => s + (+v.total_iva || 0), 0),
-        neto:   bVPer.reduce((s, v) => s + (+v.total || 0), 0),
+        neto:   bNeta,
         count:  bVPer.length,
         part:   Math.round(bVPer.reduce((s, v) => s + (+v.total_iva || 0), 0) / totalGeneral * 100),
+        utilidad: bNeta - costoVendido(bVPer) - (gastosPorSuc[b.id] ?? 0),
         color:  SUC_COLORS[i] ?? '#64748b',
       }
     })
@@ -184,8 +203,8 @@ export function DashboardPage() {
 
     const ultimasVentas = [...vArr].sort((a, b) => (b.fecha ?? '').localeCompare(a.fecha ?? '')).slice(0, 5)
 
-    return { ventasBrutas, ventasBrutasPrev, ventasNetas, totalOC, totalGastos, totalSalida, utilidad, margen, txCount, ticketProm, sucursales, mpPorSuc, mpGlobalSorted, ultimasVentas }
-  }, [ventas, gastos, ocs, bodegas, desde, hasta, pDesde, pHasta])
+    return { ventasBrutas, ventasBrutasPrev, ventasNetas, totalOC, totalGastos, totalCosto, totalSalida, utilidad, margen, txCount, ticketProm, sucursales, mpPorSuc, mpGlobalSorted, ultimasVentas }
+  }, [ventas, gastos, ocs, productos, bodegas, desde, hasta, pDesde, pHasta])
 
   if (loadV || loadG || loadO || loadOC) {
     return <div className="flex justify-center py-16"><Spinner className="w-8 h-8" /></div>
@@ -264,7 +283,7 @@ export function DashboardPage() {
       {[
         { label: 'Ventas brutas', value: fmt(stats.ventasBrutas), sub: `${stats.txCount} transacciones`, curr: stats.ventasBrutas, prev: stats.ventasBrutasPrev },
         { label: 'Ventas netas', value: fmt(stats.ventasNetas), sub: 'sin IVA' },
-        { label: 'Utilidad estimada', value: fmt(stats.utilidad), sub: `margen ${stats.margen}%`, green: stats.utilidad >= 0 },
+        { label: 'Utilidad Sucursales', value: fmt(stats.utilidad), sub: `margen ${stats.margen}%`, green: stats.utilidad >= 0 },
         { label: 'Transacciones', value: String(stats.txCount), sub: stats.ticketProm > 0 ? `${fmt(stats.ticketProm)} prom.` : '—' },
       ].map(k => (
         <div key={k.label} style={{ background: C.card, borderRadius: 12, padding: '12px 14px', border: `0.5px solid ${C.border}` }}>
@@ -304,6 +323,12 @@ export function DashboardPage() {
                     <p style={{ fontSize: 12, color: C.textSecondary, margin: 0 }}>{d.value}</p>
                   </div>
                 ))}
+              </div>
+              <div style={{ marginTop: 8, padding: '6px 8px', background: s.utilidad >= 0 ? C.greenBg : C.redBg, borderRadius: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: 11, color: C.textSecondary }}>Utilidad</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: s.utilidad >= 0 ? C.green : C.red }}>
+                  {s.utilidad >= 0 ? '+' : ''}{fmt(s.utilidad)}
+                </span>
               </div>
             </div>
           </div>
@@ -401,7 +426,7 @@ export function DashboardPage() {
     <div style={{ background: C.card, border: `0.5px solid ${C.border}`, borderRadius: 12, padding: '12px 14px' }}>
       <SectionLabel text="Total gastado" />
       {[
-        { label: 'Órdenes de compra', value: stats.totalOC, to: '/compras' },
+        { label: 'Costo de productos vendidos', value: stats.totalCosto, to: '/ventas' },
         { label: 'Gastos operacionales', value: stats.totalGastos, to: '/contabilidad' },
       ].map((row, i, arr) => (
         <Link key={row.label} to={row.to} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: i < arr.length - 1 ? `0.5px solid ${C.border}` : 'none', textDecoration: 'none' }}>
@@ -419,6 +444,10 @@ export function DashboardPage() {
           {stats.utilidad >= 0 ? '+' : ''}{fmt(stats.utilidad)}
         </span>
       </div>
+      <Link to="/compras" style={{ marginTop: 8, padding: '8px 10px', background: C.bg, borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center', textDecoration: 'none' }}>
+        <span style={{ fontSize: 11, color: C.textMuted }}>Compras del período (inversión en stock, no es gasto)</span>
+        <span style={{ fontSize: 12, fontWeight: 600, color: C.textSecondary }}>{fmt(stats.totalOC)}</span>
+      </Link>
     </div>
   )
 

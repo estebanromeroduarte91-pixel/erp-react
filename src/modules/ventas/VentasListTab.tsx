@@ -59,9 +59,12 @@ export function VentasListTab() {
     return m
   }, [productos])
 
+  // Usa el costo FIFO congelado en la venta (costo_total). Para ventas anteriores a esa
+  // funcionalidad, que no tienen costo congelado, recae en el precio_compra actual del producto.
   function calcUtilidad(lista: Venta[]) {
     return lista.reduce((sum, v) => {
       const costo = (v.items ?? []).reduce((cs, it) => {
+        if (it.costo_total != null) return cs + it.costo_total
         if (!it.producto_id) return cs
         return cs + it.cantidad * (prodsMap.get(it.producto_id) ?? 0)
       }, 0)

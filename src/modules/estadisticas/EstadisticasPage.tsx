@@ -1,5 +1,5 @@
 import { useMemo, useState, useRef } from 'react'
-import { useVentas, useGastos, useOrdenes, useBodegas, useOCs } from '@/lib/queries'
+import { useVentas, useGastos, useOrdenes, useBodegas, useOCs, useProductos } from '@/lib/queries'
 import { gastosPorSucursal } from '@/lib/gastos'
 import { Spinner } from '@/components/shared/Spinner'
 import { useIsMobile } from '@/lib/useIsMobile'
@@ -108,6 +108,7 @@ export function EstadisticasPage() {
   const { data: ordenes, isLoading: loadO } = useOrdenes()
   const { data: ocs, isLoading: loadOC } = useOCs()
   const { data: bodegas = [] } = useBodegas()
+  const { data: productos = [] } = useProductos()
 
   const [tab, setTab] = useState<Tab>('mes')
   const [from, setFrom] = useState('')
@@ -126,10 +127,21 @@ export function EstadisticasPage() {
     const ocsArr = (ocs ?? []).filter(o => ['recibida', 'confirmada'].includes(o.estado) && inRange(o.fecha))
     const ordeArr = (ordenes ?? []).filter(o => o.status === 'Entregado' && inRange(o.fecha))
 
+    // Costo real de lo vendido (FIFO, congelado en la venta). Para ventas sin costo
+    // congelado (anteriores al costeo FIFO), recae en el precio_compra actual del producto.
+    const prodCostoMap = new Map(productos.map(p => [p.id, p.precio_compra ?? 0]))
+    const costoVendido = (lista: typeof ventasArr) => lista.reduce((s, v) => s + (v.items ?? []).reduce((cs, it) => {
+      if (it.costo_total != null) return cs + it.costo_total
+      if (!it.producto_id) return cs
+      return cs + it.cantidad * (prodCostoMap.get(it.producto_id) ?? 0)
+    }, 0), 0)
+
     const totalVentas = ventasArr.reduce((s, v) => s + (+v.total_iva || 0), 0)
+    const ventasNetas = ventasArr.reduce((s, v) => s + (+v.total || 0), 0)
     const totalGastos = gastosArr.reduce((s, g) => s + (+g.monto || 0), 0)
     const totalCompras = ocsArr.reduce((s, o) => s + (+o.total || 0), 0)
-    const utilidad = totalVentas - totalGastos - totalCompras
+    const totalCosto = costoVendido(ventasArr)
+    const utilidad = ventasNetas - totalCosto - totalGastos
     const ordenesOk = ordeArr.length
     const ticketProm = ordenesOk ? Math.round(ordeArr.reduce((s, o) => s + (o.presup != null ? +o.presup : 0), 0) / ordenesOk) : 0
 
@@ -152,11 +164,13 @@ export function EstadisticasPage() {
     })
     const gastosPorSuc = gastosPorSucursal(gastosArr, bodegas, ventasNetasPorSucursal)
     const bUtil = bodegas
-      .map(b => ({
-        nombre: b.nombre ?? b.name ?? '—',
-        util: ventasArr.filter(v => v.branchId === b.id).reduce((s, v) => s + (+v.total_iva || 0), 0)
-          - (gastosPorSuc[b.id] ?? 0),
-      }))
+      .map(b => {
+        const bV = ventasArr.filter(v => v.branchId === b.id)
+        return {
+          nombre: b.nombre ?? b.name ?? '—',
+          util: bV.reduce((s, v) => s + (+v.total || 0), 0) - costoVendido(bV) - (gastosPorSuc[b.id] ?? 0),
+        }
+      })
       .filter(b => b.util !== 0)
       .sort((a, b) => b.util - a.util)
 
@@ -196,13 +210,13 @@ export function EstadisticasPage() {
     const maxMO = Math.max(...meses6.map(m => m.ordenes), 1)
 
     return {
-      totalVentas, totalGastos, totalCompras, utilidad, ordenesOk, ticketProm,
+      totalVentas, ventasNetas, totalGastos, totalCompras, totalCosto, utilidad, ordenesOk, ticketProm,
       bSales, maxBSales, bUtil, topProds, maxQty, catSorted, provSorted,
       meses6, maxMG, maxMC, maxMO,
       cntVentas: ventasArr.length,
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ventas, gastos, ordenes, ocs, bodegas, range, last6])
+  }, [ventas, gastos, ordenes, ocs, productos, bodegas, range, last6])
 
   const isMobile = useIsMobile()
 
@@ -281,7 +295,7 @@ export function EstadisticasPage() {
         <div style={CARD}>
           <p style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 4, marginTop: 0 }}>Utilidad neta</p>
           <p style={{ fontSize: 26, fontWeight: 800, color: stats.utilidad >= 0 ? '#10b981' : '#ef4444', lineHeight: 1.1, margin: 0 }}>{fmt(stats.utilidad)}</p>
-          <p style={{ fontSize: 11, color: '#6b7280', marginTop: 3, marginBottom: 0 }}>Ventas − Gastos − Compras</p>
+          <p style={{ fontSize: 11, color: '#6b7280', marginTop: 3, marginBottom: 0 }}>Ventas netas − Costo de productos − Gastos</p>
         </div>
         <div style={CARD}>
           <p style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 4, marginTop: 0 }}>Órdenes completadas</p>
@@ -305,7 +319,7 @@ export function EstadisticasPage() {
         {/* Utilidad por sucursal */}
         <div style={CARD}>
           <p style={CT}>Utilidad por sucursal</p>
-          <p style={CS}>Ventas − Gastos − Compras asignados</p>
+          <p style={CS}>Ventas − Costo de productos − Gastos asignados</p>
           {stats.bUtil.length ? stats.bUtil.map((b, i) => (
             <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11, padding: '5px 0', borderBottom: '1px solid #f3f4f6' }}>
               <span style={{ color: '#374151', fontWeight: 600 }}>{b.nombre}</span>
