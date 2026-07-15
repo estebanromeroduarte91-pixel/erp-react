@@ -18,6 +18,21 @@ const COLOR_WORDS = [
   'grafito', 'titanio', 'natural', 'desierto', 'black',
 ]
 
+// Variantes de género que representan el mismo color — se muestran unificadas bajo una sola forma.
+const COLOR_CANON: Record<string, string> = {
+  blanca: 'blanco', negra: 'negro', roja: 'rojo',
+}
+
+function canonColor(color: string): string {
+  return color
+    .split(' ')
+    .map(w => {
+      const canon = COLOR_CANON[w.toLowerCase()] ?? w.toLowerCase()
+      return canon.charAt(0).toUpperCase() + canon.slice(1)
+    })
+    .join(' ')
+}
+
 function stripColor(name: string): string {
   const nl = name.toLowerCase()
   for (const c of COLOR_WORDS) {
@@ -41,10 +56,12 @@ function isColorSubset(colorA: string, colorB: string): boolean {
 }
 
 // Returns true if a product's color matches the selected color
-// (exact match OR product color words are all in selected color)
+// (exact match OR product color words are all in selected color), comparando
+// formas canónicas para que "Negra"/"Negro" (o "Blanca"/"Blanco", etc.) se traten como el mismo color.
 function colorMatches(productColor: string, selectedColor: string): boolean {
-  if (productColor.toLowerCase() === selectedColor.toLowerCase()) return true
-  return isColorSubset(productColor, selectedColor)
+  const a = canonColor(productColor), b = canonColor(selectedColor)
+  if (a.toLowerCase() === b.toLowerCase()) return true
+  return isColorSubset(a, b)
 }
 
 // From a list of products in an enlace group, find available colors
@@ -67,7 +84,7 @@ function analizarGrupo(prods: Producto[]): { colores: string[]; genericos: Produ
     } else {
       for (const p of grupo) {
         const c = extractColor(p.nombre)
-        if (c) coloresSet.add(c)
+        if (c) coloresSet.add(canonColor(c))
       }
     }
   }
