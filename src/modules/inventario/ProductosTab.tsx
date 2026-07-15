@@ -1,11 +1,13 @@
 import { useState, useMemo, useRef } from 'react'
 import * as XLSX from 'xlsx'
-import { useProductos, useBodegas, useGuardarProductos } from '@/lib/queries'
+import { useProductos, useBodegas, useGuardarProductos, useLotes, useGuardarLotes } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { Money } from '@/components/shared/Money'
 import { Spinner } from '@/components/shared/Spinner'
 import { ProductoModal } from './ProductoModal'
-import type { Producto } from '@/types'
+import type { Producto, LoteInventario } from '@/types'
+
+function uidLote() { return Math.random().toString(36).slice(2) + Date.now().toString(36) }
 
 type ImportRow = { sku: string; nombre: string; costoNeto: number; precio: number; stock: number; categoria: string; subcategoria: string; enlace: string; tipo: 'producto' | 'servicio' }
 
@@ -59,6 +61,8 @@ export function ProductosTab() {
   const { data: productos, isLoading } = useProductos()
   const { data: bodegas } = useBodegas()
   const guardar = useGuardarProductos()
+  const { data: lotes = [] } = useLotes()
+  const guardarLotes = useGuardarLotes()
   const { esAdmin } = useAuth()
 
   const [busqueda, setBusqueda]     = useState('')
@@ -190,6 +194,42 @@ export function ProductosTab() {
     await guardar.mutateAsync([])
   }
 
+  // Fase 2 del costeo FIFO: crea un lote "de apertura" (costo = precio_compra actual)
+  // para cada combinación producto+bodega que ya tiene stock pero aún no tiene ningún
+  // lote. Idempotente: se puede correr más de una vez sin duplicar lotes.
+  async function generarLotesApertura() {
+    if (!esAdmin) return
+    const tieneLote = new Set(lotes.map(l => l.producto_id + '::' + l.bodega_id))
+    const nuevos: LoteInventario[] = []
+    for (const p of productos ?? []) {
+      if (p.tipo === 'servicio') continue
+      const entradas: [string, number][] = p.stock_sucursales && Object.keys(p.stock_sucursales).length > 0
+        ? Object.entries(p.stock_sucursales).map(([bId, qty]) => [bId, Number(qty) || 0])
+        : (bdList[0] ? [[bdList[0].id, Number(p.stock) || 0]] : [])
+      for (const [bodegaId, cantidad] of entradas) {
+        if (cantidad <= 0) continue
+        const key = p.id + '::' + bodegaId
+        if (tieneLote.has(key)) continue
+        tieneLote.add(key)
+        nuevos.push({
+          id: uidLote(),
+          producto_id: p.id,
+          bodega_id: bodegaId,
+          cantidad_inicial: cantidad,
+          cantidad_restante: cantidad,
+          costo_unitario: p.precio_compra ?? 0,
+          origen: 'apertura',
+          fecha: new Date().toISOString().split('T')[0],
+          creado_en: new Date().toISOString(),
+        })
+      }
+    }
+    if (nuevos.length === 0) { alert('No hay stock sin lote — nada que generar.'); return }
+    if (!confirm(`Se van a crear ${nuevos.length} lote(s) de apertura para el stock actual. ¿Continuar?`)) return
+    await guardarLotes.mutateAsync([...lotes, ...nuevos])
+    alert(`Listo: se crearon ${nuevos.length} lote(s) de apertura.`)
+  }
+
   if (isLoading) return <div className="flex justify-center py-16"><Spinner className="w-8 h-8" /></div>
 
   const bdList = bodegas ?? []
@@ -226,6 +266,15 @@ export function ProductosTab() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                 </svg>
                 <span className="hidden sm:inline">Eliminar todo</span>
+              </button>
+            )}
+            {esAdmin && (
+              <button onClick={generarLotesApertura} title="Costeo FIFO: crea lotes de apertura para el stock actual"
+                className="flex items-center gap-2 text-sm font-semibold px-3 py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition">
+                <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                </svg>
+                <span className="hidden sm:inline">Lotes de apertura</span>
               </button>
             )}
             <button onClick={abrirNuevo}
