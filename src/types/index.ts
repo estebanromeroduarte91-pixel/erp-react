@@ -256,6 +256,8 @@ export interface Gasto {
   categoria: string     // nombre de la categoría
   subcategoria?: string // desglose dentro de la categoría (ej. empleado, sucursal, plataforma)
   metodo?: string       // 'Efectivo' | 'Transferencia' | etc.
+  bodega_id?: string    // sucursal a la que pertenece el gasto, o 'general' si es compartido entre todas
+  bodega_nombre?: string
 }
 
 export interface GastoCat {

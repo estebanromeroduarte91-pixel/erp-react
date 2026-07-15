@@ -1,8 +1,9 @@
 import { useState, useMemo, useRef } from 'react'
-import { useGastos, useGuardarGastos, useGastoCats, useGuardarGastoCats, usePlanCuentas, useCatCuentaMap, useAsientos, useGuardarAsientos } from '@/lib/queries'
+import { useGastos, useGuardarGastos, useGastoCats, useGuardarGastoCats, usePlanCuentas, useCatCuentaMap, useAsientos, useGuardarAsientos, useBodegas } from '@/lib/queries'
 import { asientoDeGasto, asientoIdDeGasto, nextNumeroAsiento } from '@/lib/contabilidad'
+import { GASTO_GENERAL_ID } from '@/lib/gastos'
 import { Spinner } from '@/components/shared/Spinner'
-import type { Gasto, GastoCat } from '@/types'
+import type { Gasto, GastoCat, Bodega } from '@/types'
 
 function uid() { return Math.random().toString(36).slice(2) + Date.now().toString(36) }
 function today() { return new Date().toISOString().split('T')[0] }
@@ -24,6 +25,7 @@ const METODOS = ['Efectivo', 'Transferencia', 'Tarjeta', 'Crédito', 'Cheque']
 
 export function GastosTab() {
   const { data: gastos, isLoading } = useGastos()
+  const { data: bodegas } = useBodegas()
   const { data: cats } = useGastoCats()
   const guardar = useGuardarGastos()
   const { data: planCuentas } = usePlanCuentas()
@@ -321,6 +323,7 @@ export function GastosTab() {
       {modalOpen && (
         <GastoModal
           cats={cats ?? []}
+          bodegas={bodegas ?? []}
           gasto={editando}
           subcatsPorCat={subcatsPorCat}
           onClose={() => setModalOpen(false)}
@@ -340,8 +343,9 @@ export function GastosTab() {
   )
 }
 
-function GastoModal({ cats, gasto, subcatsPorCat, onClose, onGuardar }: {
+function GastoModal({ cats, bodegas, gasto, subcatsPorCat, onClose, onGuardar }: {
   cats: GastoCat[]
+  bodegas: Bodega[]
   gasto: Gasto | null
   subcatsPorCat: Record<string, Map<string, string>>
   onClose: () => void
@@ -353,6 +357,7 @@ function GastoModal({ cats, gasto, subcatsPorCat, onClose, onGuardar }: {
   const [subcategoria, setSubcategoria] = useState(gasto?.subcategoria ?? '')
   const [subOpen, setSubOpen] = useState(false)
   const [metodo, setMetodo] = useState(gasto?.metodo ?? 'Efectivo')
+  const [bodegaId, setBodegaId] = useState(gasto?.bodega_id ?? '')
   const [fecha, setFecha] = useState(gasto?.fecha ?? today())
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState('')
@@ -370,7 +375,9 @@ function GastoModal({ cats, gasto, subcatsPorCat, onClose, onGuardar }: {
   async function handleGuardar() {
     if (!monto || +monto <= 0) { setError('Ingresa un monto válido'); return }
     if (!descripcion.trim()) { setError('Agrega una descripción'); return }
+    if (!bodegaId) { setError('Elige a qué sucursal corresponde este gasto'); return }
     setError(''); setGuardando(true)
+    const bodega = bodegas.find(b => b.id === bodegaId)
     await onGuardar({
       id: gasto?.id ?? '',
       fecha,
@@ -379,6 +386,8 @@ function GastoModal({ cats, gasto, subcatsPorCat, onClose, onGuardar }: {
       categoria,
       subcategoria: subCanonica,
       metodo,
+      bodega_id: bodegaId,
+      bodega_nombre: bodegaId === GASTO_GENERAL_ID ? 'General / Compartido' : (bodega?.nombre ?? bodega?.name),
     })
     setGuardando(false)
     onClose()
@@ -450,6 +459,17 @@ function GastoModal({ cats, gasto, subcatsPorCat, onClose, onGuardar }: {
                 )
               })}
             </div>
+          </div>
+
+          {/* Sucursal (obligatorio, para separar utilidad por sucursal) */}
+          <div>
+            <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider block mb-1.5">Sucursal</label>
+            <select value={bodegaId} onChange={e => setBodegaId(e.target.value)}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400 transition">
+              <option value="">-- Elegir sucursal --</option>
+              {bodegas.map(b => <option key={b.id} value={b.id}>{b.nombre ?? b.name}</option>)}
+              <option value={GASTO_GENERAL_ID}>General / Compartido (se reparte entre sucursales)</option>
+            </select>
           </div>
 
           {/* Fila 2: Subcategoría + Método + Fecha */}

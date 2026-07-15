@@ -1,5 +1,6 @@
 import { useMemo, useState, useRef } from 'react'
 import { useVentas, useGastos, useOrdenes, useBodegas, useOCs } from '@/lib/queries'
+import { gastosPorSucursal } from '@/lib/gastos'
 import { Spinner } from '@/components/shared/Spinner'
 import { useIsMobile } from '@/lib/useIsMobile'
 
@@ -142,13 +143,19 @@ export function EstadisticasPage() {
       .filter(b => b.total > 0)
       .sort((a, b) => b.total - a.total)
 
-    // Utilidad por sucursal
+    // Utilidad por sucursal: ventas de la sucursal menos sus gastos (directos + prorrateo
+    // de los gastos "General/Compartido" según % de ventas netas). El costo de compras (OC)
+    // no se resta acá: eso ya lo maneja el costeo FIFO al momento de la venta.
+    const ventasNetasPorSucursal: Record<string, number> = {}
+    bodegas.forEach(b => {
+      ventasNetasPorSucursal[b.id] = ventasArr.filter(v => v.branchId === b.id).reduce((s, v) => s + (+v.total || 0), 0)
+    })
+    const gastosPorSuc = gastosPorSucursal(gastosArr, bodegas, ventasNetasPorSucursal)
     const bUtil = bodegas
       .map(b => ({
         nombre: b.nombre ?? b.name ?? '—',
         util: ventasArr.filter(v => v.branchId === b.id).reduce((s, v) => s + (+v.total_iva || 0), 0)
-          - gastosArr.filter((g: any) => g.branchId === b.id).reduce((s, g) => s + (+g.monto || 0), 0)
-          - ocsArr.filter((o: any) => o.branchId === b.id).reduce((s, o) => s + (+o.total || 0), 0),
+          - (gastosPorSuc[b.id] ?? 0),
       }))
       .filter(b => b.util !== 0)
       .sort((a, b) => b.util - a.util)
