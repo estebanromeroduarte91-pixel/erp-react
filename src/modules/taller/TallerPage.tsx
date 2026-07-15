@@ -199,10 +199,26 @@ export function TallerPage() {
         <div style={{ background: '#fff', padding: '16px 16px 10px', borderBottom: '0.5px solid #e5e7eb', position: 'sticky', top: 0, zIndex: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
             <h1 style={{ fontSize: 22, fontWeight: 700, color: '#1c1c1e', margin: 0 }}>Órdenes</h1>
-            <button
-              onClick={abrirNueva}
-              style={{ background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 10, padding: '7px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
-            >+ Nueva</button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <button
+                onClick={() => setFiltroEstado(filtroEstado === 'Entregado' ? 'todos' : 'Entregado')}
+                aria-label="Entregados"
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  width: 34, height: 34, borderRadius: 10, border: 'none', cursor: 'pointer',
+                  background: filtroEstado === 'Entregado' ? 'var(--primary)' : '#f2f2f7',
+                  color: filtroEstado === 'Entregado' ? '#fff' : '#6b7280',
+                }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/>
+                </svg>
+              </button>
+              <button
+                onClick={abrirNueva}
+                style={{ background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 10, padding: '7px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
+              >+ Nueva</button>
+            </div>
           </div>
           {/* Filtros */}
           <div style={{ display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: 2 }}>
@@ -220,6 +236,17 @@ export function TallerPage() {
             ))}
           </div>
         </div>
+
+        {/* Banner historial */}
+        {filtroEstado === 'Entregado' && (
+          <div style={{ margin: '10px 16px 0', display: 'flex', alignItems: 'center', gap: 8, background: '#f9fafb', border: '0.5px solid #e5e7eb', borderRadius: 10, padding: '9px 12px' }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+            <span style={{ fontSize: 12, color: '#6b7280', flex: 1 }}>Historial — ya entregadas</span>
+            <button onClick={() => setFiltroEstado('todos')} style={{ background: 'none', border: 'none', color: 'var(--primary)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+              ← Volver
+            </button>
+          </div>
+        )}
 
         {/* Search */}
         <div style={{ padding: '10px 16px 4px' }}>

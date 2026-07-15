@@ -35,10 +35,10 @@ export function InventarioPage() {
       </div>
 
       {/* Móvil: segmentado de ancho igual — los 4 tabs caben sin cortarse ni scroll */}
-      <div className="md:hidden flex gap-0.5 p-1 rounded-xl mb-5" style={{ background: '#f2f2f7' }}>
+      <div className="md:hidden flex gap-0 p-0.5 rounded-full mb-5" style={{ background: '#f2f2f7' }}>
         {TABS.map((t) => (
           <button key={t.id} onClick={() => setTab(t.id)}
-            className="flex-1 min-w-0 text-center py-2 px-0.5 rounded-lg text-[12px] font-medium transition whitespace-nowrap"
+            className="flex-1 min-w-0 text-center py-2 px-0 rounded-full text-[12px] font-medium transition whitespace-nowrap"
             style={{ background: tab === t.id ? '#3656e6' : 'transparent', color: tab === t.id ? '#fff' : '#6b7280' }}>
             {t.labelMobile ?? t.label}
           </button>
