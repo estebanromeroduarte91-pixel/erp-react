@@ -8,10 +8,12 @@ import {
   useProveedores, useGuardarProveedores, useGuardarProductos,
   usePlanCuentas, useAsientos, useGuardarAsientos,
   useMovimientos, useGuardarMovimientos,
+  useLotes, useGuardarLotes,
 } from '@/lib/queries'
 import { asientoDeOC, asientoIdDeOC, nextNumeroAsiento } from '@/lib/contabilidad'
 import { formatRut } from '@/lib/rut'
-import type { OC, OCItem, OCRecepcion, OCLogEntry, EstadoOC, Producto, Bodega, Proveedor, Movimiento } from '@/types'
+import { uid } from '@/lib/uid'
+import type { OC, OCItem, OCRecepcion, OCLogEntry, EstadoOC, Producto, Bodega, Proveedor, Movimiento, LoteInventario } from '@/types'
 
 // ─── Helpers ──────────────────────────────────────────────────
 
@@ -1065,6 +1067,8 @@ export function ComprasPage() {
   const { data: planCuentas } = usePlanCuentas()
   const { data: asientos } = useAsientos()
   const guardarAsientos = useGuardarAsientos()
+  const { data: lotes = [] } = useLotes()
+  const guardarLotes = useGuardarLotes()
   const { data: movimientos = [] } = useMovimientos()
   const guardarMovimientos = useGuardarMovimientos()
 
@@ -1159,6 +1163,28 @@ export function ComprasPage() {
         }
         await guardarProductos.mutateAsync(updatedProds)
       }
+      const ocOriginal = ocs.find(o => o.id === ocId)
+      const nuevosLotes: LoteInventario[] = []
+      for (const rec of recepciones) {
+        for (const ri of rec.items) {
+          if (!ri.producto_id) continue
+          const ocItem = ocOriginal?.items.find(it => it.id === ri.prod_item_id)
+          nuevosLotes.push({
+            id: uid(),
+            producto_id: ri.producto_id,
+            bodega_id: rec.bodega_id,
+            cantidad_inicial: ri.cantidad,
+            cantidad_restante: ri.cantidad,
+            costo_unitario: ocItem?.precio_neto ?? 0,
+            origen: 'oc',
+            oc_id: ocId,
+            oc_item_id: ri.prod_item_id,
+            fecha: today(),
+            creado_en: new Date().toISOString(),
+          })
+        }
+      }
+      if (nuevosLotes.length > 0) await guardarLotes.mutateAsync([...lotes, ...nuevosLotes])
       const ocNumero = updated.find(o => o.id === ocId)?.numero
       const nuevosMovs: Movimiento[] = []
       for (const rec of recepciones) {

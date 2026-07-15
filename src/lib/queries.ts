@@ -3,7 +3,7 @@ import { useEffect, useId } from 'react'
 import { supabase } from './supabase'
 import { dbGet, dbSet } from './db'
 import { useAuth } from '@/context/AuthContext'
-import type { Orden, Cliente, Producto, Bodega, Movimiento, Proveedor, Venta, MetodoPago, Caja, CajaSesion, Gasto, GastoCat, CuentaContable, Asiento, SeguimientoConfig, SmtpConfig, MsgTemplates, Cargo, UserProfile, UserConfig, PendingInvite, EmailDomain, OC, OCLogEntry, Categoria, Kit, Traslado, TecnicoExterno, Equipo, FichaUsuario } from '@/types'
+import type { Orden, Cliente, Producto, Bodega, Movimiento, Proveedor, Venta, MetodoPago, Caja, CajaSesion, Gasto, GastoCat, CuentaContable, Asiento, SeguimientoConfig, SmtpConfig, MsgTemplates, Cargo, UserProfile, UserConfig, PendingInvite, EmailDomain, OC, OCLogEntry, Categoria, Kit, Traslado, TecnicoExterno, Equipo, FichaUsuario, LoteInventario } from '@/types'
 
 // ── Órdenes de Taller ─────────────────────────────────────────
 
@@ -117,6 +117,32 @@ export function useGuardarProductos() {
   return useMutation({
     mutationFn: (prods: Producto[]) => dbSet(empresaId!, 'productos', prods),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['productos', empresaId] }),
+  })
+}
+
+// ── Lotes de inventario (costeo FIFO) ─────────────────────────
+
+export function useLotes() {
+  const { empresaId } = useAuth()
+  return useQuery({
+    queryKey: ['lotes_inventario', empresaId],
+    queryFn: () => dbGet<LoteInventario[] | string>(empresaId!, 'lotes_inventario'),
+    enabled: !!empresaId,
+    select: (data) => {
+      if (typeof data === 'string') {
+        try { return JSON.parse(data) as LoteInventario[] } catch { return [] }
+      }
+      return (data as LoteInventario[]) ?? []
+    },
+  })
+}
+
+export function useGuardarLotes() {
+  const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (lotes: LoteInventario[]) => dbSet(empresaId!, 'lotes_inventario', lotes),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['lotes_inventario', empresaId] }),
   })
 }
 

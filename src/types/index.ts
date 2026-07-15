@@ -172,6 +172,23 @@ export interface VentaItem {
   precio_iva: number     // precio unitario con IVA
   descuento: number      // %
   subtotal: number       // neto
+  costo_unitario?: number  // costo FIFO congelado al momento de la venta
+  costo_total?: number     // cantidad * costo_unitario
+}
+
+// ── Lotes de inventario (costeo FIFO) ───────────────────────
+export interface LoteInventario {
+  id: string
+  producto_id: string
+  bodega_id: string
+  cantidad_inicial: number
+  cantidad_restante: number
+  costo_unitario: number
+  origen: 'oc' | 'apertura'
+  oc_id?: string
+  oc_item_id?: string
+  fecha: string
+  creado_en: string
 }
 
 export interface Venta {
