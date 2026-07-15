@@ -675,7 +675,8 @@ function ModalConfirmarOC({
 }) {
   const [folio, setFolio] = useState('')
   const [metodo, setMetodo] = useState<'banco' | 'caja' | 'credito'>('banco')
-  const totalIva = Math.round((oc.total ?? 0) * 1.19)
+  // oc.total ya incluye IVA (así se calculan las líneas de la OC) — no volver a aplicarlo.
+  const totalIva = oc.total ?? 0
 
   const METODOS = [
     { id: 'banco' as const, label: 'Transferencia', desc: 'Se registrará el pago contra cuenta Banco (120)' },

@@ -96,8 +96,9 @@ export function asientoDeOC(
   numero?: number,
 ): Asiento {
   const find = (id: string) => plan.find((c) => c.id === id)
-  const neto = oc.total ?? 0
-  const totalPagar = sinFactura ? neto : Math.round(neto * 1.19)
+  // oc.total ya viene con IVA incluido (así se calcula en ComprasPage al armar las líneas de la OC).
+  const totalPagar = oc.total ?? 0
+  const neto = sinFactura ? totalPagar : Math.round(totalPagar / 1.19)
   const iva = totalPagar - neto // 0 cuando es sin factura
 
   const inventario = find('pc-140') ?? plan[0]

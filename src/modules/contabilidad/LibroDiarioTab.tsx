@@ -1,5 +1,7 @@
 import { useState, useMemo } from 'react'
-import { useAsientos } from '@/lib/queries'
+import { useAsientos, useGuardarAsientos, useOCs, usePlanCuentas } from '@/lib/queries'
+import { useAuth } from '@/context/AuthContext'
+import { asientoDeOC, asientoIdDeOC } from '@/lib/contabilidad'
 import { Spinner } from '@/components/shared/Spinner'
 import type { Asiento } from '@/types'
 
@@ -15,10 +17,40 @@ const REF_TIPO_LABEL: Record<string, string> = {
 
 export function LibroDiarioTab() {
   const { data: asientos, isLoading } = useAsientos()
-
+  const guardarAsientos = useGuardarAsientos()
+  const { data: ocs } = useOCs()
+  const { data: planCuentas } = usePlanCuentas()
+  const { esAdmin } = useAuth()
 
   const [busqueda, setBusqueda] = useState('')
   const [detalle, setDetalle] = useState<Asiento | null>(null)
+
+  // Corrige asientos de OC-con-factura generados con la fórmula vieja, que le aplicaba
+  // el IVA dos veces (oc.total ya incluye IVA). Idempotente: correr de nuevo no cambia nada
+  // si ya están corregidos.
+  async function corregirAsientosOC() {
+    if (!esAdmin) return
+    const lista = asientos ?? []
+    const ocsConFactura = (ocs ?? []).filter(o =>
+      o.estado === 'confirmada' && o.folio_factura && o.folio_factura.trim().toUpperCase() !== 'SIN FACTURA'
+    )
+    const nuevosAsientos = [...lista]
+    let corregidos = 0
+    for (const oc of ocsConFactura) {
+      const idx = nuevosAsientos.findIndex(a => a.id === asientoIdDeOC(oc.id))
+      if (idx < 0) continue
+      const actual = nuevosAsientos[idx]
+      const corregido = asientoDeOC(oc, oc.metodo_pago ?? 'banco', false, planCuentas ?? [], actual.numero)
+      if (JSON.stringify(actual.lineas) !== JSON.stringify(corregido.lineas)) {
+        nuevosAsientos[idx] = corregido
+        corregidos++
+      }
+    }
+    if (corregidos === 0) { alert('No hay asientos de OC con factura por corregir.'); return }
+    if (!confirm(`Se van a corregir ${corregidos} asiento(s) de OC con factura (el IVA se estaba calculando dos veces). ¿Continuar?`)) return
+    await guardarAsientos.mutateAsync(nuevosAsientos)
+    alert(`Listo: se corrigieron ${corregidos} asiento(s).`)
+  }
 
   const lista = useMemo(() => {
     let arr = [...(asientos ?? [])].sort((a, b) => (b.fecha ?? '').localeCompare(a.fecha ?? ''))
@@ -49,7 +81,16 @@ export function LibroDiarioTab() {
         </div>
       </div>
 
-      <p className="text-xs text-gray-400 mb-2 px-1">{lista.length} asientos</p>
+      <div className="flex items-center justify-between mb-2 px-1">
+        <p className="text-xs text-gray-400">{lista.length} asientos</p>
+        {esAdmin && (
+          <button onClick={corregirAsientosOC}
+            title="Corrige asientos de OC con factura donde el IVA se calculó dos veces"
+            className="text-xs font-semibold text-red-600 hover:text-red-700 underline">
+            Corregir asientos de OC con factura
+          </button>
+        )}
+      </div>
 
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         {lista.length === 0 ? (
