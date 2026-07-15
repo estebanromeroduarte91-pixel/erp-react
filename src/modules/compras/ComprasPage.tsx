@@ -12,7 +12,6 @@ import {
 } from '@/lib/queries'
 import { asientoDeOC, asientoIdDeOC, nextNumeroAsiento } from '@/lib/contabilidad'
 import { formatRut } from '@/lib/rut'
-import { uid } from '@/lib/uid'
 import type { OC, OCItem, OCRecepcion, OCLogEntry, EstadoOC, Producto, Bodega, Proveedor, Movimiento, LoteInventario } from '@/types'
 
 // ─── Helpers ──────────────────────────────────────────────────
