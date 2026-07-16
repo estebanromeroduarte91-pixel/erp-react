@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef } from 'react'
-import { useVentas, useGuardarVentas, useMetodosPago, useProductos } from '@/lib/queries'
+import { useVentas, useGuardarVentas, useMetodosPago, useProductosSQL } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { Spinner } from '@/components/shared/Spinner'
 import type { Venta } from '@/types'
@@ -33,7 +33,7 @@ const PERIODO_LABEL: Record<Periodo, string> = {
 export function VentasListTab() {
   const { data: ventas, isLoading } = useVentas()
   const { data: metodos } = useMetodosPago()
-  const { data: productos } = useProductos()
+  const { data: productos } = useProductosSQL()
   const guardar = useGuardarVentas()
   const { esAdmin } = useAuth()
 

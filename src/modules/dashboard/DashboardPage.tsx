@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useVentas, useGastos, useOrdenes, useBodegas, useMetodosPago, useOCs, useProductos } from '@/lib/queries'
+import { useVentas, useGastos, useOrdenes, useBodegas, useMetodosPago, useOCs, useProductosSQL } from '@/lib/queries'
 import { gastosPorSucursal } from '@/lib/gastos'
 import { Spinner } from '@/components/shared/Spinner'
 import { useIsMobile } from '@/lib/useIsMobile'
@@ -92,7 +92,7 @@ export function DashboardPage() {
   const { data: ventas,  isLoading: loadV } = useVentas()
   const { data: gastos,  isLoading: loadG } = useGastos()
   const { data: ocs,     isLoading: loadOC } = useOCs()
-  const { data: productos = [] } = useProductos()
+  const { data: productos = [] } = useProductosSQL()
   const { isLoading: loadO } = useOrdenes()
   const { data: bodegasRaw = [] } = useBodegas()
   const bodegas = useMemo(() => [...bodegasRaw].sort((a, b) => (b.nombre ?? b.name ?? '').localeCompare(a.nombre ?? a.name ?? '', 'es')), [bodegasRaw])
