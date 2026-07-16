@@ -120,6 +120,56 @@ export function useGuardarProductos() {
   })
 }
 
+// ── Productos: acceso relacional (tabla real `productos` + `producto_stock`) ───
+// Reemplaza gradualmente al blob JSON de arriba. `stock_sucursales` se rehidrata
+// desde las filas de `producto_stock` para que los consumidores no tengan que cambiar de forma.
+const PRODUCTO_COLS = 'id,nombre,sku,unidad,precio_compra,precio_venta,stock_min,categoria,subcategoria,enlace,descripcion,tipo, producto_stock(bodega_id,cantidad)'
+
+function hidratarProducto(row: Record<string, unknown>): Producto {
+  const stock_sucursales: Record<string, number> = {}
+  const stockRows = (row.producto_stock as { bodega_id: string; cantidad: number }[] | undefined) ?? []
+  for (const s of stockRows) stock_sucursales[s.bodega_id] = s.cantidad
+  const { producto_stock: _omit, ...rest } = row
+  return { ...(rest as unknown as Producto), stock_sucursales }
+}
+
+export function useProductosSQL() {
+  const { empresaId } = useAuth()
+  return useQuery({
+    queryKey: ['productos_sql', empresaId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('productos')
+        .select(PRODUCTO_COLS)
+        .eq('empresa_id', empresaId!)
+      if (error) throw error
+      return (data ?? []).map(hidratarProducto)
+    },
+    enabled: !!empresaId,
+  })
+}
+
+// Búsqueda del lado del servidor por nombre o SKU (ilike + índice pg_trgm), limitada.
+// Reemplaza el patrón `productos.filter(...).slice(0, N)` que hoy corre en el navegador.
+export function useBuscarProductos(query: string) {
+  const { empresaId } = useAuth()
+  const safe = query.replace(/[%,()]/g, ' ').trim()
+  return useQuery({
+    queryKey: ['buscar_productos', empresaId, safe],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('productos')
+        .select(PRODUCTO_COLS)
+        .eq('empresa_id', empresaId!)
+        .or(`nombre.ilike.%${safe}%,sku.ilike.%${safe}%`)
+        .limit(20)
+      if (error) throw error
+      return (data ?? []).map(hidratarProducto)
+    },
+    enabled: !!empresaId && safe.length > 0,
+  })
+}
+
 // ── Lotes de inventario (costeo FIFO) ─────────────────────────
 
 export function useLotes() {

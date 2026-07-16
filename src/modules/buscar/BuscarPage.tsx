@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useVentas, useOrdenes, useProductos, useClientes } from '@/lib/queries'
+import { useVentas, useOrdenes, useBuscarProductos, useClientes } from '@/lib/queries'
 import { Spinner } from '@/components/shared/Spinner'
 
 type ResultType = 'ot' | 'venta' | 'cliente' | 'producto'
@@ -53,10 +53,10 @@ export function BuscarPage() {
 
   const { data: ventas, isLoading: loadV } = useVentas()
   const { data: ordenes, isLoading: loadO } = useOrdenes()
-  const { data: productos, isLoading: loadP } = useProductos()
   const { data: clientes, isLoading: loadC } = useClientes()
+  const { data: productosBuscados } = useBuscarProductos(query)   // búsqueda server-side
 
-  const isLoading = loadV || loadO || loadP || loadC
+  const isLoading = loadV || loadO || loadC
 
   const results: Result[] = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -105,20 +105,18 @@ export function BuscarPage() {
       })
     })
 
-    // Productos
-    ;(productos ?? []).filter(p =>
-      p.nombre?.toLowerCase().includes(q) ||
-      p.sku?.toLowerCase().includes(q)
-    ).slice(0, 5).forEach(p => {
+    // Productos (búsqueda del lado del servidor)
+    ;(productosBuscados ?? []).slice(0, 5).forEach(p => {
+      const stockTotal = Object.values(p.stock_sucursales ?? {}).reduce((a, b) => a + b, 0)
       out.push({
         type: 'producto', id: p.id,
         title: p.nombre,
-        sub: `Stock: ${p.stock ?? 0} · ${p.sku ?? 'Sin SKU'}`,
+        sub: `Stock: ${stockTotal} · ${p.sku ?? 'Sin SKU'}`,
       })
     })
 
     return out
-  }, [query, ventas, ordenes, productos, clientes])
+  }, [query, ventas, ordenes, productosBuscados, clientes])
 
   function handleResult(r: Result) {
     if (r.type === 'ot') navigate('/taller')
