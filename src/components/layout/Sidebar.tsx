@@ -303,8 +303,8 @@ export function Sidebar() {
       display: 'flex', flexDirection: 'column', zIndex: 100, overflowY: 'auto',
     }}>
       {/* Logo */}
-      <div style={{ padding: '18px 14px 14px', borderBottom: '1px solid var(--gray-100)', display: 'flex', alignItems: 'center' }}>
-        <img src="/logo-pixit.png" alt="Pixit" style={{ height: 44, objectFit: 'contain' }} />
+      <div style={{ padding: '20px 14px', borderBottom: '1px solid var(--gray-100)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <img src="/logo-pixit.png" alt="Pixit" style={{ height: 60, objectFit: 'contain' }} />
       </div>
 
       {/* Nav */}
