@@ -87,7 +87,7 @@ export function TallerPage() {
   const { esAdmin } = useAuth()
   const [configTab, setConfigTab] = useState<TallerConfigTab>('seguimiento')
   const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null)
-  const [filtroEstado, setFiltroEstado] = useState<EstadoOrden | 'todos' | 'Derivado'>('todos')
+  const [filtroEstado, setFiltroEstado] = useState<EstadoOrden | 'todos' | 'Derivado'>('Chequeo')
   const [busqueda, setBusqueda] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [editando, setEditando] = useState<Orden | null>(null)
@@ -131,8 +131,10 @@ export function TallerPage() {
   const stats = useMemo(() => {
     const all = (ordenes ?? []).filter((o) => !esAdmin || !selectedBranchId || o.branchId === selectedBranchId)
     return {
-      abiertas:  all.filter((o) => o.status !== 'Entregado').length,
-      listos:    all.filter((o) => o.status === 'Listo').length,
+      abiertas:   all.filter((o) => o.status !== 'Entregado').length,
+      chequeo:    all.filter((o) => o.status === 'Chequeo').length,
+      reparacion: all.filter((o) => o.status === 'Reparación').length,
+      listos:     all.filter((o) => o.status === 'Listo').length,
       entregadas: all.filter((o) => o.status === 'Entregado').length,
       derivadas:  all.filter((o) => derivadoIds.has(o.id) && o.status !== 'Entregado').length,
     }
@@ -385,7 +387,7 @@ export function TallerPage() {
           <BranchSelector
             bodegas={bodegas}
             ordenes={ordenes ?? []}
-            onSelect={(id) => { setSelectedBranchId(id); setFiltroEstado('todos') }}
+            onSelect={(id) => { setSelectedBranchId(id); setFiltroEstado('Chequeo') }}
           />
         ) : (<>
 
@@ -397,7 +399,7 @@ export function TallerPage() {
               <div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />
               <span className="text-sm font-semibold text-blue-800">{b?.nombre ?? b?.name ?? 'Sucursal'}</span>
               <button
-                onClick={() => { setSelectedBranchId(null); setFiltroEstado('todos') }}
+                onClick={() => { setSelectedBranchId(null); setFiltroEstado('Chequeo') }}
                 className="ml-auto text-xs font-medium text-blue-600 hover:text-blue-800 flex items-center gap-1"
               >
                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
@@ -446,25 +448,30 @@ export function TallerPage() {
         {/* Filtros */}
         <div className="flex items-center gap-1 mb-4 border-b border-gray-200 pb-3">
           <div className="flex flex-wrap items-center gap-1 flex-1">
-            {ESTADOS_MAIN.map((e) => (
-              <button
-                key={e.value}
-                onClick={() => setFiltroEstado(e.value)}
-                className={[
-                  'inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition',
-                  filtroEstado === e.value
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200',
-                ].join(' ')}
-              >
-                {e.label}
-                {e.value === 'Derivado' && stats.derivadas > 0 && (
-                  <span className={`inline-flex items-center justify-center w-4 h-4 rounded-full text-[10px] font-bold ${filtroEstado === 'Derivado' ? 'bg-white/30 text-white' : 'bg-orange-200 text-orange-800'}`}>
-                    {stats.derivadas}
+            {ESTADOS_MAIN.map((e) => {
+              const count = e.value === 'todos' ? stats.abiertas
+                : e.value === 'Chequeo' ? stats.chequeo
+                : e.value === 'Reparación' ? stats.reparacion
+                : e.value === 'Listo' ? stats.listos
+                : stats.derivadas
+              return (
+                <button
+                  key={e.value}
+                  onClick={() => setFiltroEstado(e.value)}
+                  className={[
+                    'inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition',
+                    filtroEstado === e.value
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200',
+                  ].join(' ')}
+                >
+                  {e.label}
+                  <span className={`inline-flex items-center justify-center min-w-4 h-4 px-1 rounded-full text-[10px] font-bold ${filtroEstado === e.value ? 'bg-white/30 text-white' : 'bg-gray-200 text-gray-600'}`}>
+                    {count}
                   </span>
-                )}
-              </button>
-            ))}
+                </button>
+              )
+            })}
           </div>
           <div className="pl-3 border-l border-gray-200 ml-1">
             <button
