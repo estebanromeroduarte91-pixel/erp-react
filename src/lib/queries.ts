@@ -143,12 +143,21 @@ export function useProductos() {
   return useQuery({
     queryKey: ['productos', empresaId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('productos')
-        .select(PRODUCTO_COLS)
-        .eq('empresa_id', empresaId!)
-      if (error) throw error
-      return (data ?? []).map(hidratarProducto)
+      // PostgREST devuelve máximo 1000 filas por página — hay que paginar
+      // explícitamente con .range() para traer catálogos más grandes que eso.
+      const PAGE = 1000
+      const filas: Record<string, unknown>[] = []
+      for (let from = 0; ; from += PAGE) {
+        const { data, error } = await supabase
+          .from('productos')
+          .select(PRODUCTO_COLS)
+          .eq('empresa_id', empresaId!)
+          .range(from, from + PAGE - 1)
+        if (error) throw error
+        filas.push(...(data ?? []))
+        if (!data || data.length < PAGE) break
+      }
+      return filas.map(hidratarProducto)
     },
     enabled: !!empresaId,
   })
