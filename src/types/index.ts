@@ -176,6 +176,26 @@ export interface VentaItem {
   costo_total?: number     // cantidad * costo_unitario
 }
 
+// ── Toma de inventario (conteo físico) ──────────────────────
+export interface ConteoItem {
+  producto_id: string
+  producto_nombre: string
+  sku?: string
+  sistema: number      // lo que decía el sistema al momento de confirmar
+  contado: number      // lo que se contó físicamente
+  diferencia: number   // contado - sistema
+}
+
+export interface ConteoInventario {
+  id: string
+  fecha: string          // 'YYYY-MM-DD'
+  bodega_id: string
+  bodega_nombre: string
+  usuario: string
+  items: ConteoItem[]
+  creado_en: string
+}
+
 // ── Lotes de inventario (costeo FIFO) ───────────────────────
 export interface LoteInventario {
   id: string

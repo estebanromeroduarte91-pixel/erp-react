@@ -4,19 +4,22 @@ import { ProductosTab } from './ProductosTab'
 import { BodegasTab } from './BodegasTab'
 import { MovimientosTab } from './MovimientosTab'
 import { CategoriasTab } from './CategoriasTab'
-type Tab = 'productos' | 'categorias' | 'bodegas' | 'movimientos'
+import { ConteosTab } from './ConteosTab'
+type Tab = 'productos' | 'categorias' | 'bodegas' | 'movimientos' | 'conteos'
 
 const TABS: { id: Tab; label: string; labelMobile?: string }[] = [
   { id: 'productos',   label: 'Productos' },
-  { id: 'categorias',  label: 'Categorías' },
+  { id: 'categorias',  label: 'Categorías', labelMobile: 'Categ.' },
   { id: 'bodegas',     label: 'Bodegas / Sucursales', labelMobile: 'Bodegas' },
-  { id: 'movimientos', label: 'Movimientos' },
+  { id: 'movimientos', label: 'Movimientos', labelMobile: 'Movim.' },
+  { id: 'conteos',     label: 'Toma de inventario', labelMobile: 'Conteo' },
 ]
 
 function resolveTab(param: string | null): Tab {
   if (param === 'categorias') return 'categorias'
   if (param === 'bodegas')    return 'bodegas'
   if (param === 'movimientos') return 'movimientos'
+  if (param === 'conteos')    return 'conteos'
   return 'productos'
 }
 
@@ -60,6 +63,7 @@ export function InventarioPage() {
       {tab === 'categorias'  && <CategoriasTab />}
       {tab === 'bodegas'     && <BodegasTab />}
       {tab === 'movimientos' && <MovimientosTab />}
+      {tab === 'conteos'     && <ConteosTab />}
     </div>
   )
 }

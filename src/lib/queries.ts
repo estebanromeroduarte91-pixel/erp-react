@@ -2,8 +2,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useId } from 'react'
 import { supabase } from './supabase'
 import { dbGet, dbSet } from './db'
+import { reconciliarLotes } from './lotes'
 import { useAuth } from '@/context/AuthContext'
-import type { Orden, Cliente, Producto, Bodega, Movimiento, Proveedor, Venta, MetodoPago, Caja, CajaSesion, Gasto, GastoCat, CuentaContable, Asiento, SeguimientoConfig, SmtpConfig, MsgTemplates, Cargo, UserProfile, UserConfig, PendingInvite, EmailDomain, OC, OCLogEntry, Categoria, Kit, Traslado, TecnicoExterno, Equipo, FichaUsuario, LoteInventario } from '@/types'
+import type { Orden, Cliente, Producto, Bodega, Movimiento, Proveedor, Venta, MetodoPago, Caja, CajaSesion, Gasto, GastoCat, CuentaContable, Asiento, SeguimientoConfig, SmtpConfig, MsgTemplates, Cargo, UserProfile, UserConfig, PendingInvite, EmailDomain, OC, OCLogEntry, Categoria, Kit, Traslado, TecnicoExterno, Equipo, FichaUsuario, LoteInventario, ConteoInventario } from '@/types'
 
 // ── Órdenes de Taller ─────────────────────────────────────────
 
@@ -242,6 +243,42 @@ export function useImportarProductos() {
   })
 }
 
+// Fija el stock de una sucursal a un valor ABSOLUTO (corrección manual: "acá hay 5").
+// Distinto de useAjustarStock, que suma/resta un delta.
+// Además reconcilia los lotes FIFO para que las capas de costo no se separen del stock
+// (si baja, consume los más antiguos; si sube, crea una capa con el costo actual).
+// No genera asiento contable: la diferencia no afecta la utilidad.
+export function useFijarStock() {
+  const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ producto_id, bodega_id, cantidad }: { producto_id: string; bodega_id: string; cantidad: number }) => {
+      const cant = Math.max(0, Math.round(cantidad))
+      const { error } = await supabase
+        .from('producto_stock')
+        .upsert({ producto_id, bodega_id, cantidad: cant }, { onConflict: 'producto_id,bodega_id' })
+      if (error) throw error
+
+      const productos = qc.getQueryData<Producto[]>(['productos', empresaId]) ?? []
+      const costo = productos.find(p => p.id === producto_id)?.precio_compra ?? 0
+      const lotes = (qc.getQueryData<LoteInventario[]>(['lotes_inventario', empresaId]) ?? [])
+      const reconciliados = reconciliarLotes(lotes, producto_id, bodega_id, cant, costo)
+      if (reconciliados !== lotes) {
+        await dbSet(empresaId!, 'lotes_inventario', reconciliados)
+        qc.setQueryData(['lotes_inventario', empresaId], reconciliados)
+      }
+    },
+    onSuccess: (_data, v) => {
+      const cant = Math.max(0, Math.round(v.cantidad))
+      qc.setQueryData(['productos', empresaId], (old: Producto[] | undefined) =>
+        (old ?? []).map(p => p.id === v.producto_id
+          ? { ...p, stock_sucursales: { ...(p.stock_sucursales ?? {}), [v.bodega_id]: cant } }
+          : p),
+      )
+    },
+  })
+}
+
 // Ajuste de stock por delta (venta = negativo, recepción = positivo).
 // Va por la función `fn_ajustar_stock` de Postgres: es atómica, así que dos
 // ventas simultáneas del mismo producto no se pisan (no se pierde ningún descuento).
@@ -258,6 +295,32 @@ export function useAjustarStock() {
       if (error) throw error
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['productos', empresaId] }),
+  })
+}
+
+// ── Tomas de inventario (conteo físico) ───────────────────────
+
+export function useConteos() {
+  const { empresaId } = useAuth()
+  return useQuery({
+    queryKey: ['conteos_inventario', empresaId],
+    queryFn: () => dbGet<ConteoInventario[] | string>(empresaId!, 'conteos_inventario'),
+    enabled: !!empresaId,
+    select: (data) => {
+      if (typeof data === 'string') {
+        try { return JSON.parse(data) as ConteoInventario[] } catch { return [] }
+      }
+      return (data as ConteoInventario[]) ?? []
+    },
+  })
+}
+
+export function useGuardarConteos() {
+  const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (conteos: ConteoInventario[]) => dbSet(empresaId!, 'conteos_inventario', conteos),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['conteos_inventario', empresaId] }),
   })
 }
 

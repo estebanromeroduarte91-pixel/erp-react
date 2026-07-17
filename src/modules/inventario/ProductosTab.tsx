@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef } from 'react'
 import * as XLSX from 'xlsx'
-import { useProductos, useBodegas, useEliminarProducto, useEliminarTodosProductos, useImportarProductos, useLotes, useGuardarLotes } from '@/lib/queries'
+import { useProductos, useBodegas, useEliminarProducto, useEliminarTodosProductos, useImportarProductos, useFijarStock, useLotes, useGuardarLotes } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { Money } from '@/components/shared/Money'
 import { Spinner } from '@/components/shared/Spinner'
@@ -524,7 +524,7 @@ export function ProductosTab() {
                       ) : displayBodegas.length > 0 ? (
                         displayBodegas.map(b => (
                           <td key={b.id} className="px-4 py-3 text-right">
-                            <StockBadge value={p.stock_sucursales?.[b.id] ?? 0} min={p.stock_min} />
+                            <StockCell producto={p} bodegaId={b.id} />
                           </td>
                         ))
                       ) : (
@@ -745,6 +745,50 @@ export function ProductosTab() {
         )
       })()}
     </div>
+  )
+}
+
+// Celda de stock editable: un clic la convierte en input. Enter o salir del campo guarda;
+// Escape descarta. Guarda el valor absoluto de esa sucursal (no un delta).
+function StockCell({ producto, bodegaId }: { producto: Producto; bodegaId: string }) {
+  const fijarStock = useFijarStock()
+  const actual = producto.stock_sucursales?.[bodegaId] ?? 0
+  const [editando, setEditando] = useState(false)
+  const [valor, setValor] = useState('')
+
+  async function guardar() {
+    setEditando(false)
+    const n = Math.max(0, parseInt(valor, 10) || 0)
+    if (n === actual) return
+    await fijarStock.mutateAsync({ producto_id: producto.id, bodega_id: bodegaId, cantidad: n })
+  }
+
+  if (editando) {
+    return (
+      <input
+        autoFocus type="number" min="0" value={valor}
+        onChange={e => setValor(e.target.value)}
+        onFocus={e => e.currentTarget.select()}
+        onBlur={guardar}
+        onKeyDown={e => {
+          if (e.key === 'Enter') e.currentTarget.blur()
+          // Escape: restaura el valor original, así al salir del campo no guarda nada.
+          if (e.key === 'Escape') { setValor(String(actual)); setTimeout(() => e.currentTarget?.blur(), 0) }
+        }}
+        className="w-16 border border-blue-400 rounded-md px-2 py-0.5 text-xs text-right bg-white focus:outline-none"
+      />
+    )
+  }
+
+  return (
+    <button
+      onClick={() => { setValor(String(actual)); setEditando(true) }}
+      title="Clic para editar el stock"
+      disabled={fijarStock.isPending}
+      className="rounded-full hover:ring-2 hover:ring-blue-300 transition disabled:opacity-50"
+    >
+      <StockBadge value={actual} min={producto.stock_min} />
+    </button>
   )
 }
 
