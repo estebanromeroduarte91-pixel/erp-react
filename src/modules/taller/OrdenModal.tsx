@@ -443,7 +443,12 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
 
     // Notificación push al dueño (solo al crear una orden nueva, no al editar)
     if (!isEditing && empresaId) {
-      void notifyNuevoEquipo(empresaId, form.modelo)
+      void notifyNuevoEquipo(empresaId, {
+        num: nuevasOrdenes[0]?.num ?? '',
+        cliente: `${form.nombre} ${form.apellido}`.trim(),
+        modelo: form.modelo,
+        falla: form.trabajo,
+      })
     }
 
     // Email de ingreso (solo al crear, no al editar)
