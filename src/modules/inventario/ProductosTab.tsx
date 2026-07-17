@@ -604,7 +604,7 @@ export function ProductosTab() {
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 flex flex-col max-h-[90vh]">
 
               {/* Header */}
-              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <div className="flex items-start justify-between gap-4 px-6 py-4 border-b border-gray-100">
                 <div>
                   <h2 className="text-base font-semibold text-gray-900">Importar productos desde Excel</h2>
                   <p className="text-xs text-gray-400 mt-0.5">
@@ -622,7 +622,7 @@ export function ProductosTab() {
                     </button>
                   )}
                 </div>
-                <button onClick={() => setImportModal(false)} className="text-gray-400 hover:text-gray-600 text-xl leading-none">✕</button>
+                <button onClick={() => setImportModal(false)} className="text-gray-400 hover:text-gray-600 text-xl leading-none flex-shrink-0 mt-0.5">✕</button>
               </div>
 
               <div className="px-6 py-5 flex-1 overflow-y-auto space-y-4">
