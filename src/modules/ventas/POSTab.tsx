@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef } from 'react'
-import { useProductos, useGuardarProductos, useVentas, useGuardarVentas, useMetodosPago, useCajaSesiones, useCajas, useGuardarCajaSesiones, useIncrementarContadorVenta, useOrdenes, useGuardarOrden, useMovimientos, useGuardarMovimientos, useUserProfiles, useUserCargoMap, useCargos, useLotes, useGuardarLotes, CARGOS_DEFAULT } from '@/lib/queries'
+import { useProductos, useAjustarStock, useVentas, useGuardarVentas, useMetodosPago, useCajaSesiones, useCajas, useGuardarCajaSesiones, useIncrementarContadorVenta, useOrdenes, useGuardarOrden, useMovimientos, useGuardarMovimientos, useUserProfiles, useUserCargoMap, useCargos, useLotes, useGuardarLotes, CARGOS_DEFAULT } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { IconCashRegister, IconLock, IconLockOpen, IconBuildingStore } from '@tabler/icons-react'
 import type { VentaItem, Venta, Orden, CajaSesion } from '@/types'
@@ -38,7 +38,7 @@ function lineNeto(it: VentaItem) {
 export function POSTab() {
   const { nombre: nombreUsuario, branchId } = useAuth()
   const { data: productos } = useProductos()
-  const guardarProductos = useGuardarProductos()
+  const ajustarStock = useAjustarStock()
   const { data: ventas } = useVentas()
   const { data: ordenes } = useOrdenes()
   const { data: metodos } = useMetodosPago()
@@ -372,21 +372,14 @@ export function POSTab() {
           notas: 'Venta registrada',
         }
         await guardarMovimientos.mutateAsync([mov, ...(movimientos ?? [])])
-        // Descontar stock de productos (por bodega si está configurada)
-        const prodsActualizados = (productos ?? []).map(p => {
-          const vendido = prodsSalida.find(it => it.producto_id === p.id)
-          if (!vendido) return p
-          if (p.tipo === 'servicio') return p
-          if (bodegaId) {
-            const actual = p.stock_sucursales?.[bodegaId] ?? p.stock ?? 0
-            return {
-              ...p,
-              stock_sucursales: { ...(p.stock_sucursales ?? {}), [bodegaId]: Math.max(0, actual - vendido.cantidad) },
-            }
-          }
-          return { ...p, stock: Math.max(0, (p.stock ?? 0) - vendido.cantidad) }
-        })
-        await guardarProductos.mutateAsync(prodsActualizados)
+        // Descontar stock de la bodega de la caja. El ajuste es por delta y atómico
+        // (fn_ajustar_stock), así que dos ventas simultáneas del mismo producto no se pisan.
+        if (bodegaId) {
+          const ajustes = prodsSalida
+            .filter(it => (productos ?? []).find(p => p.id === it.producto_id)?.tipo !== 'servicio')
+            .map(it => ({ producto_id: it.producto_id!, bodega_id: bodegaId, delta: -it.cantidad }))
+          await ajustarStock.mutateAsync(ajustes)
+        }
       }
 
       if (costosPorItem.size > 0) {

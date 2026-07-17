@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useGuardarProductos } from '@/lib/queries'
+import { useGuardarProducto } from '@/lib/queries'
 import type { Producto, Bodega } from '@/types'
 
 interface Props {
@@ -18,7 +18,7 @@ export function nextSku(productos: Producto[]): string {
 }
 
 export function ProductoModal({ producto, productos, bodegas, onClose }: Props) {
-  const guardar = useGuardarProductos()
+  const guardar = useGuardarProducto()
   const isEditing = !!producto
 
   const [tipo, setTipo] = useState<'producto' | 'servicio'>(producto?.tipo ?? 'producto')
@@ -68,14 +68,7 @@ export function ProductoModal({ producto, productos, bodegas, onClose }: Props) 
       tipo,
     }
 
-    let nuevos: Producto[]
-    if (isEditing) {
-      nuevos = productos.map((p) => p.id === prod.id ? { ...p, ...prod } : p)
-    } else {
-      nuevos = [...productos, prod]
-    }
-
-    await guardar.mutateAsync(nuevos)
+    await guardar.mutateAsync(prod)
     setGuardando(false)
     onClose()
   }

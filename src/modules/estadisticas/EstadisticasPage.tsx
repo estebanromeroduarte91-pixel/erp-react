@@ -1,5 +1,5 @@
 import { useMemo, useState, useRef } from 'react'
-import { useVentas, useGastos, useOrdenes, useBodegas, useOCs, useProductosSQL } from '@/lib/queries'
+import { useVentas, useGastos, useOrdenes, useBodegas, useOCs, useProductos } from '@/lib/queries'
 import { gastosPorSucursal } from '@/lib/gastos'
 import { Spinner } from '@/components/shared/Spinner'
 import { useIsMobile } from '@/lib/useIsMobile'
@@ -108,7 +108,7 @@ export function EstadisticasPage() {
   const { data: ordenes, isLoading: loadO } = useOrdenes()
   const { data: ocs, isLoading: loadOC } = useOCs()
   const { data: bodegas = [] } = useBodegas()
-  const { data: productos = [] } = useProductosSQL()
+  const { data: productos = [] } = useProductos()
 
   const [tab, setTab] = useState<Tab>('mes')
   const [from, setFrom] = useState('')

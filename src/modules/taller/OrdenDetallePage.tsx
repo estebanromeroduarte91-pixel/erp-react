@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { useOrdenes, useGuardarOrden, useMsgTemplates, useSeguimientoConfig, useChecklist, useProductos, useGuardarProductos, useBodegas, useTraslados } from '@/lib/queries'
+import { useOrdenes, useGuardarOrden, useMsgTemplates, useSeguimientoConfig, useChecklist, useProductos, useAjustarStock, useBodegas, useTraslados } from '@/lib/queries'
 import { DerivarModal } from './DerivarModal'
 import { useAuth } from '@/context/AuthContext'
 import { sendEmail, buildEmailIngreso, buildEmailAprobacion, buildEmailInspeccion, buildEmailListo } from '@/lib/email'
@@ -43,7 +43,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
 
   const { data: checklistTemplate = [] } = useChecklist()
   const { data: productos = [] } = useProductos()
-  const guardarProductos = useGuardarProductos()
+  const ajustarStock = useAjustarStock()
   const { data: bodegas = [] } = useBodegas()
   const { data: traslados = [] } = useTraslados()
 
@@ -463,12 +463,10 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
     } else {
       if (!repSelected) return
       nuevo = { productId: repSelected.id, name: repSelected.nombre, qty, precio }
-      // Descontar stock del inventario
-      const nuevoStock = Math.max(0, stockTotal(repSelected) - qty)
-      const prodsActualizados = productos.map(p =>
-        p.id === repSelected.id ? { ...p, stock: nuevoStock } : p
-      )
-      await guardarProductos.mutateAsync(prodsActualizados)
+      // Descontar stock de la sucursal de la orden (ajuste atómico por delta).
+      if (orden.branchId) {
+        await ajustarStock.mutateAsync([{ producto_id: repSelected.id, bodega_id: orden.branchId, delta: -qty }])
+      }
     }
 
     const actualizadas = (ordenes ?? []).map(x =>
@@ -1538,7 +1536,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
               </button>
               <button
                 onClick={confirmarRepuesto}
-                disabled={guardar.isPending || guardarProductos.isPending || (!repManual && !repSelected) || (repManual && !repManualNombre.trim())}
+                disabled={guardar.isPending || ajustarStock.isPending || (!repManual && !repSelected) || (repManual && !repManualNombre.trim())}
                 className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 disabled:opacity-50 transition">
                 {guardar.isPending ? 'Guardando…' : 'Agregar repuesto'}
               </button>

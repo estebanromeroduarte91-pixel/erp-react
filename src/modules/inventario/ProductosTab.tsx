@@ -1,17 +1,29 @@
 import { useState, useMemo, useRef } from 'react'
 import * as XLSX from 'xlsx'
-import { useProductos, useBodegas, useGuardarProductos, useLotes, useGuardarLotes } from '@/lib/queries'
+import { useProductos, useBodegas, useEliminarProducto, useEliminarTodosProductos, useImportarProductos, useLotes, useGuardarLotes } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { Money } from '@/components/shared/Money'
 import { Spinner } from '@/components/shared/Spinner'
 import { ProductoModal } from './ProductoModal'
-import type { Producto, LoteInventario } from '@/types'
+import type { Producto, LoteInventario, Bodega } from '@/types'
 
 function uidLote() { return Math.random().toString(36).slice(2) + Date.now().toString(36) }
 
-type ImportRow = { sku: string; nombre: string; costoNeto: number; precio: number; stock: number; categoria: string; subcategoria: string; enlace: string; tipo: 'producto' | 'servicio' }
+// Los campos opcionales son `null` cuando la planilla NO trae esa columna (o viene vacía),
+// para distinguirlo de un 0 explícito: así una planilla de solo stock no borra los precios.
+type ImportRow = {
+  sku: string
+  nombre: string
+  costoNeto: number | null
+  precio: number | null
+  categoria: string | null
+  subcategoria: string | null
+  enlace: string | null
+  tipo: 'producto' | 'servicio' | null
+  stockPorBodega: Record<string, number>   // una columna por sucursal, con el nombre de la bodega
+}
 
-function parseExcel(file: File): Promise<ImportRow[]> {
+function parseExcel(file: File, bodegas: Bodega[]): Promise<ImportRow[]> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = e => {
@@ -24,21 +36,36 @@ function parseExcel(file: File): Promise<ImportRow[]> {
           const col = Object.keys(row).find(k => keys.some(kk => norm(k) === norm(kk)))
           return col ? String(row[col]).trim() : ''
         }
+        const findOpt = (row: Record<string, string>, ...keys: string[]): string | null => {
+          const v = find(row, ...keys)
+          return v === '' ? null : v
+        }
+        const numOpt = (v: string | null) => v === null ? null : (Number(v) || 0)
         const rows = raw.map(row => {
-          const tipoRaw = find(row, 'tipo', 'type').toLowerCase()
-          const tipo: 'producto' | 'servicio' = tipoRaw === 'servicio' || tipoRaw === 'service' ? 'servicio' : 'producto'
-          return {
-            sku:         find(row, 'sku'),
-            nombre:      find(row, 'producto', 'nombre', 'name'),
-            costoNeto:   Number(find(row, 'costo neto', 'costo', 'cost')) || 0,
-            precio:      Number(find(row, 'precio venta', 'precio', 'price')) || 0,
-            stock:       Number(find(row, 'stock')) || 0,
-            categoria:   find(row, 'categoria', 'categoría', 'category'),
-            subcategoria:find(row, 'subcategoria', 'subcategoría', 'subcategory'),
-            enlace:      find(row, 'enlace', 'link', 'url'),
-            tipo,
+          const tipoRaw = (findOpt(row, 'tipo', 'type') ?? '').toLowerCase()
+          const tipo = tipoRaw
+            ? (tipoRaw === 'servicio' || tipoRaw === 'service' ? 'servicio' as const : 'producto' as const)
+            : null
+          // Stock por sucursal: busca una columna llamada como cada bodega (ej. "La Dehesa").
+          const stockPorBodega: Record<string, number> = {}
+          for (const b of bodegas) {
+            const nom = b.nombre ?? b.name ?? ''
+            if (!nom) continue
+            const v = findOpt(row, nom)
+            if (v !== null) stockPorBodega[b.id] = Number(v) || 0
           }
-        }).filter(r => r.nombre)
+          return {
+            sku:          find(row, 'sku'),
+            nombre:       find(row, 'producto', 'nombre', 'name'),
+            costoNeto:    numOpt(findOpt(row, 'costo neto', 'costo', 'cost')),
+            precio:       numOpt(findOpt(row, 'precio venta', 'precio', 'price')),
+            categoria:    findOpt(row, 'categoria', 'categoría', 'category'),
+            subcategoria: findOpt(row, 'subcategoria', 'subcategoría', 'subcategory'),
+            enlace:       findOpt(row, 'enlace', 'link', 'url'),
+            tipo,
+            stockPorBodega,
+          }
+        }).filter(r => r.nombre || r.sku)   // basta el SKU: sirve para planillas de solo stock
         resolve(rows)
       } catch (err) { reject(err) }
     }
@@ -60,7 +87,9 @@ function stockSucursal(p: Producto, bodegaId: string): number {
 export function ProductosTab() {
   const { data: productos, isLoading } = useProductos()
   const { data: bodegas } = useBodegas()
-  const guardar = useGuardarProductos()
+  const eliminarProducto = useEliminarProducto()
+  const eliminarTodosProductos = useEliminarTodosProductos()
+  const importarProductos = useImportarProductos()
   const { data: lotes = [] } = useLotes()
   const guardarLotes = useGuardarLotes()
   const { esAdmin } = useAuth()
@@ -77,7 +106,7 @@ export function ProductosTab() {
   const [importRows, setImportRows]       = useState<ImportRow[]>([])
   const [importLoading, setImportLoading] = useState(false)
   const [importError, setImportError]     = useState('')
-  const [importMode, setImportMode]       = useState<'reemplazar' | 'agregar'>('reemplazar')
+  const [importMode, setImportMode]       = useState<'reemplazar' | 'actualizar'>('actualizar')
   const [importTab, setImportTab]         = useState<'todos' | 'dup' | 'sinsku'>('todos')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -127,7 +156,7 @@ export function ProductosTab() {
   async function eliminar(p: Producto) {
     if (!esAdmin) return
     if (!confirm(`¿Eliminar "${p.nombre}"?`)) return
-    await guardar.mutateAsync((productos ?? []).filter(x => x.id !== p.id))
+    await eliminarProducto.mutateAsync(p.id)
   }
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -136,7 +165,7 @@ export function ProductosTab() {
     setImportError('')
     setImportRows([])
     try {
-      const rows = await parseExcel(file)
+      const rows = await parseExcel(file, bodegas ?? [])
       if (!rows.length) { setImportError('El archivo no contiene productos válidos.'); return }
       setImportRows(rows)
     } catch {
@@ -149,37 +178,48 @@ export function ProductosTab() {
     if (!importRows.length) return
     setImportLoading(true)
     try {
-      // Asignar SKUs automáticos a filas sin SKU, sin repetir con existentes ni entre sí
-      const base = importMode === 'agregar' ? (productos ?? []) : []
-      const allSkus = new Set([...base.map(p => p.sku ?? ''), ...(importMode === 'reemplazar' ? [] : [])])
+      // En modo "actualizar", una fila cuyo SKU ya existe actualiza ESE producto
+      // (conserva su id, así no se rompen las referencias de ventas ni lotes FIFO).
+      const base = importMode === 'actualizar' ? (productos ?? []) : []
+      const porSku = new Map(base.filter(p => p.sku).map(p => [p.sku!.toLowerCase(), p]))
+      const allSkus = new Set(base.map(p => p.sku ?? '').filter(Boolean))
       let lastSku = base.length
         ? Math.max(...base.map(p => parseInt(p.sku ?? '0', 10)).filter(n => !isNaN(n)), 998)
         : 998
 
       const nuevos: Producto[] = importRows.map(r => {
+        const existente = r.sku ? porSku.get(r.sku.toLowerCase()) : undefined
         let skuFinal = r.sku
-        if (!skuFinal || allSkus.has(skuFinal)) {
+        if (!existente && (!skuFinal || allSkus.has(skuFinal))) {
           lastSku += 2
           while (allSkus.has(String(lastSku))) lastSku += 2
           skuFinal = String(lastSku)
         }
         allSkus.add(skuFinal)
+        const tipo = r.tipo ?? existente?.tipo ?? 'producto'
+        // Solo se pisa el stock de las sucursales que la planilla trae como columna.
+        const stockSucs = Object.keys(r.stockPorBodega).length > 0
+          ? { ...(existente?.stock_sucursales ?? {}), ...r.stockPorBodega }
+          : existente?.stock_sucursales
         return {
-          id: 'imp-' + Date.now() + '-' + Math.random().toString(36).slice(2),
-          nombre: r.nombre,
+          id: existente?.id ?? ('imp-' + Date.now() + '-' + Math.random().toString(36).slice(2)),
+          nombre: r.nombre || existente?.nombre || '',
           sku: skuFinal,
-          categoria: r.categoria || 'Accesorio',
-          subcategoria: r.subcategoria,
-          precio_compra: r.costoNeto,
-          precio_venta: r.precio,
-          stock: r.tipo === 'servicio' ? undefined : r.stock,
-          stock_min: r.tipo === 'servicio' ? undefined : 0,
-          enlace: r.enlace,
-          descripcion: '',
-          tipo: r.tipo,
+          categoria: r.categoria ?? existente?.categoria ?? 'Accesorio',
+          subcategoria: r.subcategoria ?? existente?.subcategoria,
+          precio_compra: r.costoNeto ?? existente?.precio_compra ?? 0,
+          precio_venta: r.precio ?? existente?.precio_venta ?? 0,
+          stock_min: existente?.stock_min ?? 0,
+          stock_sucursales: tipo === 'servicio' ? undefined : stockSucs,
+          enlace: r.enlace ?? existente?.enlace,
+          descripcion: existente?.descripcion ?? '',
+          tipo,
         }
       })
-      await guardar.mutateAsync([...base, ...nuevos])
+      await importarProductos.mutateAsync({
+        productos: nuevos,
+        modo: importMode === 'reemplazar' ? 'reemplazar' : 'agregar',
+      })
       setImportModal(false)
       setImportRows([])
     } finally {
@@ -191,7 +231,7 @@ export function ProductosTab() {
     if (!esAdmin) return
     const total = (productos ?? []).length
     if (!confirm(`¿Eliminar los ${total} productos del inventario? Esta acción no se puede deshacer.`)) return
-    await guardar.mutateAsync([])
+    await eliminarTodosProductos.mutateAsync()
   }
 
   // Fase 2 del costeo FIFO: crea un lote "de apertura" (costo = precio_compra actual)
@@ -521,12 +561,15 @@ export function ProductosTab() {
       {/* Modal importar Excel */}
       {importModal && (() => {
         const existingSkus = new Set((productos ?? []).map(p => p.sku ?? '').filter(Boolean))
-        const dupRows    = importRows.filter(r => r.sku && existingSkus.has(r.sku))
+        const actualiza  = importMode === 'actualizar'
+        // En modo "actualizar" un SKU ya existente NO es un problema: actualiza ese producto.
+        const dupRows    = actualiza ? importRows.filter(r => r.sku && existingSkus.has(r.sku)) : []
         const noSkuRows  = importRows.filter(r => !r.sku)
         const okCount    = importRows.length - dupRows.length - noSkuRows.length
+        const conStock   = importRows.filter(r => Object.keys(r.stockPorBodega).length > 0).length
 
         // Calcular SKUs automáticos para preview
-        const base = importMode === 'agregar' ? (productos ?? []) : []
+        const base = actualiza ? (productos ?? []) : []
         const allSkusPreview = new Set(base.map(p => p.sku ?? '').filter(Boolean))
         let lastSkuPreview = base.length
           ? Math.max(...base.map(p => parseInt(p.sku ?? '0', 10)).filter(n => !isNaN(n)), 998)
@@ -552,7 +595,7 @@ export function ProductosTab() {
                   <p className="text-xs text-gray-400 mt-0.5">
                     {importRows.length > 0
                       ? `${importRows.length} productos listos — revisa los avisos antes de continuar`
-                      : 'Columnas: SKU, Producto, Costo Neto, Precio Venta, Stock, Categoría, Subcategoría, Enlace'}
+                      : `Columnas: SKU, Producto, Costo Neto, Precio Venta, Categoría, Subcategoría, Enlace${(bodegas ?? []).length ? ' — y una por sucursal para el stock: ' + (bodegas ?? []).map(b => b.nombre ?? b.name).join(', ') : ''}`}
                   </p>
                 </div>
                 <button onClick={() => setImportModal(false)} className="text-gray-400 hover:text-gray-600 text-xl leading-none">✕</button>
@@ -583,29 +626,36 @@ export function ProductosTab() {
                   <div className="grid grid-cols-3 gap-3">
                     <div className="rounded-xl p-3 bg-green-50 border border-green-100">
                       <p className="text-xl font-semibold text-green-800">{okCount.toLocaleString('es-CL')}</p>
-                      <p className="text-xs text-green-700 mt-0.5">Sin problemas</p>
-                    </div>
-                    <div className="rounded-xl p-3 bg-amber-50 border border-amber-100">
-                      <p className="text-xl font-semibold text-amber-800">{dupRows.length}</p>
-                      <p className="text-xs text-amber-700 mt-0.5">SKU duplicado</p>
+                      <p className="text-xs text-green-700 mt-0.5">Se crearán</p>
                     </div>
                     <div className="rounded-xl p-3 bg-blue-50 border border-blue-100">
-                      <p className="text-xl font-semibold text-blue-800">{noSkuRows.length}</p>
-                      <p className="text-xs text-blue-700 mt-0.5">Sin SKU — se asignará auto</p>
+                      <p className="text-xl font-semibold text-blue-800">{dupRows.length}</p>
+                      <p className="text-xs text-blue-700 mt-0.5">Se actualizarán (SKU ya existe)</p>
+                    </div>
+                    <div className="rounded-xl p-3 bg-gray-50 border border-gray-200">
+                      <p className="text-xl font-semibold text-gray-800">{conStock}</p>
+                      <p className="text-xs text-gray-600 mt-0.5">Con stock por sucursal</p>
                     </div>
                   </div>
 
+                  {conStock === 0 && (bodegas ?? []).length > 0 && (
+                    <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                      La planilla no trae stock. Para cargarlo, agrega una columna por sucursal
+                      con su nombre exacto: <strong>{(bodegas ?? []).map(b => b.nombre ?? b.name).join('</strong>, <strong>')}</strong>.
+                    </p>
+                  )}
+
                   {/* Tabs */}
                   <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
-                    {([['todos', `Todos (${importRows.length})`], ['dup', 'SKU duplicado'], ['sinsku', 'Sin SKU']] as const).map(([key, label]) => (
+                    {([['todos', `Todos (${importRows.length})`], ['dup', 'Se actualizan'], ['sinsku', 'Sin SKU']] as const).map(([key, label]) => (
                       <button key={key} onClick={() => setImportTab(key)}
                         className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-semibold transition ${importTab === key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
                         {label}
                         {key === 'dup' && dupRows.length > 0 && (
-                          <span className="bg-amber-200 text-amber-900 text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">{dupRows.length}</span>
+                          <span className="bg-blue-200 text-blue-900 text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">{dupRows.length}</span>
                         )}
                         {key === 'sinsku' && noSkuRows.length > 0 && (
-                          <span className="bg-blue-200 text-blue-900 text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">{noSkuRows.length}</span>
+                          <span className="bg-gray-200 text-gray-900 text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">{noSkuRows.length}</span>
                         )}
                       </button>
                     ))}
@@ -623,24 +673,24 @@ export function ProductosTab() {
                       {(tabRows.length === 0
                         ? <div className="px-4 py-6 text-center text-sm text-gray-400">Sin productos en esta categoría</div>
                         : tabRows.slice(0, 30).map((r, i) => {
-                            const isDup = r.sku && existingSkus.has(r.sku)
+                            const isDup = actualiza && !!r.sku && existingSkus.has(r.sku)
                             const isNoSku = !r.sku
                             const autoIdx = noSkuRows.indexOf(r)
                             return (
-                              <div key={i} className={`grid px-4 py-2.5 text-sm items-center ${showCols === 'dup' ? 'grid-cols-[90px_1fr_120px]' : showCols === 'sinsku' ? 'grid-cols-[90px_1fr_120px]' : 'grid-cols-[90px_1fr_90px_90px]'} ${isDup ? 'bg-amber-50/60' : isNoSku ? 'bg-blue-50/60' : ''}`}>
-                                <span className={`font-mono text-xs font-medium ${isDup ? 'text-amber-700 line-through' : isNoSku ? 'text-gray-300' : 'text-gray-500'}`}>
+                              <div key={i} className={`grid px-4 py-2.5 text-sm items-center ${showCols === 'dup' ? 'grid-cols-[90px_1fr_120px]' : showCols === 'sinsku' ? 'grid-cols-[90px_1fr_120px]' : 'grid-cols-[90px_1fr_90px_90px]'} ${isDup ? 'bg-blue-50/60' : isNoSku ? 'bg-gray-50' : ''}`}>
+                                <span className={`font-mono text-xs font-medium ${isDup ? 'text-blue-700' : isNoSku ? 'text-gray-300' : 'text-gray-500'}`}>
                                   {r.sku || '—'}
                                 </span>
                                 <span className="truncate text-gray-800 pr-3">{r.nombre}</span>
                                 {showCols === 'dup' && (
-                                  <span className="text-xs font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-md w-fit">Sobrescribir</span>
+                                  <span className="text-xs font-semibold text-blue-700 bg-blue-100 px-2 py-0.5 rounded-md w-fit">Se actualizará</span>
                                 )}
                                 {showCols === 'sinsku' && (
                                   <span className="font-mono text-xs font-semibold text-blue-600">→ {autoSkus[autoIdx]}</span>
                                 )}
                                 {showCols === 'todos' && (
-                                  <><span className="text-xs text-gray-400">${r.costoNeto.toLocaleString('es-CL')}</span>
-                                  <span className="text-xs text-gray-500">${r.precio.toLocaleString('es-CL')}</span></>
+                                  <><span className="text-xs text-gray-400">{r.costoNeto === null ? '—' : '$' + r.costoNeto.toLocaleString('es-CL')}</span>
+                                  <span className="text-xs text-gray-500">{r.precio === null ? '—' : '$' + r.precio.toLocaleString('es-CL')}</span></>
                                 )}
                               </div>
                             )
@@ -654,16 +704,16 @@ export function ProductosTab() {
 
                   {/* Modo importación */}
                   <div className="flex gap-3">
-                    {(['reemplazar', 'agregar'] as const).map(mode => (
+                    {(['actualizar', 'reemplazar'] as const).map(mode => (
                       <button key={mode} onClick={() => setImportMode(mode)}
                         className={`flex-1 text-left px-4 py-3 rounded-xl border transition ${importMode === mode ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}>
                         <p className={`text-sm font-semibold ${importMode === mode ? 'text-blue-800' : 'text-gray-800'}`}>
-                          {mode === 'reemplazar' ? 'Reemplazar todo' : 'Agregar a los existentes'}
+                          {mode === 'actualizar' ? 'Actualizar y agregar' : 'Reemplazar todo'}
                         </p>
                         <p className="text-xs text-gray-400 mt-0.5">
-                          {mode === 'reemplazar'
-                            ? `Borra los ${(productos ?? []).length.toLocaleString('es-CL')} productos actuales e importa los nuevos`
-                            : `Añade sin borrar lo que ya hay`}
+                          {mode === 'actualizar'
+                            ? 'Si el SKU ya existe, actualiza ese producto. Si no, lo crea. No borra nada.'
+                            : `Borra los ${(productos ?? []).length.toLocaleString('es-CL')} productos actuales e importa los nuevos`}
                         </p>
                       </button>
                     ))}

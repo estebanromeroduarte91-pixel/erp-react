@@ -5,7 +5,7 @@ import { useAuth } from '@/context/AuthContext'
 import {
   useOCs, useGuardarOCs, useOCLog, useGuardarOCLog,
   useIncrementarContadorOC, useProductos, useBodegas,
-  useProveedores, useGuardarProveedores, useGuardarProductos,
+  useProveedores, useGuardarProveedores, useAjustarStock,
   usePlanCuentas, useAsientos, useGuardarAsientos,
   useMovimientos, useGuardarMovimientos,
   useLotes, useGuardarLotes,
@@ -1063,7 +1063,7 @@ export function ComprasPage() {
   const guardarOCLog = useGuardarOCLog()
   const incrementarContador = useIncrementarContadorOC()
   const guardarProveedores = useGuardarProveedores()
-  const guardarProductos = useGuardarProductos()
+  const ajustarStock = useAjustarStock()
   const { data: planCuentas } = usePlanCuentas()
   const { data: asientos } = useAsientos()
   const guardarAsientos = useGuardarAsientos()
@@ -1147,22 +1147,13 @@ export function ComprasPage() {
       }
     })
     try {
-      if (productos.length > 0) {
-        const updatedProds = [...productos]
-        for (const rec of recepciones) {
-          for (const ri of rec.items) {
-            if (!ri.producto_id) continue
-            const idx = updatedProds.findIndex(p => p.id === ri.producto_id)
-            if (idx < 0) continue
-            const p = updatedProds[idx]
-            const nuevoStock = (+p.stock! || 0) + ri.cantidad
-            const sucursales = { ...(p.stock_sucursales ?? {}) }
-            sucursales[rec.bodega_id] = (sucursales[rec.bodega_id] ?? 0) + ri.cantidad
-            updatedProds[idx] = { ...p, stock: nuevoStock, stock_sucursales: sucursales }
-          }
-        }
-        await guardarProductos.mutateAsync(updatedProds)
-      }
+      // Sumar stock a la bodega de destino de cada línea recibida (ajuste atómico por delta).
+      const ajustes = recepciones.flatMap(rec =>
+        rec.items
+          .filter(ri => ri.producto_id)
+          .map(ri => ({ producto_id: ri.producto_id, bodega_id: rec.bodega_id, delta: ri.cantidad }))
+      )
+      await ajustarStock.mutateAsync(ajustes)
       const ocOriginal = ocs.find(o => o.id === ocId)
       const nuevosLotes: LoteInventario[] = []
       for (const rec of recepciones) {

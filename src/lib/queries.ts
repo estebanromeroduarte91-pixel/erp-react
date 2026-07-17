@@ -94,35 +94,11 @@ export function useChecklist() {
   })
 }
 
-// ── Productos (para buscador de repuestos) ────────────────────
-
-export function useProductos() {
-  const { empresaId } = useAuth()
-  return useQuery({
-    queryKey: ['productos', empresaId],
-    queryFn: () => dbGet<Producto[] | string>(empresaId!, 'productos'),
-    enabled: !!empresaId,
-    select: (data) => {
-      if (typeof data === 'string') {
-        try { return JSON.parse(data) as Producto[] } catch { return [] }
-      }
-      return (data as Producto[]) ?? []
-    },
-  })
-}
-
-export function useGuardarProductos() {
-  const { empresaId } = useAuth()
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (prods: Producto[]) => dbSet(empresaId!, 'productos', prods),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ['productos', empresaId] }),
-  })
-}
-
-// ── Productos: acceso relacional (tabla real `productos` + `producto_stock`) ───
-// Reemplaza gradualmente al blob JSON de arriba. `stock_sucursales` se rehidrata
-// desde las filas de `producto_stock` para que los consumidores no tengan que cambiar de forma.
+// ── Productos (tabla relacional `productos` + `producto_stock`) ───────────────
+// El catálogo vive en Postgres, no en el blob JSON de `erp_data`. `stock_sucursales`
+// se rehidrata desde `producto_stock` para que los consumidores mantengan la misma forma.
+// Todas las claves de caché cuelgan de ['productos', empresaId] para que una sola
+// invalidación cubra tanto la lista como las búsquedas.
 const PRODUCTO_COLS = 'id,nombre,sku,unidad,precio_compra,precio_venta,stock_min,categoria,subcategoria,enlace,descripcion,tipo, producto_stock(bodega_id,cantidad)'
 
 function hidratarProducto(row: Record<string, unknown>): Producto {
@@ -133,10 +109,38 @@ function hidratarProducto(row: Record<string, unknown>): Producto {
   return { ...(rest as unknown as Producto), stock_sucursales }
 }
 
-export function useProductosSQL() {
+function filaProducto(p: Producto, empresaId: string) {
+  return {
+    id: p.id,
+    empresa_id: empresaId,
+    nombre: p.nombre,
+    sku: p.sku ?? null,
+    unidad: p.unidad ?? null,
+    precio_compra: p.precio_compra ?? 0,
+    precio_venta: p.precio_venta ?? 0,
+    stock_min: p.stock_min ?? 0,
+    categoria: p.categoria ?? null,
+    subcategoria: p.subcategoria ?? null,
+    enlace: p.enlace ?? null,
+    descripcion: p.descripcion ?? null,
+    tipo: p.tipo === 'servicio' ? 'servicio' : 'producto',
+  }
+}
+
+function filasStock(prods: Producto[]) {
+  const rows: { producto_id: string; bodega_id: string; cantidad: number }[] = []
+  for (const p of prods) {
+    for (const [bodega_id, cantidad] of Object.entries(p.stock_sucursales ?? {})) {
+      rows.push({ producto_id: p.id, bodega_id, cantidad: Number(cantidad) || 0 })
+    }
+  }
+  return rows
+}
+
+export function useProductos() {
   const { empresaId } = useAuth()
   return useQuery({
-    queryKey: ['productos_sql', empresaId],
+    queryKey: ['productos', empresaId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('productos')
@@ -150,12 +154,12 @@ export function useProductosSQL() {
 }
 
 // Búsqueda del lado del servidor por nombre o SKU (ilike + índice pg_trgm), limitada.
-// Reemplaza el patrón `productos.filter(...).slice(0, N)` que hoy corre en el navegador.
+// Reemplaza el patrón `productos.filter(...).slice(0, N)` que corría en el navegador.
 export function useBuscarProductos(query: string) {
   const { empresaId } = useAuth()
   const safe = query.replace(/[%,()]/g, ' ').trim()
   return useQuery({
-    queryKey: ['buscar_productos', empresaId, safe],
+    queryKey: ['productos', empresaId, 'buscar', safe],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('productos')
@@ -167,6 +171,93 @@ export function useBuscarProductos(query: string) {
       return (data ?? []).map(hidratarProducto)
     },
     enabled: !!empresaId && safe.length > 0,
+  })
+}
+
+// Crear o editar UN producto. El stock por sucursal se fija en valor absoluto
+// (el admin lo está definiendo explícitamente en el formulario).
+export function useGuardarProducto() {
+  const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (p: Producto) => {
+      const { error } = await supabase.from('productos').upsert(filaProducto(p, empresaId!), { onConflict: 'id' })
+      if (error) throw error
+      const rows = filasStock([p])
+      if (rows.length) {
+        const { error: e2 } = await supabase.from('producto_stock').upsert(rows, { onConflict: 'producto_id,bodega_id' })
+        if (e2) throw e2
+      }
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['productos', empresaId] }),
+  })
+}
+
+export function useEliminarProducto() {
+  const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('productos').delete().eq('id', id).eq('empresa_id', empresaId!)
+      if (error) throw error
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['productos', empresaId] }),
+  })
+}
+
+export function useEliminarTodosProductos() {
+  const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from('productos').delete().eq('empresa_id', empresaId!)
+      if (error) throw error
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['productos', empresaId] }),
+  })
+}
+
+// Importación masiva (Excel). 'reemplazar' borra el catálogo antes de insertar.
+export function useImportarProductos() {
+  const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ productos, modo }: { productos: Producto[]; modo: 'reemplazar' | 'agregar' }) => {
+      if (modo === 'reemplazar') {
+        const { error } = await supabase.from('productos').delete().eq('empresa_id', empresaId!)
+        if (error) throw error
+      }
+      const rows = productos.map(p => filaProducto(p, empresaId!))
+      for (let i = 0; i < rows.length; i += 200) {
+        const { error } = await supabase.from('productos').upsert(rows.slice(i, i + 200), { onConflict: 'id' })
+        if (error) throw error
+      }
+      const stock = filasStock(productos)
+      for (let i = 0; i < stock.length; i += 200) {
+        const { error } = await supabase.from('producto_stock').upsert(stock.slice(i, i + 200), { onConflict: 'producto_id,bodega_id' })
+        if (error) throw error
+      }
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['productos', empresaId] }),
+  })
+}
+
+// Ajuste de stock por delta (venta = negativo, recepción = positivo).
+// Va por la función `fn_ajustar_stock` de Postgres: es atómica, así que dos
+// ventas simultáneas del mismo producto no se pisan (no se pierde ningún descuento).
+export type AjusteStock = { producto_id: string; bodega_id: string; delta: number }
+
+export function useAjustarStock() {
+  const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (ajustes: AjusteStock[]) => {
+      const validos = ajustes.filter(a => a.producto_id && a.bodega_id && a.delta !== 0)
+      if (!validos.length) return
+      const { error } = await supabase.rpc('fn_ajustar_stock', { ajustes: validos })
+      if (error) throw error
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['productos', empresaId] }),
   })
 }
 
