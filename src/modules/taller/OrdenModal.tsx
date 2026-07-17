@@ -443,11 +443,13 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
 
     // Notificación push al dueño (solo al crear una orden nueva, no al editar)
     if (!isEditing && empresaId) {
+      const branch = bodegas.find(b => b.id === nuevasOrdenes[0]?.branchId)
       void notifyNuevoEquipo(empresaId, {
         num: nuevasOrdenes[0]?.num ?? '',
         cliente: `${form.nombre} ${form.apellido}`.trim(),
         modelo: form.modelo,
         falla: form.trabajo,
+        sucursal: branch?.nombre ?? branch?.name ?? '',
       })
     }
 

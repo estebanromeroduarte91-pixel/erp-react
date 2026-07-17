@@ -5,17 +5,19 @@ interface NuevoEquipoData {
   cliente: string
   modelo: string
   falla?: string
+  sucursal?: string
 }
 
 // Dispara la Edge Function `send-push-notification`. Nunca debe bloquear ni
 // hacer fallar el flujo que la llama (crear una orden, etc.) — solo registra el error.
 export async function notifyNuevoEquipo(empresaId: string, data: NuevoEquipoData): Promise<void> {
   try {
+    const partes = [data.cliente, data.modelo, data.falla, data.sucursal].filter(Boolean)
     await supabase.functions.invoke('send-push-notification', {
       body: {
         empresaId,
         title: `Nueva orden #OT-${String(data.num).padStart(4, '0')}`,
-        body: `${data.cliente} — ${data.modelo}${data.falla ? ` — ${data.falla}` : ''}`,
+        body: partes.join(' — '),
         url: '/#/taller',
       },
     })
