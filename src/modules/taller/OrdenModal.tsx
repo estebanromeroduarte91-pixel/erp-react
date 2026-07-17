@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { dbGet } from '@/lib/db'
 import { sendEmail, buildEmailIngreso } from '@/lib/email'
+import { notifyNuevoEquipo } from '@/lib/push-notify'
 import { Money } from '@/components/shared/Money'
 import { EquipoSelector } from './EquipoSelector'
 import { useAnchorRect, fixedDropdownStyle } from '@/lib/useAnchorRect'
@@ -439,6 +440,11 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
     }
 
     await guardar.mutateAsync(nuevasOrdenes)
+
+    // Notificación push al dueño (solo al crear una orden nueva, no al editar)
+    if (!isEditing && empresaId) {
+      void notifyNuevoEquipo(empresaId, form.modelo)
+    }
 
     // Email de ingreso (solo al crear, no al editar)
     if (!isEditing && form.email && empresaId) {

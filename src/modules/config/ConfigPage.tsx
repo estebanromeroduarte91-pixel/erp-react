@@ -5,8 +5,9 @@ import { SmtpTab } from './SmtpTab'
 import { DominioTab } from './DominioTab'
 import { CargosTab } from './CargosTab'
 import { AccesosTab } from './AccesosTab'
+import { NotificacionesTab } from './NotificacionesTab'
 
-type Tab = 'dominio' | 'smtp' | 'cargos' | 'accesos'
+type Tab = 'dominio' | 'smtp' | 'cargos' | 'accesos' | 'notificaciones'
 
 export function ConfigPage() {
   const { esAdmin } = useAuth()
@@ -26,6 +27,7 @@ export function ConfigPage() {
     { key: 'smtp',    label: 'SMTP' },
     { key: 'cargos',  label: 'Cargos',  adminOnly: true },
     { key: 'accesos', label: 'Accesos', adminOnly: true },
+    { key: 'notificaciones', label: 'Notificaciones', adminOnly: true },
   ]
   const tabs = allTabs.filter(t => !t.adminOnly || esAdmin)
 
@@ -49,6 +51,7 @@ export function ConfigPage() {
       {tab === 'smtp'                && <SmtpTab />}
       {tab === 'cargos'  && esAdmin  && <CargosTab />}
       {tab === 'accesos' && esAdmin  && <AccesosTab />}
+      {tab === 'notificaciones' && esAdmin && <NotificacionesTab />}
     </div>
   )
 }
