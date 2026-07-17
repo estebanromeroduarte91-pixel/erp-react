@@ -233,7 +233,7 @@ function SingleLink({ item, active }: { item: NavSingle; active: boolean }) {
 
 // ── Sidebar ────────────────────────────────────────────────────
 export function Sidebar() {
-  const { nombre, rol, cargoId, empresaNombre } = useAuth()
+  const { nombre, rol, cargoId } = useAuth()
   const location = useLocation()
   const initials = nombre.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?'
   const rolLabel = rol === 'admin' ? 'Administrador' : rol === 'encargado' ? 'Encargado' : rol === 'tecnico' ? 'Técnico' : rol === 'vendedor' ? 'Vendedor' : rol
@@ -303,17 +303,8 @@ export function Sidebar() {
       display: 'flex', flexDirection: 'column', zIndex: 100, overflowY: 'auto',
     }}>
       {/* Logo */}
-      <div style={{ padding: '18px 14px 14px', borderBottom: '1px solid var(--gray-100)', display: 'flex', alignItems: 'center', gap: 11 }}>
-        <div style={{
-          width: 36, height: 36, borderRadius: 10,
-          display: 'grid', placeItems: 'center', flexShrink: 0, overflow: 'hidden',
-        }}>
-          <img src="/favicon.png" alt="Pixit" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-        </div>
-        <div>
-          <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--gray-800)', letterSpacing: '-.02em' }}>{empresaNombre}</div>
-          <div style={{ fontSize: 11, color: 'var(--gray-400)', marginTop: 2, fontWeight: 500 }}>Sistema ERP</div>
-        </div>
+      <div style={{ padding: '18px 14px 14px', borderBottom: '1px solid var(--gray-100)', display: 'flex', alignItems: 'center' }}>
+        <img src="/logo-completo.png" alt="Pixit" style={{ height: 28, objectFit: 'contain' }} />
       </div>
 
       {/* Nav */}
