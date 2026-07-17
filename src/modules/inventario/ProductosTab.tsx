@@ -74,6 +74,21 @@ function parseExcel(file: File, bodegas: Bodega[]): Promise<ImportRow[]> {
   })
 }
 
+function descargarPlantilla(bodegas: Bodega[]) {
+  const headers = ['SKU', 'Producto', 'Costo Neto', 'Precio Venta', 'Categoría', 'Subcategoría', 'Enlace', 'Tipo']
+  const nombresBodegas = bodegas.map(b => b.nombre ?? b.name ?? '').filter(Boolean)
+  const cols = [...headers, ...nombresBodegas]
+  const ejemplo: Record<string, string | number> = {
+    SKU: '1000', Producto: 'Ejemplo: Pantalla iPhone 13', 'Costo Neto': 15000, 'Precio Venta': 35000,
+    Categoría: 'Pantallas', Subcategoría: 'iPhone', Enlace: '', Tipo: 'producto',
+  }
+  nombresBodegas.forEach(n => { ejemplo[n] = 5 })
+  const ws = XLSX.utils.json_to_sheet([ejemplo], { header: cols })
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Productos')
+  XLSX.writeFile(wb, 'plantilla_productos.xlsx')
+}
+
 function stockTotal(p: Producto): number {
   if (p.stock_sucursales && Object.keys(p.stock_sucursales).length > 0)
     return Object.values(p.stock_sucursales).reduce((s, v) => s + (Number(v) || 0), 0)
@@ -597,6 +612,15 @@ export function ProductosTab() {
                       ? `${importRows.length} productos listos — revisa los avisos antes de continuar`
                       : `Columnas: SKU, Producto, Costo Neto, Precio Venta, Categoría, Subcategoría, Enlace${(bodegas ?? []).length ? ' — y una por sucursal para el stock: ' + (bodegas ?? []).map(b => b.nombre ?? b.name).join(', ') : ''}`}
                   </p>
+                  {importRows.length === 0 && (
+                    <button onClick={() => descargarPlantilla(bodegas ?? [])}
+                      className="text-xs font-semibold text-blue-600 hover:underline mt-1.5 flex items-center gap-1">
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-8-4v-9m0 9l-3-3m3 3l3-3" />
+                      </svg>
+                      Descargar plantilla Excel
+                    </button>
+                  )}
                 </div>
                 <button onClick={() => setImportModal(false)} className="text-gray-400 hover:text-gray-600 text-xl leading-none">✕</button>
               </div>
