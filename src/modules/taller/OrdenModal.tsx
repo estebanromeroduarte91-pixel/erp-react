@@ -121,6 +121,10 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
   // de inmediato mientras se completa la orden. Devuelve el id del borrador.
   async function asegurarBorrador(): Promise<string | null> {
     if (draftId) return draftId
+    // Sin cliente/modelo el borrador quedaría vacío y el QR mostraría datos en blanco.
+    if (!clienteSeleccionado) { setError('Selecciona o crea un cliente antes de pedir el QR'); return null }
+    if (!form.modelo.trim()) { setError('Ingresa el equipo / modelo antes de pedir el QR'); return null }
+    setError('')
     setCreandoBorrador(true)
     const id = Date.now().toString()
     const draft: Orden = {
@@ -131,12 +135,19 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
       repuestos,
       checkIngreso,
       photosIngreso: fotos,
+      branchId: userBranchId ?? defaultBranchId ?? undefined,
       _draft: true,
     }
-    await crearOrden.mutateAsync(draft)
-    setDraftId(id)
-    setCreandoBorrador(false)
-    return id
+    try {
+      await crearOrden.mutateAsync(draft)
+      setDraftId(id)
+      return id
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudo preparar la orden para el QR. Intenta de nuevo.')
+      return null
+    } finally {
+      setCreandoBorrador(false)
+    }
   }
 
   async function abrirQr() {
@@ -388,6 +399,7 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
     setError('')
     setGuardando(true)
 
+    try {
     const ahora = new Date().toISOString()
     let ordenGuardada: Orden
 
@@ -495,8 +507,12 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
       }
     }
 
-    setGuardando(false)
     onClose()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudo guardar la orden. Intenta de nuevo.')
+    } finally {
+      setGuardando(false)
+    }
   }
 
   return (
