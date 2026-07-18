@@ -14,11 +14,14 @@ interface AuthState {
   branchId: string | null  // null = global (admin sin sucursal), string = operando en esa sucursal
   nombre: string
   cargando: boolean
+  planEstado: string | null   // 'trial' | 'activo' | 'vencido' | null (empresas antiguas, sin restricción)
+  trialTermina: string | null // ISO date; solo aplica si planEstado === 'trial'
 }
 
 interface AuthContextValue extends AuthState {
   esAdmin: boolean  // true solo para el super admin (dueño) — puede eliminar registros
   recoveryMode: boolean  // true cuando el usuario llegó por el enlace de "olvidé mi contraseña"
+  trialExpirado: boolean // true si el trial de 30 días ya venció y no hay plan activo
   login: (email: string, password: string) => Promise<string | null>
   logout: () => Promise<void>
   clearRecovery: () => void
@@ -35,6 +38,8 @@ const ESTADO_INICIAL: AuthState = {
   branchId: null,
   nombre: '',
   cargando: true,
+  planEstado: null,
+  trialTermina: null,
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -52,7 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (perfil?.empresa_id) {
       const [{ data: emp }, uCfg] = await Promise.all([
-        supabase.from('empresas').select('nombre').eq('id', perfil.empresa_id).maybeSingle(),
+        supabase.from('empresas').select('nombre,plan_estado,trial_termina').eq('id', perfil.empresa_id).maybeSingle(),
         dbGet<{ cargoId?: string; branchId?: string }>(perfil.empresa_id, `ucfg_${user.id}`),
       ])
       const roleRaw = perfil.role || 'tecnico'
@@ -68,12 +73,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         branchId,
         nombre: perfil.nombre || user.email || '',
         cargando: false,
+        planEstado: emp?.plan_estado ?? null,
+        trialTermina: emp?.trial_termina ?? null,
       })
     } else {
       // Flujo de propietario: la empresa se busca por owner_id
       const { data: emp } = await supabase
         .from('empresas')
-        .select('id,nombre')
+        .select('id,nombre,plan_estado,trial_termina')
         .eq('owner_id', user.id)
         .maybeSingle()
       setEstado({
@@ -85,6 +92,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         branchId: null,
         nombre: emp?.nombre || user.email || '',
         cargando: false,
+        planEstado: emp?.plan_estado ?? null,
+        trialTermina: emp?.trial_termina ?? null,
       })
     }
   }
@@ -122,8 +131,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const esAdmin = estado.rol === 'admin'
+  const trialExpirado = estado.planEstado === 'trial' && !!estado.trialTermina && new Date(estado.trialTermina) < new Date()
 
-  return <AuthContext.Provider value={{ ...estado, esAdmin, recoveryMode, login, logout, clearRecovery }}>{children}</AuthContext.Provider>
+  return <AuthContext.Provider value={{ ...estado, esAdmin, recoveryMode, trialExpirado, login, logout, clearRecovery }}>{children}</AuthContext.Provider>
 }
 
 // eslint-disable-next-line react-refresh/only-export-components

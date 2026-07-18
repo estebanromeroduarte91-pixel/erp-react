@@ -74,7 +74,10 @@ export function Login() {
     const { data, error: err } = await supabase.auth.signUp({ email: email.trim().toLowerCase(), password })
     if (err) { setCargando(false); setError(_tradError(err.message)); return }
     if (!data.session) { setCargando(false); setConfirmarEmail(true); return }
-    const { error: empErr } = await supabase.from('empresas').insert({ nombre: empresaNombre.trim(), owner_id: data.user!.id })
+    const trialTermina = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+    const { error: empErr } = await supabase.from('empresas').insert({
+      nombre: empresaNombre.trim(), owner_id: data.user!.id, plan_estado: 'trial', trial_termina: trialTermina,
+    })
     if (empErr) { setCargando(false); setError('Error: ' + empErr.message); return }
     // Fuerza que el AuthProvider vuelva a arrancar y encuentre la empresa recién creada
     // (evita una carrera con el listener de auth, que puede disparar antes de este insert).

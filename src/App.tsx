@@ -2,6 +2,7 @@ import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { Login } from '@/modules/auth/Login'
 import { ResetPassword } from '@/modules/auth/ResetPassword'
+import { TrialExpirado } from '@/modules/auth/TrialExpirado'
 import { Shell } from '@/components/layout/Shell'
 import { TallerPage } from '@/modules/taller/TallerPage'
 import { InventarioPage } from '@/modules/inventario/InventarioPage'
@@ -16,7 +17,7 @@ import { BuscarPage } from '@/modules/buscar/BuscarPage'
 import { Spinner } from '@/components/shared/Spinner'
 
 function AppRoutes() {
-  const { session, cargando, recoveryMode } = useAuth()
+  const { session, cargando, recoveryMode, trialExpirado } = useAuth()
 
   if (cargando) {
     return (
@@ -30,6 +31,8 @@ function AppRoutes() {
   if (recoveryMode) return <ResetPassword />
 
   if (!session) return <Login />
+
+  if (trialExpirado) return <TrialExpirado />
 
   return (
     <Shell>
