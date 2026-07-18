@@ -68,9 +68,14 @@ export function ProductoModal({ producto, productos, bodegas, onClose }: Props) 
       tipo,
     }
 
-    await guardar.mutateAsync(prod)
-    setGuardando(false)
-    onClose()
+    try {
+      await guardar.mutateAsync(prod)
+      onClose()
+    } catch (e) {
+      setError((e as Error).message || 'No se pudo guardar el producto')
+    } finally {
+      setGuardando(false)
+    }
   }
 
   return (

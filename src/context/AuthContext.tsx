@@ -83,6 +83,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .select('id,nombre,plan_estado,trial_termina')
         .eq('owner_id', user.id)
         .maybeSingle()
+      if (emp?.id) {
+        // Crea (idempotente) el perfil admin del dueño — sin esta fila, las políticas
+        // RLS de las tablas relacionales (productos, ventas, etc.) bloquean todo.
+        await supabase.from('user_profiles').upsert(
+          { id: user.id, empresa_id: emp.id, role: 'admin', nombre: emp.nombre, activo: true },
+          { onConflict: 'id', ignoreDuplicates: true },
+        )
+      }
       setEstado({
         session,
         empresaId: emp?.id || null,
