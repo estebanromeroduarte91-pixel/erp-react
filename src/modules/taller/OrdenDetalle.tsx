@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { useGuardarOrden, useMsgTemplates, useSeguimientoConfig, useBodegas } from '@/lib/queries'
+import { useActualizarOrden, useMsgTemplates, useSeguimientoConfig, useBodegas } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { sendEmail, buildEmailListo, buildEmailInspeccion, buildEmailAprobacion } from '@/lib/email'
@@ -54,9 +54,9 @@ function rellenarTemplate(tpl: string, vars: Record<string, string>): string {
   return tpl.replace(/\{\{(\w+)\}\}/g, (_, k) => vars[k] ?? '')
 }
 
-export function OrdenDetalle({ orden: o, ordenes, onClose, onEditar }: Props) {
+export function OrdenDetalle({ orden: o, onClose, onEditar }: Props) {
   const { empresaId } = useAuth()
-  const guardar = useGuardarOrden()
+  const actualizarOrden = useActualizarOrden()
   const { data: msgTemplates } = useMsgTemplates()
   const { data: segCfg } = useSeguimientoConfig()
   const { data: bodegas = [] } = useBodegas()
@@ -113,10 +113,11 @@ export function OrdenDetalle({ orden: o, ordenes, onClose, onEditar }: Props) {
         .neq('estado', 'pendiente')
         .maybeSingle()
       if (data) {
-        const actualizadas = ordenes.map(x => x.id === o.id
-          ? { ...x, aprobacion_estado: data.estado as 'aprobado' | 'rechazado', aprobacion_fecha: data.aprobado_en }
-          : x)
-        await guardar.mutateAsync(actualizadas)
+        await actualizarOrden.mutateAsync({
+          id: o.id,
+          aprobacion_estado: data.estado as 'aprobado' | 'rechazado',
+          aprobacion_fecha: data.aprobado_en,
+        })
       }
     }
     const interval = setInterval(check, 15000)
@@ -146,8 +147,7 @@ export function OrdenDetalle({ orden: o, ordenes, onClose, onEditar }: Props) {
 
   async function cambiarEstado(estado: EstadoOrden) {
     if (o.status === estado) return
-    const actualizadas = ordenes.map(x => x.id === o.id ? { ...x, status: estado, subestado: undefined } : x)
-    await guardar.mutateAsync(actualizadas)
+    await actualizarOrden.mutateAsync({ id: o.id, status: estado, subestado: undefined })
 
     const vars = buildVars(o.num)
     const esListo = estado === 'Listo' || estado === 'Entregado'
@@ -254,10 +254,10 @@ export function OrdenDetalle({ orden: o, ordenes, onClose, onEditar }: Props) {
       }
       const { error } = await supabase.from('aprobaciones').insert(row)
       if (error) { alert('Error al crear solicitud: ' + error.message); setEnviandoAprob(false); return }
-      const actualizadas = ordenes.map(x => x.id === o.id
-        ? { ...x, aprobacion_token: token, aprobacion_estado: 'pendiente' as const, aprobacion_enviado: new Date().toISOString().slice(0, 10) }
-        : x)
-      await guardar.mutateAsync(actualizadas)
+      await actualizarOrden.mutateAsync({
+        id: o.id, aprobacion_token: token, aprobacion_estado: 'pendiente' as const,
+        aprobacion_enviado: new Date().toISOString().slice(0, 10),
+      })
     }
 
     const link = `${APROB_BASE_URL}?t=${token}`
@@ -302,8 +302,7 @@ export function OrdenDetalle({ orden: o, ordenes, onClose, onEditar }: Props) {
   async function guardarInspeccion(modo: 'solo' | 'correo' | 'whatsapp' = 'solo') {
     setGuardandoInspec(true)
     const inspeccion: Inspeccion = { fotos: inspecFotos, notas: inspecNotas, fecha: new Date().toISOString() }
-    const actualizadas = ordenes.map(x => x.id === o.id ? { ...x, inspeccion } : x)
-    await guardar.mutateAsync(actualizadas)
+    await actualizarOrden.mutateAsync({ id: o.id, inspeccion })
 
     if (modo === 'correo' && o.email && empresaId) {
       const tpl = msgTemplates?.inspeccion_email ?? ''

@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { useOrdenes, useTraslados, useGuardarOrden, useBodegas } from '@/lib/queries'
+import { useOrdenes, useTraslados, useActualizarOrden, useEliminarOrden, useBodegas } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { useIsMobile } from '@/lib/useIsMobile'
 import { EstadoBadge } from '@/components/shared/Badge'
@@ -80,7 +80,8 @@ export function TallerPage() {
   const { data: ordenes, isLoading, error } = useOrdenes()
   const { data: traslados } = useTraslados()
   const { data: bodegas = [] } = useBodegas()
-  const guardarOrden = useGuardarOrden()
+  const actualizarOrden = useActualizarOrden()
+  const eliminarOrden = useEliminarOrden()
   const { esAdmin } = useAuth()
   const [configTab, setConfigTab] = useState<TallerConfigTab>('seguimiento')
   const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null)
@@ -152,7 +153,7 @@ export function TallerPage() {
   async function confirmarEliminar() {
     if (!ordenAEliminar || !esAdmin) return
     setEliminando(true)
-    await guardarOrden.mutateAsync((ordenes ?? []).filter((o) => o.id !== ordenAEliminar.id))
+    await eliminarOrden.mutateAsync(ordenAEliminar.id)
     setEliminando(false)
     setOrdenAEliminar(null)
   }
@@ -161,9 +162,7 @@ export function TallerPage() {
     if (!ordenAReabrir) return
     setReabriendo(true)
     try {
-      await guardarOrden.mutateAsync(
-        (ordenes ?? []).map((o) => o.id === ordenAReabrir.id ? { ...o, status: 'Listo' as EstadoOrden } : o)
-      )
+      await actualizarOrden.mutateAsync({ id: ordenAReabrir.id, status: 'Listo' as EstadoOrden })
       setOrdenAReabrir(null)
     } finally {
       setReabriendo(false)

@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { useTraslados, useGuardarTraslados, useTecnicosExternos, useGuardarTecnicosExternos, useOrdenes, useGuardarOrden, useGastos, useGuardarGastos, usePlanCuentas, useCatCuentaMap, useAsientos, useGuardarAsientos } from '@/lib/queries'
+import { useTraslados, useGuardarTraslados, useTecnicosExternos, useGuardarTecnicosExternos, useOrdenes, useActualizarOrden, useGastos, useGuardarGastos, usePlanCuentas, useCatCuentaMap, useAsientos, useGuardarAsientos } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { asientoDeGasto, nextNumeroAsiento } from '@/lib/contabilidad'
 import { Spinner } from '@/components/shared/Spinner'
@@ -74,7 +74,7 @@ export function TrasladosTab() {
   const { data: tecnicos } = useTecnicosExternos()
   const guardarTecnicos = useGuardarTecnicosExternos()
   const { data: ordenes } = useOrdenes()
-  const guardarOrden = useGuardarOrden()
+  const actualizarOrden = useActualizarOrden()
   const { data: gastos } = useGastos()
   const guardarGastos = useGuardarGastos()
   const { data: planCuentas } = usePlanCuentas()
@@ -110,9 +110,7 @@ export function TrasladosTab() {
     ))
     // 2. Reactiva la orden asociada en el estado elegido
     if (retEstadoOrden && retorno.order_id) {
-      await guardarOrden.mutateAsync((ordenes ?? []).map((o) =>
-        o.id === retorno.order_id ? { ...o, status: retNuevoEstado } : o,
-      ))
+      await actualizarOrden.mutateAsync({ id: retorno.order_id, status: retNuevoEstado })
     }
     // 3. Registra el pago al técnico como gasto + asiento contable de partida doble
     if (retRegistrarPago && Number(retMonto) > 0) {

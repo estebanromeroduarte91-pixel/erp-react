@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { useOrdenes, useGuardarOrden, useMsgTemplates, useSeguimientoConfig, useChecklist, useProductos, useAjustarStock, useBodegas, useTraslados } from '@/lib/queries'
+import { useOrdenes, useActualizarOrden, useMsgTemplates, useSeguimientoConfig, useChecklist, useProductos, useAjustarStock, useBodegas, useTraslados } from '@/lib/queries'
 import { DerivarModal } from './DerivarModal'
 import { useAuth } from '@/context/AuthContext'
 import { sendEmail, buildEmailIngreso, buildEmailAprobacion, buildEmailInspeccion, buildEmailListo } from '@/lib/email'
@@ -37,7 +37,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
   const { empresaId } = useAuth()
   const qc = useQueryClient()
   const { data: ordenes, isLoading } = useOrdenes()
-  const guardar = useGuardarOrden()
+  const actualizarOrden = useActualizarOrden()
   const { data: msgTemplates } = useMsgTemplates()
   const { data: segCfg } = useSeguimientoConfig()
 
@@ -185,8 +185,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
   }
 
   async function cambiarEstadoConSubestado(estado: EstadoOrden, subestado: string) {
-    const actualizadas = (ordenes ?? []).map(x => x.id === orden.id ? { ...x, status: estado, subestado } : x)
-    await guardar.mutateAsync(actualizadas)
+    await actualizarOrden.mutateAsync({ id: orden.id, status: estado, subestado })
     setPendingEstado(null)
     setEmailOk(false)
     const vars = buildVars()
@@ -207,8 +206,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
       setPendingEstado(estado)
       return
     }
-    const actualizadas = (ordenes ?? []).map(x => x.id === orden.id ? { ...x, status: estado, subestado: undefined } : x)
-    await guardar.mutateAsync(actualizadas)
+    await actualizarOrden.mutateAsync({ id: orden.id, status: estado, subestado: undefined })
   }
 
   async function enviarEmail() {
@@ -357,16 +355,14 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
     const checkFinal = [...checkItems] as CheckItem[] & { _apagado?: boolean; _mojado?: boolean }
     checkFinal._apagado = cond?._apagado
     checkFinal._mojado = cond?._mojado
-    const actualizadas = (ordenes ?? []).map(x => x.id === orden.id ? { ...x, checkIngreso: checkFinal } : x)
-    await guardar.mutateAsync(actualizadas)
+    await actualizarOrden.mutateAsync({ id: orden.id, checkIngreso: checkFinal })
     setChecklistOpen(false)
   }
 
   async function guardarInspeccion() {
     setGuardandoInspec(true)
     const inspeccion: Inspeccion = { fotos: inspecFotos, notas: inspecNotas, fecha: new Date().toISOString() }
-    const actualizadas = (ordenes ?? []).map(x => x.id === orden.id ? { ...x, inspeccion } : x)
-    await guardar.mutateAsync(actualizadas)
+    await actualizarOrden.mutateAsync({ id: orden.id, inspeccion })
     setGuardandoInspec(false)
     setShowInspeccion(false)
   }
@@ -378,8 +374,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
     setEnviandoInspec(true)
     try {
       const inspeccion: Inspeccion = { fotos: inspecFotos, notas: inspecNotas, fecha: new Date().toISOString() }
-      const actualizadas = (ordenes ?? []).map(x => x.id === orden.id ? { ...x, inspeccion } : x)
-      await guardar.mutateAsync(actualizadas)
+      await actualizarOrden.mutateAsync({ id: orden.id, inspeccion })
 
       const tplVars: Record<string, string> = {
         nombre: orden.nombre ?? '', modelo: orden.modelo ?? '', orden: orden.num ?? '',
@@ -426,8 +421,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
       const reader = new FileReader()
       reader.onload = async ev => {
         const nuevas = [...(ordenes?.find(x => x.id === orden.id)?.photosIngreso ?? []), ev.target?.result as string]
-        const actualizadas = (ordenes ?? []).map(x => x.id === orden.id ? { ...x, photosIngreso: nuevas } : x)
-        await guardar.mutateAsync(actualizadas)
+        await actualizarOrden.mutateAsync({ id: orden.id, photosIngreso: nuevas })
       }
       reader.readAsDataURL(f)
     })
@@ -469,17 +463,12 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
       }
     }
 
-    const actualizadas = (ordenes ?? []).map(x =>
-      x.id === orden.id ? { ...x, repuestos: [...(x.repuestos ?? []), nuevo] } : x
-    )
-    await guardar.mutateAsync(actualizadas)
+    await actualizarOrden.mutateAsync({ id: orden.id, repuestos: [...(orden.repuestos ?? []), nuevo] })
     setShowRepModal(false)
   }
 
   async function eliminarRepuesto(idx: number) {
-    const actualizadas = (ordenes ?? []).map(x => x.id === orden.id
-      ? { ...x, repuestos: (x.repuestos ?? []).filter((_, i) => i !== idx) } : x)
-    await guardar.mutateAsync(actualizadas)
+    await actualizarOrden.mutateAsync({ id: orden.id, repuestos: (orden.repuestos ?? []).filter((_, i) => i !== idx) })
   }
 
   const APROB_BASE_URL = 'https://estebanromeroduarte91-pixel.github.io/modulo-compras/aprobar.html'
@@ -524,10 +513,10 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
           return
         }
 
-        const actualizadas = (ordenes ?? []).map(x => x.id === aprobOrden.id
-          ? { ...x, aprobacion_token: token, aprobacion_estado: 'pendiente' as const, aprobacion_enviado: new Date().toISOString() }
-          : x)
-        await guardar.mutateAsync(actualizadas)
+        await actualizarOrden.mutateAsync({
+          id: aprobOrden.id, aprobacion_token: token, aprobacion_estado: 'pendiente' as const,
+          aprobacion_enviado: new Date().toISOString(),
+        })
       }
 
       const link = `${APROB_BASE_URL}?t=${token}`
@@ -580,11 +569,10 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
       .neq('estado', 'pendiente')
       .maybeSingle()
     if (!data) return
-    const actualizadas = (ordenes ?? []).map(x => x.id === orden.id
-      ? { ...x, aprobacion_estado: data.estado as 'aprobado' | 'rechazado', aprobacion_fecha: data.aprobado_en }
-      : x)
-    await guardar.mutateAsync(actualizadas)
-  }, [orden.aprobacion_token, orden.aprobacion_estado, orden.id, ordenes, guardar])
+    await actualizarOrden.mutateAsync({
+      id: orden.id, aprobacion_estado: data.estado as 'aprobado' | 'rechazado', aprobacion_fecha: data.aprobado_en,
+    })
+  }, [orden.aprobacion_token, orden.aprobacion_estado, orden.id, actualizarOrden])
 
   useEffect(() => {
     if (orden.aprobacion_estado !== 'pendiente') return
@@ -601,8 +589,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
   async function eliminarFotoIngreso(idx: number) {
     setGuardandoIngreso(true)
     const nuevas = (orden.photosIngreso ?? []).filter((_, i) => i !== idx)
-    const actualizadas = (ordenes ?? []).map(x => x.id === orden.id ? { ...x, photosIngreso: nuevas } : x)
-    await guardar.mutateAsync(actualizadas)
+    await actualizarOrden.mutateAsync({ id: orden.id, photosIngreso: nuevas })
     setGuardandoIngreso(false)
   }
 
@@ -893,7 +880,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
                       <span className="text-xs text-gray-400 mr-3">{resueltos}/{total}</span>
                       <button
                         onClick={guardarChecklist}
-                        disabled={guardar.isPending}
+                        disabled={actualizarOrden.isPending}
                         className="text-xs font-semibold text-white bg-blue-600 px-3 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition"
                       >
                         Guardar
@@ -1536,9 +1523,9 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
               </button>
               <button
                 onClick={confirmarRepuesto}
-                disabled={guardar.isPending || ajustarStock.isPending || (!repManual && !repSelected) || (repManual && !repManualNombre.trim())}
+                disabled={actualizarOrden.isPending || ajustarStock.isPending || (!repManual && !repSelected) || (repManual && !repManualNombre.trim())}
                 className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 disabled:opacity-50 transition">
-                {guardar.isPending ? 'Guardando…' : 'Agregar repuesto'}
+                {actualizarOrden.isPending ? 'Guardando…' : 'Agregar repuesto'}
               </button>
             </div>
           </div>

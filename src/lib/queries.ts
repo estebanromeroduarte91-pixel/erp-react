@@ -7,67 +7,183 @@ import { useAuth } from '@/context/AuthContext'
 import type { Orden, Cliente, Producto, Bodega, Movimiento, Proveedor, Venta, VentaItem, MetodoPago, Caja, CajaSesion, Gasto, GastoCat, CuentaContable, Asiento, SeguimientoConfig, SmtpConfig, MsgTemplates, Cargo, UserProfile, UserConfig, PendingInvite, EmailDomain, OC, OCLogEntry, Categoria, Kit, Traslado, TecnicoExterno, Equipo, FichaUsuario, LoteInventario, ConteoInventario } from '@/types'
 
 // ── Órdenes de Taller ─────────────────────────────────────────
+// Tabla relacional `ordenes` (migrada desde el blob erp_data/tp_orders).
+// Repuestos/checklists/fotos quedan como columnas JSONB en la misma fila —a
+// diferencia de Ventas, nada en el código de hoy agrega esos datos entre
+// órdenes distintas, así que una tabla hija sería sobre-ingeniería.
+
+const ORDEN_FIELD_MAP: Record<string, string> = {
+  num: 'num', fecha: 'fecha', status: 'status', nombre: 'nombre', apellido: 'apellido', tel: 'tel', email: 'email', rut: 'rut',
+  modelo: 'modelo', serie: 'serie', color: 'color', pin: 'pin', pinType: 'pin_type',
+  estadoFisico: 'estado_fisico', trabajo: 'trabajo', tecnico: 'tecnico', presup: 'presup', costo: 'costo', fechaEstimada: 'fecha_estimada',
+  repuestos: 'repuestos', checkIngreso: 'check_ingreso', photosIngreso: 'photos_ingreso', branchId: 'branch_id', subestado: 'subestado',
+  _draft: 'is_draft', inspeccion: 'inspeccion', photosSalida: 'photos_salida', checkSalida: 'check_salida', observSalida: 'observ_salida',
+  obs: 'obs', photosTraslado: 'photos_traslado', aprobacion_estado: 'aprobacion_estado', aprobacion_token: 'aprobacion_token',
+  aprobacion_enviado: 'aprobacion_enviado', aprobacion_fecha: 'aprobacion_fecha', deliveredAt: 'delivered_at', updatedAt: 'updated_at',
+  createdAt: 'created_at', venta_id: 'venta_id', numero_boleta: 'numero_boleta',
+}
+
+function hidratarOrden(row: Record<string, unknown>): Orden {
+  return {
+    id: row.id as string,
+    num: row.num as string,
+    fecha: row.fecha as string,
+    status: row.status as Orden['status'],
+    nombre: (row.nombre as string) ?? '',
+    apellido: row.apellido as string | undefined,
+    tel: row.tel as string | undefined,
+    email: row.email as string | undefined,
+    rut: row.rut as string | undefined,
+    modelo: row.modelo as string | undefined,
+    serie: row.serie as string | undefined,
+    color: row.color as string | undefined,
+    pin: row.pin as string | undefined,
+    pinType: row.pin_type as Orden['pinType'],
+    estadoFisico: row.estado_fisico as string | undefined,
+    trabajo: row.trabajo as string | undefined,
+    tecnico: row.tecnico as string | undefined,
+    presup: row.presup as string | undefined,
+    costo: row.costo as string | undefined,
+    fechaEstimada: row.fecha_estimada as string | undefined,
+    repuestos: (row.repuestos as Orden['repuestos']) ?? [],
+    checkIngreso: (row.check_ingreso as Orden['checkIngreso']) ?? [],
+    photosIngreso: (row.photos_ingreso as string[]) ?? [],
+    branchId: row.branch_id as string | undefined,
+    subestado: row.subestado as string | undefined,
+    _draft: (row.is_draft as boolean) ?? false,
+    inspeccion: row.inspeccion as Orden['inspeccion'],
+    photosSalida: (row.photos_salida as string[]) ?? [],
+    checkSalida: (row.check_salida as Orden['checkSalida']) ?? [],
+    observSalida: row.observ_salida as string | undefined,
+    obs: row.obs as string | undefined,
+    photosTraslado: (row.photos_traslado as string[]) ?? [],
+    aprobacion_estado: row.aprobacion_estado as Orden['aprobacion_estado'],
+    aprobacion_token: row.aprobacion_token as string | undefined,
+    aprobacion_enviado: row.aprobacion_enviado as string | undefined,
+    aprobacion_fecha: row.aprobacion_fecha as string | undefined,
+    deliveredAt: row.delivered_at as string | undefined,
+    updatedAt: row.updated_at as string | undefined,
+    createdAt: row.created_at as string | undefined,
+    venta_id: row.venta_id as string | undefined,
+    numero_boleta: row.numero_boleta as string | undefined,
+  }
+}
+
+// Convierte los campos presentes de una Orden parcial a columnas snake_case.
+// Solo incluye claves que vengan en `o` (para updates parciales sin pisar el resto).
+// Un valor `undefined` explícito se convierte a `null` — si no, Postgres simplemente
+// no incluiría esa columna en el UPDATE y el valor viejo quedaría sin limpiar.
+function filaOrdenParcial(o: Partial<Orden>): Record<string, unknown> {
+  const row: Record<string, unknown> = {}
+  for (const [k, col] of Object.entries(ORDEN_FIELD_MAP)) {
+    if (k in o) {
+      const v = (o as Record<string, unknown>)[k]
+      row[col] = v === undefined ? null : v
+    }
+  }
+  if ('presup' in o) row.presup = o.presup != null ? String(o.presup) : null
+  if ('costo' in o) row.costo = o.costo != null ? String(o.costo) : null
+  return row
+}
 
 export function useOrdenes() {
   const { empresaId } = useAuth()
   const qc = useQueryClient()
   const instanceId = useId()
 
-  // Realtime: invalida la query cuando cambia tp_orders en Supabase.
+  // Realtime: invalida la query cuando cambia la tabla `ordenes`.
   // El nombre del canal incluye un id único por instancia del hook para que
   // dos componentes que usen useOrdenes a la vez (ej. lista + modal de detalle)
   // no choquen suscribiéndose al mismo canal de Supabase.
   useEffect(() => {
     if (!empresaId) return
     const channel = supabase
-      .channel(`rt-orders-${empresaId}-${instanceId}`)
+      .channel(`rt-ordenes-${empresaId}-${instanceId}`)
       .on(
         'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'erp_data',
-          filter: `empresa_id=eq.${empresaId}`,
-        },
-        (payload) => {
-          const clave = (payload.new as { clave?: string })?.clave
-          if (clave === 'tp_orders') {
-            void qc.invalidateQueries({ queryKey: ['tp_orders', empresaId] })
-          }
-        },
+        { event: '*', schema: 'public', table: 'ordenes', filter: `empresa_id=eq.${empresaId}` },
+        () => void qc.invalidateQueries({ queryKey: ['ordenes', empresaId] }),
       )
       .subscribe()
     return () => { void supabase.removeChannel(channel) }
   }, [empresaId, qc, instanceId])
 
   return useQuery({
-    queryKey: ['tp_orders', empresaId],
-    queryFn: () => dbGet<Orden[] | string>(empresaId!, 'tp_orders'),
-    enabled: !!empresaId,
-    select: (data) => {
-      // El ERP vanilla guarda tp_orders como string JSON; lo parseamos si hace falta
-      let arr: Orden[] = []
-      if (typeof data === 'string') {
-        try { arr = JSON.parse(data) } catch { arr = [] }
-      } else {
-        arr = (data as Orden[]) ?? []
+    queryKey: ['ordenes', empresaId],
+    queryFn: async () => {
+      const PAGE = 1000
+      const filas: Record<string, unknown>[] = []
+      for (let from = 0; ; from += PAGE) {
+        const { data, error } = await supabase
+          .from('ordenes')
+          .select('*')
+          .eq('empresa_id', empresaId!)
+          .eq('is_draft', false)
+          .range(from, from + PAGE - 1)
+        if (error) throw error
+        filas.push(...(data ?? []))
+        if (!data || data.length < PAGE) break
       }
-      return arr.filter((o) => !o._draft)
+      return filas.map(hidratarOrden)
     },
+    enabled: !!empresaId,
   })
 }
 
-export function useGuardarOrden() {
+// Crea UNA orden nueva (insert de una fila). Reemplaza el patrón anterior de
+// reescribir el array `tp_orders` completo en cada creación.
+export function useCrearOrden() {
   const { empresaId } = useAuth()
   const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (o: Orden) => {
+      const row = { id: o.id, empresa_id: empresaId!, ...filaOrdenParcial(o) }
+      const { error } = await supabase.from('ordenes').insert(row)
+      if (error) throw error
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['ordenes', empresaId] }),
+  })
+}
 
+// Actualiza una orden existente (update de una fila, solo los campos que cambian).
+export function useActualizarOrden() {
+  const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (o: Partial<Orden> & { id: string }) => {
+      const { id, ...rest } = o
+      const { error } = await supabase.from('ordenes').update(filaOrdenParcial(rest)).eq('id', id).eq('empresa_id', empresaId!)
+      if (error) throw error
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['ordenes', empresaId] }),
+  })
+}
+
+export function useEliminarOrden() {
+  const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('ordenes').delete().eq('id', id).eq('empresa_id', empresaId!)
+      if (error) throw error
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['ordenes', empresaId] }),
+  })
+}
+
+// Importación masiva (historial) — upsert por lotes, igual patrón que useImportarProductos.
+export function useImportarOrdenes() {
+  const { empresaId } = useAuth()
+  const qc = useQueryClient()
   return useMutation({
     mutationFn: async (ordenes: Orden[]) => {
-      await dbSet(empresaId!, 'tp_orders', ordenes)
+      const rows = ordenes.map(o => ({ id: o.id, empresa_id: empresaId!, ...filaOrdenParcial(o) }))
+      for (let i = 0; i < rows.length; i += 200) {
+        const { error } = await supabase.from('ordenes').upsert(rows.slice(i, i + 200), { onConflict: 'id' })
+        if (error) throw error
+      }
     },
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['tp_orders', empresaId] })
-    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['ordenes', empresaId] }),
   })
 }
 

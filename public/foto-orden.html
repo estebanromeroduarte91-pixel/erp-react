@@ -96,10 +96,10 @@ const params=new URLSearchParams(window.location.search);
 const empresaId=params.get('e');
 const ordenId=params.get('o');
 const tipoFotos=params.get('tipo')||'ingreso'; // 'ingreso' o 'inspeccion'
-let currentOrder=null,allOrders=[];
+let currentOrder=null;
 
-function getFotos(){ return tipoFotos==='inspeccion'?(currentOrder.inspeccion?.fotos||[]):(currentOrder.photosIngreso||[]); }
-function setFotos(arr){ if(tipoFotos==='inspeccion'){ if(!currentOrder.inspeccion) currentOrder.inspeccion={}; currentOrder.inspeccion.fotos=arr; } else { currentOrder.photosIngreso=arr; } }
+function getFotos(){ return tipoFotos==='inspeccion'?(currentOrder.inspeccion?.fotos||[]):(currentOrder.photos_ingreso||[]); }
+function setFotos(arr){ if(tipoFotos==='inspeccion'){ if(!currentOrder.inspeccion) currentOrder.inspeccion={}; currentOrder.inspeccion.fotos=arr; } else { currentOrder.photos_ingreso=arr; } }
 
 function setLoading(msg){ document.getElementById('loading-msg').textContent=msg; }
 function showError(title,msg){ document.getElementById('loading').style.display='none';document.getElementById('app').style.display='none';document.getElementById('error-screen').style.display='block';document.getElementById('error-title').textContent=title;document.getElementById('error-msg').textContent=msg; }
@@ -134,10 +134,8 @@ async function deletePhoto(idx){
 }
 
 async function saveOrder(){
-  const idx=allOrders.findIndex(o=>o.id===ordenId);
-  if(idx<0)return null;
-  allOrders[idx]=currentOrder;
-  const {error}=await sb.from('erp_data').upsert({empresa_id:empresaId,clave:'tp_orders',datos:JSON.stringify(allOrders),actualizado_en:new Date().toISOString()},{onConflict:'empresa_id,clave'});
+  const patch = tipoFotos==='inspeccion' ? {inspeccion: currentOrder.inspeccion} : {photos_ingreso: currentOrder.photos_ingreso};
+  const {error}=await sb.from('ordenes').update(patch).eq('id',ordenId).eq('empresa_id',empresaId);
   return error||null;
 }
 
@@ -225,15 +223,13 @@ async function load(){
 
   try{
     setLoading('Cargando datos...');
-    const {data,error}=await sb.from('erp_data').select('datos').eq('empresa_id',empresaId).eq('clave','tp_orders').maybeSingle();
+    const {data,error}=await sb.from('ordenes').select('*').eq('empresa_id',empresaId).eq('id',ordenId).maybeSingle();
     clearTimeout(timeoutId);
     if(timedOut)return;
 
     if(error){showError('Error Supabase',error.message+'  |  code: '+error.code+'  |  e='+empresaId);return;}
-    if(!data){showError('Sin datos','No se encontraron datos para empresa: '+empresaId);return;}
 
-    const raw=data.datos; allOrders=Array.isArray(raw)?raw:(typeof raw==='string'?JSON.parse(raw):[]);
-    currentOrder=allOrders.find(o=>o.id===ordenId);
+    currentOrder=data;
 
     if(!currentOrder){
       document.getElementById('loading').innerHTML=`
@@ -250,7 +246,7 @@ async function load(){
     document.getElementById('orden-modelo').textContent=currentOrder.modelo||'—';
     document.getElementById('orden-cliente').textContent=currentOrder.nombre||'—';
     document.getElementById('orden-estado').textContent=currentOrder.status||'—';
-    document.getElementById('orden-sucursal').textContent=currentOrder.branchNombre||'—';
+    document.getElementById('orden-sucursal').textContent=currentOrder.branch_nombre||'—';
     renderPhotos();
     document.getElementById('loading').style.display='none';
     document.getElementById('app').style.display='block';

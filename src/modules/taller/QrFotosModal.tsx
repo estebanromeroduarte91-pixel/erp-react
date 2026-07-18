@@ -10,7 +10,7 @@ interface Props {
 }
 
 // Muestra un QR que apunta a la página externa de subida de fotos desde iPhone.
-// Las fotos se sincronizan solas porque useOrdenes() escucha el realtime de tp_orders.
+// Las fotos se sincronizan solas porque OrdenModal escucha el realtime de la tabla `ordenes`.
 export function QrFotosModal({ ordenId, tipo = 'ingreso', onClose }: Props) {
   const { empresaId } = useAuth()
   const [dataUrl, setDataUrl] = useState('')

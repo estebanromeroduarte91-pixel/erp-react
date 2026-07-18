@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { formatRut } from '@/lib/rut'
-import { useGuardarOrden, useClientes, useGuardarClientes, useProductos, useChecklist, useUserProfiles, useMsgTemplates, useSeguimientoConfig, useBodegas } from '@/lib/queries'
+import { useCrearOrden, useActualizarOrden, useClientes, useGuardarClientes, useProductos, useChecklist, useUserProfiles, useMsgTemplates, useSeguimientoConfig, useBodegas } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
-import { dbGet } from '@/lib/db'
 import { sendEmail, buildEmailIngreso } from '@/lib/email'
 import { notifyNuevoEquipo } from '@/lib/push-notify'
 import { Money } from '@/components/shared/Money'
@@ -57,7 +56,8 @@ function rellenarTemplate(tpl: string, vars: Record<string, string>): string {
 
 export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) {
   const { empresaId, branchId: userBranchId } = useAuth()
-  const guardar = useGuardarOrden()
+  const crearOrden = useCrearOrden()
+  const actualizarOrden = useActualizarOrden()
   const { data: clientes } = useClientes()
   const guardarClientes = useGuardarClientes()
   const { data: productos } = useProductos()
@@ -102,17 +102,16 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
 
   // Suscripción directa al draft para sincronizar fotos del iPhone vía QR.
   // useOrdenes filtra _draft, por eso se usa una suscripción propia aquí.
+  // Filtra por id de fila específico (más preciso que antes, que escuchaba toda la empresa).
   useEffect(() => {
     if (!draftId || !empresaId) return
     const channel = supabase
       .channel(`draft-fotos-${draftId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'erp_data',
-        filter: `empresa_id=eq.${empresaId}` },
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ordenes',
+        filter: `id=eq.${draftId}` },
         async () => {
-          const raw = await dbGet<Orden[] | string>(empresaId, 'tp_orders')
-          const arr: Orden[] = typeof raw === 'string' ? JSON.parse(raw) : (raw ?? [])
-          const draft = arr.find(o => o.id === draftId)
-          if (draft?.photosIngreso) setFotos(draft.photosIngreso)
+          const { data } = await supabase.from('ordenes').select('photos_ingreso').eq('id', draftId).maybeSingle()
+          if (data?.photos_ingreso) setFotos(data.photos_ingreso as string[])
         })
       .subscribe()
     return () => { void supabase.removeChannel(channel) }
@@ -134,7 +133,7 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
       photosIngreso: fotos,
       _draft: true,
     }
-    await guardar.mutateAsync([draft, ...ordenes])
+    await crearOrden.mutateAsync(draft)
     setDraftId(id)
     setCreandoBorrador(false)
     return id
@@ -390,7 +389,7 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
     setGuardando(true)
 
     const ahora = new Date().toISOString()
-    let nuevasOrdenes: Orden[]
+    let ordenGuardada: Orden
 
     // Adjunta flags especiales al array del checklist (igual que el ERP original)
     const checkFinal = [...checkIngreso] as CheckItem[] & { _apagado?: boolean; _mojado?: boolean }
@@ -399,15 +398,17 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
 
     if (draftId) {
       // Edición, o finalización de un borrador creado para el QR. Quita el flag _draft.
-      const existe = ordenes.some((o) => o.id === draftId)
-      const actualizada = (base: Orden): Orden => ({
+      // La fila SIEMPRE ya existe en la BD acá (o es la orden que se edita, o el
+      // borrador que ya insertó asegurarBorrador()) — por eso siempre es un update,
+      // nunca un insert, aunque `ordenes` (que excluye borradores) no lo contenga.
+      const base = ordenes.find((o) => o.id === draftId) ?? orden ?? ({ id: draftId, num: nextNum(ordenes), fecha: ahora } as Orden)
+      const actualizada: Orden = {
         ...base, ...form, repuestos, checkIngreso: checkFinal, photosIngreso: fotos, _draft: false,
         branchId: base.branchId ?? userBranchId ?? undefined,
         numero_boleta: base.numero_boleta || form.numero_boleta?.trim() || undefined,
-      })
-      nuevasOrdenes = existe
-        ? ordenes.map((o) => (o.id === draftId ? actualizada(o) : o))
-        : [actualizada({ id: draftId, num: nextNum(ordenes), fecha: ahora } as Orden), ...ordenes]
+      }
+      await actualizarOrden.mutateAsync(actualizada)
+      ordenGuardada = actualizada
     } else {
       const nuevaOrden: Orden = {
         id: Date.now().toString(),
@@ -419,7 +420,8 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
         photosIngreso: fotos,
         branchId: userBranchId ?? defaultBranchId ?? undefined,
       }
-      nuevasOrdenes = [nuevaOrden, ...ordenes]
+      await crearOrden.mutateAsync(nuevaOrden)
+      ordenGuardada = nuevaOrden
     }
 
     // Crea el cliente si es la primera vez que se guarda de verdad (no en re-edición)
@@ -439,13 +441,11 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
       }
     }
 
-    await guardar.mutateAsync(nuevasOrdenes)
-
     // Notificación push al dueño (solo al crear una orden nueva, no al editar)
     if (!isEditing && empresaId) {
-      const branch = bodegas.find(b => b.id === nuevasOrdenes[0]?.branchId)
+      const branch = bodegas.find(b => b.id === ordenGuardada.branchId)
       void notifyNuevoEquipo(empresaId, {
-        num: nuevasOrdenes[0]?.num ?? '',
+        num: ordenGuardada.num ?? '',
         cliente: `${form.nombre} ${form.apellido}`.trim(),
         modelo: form.modelo,
         falla: form.trabajo,
@@ -457,11 +457,8 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
     if (!isEditing && form.email && empresaId) {
       const tpl = msgTemplates?.ingreso_email
       if (tpl) {
-        const num = draftId
-          ? (nuevasOrdenes.find(o => o.id === draftId)?.num ?? '')
-          : (nuevasOrdenes[0]?.num ?? '')
-        const ordenGuardada = nuevasOrdenes.find(o => o.num === num) ?? nuevasOrdenes[0]
-        const branch = bodegas.find(b => b.id === ordenGuardada?.branchId)
+        const num = ordenGuardada.num ?? ''
+        const branch = bodegas.find(b => b.id === ordenGuardada.branchId)
         const branchNombre = branch?.nombre ?? branch?.name ?? segCfg?.nombreTaller ?? ''
         const vars = {
           nombre: form.nombre,

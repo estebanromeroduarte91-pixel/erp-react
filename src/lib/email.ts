@@ -390,7 +390,7 @@ export function buildEmailAprobacion(d: AprobacionEmailData): string {
 // URL de la página que sube fotos desde el iPhone. Ahora vive en el mismo deploy
 // (public/foto-orden.html), así que usamos el origin actual y el QR queda en el
 // dominio propio (pixit.cl) automáticamente. La página escribe las fotos directo
-// en `tp_orders`; el realtime de useOrdenes las recibe.
+// en la tabla `ordenes`; el realtime de useOrdenes/OrdenModal las recibe.
 export function urlFotosQR(empresaId: string, ordenId: string, tipo: 'ingreso' | 'inspeccion' | 'salida' | 'traslado' = 'ingreso'): string {
   return `${window.location.origin}/foto-orden.html?e=${empresaId}&o=${ordenId}&tipo=${tipo}`
 }

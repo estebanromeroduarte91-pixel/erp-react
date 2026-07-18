@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import * as XLSX from 'xlsx'
-import { useOrdenes, useGuardarOrden, useBodegas, useClientes, useGuardarClientes } from '@/lib/queries'
+import { useOrdenes, useImportarOrdenes, useBodegas, useClientes, useGuardarClientes } from '@/lib/queries'
 import type { Cliente, Orden } from '@/types'
 
 function uid() { return Math.random().toString(36).slice(2) + Date.now().toString(36) }
@@ -81,7 +81,7 @@ export function HistorialImportTab() {
   const { data: ordenes } = useOrdenes()
   const { data: bodegas = [] } = useBodegas()
   const { data: clientes } = useClientes()
-  const guardarOrdenes = useGuardarOrden()
+  const importarOrdenes = useImportarOrdenes()
   const guardarClientes = useGuardarClientes()
 
   const fileRef = useRef<HTMLInputElement>(null)
@@ -204,13 +204,12 @@ export function HistorialImportTab() {
   async function confirmar() {
     setEstado('subiendo')
     try {
-      const merged = [...(ordenes ?? []), ...nuevasOrdenes]
       const clientesMerged = [...(clientes ?? [])]
       // aplicar cambios a existentes + agregar nuevos
       for (const nc of nuevosClientes) {
         clientesMerged.push(nc)
       }
-      await guardarOrdenes.mutateAsync(merged)
+      await importarOrdenes.mutateAsync(nuevasOrdenes)
       await guardarClientes.mutateAsync(clientesMerged)
       setEstado('listo')
     } catch (err) {

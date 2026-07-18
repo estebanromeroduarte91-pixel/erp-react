@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef } from 'react'
-import { useProductos, useAjustarStock, useVentas, useGuardarVenta, useMetodosPago, useCajaSesiones, useCajas, useGuardarCajaSesiones, useIncrementarContadorVenta, useOrdenes, useGuardarOrden, useMovimientos, useGuardarMovimientos, useUserProfiles, useUserCargoMap, useCargos, useLotes, useGuardarLotes, CARGOS_DEFAULT } from '@/lib/queries'
+import { useProductos, useAjustarStock, useVentas, useGuardarVenta, useMetodosPago, useCajaSesiones, useCajas, useGuardarCajaSesiones, useIncrementarContadorVenta, useOrdenes, useActualizarOrden, useMovimientos, useGuardarMovimientos, useUserProfiles, useUserCargoMap, useCargos, useLotes, useGuardarLotes, CARGOS_DEFAULT } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { IconCashRegister, IconLock, IconLockOpen, IconBuildingStore } from '@tabler/icons-react'
 import type { VentaItem, Venta, Orden, CajaSesion } from '@/types'
@@ -47,7 +47,7 @@ export function POSTab() {
   const { data: movimientos } = useMovimientos()
   const guardarVenta = useGuardarVenta()
   const guardarSesiones = useGuardarCajaSesiones()
-  const guardarOrden = useGuardarOrden()
+  const actualizarOrden = useActualizarOrden()
   const guardarMovimientos = useGuardarMovimientos()
   const incrementarContador = useIncrementarContadorVenta()
   const { data: userProfiles } = useUserProfiles()
@@ -387,16 +387,13 @@ export function POSTab() {
       }
 
       if (otSeleccionada) {
-        const ordenActualizada = {
-          ...otSeleccionada,
+        await actualizarOrden.mutateAsync({
+          id: otSeleccionada.id,
           status: 'Entregado' as const,
           venta_id: venta.id,
           numero_boleta: numero,
           deliveredAt: today(),
-        }
-        await guardarOrden.mutateAsync(
-          (ordenes ?? []).map(o => o.id === otSeleccionada.id ? ordenActualizada : o)
-        )
+        })
         setOtSeleccionada(null)
       }
       setItems([])
