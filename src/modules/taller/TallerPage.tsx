@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useOrdenes, useTraslados, useGuardarOrden, useBodegas } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
@@ -74,11 +74,8 @@ function ageLabel(age: number): string {
 
 export function TallerPage() {
   const [searchParams] = useSearchParams()
-  const [tallerTab, setTallerTab] = useState<TallerTab>(() => resolveTallerTab(searchParams.get('tab')))
-
-  useEffect(() => {
-    setTallerTab(resolveTallerTab(searchParams.get('tab')))
-  }, [searchParams])
+  // Derivado directo de la URL para que el resaltado no se desincronice del contenido.
+  const tallerTab = resolveTallerTab(searchParams.get('tab'))
 
   const { data: ordenes, isLoading, error } = useOrdenes()
   const { data: traslados } = useTraslados()

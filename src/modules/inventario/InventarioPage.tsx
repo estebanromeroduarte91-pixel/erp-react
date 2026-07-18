@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { ProductosTab } from './ProductosTab'
 import { BodegasTab } from './BodegasTab'
@@ -24,12 +23,12 @@ function resolveTab(param: string | null): Tab {
 }
 
 export function InventarioPage() {
-  const [searchParams] = useSearchParams()
-  const [tab, setTab] = useState<Tab>(() => resolveTab(searchParams.get('tab')))
-
-  useEffect(() => {
-    setTab(resolveTab(searchParams.get('tab')))
-  }, [searchParams])
+  const [searchParams, setSearchParams] = useSearchParams()
+  // El tab se deriva DIRECTO de la URL (fuente única de verdad) para que la píldora
+  // resaltada y el contenido nunca queden desincronizados, incluso con atrás/adelante
+  // del navegador o navegación desde el menú lateral.
+  const tab = resolveTab(searchParams.get('tab'))
+  const setTab = (id: Tab) => setSearchParams(id === 'productos' ? {} : { tab: id }, { replace: true })
 
   return (
     <div className="px-4 md:px-0">

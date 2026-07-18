@@ -1022,13 +1022,11 @@ function resolveSection(param: string | null): Section {
 
 export function ComprasPage() {
   const location = useLocation()
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { esAdmin } = useAuth()
-  const [section, setSection] = useState<Section>(() => resolveSection(searchParams.get('section')))
-
-  useEffect(() => {
-    setSection(resolveSection(searchParams.get('section')))
-  }, [searchParams])
+  // Sección derivada de la URL (fuente única) → el resaltado no se desincroniza.
+  const section = resolveSection(searchParams.get('section'))
+  const setSection = (s: Section) => setSearchParams(s === 'ocs' ? {} : { section: s }, { replace: true })
 
   const [filtro, setFiltro] = useState<FiltroTab>('todas')
   const [modal, setModal] = useState<ModalState>({ type: 'none' })

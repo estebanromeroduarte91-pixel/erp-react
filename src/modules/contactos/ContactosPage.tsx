@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { ClientesTab } from './ClientesTab'
 import { ProveedoresTab } from './ProveedoresTab'
@@ -6,12 +5,9 @@ import { ProveedoresTab } from './ProveedoresTab'
 type Tab = 'clientes' | 'proveedores'
 
 export function ContactosPage() {
-  const [searchParams] = useSearchParams()
-  const [tab, setTab] = useState<Tab>(() => searchParams.get('tab') === 'proveedores' ? 'proveedores' : 'clientes')
-
-  useEffect(() => {
-    setTab(searchParams.get('tab') === 'proveedores' ? 'proveedores' : 'clientes')
-  }, [searchParams])
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tab: Tab = searchParams.get('tab') === 'proveedores' ? 'proveedores' : 'clientes'
+  const setTab = (t: Tab) => setSearchParams(t === 'clientes' ? {} : { tab: t }, { replace: true })
 
   return (
     <div className="px-4 md:px-0">

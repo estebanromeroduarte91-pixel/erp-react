@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { GastosTab } from './GastosTab'
 import { LibroDiarioTab } from './LibroDiarioTab'
@@ -17,12 +16,9 @@ function resolveTab(param: string | null): Tab {
 }
 
 export function ContabilidadPage() {
-  const [searchParams] = useSearchParams()
-  const [tab, setTab] = useState<Tab>(() => resolveTab(searchParams.get('tab')))
-
-  useEffect(() => {
-    setTab(resolveTab(searchParams.get('tab')))
-  }, [searchParams])
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tab = resolveTab(searchParams.get('tab'))
+  const setTab = (key: Tab) => setSearchParams(key === 'gastos' ? {} : { tab: key }, { replace: true })
 
   const tabs: { key: Tab; label: string }[] = [
     { key: 'gastos', label: 'Gastos' },

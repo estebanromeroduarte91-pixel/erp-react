@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { SmtpTab } from './SmtpTab'
@@ -9,18 +8,16 @@ import { NotificacionesTab } from './NotificacionesTab'
 
 type Tab = 'dominio' | 'smtp' | 'cargos' | 'accesos' | 'notificaciones'
 
+const TABS_VALIDOS: Tab[] = ['dominio', 'smtp', 'cargos', 'accesos', 'notificaciones']
+function resolveConfigTab(param: string | null): Tab {
+  return TABS_VALIDOS.includes(param as Tab) ? (param as Tab) : 'dominio'
+}
+
 export function ConfigPage() {
   const { esAdmin } = useAuth()
-  const [searchParams] = useSearchParams()
-  const [tab, setTab] = useState<Tab>(() => {
-    const t = searchParams.get('tab')
-    return (t as Tab) ?? 'dominio'
-  })
-
-  useEffect(() => {
-    const t = searchParams.get('tab')
-    if (t) setTab(t as Tab)
-  }, [searchParams])
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tab = resolveConfigTab(searchParams.get('tab'))
+  const setTab = (key: Tab) => setSearchParams(key === 'dominio' ? {} : { tab: key }, { replace: true })
 
   const allTabs: { key: Tab; label: string; adminOnly?: boolean }[] = [
     { key: 'dominio', label: 'Dominio' },

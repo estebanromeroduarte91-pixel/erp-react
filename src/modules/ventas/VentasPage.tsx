@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { POSTab } from './POSTab'
 import { VentasListTab } from './VentasListTab'
@@ -16,11 +15,7 @@ function resolveTab(param: string | null): Tab {
 
 export function VentasPage() {
   const [searchParams] = useSearchParams()
-  const [tab, setTab] = useState<Tab>(() => resolveTab(searchParams.get('tab')))
-
-  useEffect(() => {
-    setTab(resolveTab(searchParams.get('tab')))
-  }, [searchParams])
+  const tab = resolveTab(searchParams.get('tab'))
 
   return (
     <div className="h-full flex flex-col overflow-y-auto">
