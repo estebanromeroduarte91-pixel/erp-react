@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef } from 'react'
-import { useVentas, useGuardarVentas, useMetodosPago, useProductos } from '@/lib/queries'
+import { useVentas, useAnularVenta, useMetodosPago, useProductos } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { Spinner } from '@/components/shared/Spinner'
 import type { Venta } from '@/types'
@@ -34,7 +34,7 @@ export function VentasListTab() {
   const { data: ventas, isLoading } = useVentas()
   const { data: metodos } = useMetodosPago()
   const { data: productos } = useProductos()
-  const guardar = useGuardarVentas()
+  const anularVenta = useAnularVenta()
   const { esAdmin } = useAuth()
 
   const [busqueda, setBusqueda] = useState('')
@@ -123,7 +123,7 @@ export function VentasListTab() {
   async function anular(v: Venta) {
     if (!esAdmin) return
     if (!confirm(`¿Anular la venta ${v.numero}?`)) return
-    await guardar.mutateAsync((ventas ?? []).map(x => x.id === v.id ? { ...x, estado: 'anulada' as const } : x))
+    await anularVenta.mutateAsync(v.id)
   }
 
   const visible = lista.slice(0, page)

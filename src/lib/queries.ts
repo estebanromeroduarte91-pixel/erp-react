@@ -4,7 +4,7 @@ import { supabase } from './supabase'
 import { dbGet, dbSet } from './db'
 import { reconciliarLotes } from './lotes'
 import { useAuth } from '@/context/AuthContext'
-import type { Orden, Cliente, Producto, Bodega, Movimiento, Proveedor, Venta, MetodoPago, Caja, CajaSesion, Gasto, GastoCat, CuentaContable, Asiento, SeguimientoConfig, SmtpConfig, MsgTemplates, Cargo, UserProfile, UserConfig, PendingInvite, EmailDomain, OC, OCLogEntry, Categoria, Kit, Traslado, TecnicoExterno, Equipo, FichaUsuario, LoteInventario, ConteoInventario } from '@/types'
+import type { Orden, Cliente, Producto, Bodega, Movimiento, Proveedor, Venta, VentaItem, MetodoPago, Caja, CajaSesion, Gasto, GastoCat, CuentaContable, Asiento, SeguimientoConfig, SmtpConfig, MsgTemplates, Cargo, UserProfile, UserConfig, PendingInvite, EmailDomain, OC, OCLogEntry, Categoria, Kit, Traslado, TecnicoExterno, Equipo, FichaUsuario, LoteInventario, ConteoInventario } from '@/types'
 
 // ── Órdenes de Taller ─────────────────────────────────────────
 
@@ -476,21 +476,125 @@ export function useMetodosPago() {
   })
 }
 
+// Ventas: tabla relacional `ventas` + `venta_items` (migradas desde el blob erp_data).
+// Mismo patrón que Productos: id TEXT (preserva los ids generados por uid()), paginación
+// server-side con .range(), y una fila por venta en vez de reescribir un array completo.
+const VENTA_COLS = 'id,numero,fecha,estado,cliente,metodo_pago,branch_id,branch_nombre,bodega_id,caja_id,ot_id,ot_num,tipo_doc,total,total_iva,fecha_creacion,venta_items(id,producto_id,producto_nombre,cantidad,precio_neto,precio_iva,descuento,subtotal,costo_unitario,costo_total)'
+
+function hidratarVenta(row: Record<string, unknown>): Venta {
+  const items = (row.venta_items as VentaItem[] | undefined) ?? []
+  return {
+    id: row.id as string,
+    numero: row.numero as string,
+    fecha: row.fecha as string,
+    estado: row.estado as Venta['estado'],
+    cliente: (row.cliente as string) ?? '',
+    metodo_pago: (row.metodo_pago as string) ?? '',
+    branchId: (row.branch_id as string) ?? '',
+    branchNombre: (row.branch_nombre as string) ?? '',
+    bodega_id: (row.bodega_id as string) ?? '',
+    cajaId: (row.caja_id as string) ?? '',
+    otId: (row.ot_id as string | null) ?? null,
+    otNum: (row.ot_num as string | null) ?? null,
+    tipo_doc: row.tipo_doc as Venta['tipo_doc'],
+    total: Number(row.total) || 0,
+    total_iva: Number(row.total_iva) || 0,
+    fecha_creacion: row.fecha_creacion as string,
+    items,
+  }
+}
+
+function filaVenta(v: Venta, empresaId: string) {
+  return {
+    id: v.id,
+    empresa_id: empresaId,
+    numero: v.numero,
+    fecha: v.fecha,
+    estado: v.estado,
+    cliente: v.cliente,
+    metodo_pago: v.metodo_pago,
+    branch_id: v.branchId,
+    branch_nombre: v.branchNombre,
+    bodega_id: v.bodega_id,
+    caja_id: v.cajaId,
+    ot_id: v.otId,
+    ot_num: v.otNum,
+    tipo_doc: v.tipo_doc ?? null,
+    total: v.total,
+    total_iva: v.total_iva,
+    fecha_creacion: v.fecha_creacion,
+  }
+}
+
+function filasVentaItems(v: Venta, empresaId: string) {
+  return v.items.map(i => ({
+    id: i.id,
+    venta_id: v.id,
+    empresa_id: empresaId,
+    producto_id: i.producto_id,
+    producto_nombre: i.producto_nombre,
+    cantidad: i.cantidad,
+    precio_neto: i.precio_neto,
+    precio_iva: i.precio_iva,
+    descuento: i.descuento,
+    subtotal: i.subtotal,
+    costo_unitario: i.costo_unitario ?? null,
+    costo_total: i.costo_total ?? null,
+  }))
+}
+
 export function useVentas() {
   const { empresaId } = useAuth()
   return useQuery({
     queryKey: ['ventas', empresaId],
-    queryFn: () => dbGet<Venta[] | string>(empresaId!, 'ventas'),
+    queryFn: async () => {
+      const PAGE = 1000
+      const filas: Record<string, unknown>[] = []
+      for (let from = 0; ; from += PAGE) {
+        const { data, error } = await supabase
+          .from('ventas')
+          .select(VENTA_COLS)
+          .eq('empresa_id', empresaId!)
+          .range(from, from + PAGE - 1)
+        if (error) throw error
+        filas.push(...(data ?? []))
+        if (!data || data.length < PAGE) break
+      }
+      return filas.map(hidratarVenta)
+    },
     enabled: !!empresaId,
-    select: (data) => parseArr<Venta>(data as Venta[] | string | null),
   })
 }
 
-export function useGuardarVentas() {
+// Crea UNA venta nueva: un insert a `ventas` + sus líneas a `venta_items`.
+// Reemplaza el patrón anterior de reescribir el array completo en cada venta.
+export function useGuardarVenta() {
   const { empresaId } = useAuth()
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (ventas: Venta[]) => dbSet(empresaId!, 'ventas', ventas),
+    mutationFn: async (v: Venta) => {
+      const { error } = await supabase.from('ventas').insert(filaVenta(v, empresaId!))
+      if (error) throw error
+      const items = filasVentaItems(v, empresaId!)
+      if (items.length) {
+        const { error: e2 } = await supabase.from('venta_items').insert(items)
+        if (e2) throw e2
+      }
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['ventas', empresaId] }),
+  })
+}
+
+// Anula una venta existente (solo cambia el estado — igual que el comportamiento
+// anterior, no reversa stock ni lotes FIFO).
+export function useAnularVenta() {
+  const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('ventas').update({ estado: 'anulada' }).eq('id', id).eq('empresa_id', empresaId!)
+      if (error) throw error
+    },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['ventas', empresaId] }),
   })
 }

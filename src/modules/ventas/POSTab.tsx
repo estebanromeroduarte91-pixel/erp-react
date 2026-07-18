@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef } from 'react'
-import { useProductos, useAjustarStock, useVentas, useGuardarVentas, useMetodosPago, useCajaSesiones, useCajas, useGuardarCajaSesiones, useIncrementarContadorVenta, useOrdenes, useGuardarOrden, useMovimientos, useGuardarMovimientos, useUserProfiles, useUserCargoMap, useCargos, useLotes, useGuardarLotes, CARGOS_DEFAULT } from '@/lib/queries'
+import { useProductos, useAjustarStock, useVentas, useGuardarVenta, useMetodosPago, useCajaSesiones, useCajas, useGuardarCajaSesiones, useIncrementarContadorVenta, useOrdenes, useGuardarOrden, useMovimientos, useGuardarMovimientos, useUserProfiles, useUserCargoMap, useCargos, useLotes, useGuardarLotes, CARGOS_DEFAULT } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { IconCashRegister, IconLock, IconLockOpen, IconBuildingStore } from '@tabler/icons-react'
 import type { VentaItem, Venta, Orden, CajaSesion } from '@/types'
@@ -45,7 +45,7 @@ export function POSTab() {
   const { data: sesiones } = useCajaSesiones()
   const { data: cajas } = useCajas()
   const { data: movimientos } = useMovimientos()
-  const guardarVentas = useGuardarVentas()
+  const guardarVenta = useGuardarVenta()
   const guardarSesiones = useGuardarCajaSesiones()
   const guardarOrden = useGuardarOrden()
   const guardarMovimientos = useGuardarMovimientos()
@@ -356,7 +356,7 @@ export function POSTab() {
         total_iva: totalIva,
         fecha_creacion: today(),
       }
-      await guardarVentas.mutateAsync([...(ventas ?? []), venta])
+      await guardarVenta.mutateAsync(venta)
 
       // Movimiento de inventario: salida por venta
       const prodsSalida = venta.items.filter(it => it.producto_id && it.producto_id !== 'ot-servicio' && !it.producto_id.startsWith('rep-'))
