@@ -12,7 +12,7 @@ import type { UserConfig, FichaUsuario, RegistroVacaciones, RegistroInasistencia
 const ROLES_LABEL: Record<string, string> = {
   admin: 'Super-admin', encargado: 'Encargado', tecnico: 'Técnico', vendedor: 'Vendedor',
 }
-const APP_BASE_URL = 'https://estebanromeroduarte91-pixel.github.io/modulo-compras/index.html'
+const APP_BASE_URL = window.location.origin + window.location.pathname
 
 function uid() { return Math.random().toString(36).slice(2) + Date.now().toString(36) }
 
