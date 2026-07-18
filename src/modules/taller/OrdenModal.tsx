@@ -416,7 +416,7 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
       const base = ordenes.find((o) => o.id === draftId) ?? orden ?? ({ id: draftId, num: nextNum(ordenes), fecha: ahora } as Orden)
       const actualizada: Orden = {
         ...base, ...form, repuestos, checkIngreso: checkFinal, photosIngreso: fotos, _draft: false,
-        branchId: base.branchId ?? userBranchId ?? undefined,
+        branchId: base.branchId ?? userBranchId ?? defaultBranchId ?? undefined,
         numero_boleta: base.numero_boleta || form.numero_boleta?.trim() || undefined,
       }
       await actualizarOrden.mutateAsync(actualizada)

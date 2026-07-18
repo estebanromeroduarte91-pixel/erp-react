@@ -141,7 +141,20 @@ export function useCrearOrden() {
       const { error } = await supabase.from('ordenes').insert(row)
       if (error) throw error
     },
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ['ordenes', empresaId] }),
+    // Update optimista: la orden aparece al instante en la lista sin esperar el
+    // refetch paginado (que recorre miles de filas). Los borradores del QR no van
+    // a la lista, así que no se agregan a la caché.
+    onMutate: async (o: Orden) => {
+      if (o._draft) return { prev: undefined }
+      await qc.cancelQueries({ queryKey: ['ordenes', empresaId] })
+      const prev = qc.getQueryData<Orden[]>(['ordenes', empresaId])
+      qc.setQueryData<Orden[]>(['ordenes', empresaId], (old = []) => [o, ...old])
+      return { prev }
+    },
+    onError: (_e, _o, ctx) => { if (ctx?.prev) qc.setQueryData(['ordenes', empresaId], ctx.prev) },
+    // Solo re-sincroniza con el servidor si fue una orden real (no un borrador),
+    // para no disparar el refetch caro en cada clic de "QR iPhone".
+    onSettled: (_d, _e, o) => { if (!o._draft) void qc.invalidateQueries({ queryKey: ['ordenes', empresaId] }) },
   })
 }
 
@@ -155,7 +168,25 @@ export function useActualizarOrden() {
       const { error } = await supabase.from('ordenes').update(filaOrdenParcial(rest)).eq('id', id).eq('empresa_id', empresaId!)
       if (error) throw error
     },
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ['ordenes', empresaId] }),
+    // Update optimista: refleja el cambio al instante. Si la orden no está en la
+    // caché pero deja de ser borrador (se finalizó desde el QR), se agrega.
+    onMutate: async (o: Partial<Orden> & { id: string }) => {
+      await qc.cancelQueries({ queryKey: ['ordenes', empresaId] })
+      const prev = qc.getQueryData<Orden[]>(['ordenes', empresaId])
+      qc.setQueryData<Orden[]>(['ordenes', empresaId], (old = []) => {
+        const idx = old.findIndex((x) => x.id === o.id)
+        if (idx >= 0) {
+          const copy = [...old]
+          copy[idx] = { ...copy[idx], ...o }
+          return copy
+        }
+        if (o._draft === false) return [{ ...(o as Orden) }, ...old]
+        return old
+      })
+      return { prev }
+    },
+    onError: (_e, _o, ctx) => { if (ctx?.prev) qc.setQueryData(['ordenes', empresaId], ctx.prev) },
+    onSettled: () => void qc.invalidateQueries({ queryKey: ['ordenes', empresaId] }),
   })
 }
 
