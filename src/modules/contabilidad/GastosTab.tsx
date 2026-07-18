@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef } from 'react'
-import { useGastos, useGuardarGastos, useGastoCats, useGuardarGastoCats, usePlanCuentas, useCatCuentaMap, useAsientos, useGuardarAsientos, useBodegas } from '@/lib/queries'
+import { useGastos, useCrearGasto, useActualizarGasto, useEliminarGasto, useGastoCats, useGuardarGastoCats, usePlanCuentas, useCatCuentaMap, useAsientos, useGuardarAsientos, useBodegas } from '@/lib/queries'
 import { asientoDeGasto, asientoIdDeGasto, nextNumeroAsiento } from '@/lib/contabilidad'
 import { GASTO_GENERAL_ID } from '@/lib/gastos'
 import { Spinner } from '@/components/shared/Spinner'
@@ -27,7 +27,9 @@ export function GastosTab() {
   const { data: gastos, isLoading } = useGastos()
   const { data: bodegas } = useBodegas()
   const { data: cats } = useGastoCats()
-  const guardar = useGuardarGastos()
+  const crearGasto = useCrearGasto()
+  const actualizarGasto = useActualizarGasto()
+  const eliminarGasto = useEliminarGasto()
   const { data: planCuentas } = usePlanCuentas()
   const { data: catCuentaMap } = useCatCuentaMap()
   const { data: asientos } = useAsientos()
@@ -149,7 +151,7 @@ export function GastosTab() {
 
   async function eliminar(g: Gasto) {
     if (!confirm(`¿Eliminar "${g.descripcion}"?`)) return
-    await guardar.mutateAsync((gastos ?? []).filter(x => x.id !== g.id))
+    await eliminarGasto.mutateAsync(g.id)
     await eliminarAsiento(g.id)
   }
 
@@ -328,12 +330,11 @@ export function GastosTab() {
           subcatsPorCat={subcatsPorCat}
           onClose={() => setModalOpen(false)}
           onGuardar={async (g) => {
-            const lista2 = gastos ?? []
             const guardado = g.id ? g : { ...g, id: uid() }
             if (g.id) {
-              await guardar.mutateAsync(lista2.map(x => x.id === g.id ? guardado : x))
+              await actualizarGasto.mutateAsync(guardado)
             } else {
-              await guardar.mutateAsync([...lista2, guardado])
+              await crearGasto.mutateAsync(guardado)
             }
             await sincronizarAsiento(guardado)
           }}

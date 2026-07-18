@@ -836,21 +836,100 @@ const DEFAULT_GASTO_CATS: GastoCat[] = [
   { id: 'cat-11', nombre: 'Servicios Tercerizados', color: '#0ea5e9', icono: 'wrench' },
 ]
 
+// ── Gastos ────────────────────────────────────────────────────
+// Tabla relacional `gastos` (migrada desde el blob erp_data/gastos).
+// El asiento contable de cada gasto se sigue manejando aparte (blob asientos),
+// vinculado por id determinístico (asientoIdDeGasto), sin cambios acá.
+function hidratarGasto(row: Record<string, unknown>): Gasto {
+  return {
+    id: row.id as string,
+    fecha: row.fecha as string,
+    descripcion: (row.descripcion as string) ?? '',
+    monto: Number(row.monto ?? 0),
+    categoria: (row.categoria as string) ?? '',
+    subcategoria: row.subcategoria as string | undefined,
+    metodo: row.metodo as string | undefined,
+    bodega_id: row.bodega_id as string | undefined,
+    bodega_nombre: row.bodega_nombre as string | undefined,
+  }
+}
+
+const GASTO_FIELD_MAP: Record<string, string> = {
+  fecha: 'fecha', descripcion: 'descripcion', monto: 'monto', categoria: 'categoria',
+  subcategoria: 'subcategoria', metodo: 'metodo', bodega_id: 'bodega_id', bodega_nombre: 'bodega_nombre',
+}
+
+function filaGastoParcial(g: Partial<Gasto>): Record<string, unknown> {
+  const row: Record<string, unknown> = {}
+  for (const [k, col] of Object.entries(GASTO_FIELD_MAP)) {
+    if (k in g) {
+      const v = (g as Record<string, unknown>)[k]
+      row[col] = v === undefined ? null : v
+    }
+  }
+  return row
+}
+
 export function useGastos() {
   const { empresaId } = useAuth()
   return useQuery({
     queryKey: ['gastos', empresaId],
-    queryFn: () => dbGet<Gasto[] | string>(empresaId!, 'gastos'),
+    queryFn: async () => {
+      const PAGE = 1000
+      const filas: Record<string, unknown>[] = []
+      for (let from = 0; ; from += PAGE) {
+        const { data, error } = await supabase
+          .from('gastos')
+          .select('*')
+          .eq('empresa_id', empresaId!)
+          .order('fecha', { ascending: false })
+          .range(from, from + PAGE - 1)
+        if (error) throw error
+        filas.push(...(data ?? []))
+        if (!data || data.length < PAGE) break
+      }
+      return filas.map(hidratarGasto)
+    },
     enabled: !!empresaId,
-    select: (data) => parseArr<Gasto>(data as Gasto[] | string | null),
   })
 }
 
-export function useGuardarGastos() {
+// Crea UN gasto (insert de una fila). Reemplaza el reescribir todo el array.
+export function useCrearGasto() {
   const { empresaId } = useAuth()
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (gastos: Gasto[]) => dbSet(empresaId!, 'gastos', gastos),
+    mutationFn: async (g: Gasto) => {
+      const row = { id: g.id, empresa_id: empresaId!, ...filaGastoParcial(g) }
+      const { error } = await supabase.from('gastos').insert(row)
+      if (error) throw error
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['gastos', empresaId] }),
+  })
+}
+
+// Actualiza un gasto existente (solo los campos que cambian).
+export function useActualizarGasto() {
+  const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (g: Partial<Gasto> & { id: string }) => {
+      const { id, ...rest } = g
+      const { error } = await supabase.from('gastos').update(filaGastoParcial(rest)).eq('id', id).eq('empresa_id', empresaId!)
+      if (error) throw error
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['gastos', empresaId] }),
+  })
+}
+
+export function useEliminarGasto() {
+  const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('gastos').delete().eq('id', id).eq('empresa_id', empresaId!)
+      if (error) throw error
+    },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['gastos', empresaId] }),
   })
 }
@@ -1192,21 +1271,111 @@ export function useGuardarCategorias() {
 
 // ── Compras / Órdenes de Compra ───────────────────────────────
 
+// ── Órdenes de Compra (OCs) ───────────────────────────────────
+// Tabla relacional `ocs` (migrada desde el blob erp_data/ocs). items/recepciones
+// quedan como columnas JSONB (no se agregan entre OCs en ningún reporte). El log
+// de OCs eliminadas (oc_log) y los asientos siguen como blob, sin cambios.
+const OC_COLS = [
+  'numero', 'estado', 'proveedor_id', 'proveedor_nombre', 'fecha', 'fecha_entrega',
+  'bodega_id', 'bodega_nombre', 'notas', 'items', 'total', 'recepciones',
+  'folio_factura', 'metodo_pago', 'fecha_recepcion', 'fecha_primera_recepcion',
+  'fecha_confirmacion', 'fecha_creacion',
+] as const
+
+function hidratarOC(row: Record<string, unknown>): OC {
+  return {
+    id: row.id as string,
+    numero: (row.numero as string) ?? '',
+    estado: (row.estado as OC['estado']) ?? 'borrador',
+    proveedor_id: (row.proveedor_id as string) ?? '',
+    proveedor_nombre: (row.proveedor_nombre as string) ?? '',
+    fecha: (row.fecha as string) ?? '',
+    fecha_entrega: row.fecha_entrega as string | undefined,
+    bodega_id: row.bodega_id as string | undefined,
+    bodega_nombre: row.bodega_nombre as string | undefined,
+    notas: row.notas as string | undefined,
+    items: (row.items as OC['items']) ?? [],
+    total: Number(row.total ?? 0),
+    fecha_creacion: (row.fecha_creacion as string) ?? '',
+    recepciones: (row.recepciones as OC['recepciones']) ?? [],
+    folio_factura: row.folio_factura as string | undefined,
+    metodo_pago: row.metodo_pago as string | undefined,
+    fecha_recepcion: row.fecha_recepcion as string | undefined,
+    fecha_primera_recepcion: row.fecha_primera_recepcion as string | undefined,
+    fecha_confirmacion: row.fecha_confirmacion as string | undefined,
+  }
+}
+
+function filaOCParcial(o: Partial<OC>): Record<string, unknown> {
+  const row: Record<string, unknown> = {}
+  for (const k of OC_COLS) {
+    if (k in o) {
+      const v = (o as Record<string, unknown>)[k]
+      row[k] = v === undefined ? null : v
+    }
+  }
+  return row
+}
+
 export function useOCs() {
   const { empresaId } = useAuth()
   return useQuery({
     queryKey: ['ocs', empresaId],
-    queryFn: () => dbGet<OC[] | string>(empresaId!, 'ocs'),
+    queryFn: async () => {
+      const PAGE = 1000
+      const filas: Record<string, unknown>[] = []
+      for (let from = 0; ; from += PAGE) {
+        const { data, error } = await supabase
+          .from('ocs')
+          .select('*')
+          .eq('empresa_id', empresaId!)
+          .range(from, from + PAGE - 1)
+        if (error) throw error
+        filas.push(...(data ?? []))
+        if (!data || data.length < PAGE) break
+      }
+      return filas.map(hidratarOC)
+    },
     enabled: !!empresaId,
-    select: (data) => parseArr<OC>(data as OC[] | string | null),
   })
 }
 
-export function useGuardarOCs() {
+// Crea UNA orden de compra (insert de una fila).
+export function useCrearOC() {
   const { empresaId } = useAuth()
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (ocs: OC[]) => dbSet(empresaId!, 'ocs', ocs),
+    mutationFn: async (o: OC) => {
+      const row = { id: o.id, empresa_id: empresaId!, ...filaOCParcial(o) }
+      const { error } = await supabase.from('ocs').insert(row)
+      if (error) throw error
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['ocs', empresaId] }),
+  })
+}
+
+// Actualiza una OC existente (solo los campos que cambian).
+export function useActualizarOC() {
+  const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (o: Partial<OC> & { id: string }) => {
+      const { id, ...rest } = o
+      const { error } = await supabase.from('ocs').update(filaOCParcial(rest)).eq('id', id).eq('empresa_id', empresaId!)
+      if (error) throw error
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['ocs', empresaId] }),
+  })
+}
+
+export function useEliminarOC() {
+  const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('ocs').delete().eq('id', id).eq('empresa_id', empresaId!)
+      if (error) throw error
+    },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['ocs', empresaId] }),
   })
 }

@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { useTraslados, useGuardarTraslados, useTecnicosExternos, useGuardarTecnicosExternos, useOrdenes, useActualizarOrden, useGastos, useGuardarGastos, usePlanCuentas, useCatCuentaMap, useAsientos, useGuardarAsientos } from '@/lib/queries'
+import { useTraslados, useGuardarTraslados, useTecnicosExternos, useGuardarTecnicosExternos, useOrdenes, useActualizarOrden, useCrearGasto, usePlanCuentas, useCatCuentaMap, useAsientos, useGuardarAsientos } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { asientoDeGasto, nextNumeroAsiento } from '@/lib/contabilidad'
 import { Spinner } from '@/components/shared/Spinner'
@@ -75,8 +75,7 @@ export function TrasladosTab() {
   const guardarTecnicos = useGuardarTecnicosExternos()
   const { data: ordenes } = useOrdenes()
   const actualizarOrden = useActualizarOrden()
-  const { data: gastos } = useGastos()
-  const guardarGastos = useGuardarGastos()
+  const crearGasto = useCrearGasto()
   const { data: planCuentas } = usePlanCuentas()
   const { data: catCuentaMap } = useCatCuentaMap()
   const { data: asientos } = useAsientos()
@@ -123,7 +122,7 @@ export function TrasladosTab() {
         categoria: 'Servicios Tercerizados',
         metodo: retMetodo,
       }
-      await guardarGastos.mutateAsync([...(gastos ?? []), gasto])
+      await crearGasto.mutateAsync(gasto)
       const asiento = asientoDeGasto(gasto, planCuentas ?? [], catCuentaMap ?? {}, nextNumeroAsiento(asientos ?? []))
       await guardarAsientos.mutateAsync([...(asientos ?? []), asiento])
     }

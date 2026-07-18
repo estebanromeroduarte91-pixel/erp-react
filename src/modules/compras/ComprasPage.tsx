@@ -3,7 +3,7 @@ import { useLocation, useSearchParams } from 'react-router-dom'
 import { KitsTab } from './KitsTab'
 import { useAuth } from '@/context/AuthContext'
 import {
-  useOCs, useGuardarOCs, useOCLog, useGuardarOCLog,
+  useOCs, useCrearOC, useActualizarOC, useEliminarOC, useOCLog, useGuardarOCLog,
   useIncrementarContadorOC, useProductos, useBodegas,
   useProveedores, useGuardarProveedores, useAjustarStock,
   usePlanCuentas, useAsientos, useGuardarAsientos,
@@ -1057,7 +1057,9 @@ export function ComprasPage() {
   const { data: proveedores = [] } = useProveedores()
   const { data: productos = [] } = useProductos()
   const { data: bodegas = [] } = useBodegas()
-  const guardarOCs = useGuardarOCs()
+  const crearOC = useCrearOC()
+  const actualizarOC = useActualizarOC()
+  const eliminarOC = useEliminarOC()
   const guardarOCLog = useGuardarOCLog()
   const incrementarContador = useIncrementarContadorOC()
   const guardarProveedores = useGuardarProveedores()
@@ -1109,8 +1111,7 @@ export function ComprasPage() {
 
   async function handleSaveOC(data: Partial<OC> & { id?: string }) {
     if (data.id) {
-      const updated = ocs.map(o => o.id === data.id ? { ...o, ...data } as OC : o)
-      await guardarOCs.mutateAsync(updated)
+      await actualizarOC.mutateAsync(data as Partial<OC> & { id: string })
       setModal({ type: 'none' })
       showToast('OC actualizada')
     } else {
@@ -1127,7 +1128,7 @@ export function ComprasPage() {
         ...data,
         id: uid(),
       }
-      await guardarOCs.mutateAsync([...ocs, oc])
+      await crearOC.mutateAsync(oc)
       setModal({ type: 'none' })
       showToast('OC creada: ' + oc.numero)
     }
@@ -1185,7 +1186,8 @@ export function ComprasPage() {
         }
       }
       if (nuevosMovs.length > 0) await guardarMovimientos.mutateAsync([...movimientos, ...nuevosMovs])
-      await guardarOCs.mutateAsync(updated)
+      const ocRecibida = updated.find(o => o.id === ocId)
+      if (ocRecibida) await actualizarOC.mutateAsync(ocRecibida)
       setModal({ type: 'none' })
       const oc2 = updated.find(o => o.id === ocId)
       showToast(oc2?.estado === 'recibida' ? 'OC completamente recibida' : 'Recepción parcial guardada')
@@ -1197,8 +1199,7 @@ export function ComprasPage() {
   async function handleConfirmar(ocId: string, folio: string, metodoPago: string) {
     const sinFactura = !folio.trim() || folio.trim().toUpperCase() === 'SIN FACTURA'
     const ocConfirmada = { ...(ocs.find(o => o.id === ocId)!), estado: 'confirmada' as EstadoOC, folio_factura: folio, metodo_pago: metodoPago, fecha_confirmacion: today() }
-    const updated = ocs.map(o => o.id === ocId ? ocConfirmada : o)
-    await guardarOCs.mutateAsync(updated)
+    await actualizarOC.mutateAsync(ocConfirmada)
     const listaAs = asientos ?? []
     const existente = listaAs.find(a => a.id === asientoIdDeOC(ocId))
     const asiento = asientoDeOC(ocConfirmada, metodoPago, sinFactura, planCuentas ?? [], existente?.numero ?? nextNumeroAsiento(listaAs))
@@ -1210,7 +1211,7 @@ export function ComprasPage() {
   async function handleCancelar(ocId: string) {
     const oc = ocs.find(o => o.id === ocId)
     if (!oc || !confirm(`¿Cancelar la OC ${oc.numero}? Esta acción no se puede deshacer.`)) return
-    await guardarOCs.mutateAsync(ocs.map(o => o.id === ocId ? { ...o, estado: 'cancelada' as EstadoOC } : o))
+    await actualizarOC.mutateAsync({ id: ocId, estado: 'cancelada' as EstadoOC })
     // Elimina el asiento contable asociado (si la OC estaba confirmada)
     const idAs = asientoIdDeOC(ocId)
     if ((asientos ?? []).some(a => a.id === idAs)) {
@@ -1226,7 +1227,7 @@ export function ComprasPage() {
     if (!oc || !confirm(`¿Eliminar la OC ${oc.numero}?\n\nEsta acción no se puede deshacer, pero quedará registrada en el historial de forma permanente.`)) return
     const logEntry: OCLogEntry = { ...oc, _eliminada_en: today(), _eliminada_ts: Date.now() }
     await guardarOCLog.mutateAsync([...log, logEntry])
-    await guardarOCs.mutateAsync(ocs.filter(o => o.id !== ocId))
+    await eliminarOC.mutateAsync(ocId)
     showToast(`OC ${oc.numero} eliminada y registrada en historial`)
   }
 
