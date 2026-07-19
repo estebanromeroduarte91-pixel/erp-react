@@ -233,10 +233,13 @@ function SingleLink({ item, active }: { item: NavSingle; active: boolean }) {
 
 // ── Sidebar ────────────────────────────────────────────────────
 export function Sidebar() {
-  const { nombre, rol, cargoId, esPlatformAdmin } = useAuth()
+  const { nombre, rol, cargoId, esPlatformAdmin, empresaId } = useAuth()
   const location = useLocation()
   const initials = nombre.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?'
-  const rolLabel = rol === 'admin' ? 'Administrador' : rol === 'encargado' ? 'Encargado' : rol === 'tecnico' ? 'Técnico' : rol === 'vendedor' ? 'Vendedor' : rol
+  const rolLabel = esPlatformAdmin && !empresaId ? 'Pixit Admin' : rol === 'admin' ? 'Administrador' : rol === 'encargado' ? 'Encargado' : rol === 'tecnico' ? 'Técnico' : rol === 'vendedor' ? 'Vendedor' : rol
+  // Platform admin sin empresa propia: solo administra la plataforma, no opera
+  // ningún taller — el menú de operación/administración de empresa no aplica.
+  const soloPlatformAdmin = esPlatformAdmin && !empresaId
 
   // Cargos desde la única fuente de verdad (con fallback a CARGOS_DEFAULT incluido en useCargos)
   const { data: cargos = [] } = useCargos()
@@ -309,31 +312,33 @@ export function Sidebar() {
 
       {/* Nav */}
       <nav style={{ flex: 1, paddingBottom: 8 }}>
-        {/* Operación */}
-        <div style={{ padding: '14px 12px 5px', fontSize: 10.5, fontWeight: 700, letterSpacing: '.09em', color: 'var(--gray-400)', textTransform: 'uppercase' }}>
-          Operación
-        </div>
-        {opItemsFiltrados.map((si, i) =>
-          si.type === 'single' ? (
-            <SingleLink key={i} item={si.item as NavSingle} active={(si.item as NavSingle).to === activeSingleTo} />
-          ) : (
-            <NavGroupItem key={i} item={si.item as NavGroup} open={openGroupId === (si.item as NavGroup).id} onToggle={() => toggleGroup((si.item as NavGroup).id)} />
-          )
-        )}
-
-        {/* Administración — solo si hay items visibles */}
-        {adminItemsFiltrados.length > 0 && (
+        {!soloPlatformAdmin && <>
+          {/* Operación */}
           <div style={{ padding: '14px 12px 5px', fontSize: 10.5, fontWeight: 700, letterSpacing: '.09em', color: 'var(--gray-400)', textTransform: 'uppercase' }}>
-            Administración
+            Operación
           </div>
-        )}
-        {adminItemsFiltrados.map((si, i) =>
-          si.type === 'single' ? (
-            <SingleLink key={i} item={si.item as NavSingle} active={(si.item as NavSingle).to === activeSingleTo} />
-          ) : (
-            <NavGroupItem key={i} item={si.item as NavGroup} open={openGroupId === (si.item as NavGroup).id} onToggle={() => toggleGroup((si.item as NavGroup).id)} />
-          )
-        )}
+          {opItemsFiltrados.map((si, i) =>
+            si.type === 'single' ? (
+              <SingleLink key={i} item={si.item as NavSingle} active={(si.item as NavSingle).to === activeSingleTo} />
+            ) : (
+              <NavGroupItem key={i} item={si.item as NavGroup} open={openGroupId === (si.item as NavGroup).id} onToggle={() => toggleGroup((si.item as NavGroup).id)} />
+            )
+          )}
+
+          {/* Administración — solo si hay items visibles */}
+          {adminItemsFiltrados.length > 0 && (
+            <div style={{ padding: '14px 12px 5px', fontSize: 10.5, fontWeight: 700, letterSpacing: '.09em', color: 'var(--gray-400)', textTransform: 'uppercase' }}>
+              Administración
+            </div>
+          )}
+          {adminItemsFiltrados.map((si, i) =>
+            si.type === 'single' ? (
+              <SingleLink key={i} item={si.item as NavSingle} active={(si.item as NavSingle).to === activeSingleTo} />
+            ) : (
+              <NavGroupItem key={i} item={si.item as NavGroup} open={openGroupId === (si.item as NavGroup).id} onToggle={() => toggleGroup((si.item as NavGroup).id)} />
+            )
+          )}
+        </>}
 
         {esPlatformAdmin && (
           <>

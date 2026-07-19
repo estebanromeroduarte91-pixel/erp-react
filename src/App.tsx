@@ -18,7 +18,10 @@ import { PixitAdminPage } from '@/modules/pixitadmin/PixitAdminPage'
 import { Spinner } from '@/components/shared/Spinner'
 
 function AppRoutes() {
-  const { session, cargando, recoveryMode, trialExpirado, cuentaSuspendida, esPlatformAdmin } = useAuth()
+  const { session, cargando, recoveryMode, trialExpirado, cuentaSuspendida, esPlatformAdmin, empresaId } = useAuth()
+  // Un platform admin sin empresa propia (solo entra a administrar la plataforma,
+  // no opera ningún taller) cae directo al panel — el resto de las rutas requieren empresa.
+  const soloPlatformAdmin = esPlatformAdmin && !empresaId
 
   if (cargando) {
     return (
@@ -41,19 +44,21 @@ function AppRoutes() {
   return (
     <Shell>
       <Routes>
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        <Route path="/taller" element={<TallerPage />} />
-<Route path="/dashboard"     element={<DashboardPage />} />
-        <Route path="/inventario"    element={<InventarioPage />} />
-        <Route path="/ventas"        element={<VentasPage />} />
-        <Route path="/contactos"     element={<ContactosPage />} />
-        <Route path="/contabilidad"  element={<ContabilidadPage />} />
-        <Route path="/estadisticas"  element={<EstadisticasPage />} />
-        <Route path="/config"        element={<ConfigPage />} />
-        <Route path="/compras"       element={<ComprasPage />} />
-        <Route path="/buscar"        element={<BuscarPage />} />
+        <Route path="/" element={<Navigate to={soloPlatformAdmin ? '/pixit-admin' : '/dashboard'} replace />} />
+        {!soloPlatformAdmin && <>
+          <Route path="/taller" element={<TallerPage />} />
+          <Route path="/dashboard"     element={<DashboardPage />} />
+          <Route path="/inventario"    element={<InventarioPage />} />
+          <Route path="/ventas"        element={<VentasPage />} />
+          <Route path="/contactos"     element={<ContactosPage />} />
+          <Route path="/contabilidad"  element={<ContabilidadPage />} />
+          <Route path="/estadisticas"  element={<EstadisticasPage />} />
+          <Route path="/config"        element={<ConfigPage />} />
+          <Route path="/compras"       element={<ComprasPage />} />
+          <Route path="/buscar"        element={<BuscarPage />} />
+        </>}
         {esPlatformAdmin && <Route path="/pixit-admin" element={<PixitAdminPage />} />}
-        <Route path="*"              element={<Navigate to="/taller" replace />} />
+        <Route path="*"              element={<Navigate to={soloPlatformAdmin ? '/pixit-admin' : '/taller'} replace />} />
       </Routes>
     </Shell>
   )
