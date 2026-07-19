@@ -233,7 +233,7 @@ function SingleLink({ item, active }: { item: NavSingle; active: boolean }) {
 
 // ── Sidebar ────────────────────────────────────────────────────
 export function Sidebar() {
-  const { nombre, rol, cargoId } = useAuth()
+  const { nombre, rol, cargoId, esPlatformAdmin } = useAuth()
   const location = useLocation()
   const initials = nombre.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?'
   const rolLabel = rol === 'admin' ? 'Administrador' : rol === 'encargado' ? 'Encargado' : rol === 'tecnico' ? 'Técnico' : rol === 'vendedor' ? 'Vendedor' : rol
@@ -333,6 +333,21 @@ export function Sidebar() {
           ) : (
             <NavGroupItem key={i} item={si.item as NavGroup} open={openGroupId === (si.item as NavGroup).id} onToggle={() => toggleGroup((si.item as NavGroup).id)} />
           )
+        )}
+
+        {esPlatformAdmin && (
+          <>
+            <div style={{ padding: '14px 12px 5px', fontSize: 10.5, fontWeight: 700, letterSpacing: '.09em', color: 'var(--gray-400)', textTransform: 'uppercase' }}>
+              Pixit
+            </div>
+            <SingleLink
+              item={{
+                to: '/pixit-admin', label: 'Panel Pixit',
+                icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/><path d="M8 4v5"/></svg>,
+              }}
+              active={location.pathname === '/pixit-admin'}
+            />
+          </>
         )}
       </nav>
 

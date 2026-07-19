@@ -1,6 +1,6 @@
 import { useAuth } from '@/context/AuthContext'
 
-export function TrialExpirado() {
+export function TrialExpirado({ motivo = 'trial' }: { motivo?: 'trial' | 'suspendida' }) {
   const { empresaNombre, esAdmin, logout } = useAuth()
 
   return (
@@ -12,9 +12,13 @@ export function TrialExpirado() {
           </svg>
         </div>
         <div>
-          <h1 className="text-xl font-extrabold text-gray-900">Tu prueba gratuita terminó</h1>
+          <h1 className="text-xl font-extrabold text-gray-900">
+            {motivo === 'suspendida' ? 'Cuenta suspendida' : 'Tu prueba gratuita terminó'}
+          </h1>
           <p className="mt-1 text-sm text-gray-500">
-            Los 30 días de prueba de <span className="font-semibold text-gray-700">{empresaNombre}</span> ya vencieron.
+            {motivo === 'suspendida'
+              ? <>El acceso de <span className="font-semibold text-gray-700">{empresaNombre}</span> está suspendido.</>
+              : <>Los 30 días de prueba de <span className="font-semibold text-gray-700">{empresaNombre}</span> ya vencieron.</>}
           </p>
         </div>
         <p className="text-sm text-gray-500">

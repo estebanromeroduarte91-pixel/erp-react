@@ -20,8 +20,10 @@ interface AuthState {
 
 interface AuthContextValue extends AuthState {
   esAdmin: boolean  // true solo para el super admin (dueño) — puede eliminar registros
+  esPlatformAdmin: boolean // true solo para el dueño de Pixit — ve/gestiona TODAS las empresas
   recoveryMode: boolean  // true cuando el usuario llegó por el enlace de "olvidé mi contraseña"
   trialExpirado: boolean // true si el trial de 30 días ya venció y no hay plan activo
+  cuentaSuspendida: boolean // true si un platform admin marcó la empresa como 'suspendida'
   login: (email: string, password: string) => Promise<string | null>
   logout: () => Promise<void>
   clearRecovery: () => void
@@ -45,10 +47,16 @@ const ESTADO_INICIAL: AuthState = {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [estado, setEstado] = useState<AuthState>(ESTADO_INICIAL)
   const [recoveryMode, setRecoveryMode] = useState(false)
+  const [esPlatformAdmin, setEsPlatformAdmin] = useState(false)
 
   // Carga el perfil de la empresa para un usuario autenticado (equivale a _iniciarApp)
   async function cargarPerfil(session: Session) {
     const user = session.user
+
+    // Independiente de a qué empresa pertenece: ¿es el dueño de Pixit?
+    supabase.from('platform_admins').select('user_id').eq('user_id', user.id).maybeSingle()
+      .then(({ data }) => setEsPlatformAdmin(!!data))
+
     const { data: perfil } = await supabase
       .from('user_profiles')
       .select('empresa_id,role,nombre,activo')
@@ -109,14 +117,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) cargarPerfil(data.session)
-      else setEstado({ ...ESTADO_INICIAL, cargando: false })
+      else { setEstado({ ...ESTADO_INICIAL, cargando: false }); setEsPlatformAdmin(false) }
     })
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       // El enlace de recuperación de contraseña genera una sesión temporal y dispara
       // PASSWORD_RECOVERY: mostramos la pantalla para fijar la nueva clave.
       if (event === 'PASSWORD_RECOVERY') setRecoveryMode(true)
       if (session) cargarPerfil(session)
-      else setEstado({ ...ESTADO_INICIAL, cargando: false })
+      else { setEstado({ ...ESTADO_INICIAL, cargando: false }); setEsPlatformAdmin(false) }
     })
     return () => sub.subscription.unsubscribe()
   }, [])
@@ -140,8 +148,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const esAdmin = estado.rol === 'admin'
   const trialExpirado = estado.planEstado === 'trial' && !!estado.trialTermina && new Date(estado.trialTermina) < new Date()
+  const cuentaSuspendida = estado.planEstado === 'suspendida'
 
-  return <AuthContext.Provider value={{ ...estado, esAdmin, recoveryMode, trialExpirado, login, logout, clearRecovery }}>{children}</AuthContext.Provider>
+  return <AuthContext.Provider value={{ ...estado, esAdmin, esPlatformAdmin, recoveryMode, trialExpirado, cuentaSuspendida, login, logout, clearRecovery }}>{children}</AuthContext.Provider>
 }
 
 // eslint-disable-next-line react-refresh/only-export-components

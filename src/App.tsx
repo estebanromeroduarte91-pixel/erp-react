@@ -14,10 +14,11 @@ import { EstadisticasPage } from '@/modules/estadisticas/EstadisticasPage'
 import { ConfigPage } from '@/modules/config/ConfigPage'
 import { ComprasPage } from '@/modules/compras/ComprasPage'
 import { BuscarPage } from '@/modules/buscar/BuscarPage'
+import { PixitAdminPage } from '@/modules/pixitadmin/PixitAdminPage'
 import { Spinner } from '@/components/shared/Spinner'
 
 function AppRoutes() {
-  const { session, cargando, recoveryMode, trialExpirado } = useAuth()
+  const { session, cargando, recoveryMode, trialExpirado, cuentaSuspendida, esPlatformAdmin } = useAuth()
 
   if (cargando) {
     return (
@@ -32,7 +33,10 @@ function AppRoutes() {
 
   if (!session) return <Login />
 
-  if (trialExpirado) return <TrialExpirado />
+  // El dueño de Pixit nunca queda bloqueado afuera de su propio panel, aunque
+  // su empresa de pruebas esté vencida/suspendida.
+  if (!esPlatformAdmin && trialExpirado) return <TrialExpirado motivo="trial" />
+  if (!esPlatformAdmin && cuentaSuspendida) return <TrialExpirado motivo="suspendida" />
 
   return (
     <Shell>
@@ -48,6 +52,7 @@ function AppRoutes() {
         <Route path="/config"        element={<ConfigPage />} />
         <Route path="/compras"       element={<ComprasPage />} />
         <Route path="/buscar"        element={<BuscarPage />} />
+        {esPlatformAdmin && <Route path="/pixit-admin" element={<PixitAdminPage />} />}
         <Route path="*"              element={<Navigate to="/taller" replace />} />
       </Routes>
     </Shell>

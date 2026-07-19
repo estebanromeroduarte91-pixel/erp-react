@@ -1823,3 +1823,50 @@ export function useGuardarMarcasEquipo() {
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['tp_marcas_equipo', empresaId] }),
   })
 }
+
+// ── Panel Pixit Admin (super-admin de la plataforma) ─────────────
+// Solo funciona para quien esté en la tabla `platform_admins` — las políticas
+// RLS de `empresas`/`user_profiles` le dan acceso cross-tenant explícito.
+export interface EmpresaAdmin {
+  id: string
+  nombre: string
+  owner_id: string | null
+  plan_estado: string | null
+  trial_termina: string | null
+  creado_en: string | null
+  usuarios: number
+}
+
+export function usePlatformEmpresas() {
+  const { esPlatformAdmin } = useAuth()
+  return useQuery({
+    queryKey: ['pixit_admin_empresas'],
+    queryFn: async () => {
+      const [{ data: empresas, error: e1 }, { data: perfiles, error: e2 }] = await Promise.all([
+        supabase.from('empresas').select('id,nombre,owner_id,plan_estado,trial_termina,creado_en').order('creado_en', { ascending: false }),
+        supabase.from('user_profiles').select('empresa_id,activo'),
+      ])
+      if (e1) throw e1
+      if (e2) throw e2
+      const conteo = new Map<string, number>()
+      for (const p of perfiles ?? []) {
+        if (!p.activo) continue
+        conteo.set(p.empresa_id, (conteo.get(p.empresa_id) ?? 0) + 1)
+      }
+      return (empresas ?? []).map((e): EmpresaAdmin => ({ ...e, usuarios: conteo.get(e.id) ?? 0 }))
+    },
+    enabled: esPlatformAdmin,
+  })
+}
+
+export function useActualizarEmpresaAdmin() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (cambio: { id: string; plan_estado?: string; trial_termina?: string | null }) => {
+      const { id, ...rest } = cambio
+      const { error } = await supabase.from('empresas').update(rest).eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['pixit_admin_empresas'] }),
+  })
+}
