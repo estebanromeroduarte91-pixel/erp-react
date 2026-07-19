@@ -24,7 +24,7 @@ export function ResetPassword() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#1a2f6e] to-[#3656e6] p-4">
+    <div className="flex items-center justify-center bg-gradient-to-br from-[#1a2f6e] to-[#3656e6] p-4" style={{ minHeight: '100dvh' }}>
       <div className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-2xl">
         {ok ? (
           <div className="text-center flex flex-col items-center gap-3">
