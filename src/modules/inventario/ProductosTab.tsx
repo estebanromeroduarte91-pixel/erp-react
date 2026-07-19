@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef } from 'react'
 import * as XLSX from 'xlsx'
-import { useProductos, useBodegas, useEliminarProducto, useEliminarTodosProductos, useImportarProductos, useFijarStock, useLotes, useGuardarLotes } from '@/lib/queries'
+import { useProductos, useBodegas, useEliminarProducto, useEliminarTodosProductos, useImportarProductos, useFijarStock, useLotes, useCrearLotes } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { Money } from '@/components/shared/Money'
 import { Spinner } from '@/components/shared/Spinner'
@@ -106,7 +106,7 @@ export function ProductosTab() {
   const eliminarTodosProductos = useEliminarTodosProductos()
   const importarProductos = useImportarProductos()
   const { data: lotes = [] } = useLotes()
-  const guardarLotes = useGuardarLotes()
+  const crearLotes = useCrearLotes()
   const { esAdmin } = useAuth()
 
   const [busqueda, setBusqueda]     = useState('')
@@ -281,7 +281,7 @@ export function ProductosTab() {
     }
     if (nuevos.length === 0) { alert('No hay stock sin lote — nada que generar.'); return }
     if (!confirm(`Se van a crear ${nuevos.length} lote(s) de apertura para el stock actual. ¿Continuar?`)) return
-    await guardarLotes.mutateAsync([...lotes, ...nuevos])
+    await crearLotes.mutateAsync(nuevos)
     alert(`Listo: se crearon ${nuevos.length} lote(s) de apertura.`)
   }
 

@@ -8,7 +8,7 @@ import {
   useProveedores, useGuardarProveedores, useAjustarStock,
   usePlanCuentas, useAsientos, useGuardarAsientos,
   useMovimientos, useGuardarMovimientos,
-  useLotes, useGuardarLotes,
+  useCrearLotes,
 } from '@/lib/queries'
 import { asientoDeOC, asientoIdDeOC, nextNumeroAsiento } from '@/lib/contabilidad'
 import { formatRut } from '@/lib/rut'
@@ -1067,8 +1067,7 @@ export function ComprasPage() {
   const { data: planCuentas } = usePlanCuentas()
   const { data: asientos } = useAsientos()
   const guardarAsientos = useGuardarAsientos()
-  const { data: lotes = [] } = useLotes()
-  const guardarLotes = useGuardarLotes()
+  const crearLotes = useCrearLotes()
   const { data: movimientos = [] } = useMovimientos()
   const guardarMovimientos = useGuardarMovimientos()
 
@@ -1174,7 +1173,7 @@ export function ComprasPage() {
           })
         }
       }
-      if (nuevosLotes.length > 0) await guardarLotes.mutateAsync([...lotes, ...nuevosLotes])
+      if (nuevosLotes.length > 0) await crearLotes.mutateAsync(nuevosLotes)
       const ocNumero = updated.find(o => o.id === ocId)?.numero
       const nuevosMovs: Movimiento[] = []
       for (const rec of recepciones) {

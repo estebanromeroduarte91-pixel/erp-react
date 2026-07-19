@@ -482,26 +482,94 @@ export function useGuardarConteos() {
 
 // ── Lotes de inventario (costeo FIFO) ─────────────────────────
 
+// Tabla relacional `lotes_inventario` (migrada desde el blob erp_data/lotes_inventario).
+// A diferencia de ventas/órdenes, una sola acción de negocio (vender, recibir una OC)
+// puede tocar VARIOS lotes a la vez (consumo FIFO de capas de costo) — por eso acá los
+// hooks reciben arrays, pero siguen siendo escrituras acotadas a los lotes involucrados,
+// nunca una reescritura de los ~1400 lotes de la empresa.
+const LOTE_COLS = [
+  'producto_id', 'bodega_id', 'cantidad_inicial', 'cantidad_restante', 'costo_unitario',
+  'origen', 'oc_id', 'oc_item_id', 'fecha', 'creado_en',
+] as const
+
+function hidratarLote(row: Record<string, unknown>): LoteInventario {
+  return {
+    id: row.id as string,
+    producto_id: row.producto_id as string,
+    bodega_id: row.bodega_id as string,
+    cantidad_inicial: Number(row.cantidad_inicial ?? 0),
+    cantidad_restante: Number(row.cantidad_restante ?? 0),
+    costo_unitario: Number(row.costo_unitario ?? 0),
+    origen: (row.origen as LoteInventario['origen']) ?? 'apertura',
+    oc_id: row.oc_id as string | undefined,
+    oc_item_id: row.oc_item_id as string | undefined,
+    fecha: (row.fecha as string) ?? '',
+    creado_en: (row.creado_en as string) ?? '',
+  }
+}
+
+function filaLoteParcial(l: Partial<LoteInventario>): Record<string, unknown> {
+  const row: Record<string, unknown> = {}
+  for (const k of LOTE_COLS) {
+    if (k in l) {
+      const v = (l as Record<string, unknown>)[k]
+      row[k] = v === undefined ? null : v
+    }
+  }
+  return row
+}
+
 export function useLotes() {
   const { empresaId } = useAuth()
   return useQuery({
     queryKey: ['lotes_inventario', empresaId],
-    queryFn: () => dbGet<LoteInventario[] | string>(empresaId!, 'lotes_inventario'),
-    enabled: !!empresaId,
-    select: (data) => {
-      if (typeof data === 'string') {
-        try { return JSON.parse(data) as LoteInventario[] } catch { return [] }
+    queryFn: async () => {
+      const PAGE = 1000
+      const filas: Record<string, unknown>[] = []
+      for (let from = 0; ; from += PAGE) {
+        const { data, error } = await supabase
+          .from('lotes_inventario')
+          .select('*')
+          .eq('empresa_id', empresaId!)
+          .range(from, from + PAGE - 1)
+        if (error) throw error
+        filas.push(...(data ?? []))
+        if (!data || data.length < PAGE) break
       }
-      return (data as LoteInventario[]) ?? []
+      return filas.map(hidratarLote)
     },
+    enabled: !!empresaId,
   })
 }
 
-export function useGuardarLotes() {
+// Crea uno o varios lotes nuevos (recepción de OC, apertura de stock). Batch de 200.
+export function useCrearLotes() {
   const { empresaId } = useAuth()
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (lotes: LoteInventario[]) => dbSet(empresaId!, 'lotes_inventario', lotes),
+    mutationFn: async (nuevos: LoteInventario[]) => {
+      const rows = nuevos.map(l => ({ id: l.id, empresa_id: empresaId!, ...filaLoteParcial(l) }))
+      for (let i = 0; i < rows.length; i += 200) {
+        const { error } = await supabase.from('lotes_inventario').insert(rows.slice(i, i + 200))
+        if (error) throw error
+      }
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['lotes_inventario', empresaId] }),
+  })
+}
+
+// Actualiza solo `cantidad_restante` de los lotes consumidos por FIFO en una venta.
+// Upsert acotado a las filas que realmente cambiaron (nunca el array completo).
+export function useActualizarLotes() {
+  const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (cambios: { id: string; cantidad_restante: number }[]) => {
+      if (!cambios.length) return
+      const rows = cambios.map(c => ({ id: c.id, empresa_id: empresaId!, cantidad_restante: c.cantidad_restante }))
+      const { error } = await supabase.from('lotes_inventario').upsert(rows, { onConflict: 'id' })
+      if (error) throw error
+    },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['lotes_inventario', empresaId] }),
   })
 }

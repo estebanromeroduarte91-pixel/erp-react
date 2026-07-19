@@ -1,8 +1,8 @@
 import { useState, useMemo, useRef } from 'react'
-import { useProductos, useAjustarStock, useVentas, useGuardarVenta, useMetodosPago, useCajaSesiones, useCajas, useGuardarCajaSesiones, useIncrementarContadorVenta, useOrdenes, useActualizarOrden, useMovimientos, useGuardarMovimientos, useUserProfiles, useUserCargoMap, useCargos, useLotes, useGuardarLotes, CARGOS_DEFAULT } from '@/lib/queries'
+import { useProductos, useAjustarStock, useVentas, useGuardarVenta, useMetodosPago, useCajaSesiones, useCajas, useGuardarCajaSesiones, useIncrementarContadorVenta, useOrdenes, useActualizarOrden, useMovimientos, useGuardarMovimientos, useUserProfiles, useUserCargoMap, useCargos, useLotes, useActualizarLotes, CARGOS_DEFAULT } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { IconCashRegister, IconLock, IconLockOpen, IconBuildingStore } from '@tabler/icons-react'
-import type { VentaItem, Venta, Orden, CajaSesion } from '@/types'
+import type { VentaItem, Venta, Orden, CajaSesion, LoteInventario } from '@/types'
 
 const IVA = 0.19
 
@@ -54,7 +54,7 @@ export function POSTab() {
   const { data: userCargoMap } = useUserCargoMap()
   const { data: cargosCustom } = useCargos()
   const { data: lotes } = useLotes()
-  const guardarLotes = useGuardarLotes()
+  const actualizarLotes = useActualizarLotes()
 
   // Caja management state
   const [cajaSelId, setCajaSelId] = useState<string>('')
@@ -304,24 +304,28 @@ export function POSTab() {
       // Costeo FIFO: congela el costo real de cada línea al momento de la venta,
       // consumiendo los lotes más antiguos primero. Si no hay lotes suficientes
       // (hueco de datos), usa el precio_compra actual del producto como respaldo.
-      let lotesActuales = [...(lotes ?? [])]
+      // Solo se trackean los lotes que efectivamente cambian (consumo FIFO), no el
+      // array completo — así el guardado toca únicamente esas filas.
+      const restantePorLote = new Map<string, number>()
+      const cantidadRestante = (l: LoteInventario) => restantePorLote.get(l.id) ?? l.cantidad_restante
       const costosPorItem = new Map<string, { costo_unitario: number; costo_total: number }>()
       for (const it of items) {
         if (!it.producto_id || it.producto_id === 'ot-servicio' || it.producto_id.startsWith('rep-')) continue
         const producto = (productos ?? []).find(p => p.id === it.producto_id)
         if (producto?.tipo === 'servicio') continue
         const fallback = producto?.precio_compra ?? 0
-        const candidatos = lotesActuales
-          .filter(l => l.producto_id === it.producto_id && l.bodega_id === bodegaId && l.cantidad_restante > 0)
+        const candidatos = (lotes ?? [])
+          .filter(l => l.producto_id === it.producto_id && l.bodega_id === bodegaId && cantidadRestante(l) > 0)
           .sort((a, b) => (a.creado_en || a.fecha).localeCompare(b.creado_en || b.fecha))
         let restante = it.cantidad
         let costoTotal = 0
         for (const lote of candidatos) {
           if (restante <= 0) break
-          const consumir = Math.min(lote.cantidad_restante, restante)
+          const disponible = cantidadRestante(lote)
+          const consumir = Math.min(disponible, restante)
           costoTotal += consumir * lote.costo_unitario
           restante -= consumir
-          lotesActuales = lotesActuales.map(l => l.id === lote.id ? { ...l, cantidad_restante: l.cantidad_restante - consumir } : l)
+          restantePorLote.set(lote.id, disponible - consumir)
         }
         if (restante > 0) costoTotal += restante * fallback
         costosPorItem.set(it.id, { costo_unitario: it.cantidad ? Math.round(costoTotal / it.cantidad) : 0, costo_total: Math.round(costoTotal) })
@@ -382,8 +386,10 @@ export function POSTab() {
         }
       }
 
-      if (costosPorItem.size > 0) {
-        await guardarLotes.mutateAsync(lotesActuales)
+      if (restantePorLote.size > 0) {
+        await actualizarLotes.mutateAsync(
+          [...restantePorLote.entries()].map(([id, cantidad_restante]) => ({ id, cantidad_restante })),
+        )
       }
 
       if (otSeleccionada) {
