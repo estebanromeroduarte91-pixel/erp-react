@@ -859,8 +859,7 @@ export function POSTab() {
                 <input
                   ref={clienteAnchorRef}
                   value={cliente}
-                  onChange={e => { setCliente(e.target.value); setClienteAbierto(true) }}
-                  onFocus={() => setClienteAbierto(true)}
+                  onChange={e => { setCliente(e.target.value); setClienteAbierto(e.target.value.trim().length > 0) }}
                   placeholder="Cliente genérico"
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-white focus:outline-none focus:border-blue-400"
                 />
