@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
-import { useClientes, useGuardarClientes, useOrdenes, useVentas } from '@/lib/queries'
+import { useClientes, useCrearCliente, useActualizarCliente, useEliminarCliente, useOrdenes, useVentas } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { useIsMobile } from '@/lib/useIsMobile'
 import { Spinner } from '@/components/shared/Spinner'
@@ -42,7 +42,9 @@ export function ClientesTab() {
   const { data: clientes, isLoading } = useClientes()
   const { data: ordenes } = useOrdenes()
   const { data: ventas } = useVentas()
-  const guardar = useGuardarClientes()
+  const crearCliente = useCrearCliente()
+  const actualizarCliente = useActualizarCliente()
+  const eliminarCliente = useEliminarCliente()
   const { esAdmin } = useAuth()
   const isMobile = useIsMobile()
 
@@ -87,17 +89,16 @@ export function ClientesTab() {
   async function eliminar(c: Cliente) {
     if (!esAdmin) return
     if (!confirm(`¿Eliminar a "${c.nombre} ${c.apellido ?? ''}"?`)) return
-    await guardar.mutateAsync((clientes ?? []).filter(x => x.id !== c.id))
+    await eliminarCliente.mutateAsync(c.id)
     if (seleccionado?.id === c.id) setSeleccionado(null)
   }
 
   async function guardarCliente(datos: Record<string, string>) {
-    const lista2 = clientes ?? []
     if (datos.id) {
-      await guardar.mutateAsync(lista2.map(x => x.id === datos.id ? { ...x, ...datos } as Cliente : x))
+      await actualizarCliente.mutateAsync(datos as Partial<Cliente> & { id: string })
     } else {
       const nuevo = { id: uid(), fecha_creacion: new Date().toISOString(), ...datos } as unknown as Cliente
-      await guardar.mutateAsync([...lista2, nuevo])
+      await crearCliente.mutateAsync(nuevo)
       setSeleccionado(nuevo)
     }
   }

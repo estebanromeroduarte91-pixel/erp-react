@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { formatRut } from '@/lib/rut'
-import { useCrearOrden, useActualizarOrden, useClientes, useGuardarClientes, useProductos, useChecklist, useUserProfiles, useMsgTemplates, useSeguimientoConfig, useBodegas } from '@/lib/queries'
+import { useCrearOrden, useActualizarOrden, useClientes, useCrearCliente, useActualizarCliente, useProductos, useChecklist, useUserProfiles, useMsgTemplates, useSeguimientoConfig, useBodegas } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { sendEmail, buildEmailIngreso } from '@/lib/email'
@@ -59,7 +59,8 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
   const crearOrden = useCrearOrden()
   const actualizarOrden = useActualizarOrden()
   const { data: clientes } = useClientes()
-  const guardarClientes = useGuardarClientes()
+  const crearCliente = useCrearCliente()
+  const actualizarCliente = useActualizarCliente()
   const { data: productos } = useProductos()
   const { data: checklistLabels } = useChecklist()
   const { data: usuarios = [] } = useUserProfiles()
@@ -330,12 +331,10 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
 
     if (editandoCliente && clienteEditId) {
       // Actualiza el cliente existente en el directorio y refleja los cambios en la orden
-      await guardarClientes.mutateAsync(
-        (clientes ?? []).map((c) => (c.id === clienteEditId ? { ...c, ...datos } : c)),
-      )
+      await actualizarCliente.mutateAsync({ id: clienteEditId, ...datos })
     } else {
       const nuevo = { id: `cli-tp-${Date.now()}`, ...datos, fecha_creacion: new Date().toISOString() }
-      await guardarClientes.mutateAsync([...(clientes ?? []), nuevo])
+      await crearCliente.mutateAsync(nuevo)
       setClienteEditId(nuevo.id)
     }
 
@@ -445,11 +444,11 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
            (c.apellido ?? '').toLowerCase() === form.apellido.toLowerCase())
       )
       if (!yaExiste) {
-        await guardarClientes.mutateAsync([...lista, {
+        await crearCliente.mutateAsync({
           id: `cli-tp-${Date.now()}`, nombre: form.nombre.trim(),
           apellido: form.apellido.trim(), rut: form.rut,
           email: form.email, tel: form.tel, fecha_creacion: ahora,
-        }])
+        })
       }
     }
 

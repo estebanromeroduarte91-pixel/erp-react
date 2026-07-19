@@ -562,21 +562,106 @@ function parseArr<T>(data: T[] | string | null): T[] {
   return data as T[]
 }
 
+// Tabla relacional `clientes` (migrada desde el blob erp_data/clientes).
+const CLIENTE_COLS = ['nombre', 'apellido', 'rut', 'email', 'tel', 'direccion', 'fecha_creacion'] as const
+
+function hidratarCliente(row: Record<string, unknown>): Cliente {
+  return {
+    id: row.id as string,
+    nombre: (row.nombre as string) ?? '',
+    apellido: row.apellido as string | undefined,
+    rut: row.rut as string | undefined,
+    email: row.email as string | undefined,
+    tel: row.tel as string | undefined,
+    direccion: row.direccion as string | undefined,
+    fecha_creacion: row.fecha_creacion as string | undefined,
+  }
+}
+
+function filaClienteParcial(c: Partial<Cliente>): Record<string, unknown> {
+  const row: Record<string, unknown> = {}
+  for (const k of CLIENTE_COLS) {
+    if (k in c) {
+      const v = (c as Record<string, unknown>)[k]
+      row[k] = v === undefined ? null : v
+    }
+  }
+  return row
+}
+
 export function useClientes() {
   const { empresaId } = useAuth()
   return useQuery({
     queryKey: ['clientes', empresaId],
-    queryFn: () => dbGet<Cliente[] | string>(empresaId!, 'clientes'),
+    queryFn: async () => {
+      const PAGE = 1000
+      const filas: Record<string, unknown>[] = []
+      for (let from = 0; ; from += PAGE) {
+        const { data, error } = await supabase
+          .from('clientes')
+          .select('*')
+          .eq('empresa_id', empresaId!)
+          .range(from, from + PAGE - 1)
+        if (error) throw error
+        filas.push(...(data ?? []))
+        if (!data || data.length < PAGE) break
+      }
+      return filas.map(hidratarCliente)
+    },
     enabled: !!empresaId,
-    select: (data) => parseArr<Cliente>(data as Cliente[] | string | null),
   })
 }
 
-export function useGuardarClientes() {
+export function useCrearCliente() {
   const { empresaId } = useAuth()
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (clientes: Cliente[]) => dbSet(empresaId!, 'clientes', clientes),
+    mutationFn: async (c: Cliente) => {
+      const row = { id: c.id, empresa_id: empresaId!, ...filaClienteParcial(c) }
+      const { error } = await supabase.from('clientes').insert(row)
+      if (error) throw error
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['clientes', empresaId] }),
+  })
+}
+
+export function useActualizarCliente() {
+  const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (c: Partial<Cliente> & { id: string }) => {
+      const { id, ...rest } = c
+      const { error } = await supabase.from('clientes').update(filaClienteParcial(rest)).eq('id', id).eq('empresa_id', empresaId!)
+      if (error) throw error
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['clientes', empresaId] }),
+  })
+}
+
+export function useEliminarCliente() {
+  const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('clientes').delete().eq('id', id).eq('empresa_id', empresaId!)
+      if (error) throw error
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['clientes', empresaId] }),
+  })
+}
+
+// Importación masiva (historial gestioo) — upsert por lotes, igual patrón que useImportarOrdenes.
+export function useImportarClientes() {
+  const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (clientes: Cliente[]) => {
+      const rows = clientes.map(c => ({ id: c.id, empresa_id: empresaId!, ...filaClienteParcial(c) }))
+      for (let i = 0; i < rows.length; i += 200) {
+        const { error } = await supabase.from('clientes').upsert(rows.slice(i, i + 200), { onConflict: 'id' })
+        if (error) throw error
+      }
+    },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['clientes', empresaId] }),
   })
 }

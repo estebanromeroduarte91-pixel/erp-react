@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import * as XLSX from 'xlsx'
-import { useOrdenes, useImportarOrdenes, useBodegas, useClientes, useGuardarClientes } from '@/lib/queries'
+import { useOrdenes, useImportarOrdenes, useBodegas, useClientes, useImportarClientes, useActualizarCliente } from '@/lib/queries'
 import type { Cliente, Orden } from '@/types'
 
 function uid() { return Math.random().toString(36).slice(2) + Date.now().toString(36) }
@@ -82,13 +82,15 @@ export function HistorialImportTab() {
   const { data: bodegas = [] } = useBodegas()
   const { data: clientes } = useClientes()
   const importarOrdenes = useImportarOrdenes()
-  const guardarClientes = useGuardarClientes()
+  const importarClientes = useImportarClientes()
+  const actualizarCliente = useActualizarCliente()
 
   const fileRef = useRef<HTMLInputElement>(null)
   const [preview, setPreview] = useState<PreviewRow[]>([])
   const [nuevasOrdenes, setNuevasOrdenes] = useState<Orden[]>([])
   const [nuevosClientes, setNuevosClientes] = useState<Cliente[]>([])
-  const [clientesActualizados, setClientesActualizados] = useState(0)
+  const [clientesModificados, setClientesModificados] = useState<Cliente[]>([])
+  const clientesActualizados = clientesModificados.length
   const [omitidas, setOmitidas] = useState(0)
   const [fileName, setFileName] = useState('')
   const [estado, setEstado] = useState<'idle' | 'preview' | 'subiendo' | 'listo' | 'error'>('idle')
@@ -110,7 +112,7 @@ export function HistorialImportTab() {
 
         const numsExistentes = new Set((ordenes ?? []).map(o => String(o.num ?? '')))
         const clientesMerged: Cliente[] = [...(clientes ?? [])]
-        let actualizados = 0
+        const modificados: Cliente[] = []
 
         const toImport: Orden[] = []
         let skipped = 0
@@ -168,7 +170,7 @@ export function HistorialImportTab() {
             if (email && !existing.email) { existing.email = email; changed = true }
             if (tel && !existing.tel) { existing.tel = tel; changed = true }
             if (rut && !existing.rut) { existing.rut = rut; changed = true }
-            if (changed) actualizados++
+            if (changed && !modificados.some(m => m.id === existing.id)) modificados.push(existing)
           } else {
             clientesMerged.push({
               id: `cli-gestioo-${uid()}`,
@@ -182,7 +184,7 @@ export function HistorialImportTab() {
 
         setNuevasOrdenes(toImport)
         setNuevosClientes(clientesNuevos)
-        setClientesActualizados(actualizados)
+        setClientesModificados(modificados)
         setOmitidas(skipped)
         setPreview(toImport.slice(0, 8).map(o => ({
           num: o.num ?? '',
@@ -204,13 +206,9 @@ export function HistorialImportTab() {
   async function confirmar() {
     setEstado('subiendo')
     try {
-      const clientesMerged = [...(clientes ?? [])]
-      // aplicar cambios a existentes + agregar nuevos
-      for (const nc of nuevosClientes) {
-        clientesMerged.push(nc)
-      }
       await importarOrdenes.mutateAsync(nuevasOrdenes)
-      await guardarClientes.mutateAsync(clientesMerged)
+      if (nuevosClientes.length > 0) await importarClientes.mutateAsync(nuevosClientes)
+      for (const c of clientesModificados) await actualizarCliente.mutateAsync(c)
       setEstado('listo')
     } catch (err) {
       setErrorMsg(String(err))
