@@ -1,6 +1,8 @@
-import { useState, useMemo, useRef } from 'react'
-import { useProductos, useAjustarStock, useVentas, useGuardarVenta, useMetodosPago, useCajaSesiones, useCajas, useGuardarCajaSesiones, useIncrementarContadorVenta, useOrdenes, useActualizarOrden, useMovimientos, useGuardarMovimientos, useUserProfiles, useUserCargoMap, useCargos, useLotes, useActualizarLotes, CARGOS_DEFAULT } from '@/lib/queries'
+import { useState, useMemo, useRef, useEffect } from 'react'
+import { useProductos, useAjustarStock, useVentas, useGuardarVenta, useMetodosPago, useCajaSesiones, useCajas, useGuardarCajaSesiones, useIncrementarContadorVenta, useOrdenes, useActualizarOrden, useMovimientos, useGuardarMovimientos, useUserProfiles, useUserCargoMap, useCargos, useLotes, useActualizarLotes, useClientes, useCrearCliente, CARGOS_DEFAULT } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
+import { useAnchorRect, fixedDropdownStyle } from '@/lib/useAnchorRect'
+import { formatRut } from '@/lib/rut'
 import { IconCashRegister, IconLock, IconLockOpen, IconBuildingStore } from '@tabler/icons-react'
 import type { VentaItem, Venta, Orden, CajaSesion, LoteInventario } from '@/types'
 
@@ -55,6 +57,8 @@ export function POSTab() {
   const { data: cargosCustom } = useCargos()
   const { data: lotes } = useLotes()
   const actualizarLotes = useActualizarLotes()
+  const { data: clientesDir } = useClientes()
+  const crearCliente = useCrearCliente()
 
   // Caja management state
   const [cajaSelId, setCajaSelId] = useState<string>('')
@@ -74,6 +78,86 @@ export function POSTab() {
   const [clienteRut, setClienteRut] = useState('')
   const [clienteTel, setClienteTel] = useState('')
   const [clienteEmail, setClienteEmail] = useState('')
+  const [clienteAbierto, setClienteAbierto] = useState(false)
+  const clienteRef = useRef<HTMLDivElement>(null)
+  const { ref: clienteAnchorRef, rect: clienteRect } = useAnchorRect<HTMLInputElement>(clienteAbierto)
+
+  const clientesFiltrados = cliente.trim()
+    ? (clientesDir ?? []).filter((c) => {
+        const q = cliente.toLowerCase()
+        return (
+          c.nombre.toLowerCase().includes(q) ||
+          (c.apellido ?? '').toLowerCase().includes(q) ||
+          (c.rut ?? '').toLowerCase().includes(q) ||
+          (c.tel ?? '').includes(q)
+        )
+      }).slice(0, 6)
+    : (clientesDir ?? []).slice(0, 6)
+
+  function seleccionarCliente(c: NonNullable<typeof clientesDir>[number]) {
+    setCliente(`${c.nombre} ${c.apellido ?? ''}`.trim())
+    setClienteRut(c.rut ?? '')
+    setClienteTel(c.tel ?? '')
+    setClienteEmail(c.email ?? '')
+    setClienteAbierto(false)
+  }
+
+  // Modal "nuevo cliente" — crear sin salir del POS
+  const [showNuevoCliente, setShowNuevoCliente] = useState(false)
+  const [nuevoCliente, setNuevoCliente] = useState({ nombre: '', apellido: '', tel: '', email: '', rut: '' })
+  const [errorNuevoCliente, setErrorNuevoCliente] = useState('')
+  const [clienteDuplicado, setClienteDuplicado] = useState<NonNullable<typeof clientesDir>[number] | null>(null)
+
+  function cerrarModalCliente() {
+    setShowNuevoCliente(false)
+    setErrorNuevoCliente('')
+    setClienteDuplicado(null)
+    setNuevoCliente({ nombre: '', apellido: '', tel: '', email: '', rut: '' })
+  }
+
+  function usarClienteDuplicado() {
+    if (!clienteDuplicado) return
+    seleccionarCliente(clienteDuplicado)
+    cerrarModalCliente()
+  }
+
+  async function handleCrearClientePOS() {
+    if (!nuevoCliente.nombre.trim()) return
+    setErrorNuevoCliente('')
+    setClienteDuplicado(null)
+
+    if (nuevoCliente.rut.trim()) {
+      const rutNorm = nuevoCliente.rut.trim().toLowerCase().replace(/\s/g, '')
+      const existe = (clientesDir ?? []).find(c => c.rut && c.rut.toLowerCase().replace(/\s/g, '') === rutNorm)
+      if (existe) {
+        setClienteDuplicado(existe)
+        setErrorNuevoCliente(`El RUT ya está registrado a nombre de ${existe.nombre} ${existe.apellido ?? ''}.`)
+        return
+      }
+    }
+
+    const datos = {
+      nombre: nuevoCliente.nombre.trim(),
+      apellido: nuevoCliente.apellido.trim(),
+      rut: nuevoCliente.rut.trim(),
+      tel: nuevoCliente.tel.trim(),
+      email: nuevoCliente.email.trim(),
+    }
+    await crearCliente.mutateAsync({ id: `cli-pos-${Date.now()}`, ...datos, fecha_creacion: new Date().toISOString() })
+    setCliente(`${datos.nombre} ${datos.apellido}`.trim())
+    setClienteRut(datos.rut)
+    setClienteTel(datos.tel)
+    setClienteEmail(datos.email)
+    cerrarModalCliente()
+  }
+
+  useEffect(() => {
+    function onClick(e: MouseEvent) {
+      if (clienteRef.current && !clienteRef.current.contains(e.target as Node)) setClienteAbierto(false)
+    }
+    document.addEventListener('mousedown', onClick)
+    return () => document.removeEventListener('mousedown', onClick)
+  }, [])
   const [tipoDoc, setTipoDoc] = useState<'boleta' | 'factura' | 'ticket'>('boleta')
   const [metodoSel, setMetodoSel] = useState<string>('')
   const [guardando, setGuardando] = useState(false)
@@ -768,14 +852,37 @@ export function POSTab() {
         <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
 
           {/* Cliente */}
-          <div>
+          <div ref={clienteRef}>
             <label className="text-xs font-semibold text-gray-500 uppercase block mb-1.5">Cliente</label>
-            <input
-              value={cliente}
-              onChange={e => setCliente(e.target.value)}
-              placeholder="Cliente genérico"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-white focus:outline-none focus:border-blue-400"
-            />
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <input
+                  ref={clienteAnchorRef}
+                  value={cliente}
+                  onChange={e => { setCliente(e.target.value); setClienteAbierto(true) }}
+                  onFocus={() => setClienteAbierto(true)}
+                  placeholder="Cliente genérico"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-white focus:outline-none focus:border-blue-400"
+                />
+                {clienteAbierto && clientesFiltrados.length > 0 && (
+                  <div style={fixedDropdownStyle(clienteRect)} className="bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+                    {clientesFiltrados.map((c) => (
+                      <button key={c.id} type="button" onMouseDown={() => seleccionarCliente(c)}
+                        className="w-full text-left px-4 py-2.5 text-sm hover:bg-blue-50 transition-colors flex items-center justify-between">
+                        <span className="font-medium text-gray-800">{c.nombre} {c.apellido}</span>
+                        <span className="text-gray-400 text-xs">{c.rut ?? c.tel}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <button type="button" onClick={() => setShowNuevoCliente(true)} title="Nuevo cliente"
+                className="w-9 h-9 rounded-lg bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center flex-shrink-0 transition">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+              </button>
+            </div>
             {cliente.trim() && (
               <div className="mt-2 flex flex-col gap-1.5">
                 <input
@@ -898,6 +1005,82 @@ export function POSTab() {
           </button>
         </div>
       </div>
+
+      {/* Modal nuevo cliente */}
+      {showNuevoCliente && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+            <div className="flex items-start justify-between px-5 py-4 border-b border-gray-100">
+              <div>
+                <h3 className="text-base font-bold text-gray-900">Nuevo cliente</h3>
+                <p className="text-xs text-gray-400 mt-0.5">Los datos quedan en el directorio de clientes</p>
+              </div>
+              <button onClick={cerrarModalCliente} className="text-gray-400 hover:text-gray-600 p-1">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="px-5 py-4 space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-gray-600 mb-1 block">Nombre *</label>
+                  <input value={nuevoCliente.nombre} onChange={(e) => setNuevoCliente((n) => ({ ...n, nombre: e.target.value }))}
+                    placeholder="Juan" autoFocus autoCapitalize="words" autoCorrect="on"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-600 mb-1 block">Apellido</label>
+                  <input value={nuevoCliente.apellido} onChange={(e) => setNuevoCliente((n) => ({ ...n, apellido: e.target.value }))}
+                    placeholder="Pérez" autoCapitalize="words" autoCorrect="on"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-gray-600 mb-1 block">RUT</label>
+                  <input value={nuevoCliente.rut} onChange={(e) => setNuevoCliente((n) => ({ ...n, rut: formatRut(e.target.value) }))}
+                    placeholder="12.345.678-9"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-600 mb-1 block">Teléfono</label>
+                  <input value={nuevoCliente.tel} onChange={(e) => setNuevoCliente((n) => ({ ...n, tel: e.target.value }))}
+                    placeholder="+56 9 XXXX XXXX"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-600 mb-1 block">Correo electrónico</label>
+                <input type="email" value={nuevoCliente.email} onChange={(e) => setNuevoCliente((n) => ({ ...n, email: e.target.value }))}
+                  placeholder="correo@ejemplo.com"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+              </div>
+            </div>
+            {errorNuevoCliente && (
+              <div className="mx-5 mb-1 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
+                <p className="text-xs font-medium text-amber-800">{errorNuevoCliente}</p>
+                {clienteDuplicado && (
+                  <button onClick={usarClienteDuplicado}
+                    className="mt-1.5 text-xs font-semibold text-amber-700 underline underline-offset-2 hover:text-amber-900">
+                    Usar este cliente para la venta
+                  </button>
+                )}
+              </div>
+            )}
+            <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-gray-100 bg-gray-50">
+              <button onClick={cerrarModalCliente}
+                className="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-100 transition">
+                Cancelar
+              </button>
+              <button onClick={handleCrearClientePOS} disabled={!nuevoCliente.nombre.trim() || crearCliente.isPending}
+                className="px-5 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition">
+                {crearCliente.isPending ? 'Creando…' : 'Crear cliente'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
