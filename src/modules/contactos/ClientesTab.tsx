@@ -49,7 +49,7 @@ export function ClientesTab() {
   const isMobile = useIsMobile()
 
   const [busqueda, setBusqueda] = useState('')
-  const [seleccionado, setSeleccionado] = useState<Cliente | null>(null)
+  const [seleccionadoId, setSeleccionadoId] = useState<string | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
   const [editando, setEditando] = useState<Cliente | null>(null)
 
@@ -63,9 +63,17 @@ export function ClientesTab() {
     )
   }, [clientes, busqueda])
 
+  // Se deriva siempre de la lista fresca (nunca una copia local) para que los
+  // cambios que llegan por refetch/realtime se reflejen de inmediato en el panel.
+  const seleccionado = useMemo(
+    () => (seleccionadoId ? (clientes ?? []).find(c => c.id === seleccionadoId) ?? null : null),
+    [clientes, seleccionadoId],
+  )
+  function setSeleccionado(c: Cliente | null) { setSeleccionadoId(c?.id ?? null) }
+
   useEffect(() => {
-    if (!seleccionado && lista.length > 0 && !isMobile) setSeleccionado(lista[0])
-  }, [lista, isMobile])
+    if (!seleccionadoId && lista.length > 0 && !isMobile) setSeleccionadoId(lista[0].id)
+  }, [lista, isMobile, seleccionadoId])
 
   const stats = useMemo(() => {
     if (!seleccionado) return null
