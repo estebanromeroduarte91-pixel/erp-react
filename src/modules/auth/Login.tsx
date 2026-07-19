@@ -130,8 +130,24 @@ export function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#1a2f6e] to-[#3656e6] p-4">
-      <div className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-2xl">
+    <div
+      className="min-h-screen flex items-center justify-center p-4"
+      style={{
+        backgroundColor: '#fff',
+        backgroundImage:
+          'radial-gradient(480px 420px at 50% 50%, rgba(255,255,255,.92) 0%, rgba(255,255,255,.6) 42%, rgba(255,255,255,0) 68%), url(/login-pattern.webp)',
+        backgroundRepeat: 'no-repeat, repeat',
+        backgroundSize: 'auto, 560px 315px',
+        backgroundPosition: 'center, center',
+      }}
+    >
+      <div
+        className="w-full max-w-sm rounded-2xl bg-white p-8"
+        style={{
+          border: '1px solid rgba(20,20,20,0.09)',
+          boxShadow: '0 1px 2px rgba(20,20,20,.04), 0 2px 6px rgba(20,20,20,.05), 0 24px 48px -16px rgba(20,20,20,.16)',
+        }}
+      >
         <div className="mb-6 text-center">
           <img src="/logo-pixit.png" alt="Pixit" className="mx-auto h-16 w-auto object-contain" />
           {(modo === 'invitado' || modo === 'registro') && (
