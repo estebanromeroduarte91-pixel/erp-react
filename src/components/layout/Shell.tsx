@@ -12,7 +12,7 @@ export function Shell({ children }: { children: ReactNode }) {
     return (
       <div style={{ minHeight: '100dvh', background: '#f2f2f7' }}>
         <PullToRefresh>
-          <main style={{ paddingBottom: 'calc(72px + max(env(safe-area-inset-bottom), 50px))' }}>
+          <main style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'calc(72px + max(env(safe-area-inset-bottom), 50px))' }}>
             {children}
           </main>
         </PullToRefresh>
