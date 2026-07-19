@@ -133,10 +133,12 @@ export function Login() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#1a2f6e] to-[#3656e6] p-4">
       <div className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-2xl">
         <div className="mb-6 text-center">
-          <img src="/logo-pixit.png" alt="Pixit" className="mx-auto mb-3 h-12 w-auto object-contain" />
-          <p className="mt-1 text-sm text-gray-400">
-            {modo === 'invitado' ? 'Completa tu registro' : modo === 'registro' ? 'Crea tu cuenta' : 'Gestión empresarial inteligente'}
-          </p>
+          <img src="/logo-pixit.png" alt="Pixit" className="mx-auto h-16 w-auto object-contain" />
+          {(modo === 'invitado' || modo === 'registro') && (
+            <p className="mt-2 text-sm text-gray-400">
+              {modo === 'invitado' ? 'Completa tu registro' : 'Crea tu cuenta'}
+            </p>
+          )}
         </div>
 
         {confirmarEmail ? (
