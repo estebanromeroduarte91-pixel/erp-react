@@ -435,6 +435,7 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
         checkIngreso: checkFinal,
         photosIngreso: fotos,
         branchId: userBranchId ?? defaultBranchId ?? undefined,
+        _draft: false,
       }
       await crearOrden.mutateAsync(nuevaOrden)
       ordenGuardada = nuevaOrden
