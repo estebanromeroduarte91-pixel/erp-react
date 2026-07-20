@@ -23,28 +23,28 @@ type TallerTab = 'ordenes' | 'derivados' | 'equipos' | 'settings'
 type TallerConfigTab = 'seguimiento' | 'checklist' | 'notificaciones' | 'terminos' | 'equipos-config' | 'historial'
 
 const CONFIG_TABS: { id: TallerConfigTab; label: string }[] = [
-  { id: 'seguimiento',    label: 'Seguimiento' },
-  { id: 'checklist',      label: 'Checklist' },
+  { id: 'seguimiento', label: 'Seguimiento' },
+  { id: 'checklist', label: 'Checklist' },
   { id: 'notificaciones', label: 'Notificaciones' },
-  { id: 'terminos',       label: 'Términos' },
+  { id: 'terminos', label: 'Términos' },
   { id: 'equipos-config', label: 'Equipos' },
-  { id: 'historial',      label: 'Subir historial' },
+  { id: 'historial', label: 'Subir historial' },
 ]
 
 
 function resolveTallerTab(param: string | null): TallerTab {
   if (param === 'derivados') return 'derivados'
-  if (param === 'equipos')   return 'equipos'
-  if (param === 'settings')  return 'settings'
+  if (param === 'equipos') return 'equipos'
+  if (param === 'settings') return 'settings'
   return 'ordenes'
 }
 
 const ESTADOS_MAIN: { value: EstadoOrden | 'todos' | 'Derivado'; label: string }[] = [
-  { value: 'todos',      label: 'Todos' },
-  { value: 'Chequeo',    label: 'Chequeo' },
+  { value: 'todos', label: 'Todos' },
+  { value: 'Chequeo', label: 'Chequeo' },
   { value: 'Reparación', label: 'Reparación' },
-  { value: 'Listo',      label: 'Listos' },
-  { value: 'Derivado',   label: 'Derivados' },
+  { value: 'Listo', label: 'Listos' },
+  { value: 'Derivado', label: 'Derivados' },
 ]
 
 
@@ -104,7 +104,7 @@ export function TallerPage() {
   const lista = useMemo(() => {
     let r = ordenes ?? []
     if (esAdmin && selectedBranchId) r = r.filter((o) => o.branchId === selectedBranchId)
-    
+
     if (busqueda.trim()) {
       const q = busqueda.toLowerCase()
       r = r.filter(
@@ -131,12 +131,12 @@ export function TallerPage() {
   const stats = useMemo(() => {
     const all = (ordenes ?? []).filter((o) => !esAdmin || !selectedBranchId || o.branchId === selectedBranchId)
     return {
-      abiertas:   all.filter((o) => o.status !== 'Entregado').length,
-      chequeo:    all.filter((o) => o.status === 'Chequeo').length,
+      abiertas: all.filter((o) => o.status !== 'Entregado').length,
+      chequeo: all.filter((o) => o.status === 'Chequeo').length,
       reparacion: all.filter((o) => o.status === 'Reparación').length,
-      listos:     all.filter((o) => o.status === 'Listo').length,
+      listos: all.filter((o) => o.status === 'Listo').length,
       entregadas: all.filter((o) => o.status === 'Entregado').length,
-      derivadas:  all.filter((o) => derivadoIds.has(o.id) && o.status !== 'Entregado').length,
+      derivadas: all.filter((o) => derivadoIds.has(o.id) && o.status !== 'Entregado').length,
     }
   }, [ordenes, derivadoIds, esAdmin, selectedBranchId])
 
@@ -211,7 +211,7 @@ export function TallerPage() {
                 }}
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                  <polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/>
+                  <polyline points="21 8 21 21 3 21 3 8" /><rect x="1" y="3" width="22" height="5" /><line x1="10" y1="12" x2="14" y2="12" />
                 </svg>
               </button>
               <button
@@ -240,7 +240,7 @@ export function TallerPage() {
         {/* Banner historial */}
         {filtroEstado === 'Entregado' && (
           <div style={{ margin: '10px 16px 0', display: 'flex', alignItems: 'center', gap: 8, background: '#f9fafb', border: '0.5px solid #e5e7eb', borderRadius: 10, padding: '9px 12px' }}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2"><polyline points="21 8 21 21 3 21 3 8" /><rect x="1" y="3" width="22" height="5" /><line x1="10" y1="12" x2="14" y2="12" /></svg>
             <span style={{ fontSize: 12, color: '#6b7280', flex: 1 }}>Historial — ya entregadas</span>
             <button onClick={() => setFiltroEstado('todos')} style={{ background: 'none', border: 'none', color: 'var(--primary)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
               ← Volver
@@ -251,7 +251,7 @@ export function TallerPage() {
         {/* Search */}
         <div style={{ padding: '10px 16px 4px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fff', border: '0.5px solid #e5e7eb', borderRadius: 10, padding: '8px 12px' }}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#8e8e93" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#8e8e93" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
             <input
               value={busqueda}
               onChange={e => setBusqueda(e.target.value)}
@@ -267,7 +267,7 @@ export function TallerPage() {
             <div style={{ textAlign: 'center', paddingTop: 48, color: '#8e8e93' }}>
               <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'center' }}>
                 <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#d1d5db" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.7-3.7a6 6 0 0 1-7.9 7.9l-6.9 6.9a2.1 2.1 0 0 1-3-3l6.9-6.9a6 6 0 0 1 7.9-7.9l-3.7 3.7z"/>
+                  <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.7-3.7a6 6 0 0 1-7.9 7.9l-6.9 6.9a2.1 2.1 0 0 1-3-3l6.9-6.9a6 6 0 0 1 7.9-7.9l-3.7 3.7z" />
                 </svg>
               </div>
               <p style={{ fontSize: 15, fontWeight: 600, color: '#3c3c43', margin: 0 }}>Sin órdenes</p>
@@ -357,7 +357,7 @@ export function TallerPage() {
 
 
       {tallerTab === 'derivados' && <TrasladosTab />}
-      {tallerTab === 'equipos'   && <EquiposTab />}
+      {tallerTab === 'equipos' && <EquiposTab />}
 
       {tallerTab === 'settings' && (
         <div>
@@ -370,12 +370,12 @@ export function TallerPage() {
               </button>
             ))}
           </div>
-          {configTab === 'seguimiento'    && <SeguimientoTab />}
-          {configTab === 'checklist'      && <ChecklistConfigTab />}
+          {configTab === 'seguimiento' && <SeguimientoTab />}
+          {configTab === 'checklist' && <ChecklistConfigTab />}
           {configTab === 'notificaciones' && <MensajesTab />}
-          {configTab === 'terminos'       && <TerminosTab />}
+          {configTab === 'terminos' && <TerminosTab />}
           {configTab === 'equipos-config' && <EquiposConfigTab />}
-          {configTab === 'historial'      && <HistorialImportTab />}
+          {configTab === 'historial' && <HistorialImportTab />}
         </div>
       )}
 
@@ -389,230 +389,230 @@ export function TallerPage() {
           />
         ) : (<>
 
-        {/* Breadcrumb sucursal — solo admin dentro de una sucursal */}
-        {esAdmin && selectedBranchId && (() => {
-          const b = bodegas.find(x => x.id === selectedBranchId)
-          return (
-            <div className="flex items-center gap-2 mb-4 bg-blue-50 border border-blue-200 rounded-xl px-4 py-2.5">
-              <div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />
-              <span className="text-sm font-semibold text-blue-800">{b?.nombre ?? b?.name ?? 'Sucursal'}</span>
+          {/* Breadcrumb sucursal — solo admin dentro de una sucursal */}
+          {esAdmin && selectedBranchId && (() => {
+            const b = bodegas.find(x => x.id === selectedBranchId)
+            return (
+              <div className="flex items-center gap-2 mb-4 bg-blue-50 border border-blue-200 rounded-xl px-4 py-2.5">
+                <div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />
+                <span className="text-sm font-semibold text-blue-800">{b?.nombre ?? b?.name ?? 'Sucursal'}</span>
+                <button
+                  onClick={() => { setSelectedBranchId(null); setFiltroEstado('Chequeo') }}
+                  className="ml-auto text-xs font-medium text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                >
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+                  Volver a sucursales
+                </button>
+              </div>
+            )
+          })()}
+
+          {/* Stats cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+            <StatCard
+              icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>}
+              iconBg="bg-amber-100 text-amber-700"
+              label="Órdenes abiertas"
+              value={stats.abiertas}
+              active={filtroEstado === 'todos'}
+              activeBorder="border-amber-400"
+              activeBg="bg-amber-50"
+              onClick={() => setFiltroEstado('todos')}
+            />
+            <StatCard
+              icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
+              iconBg="bg-green-100 text-green-700"
+              label="Listos para entregar"
+              value={stats.listos}
+              valueColor="text-green-700"
+              active={filtroEstado === 'Listo'}
+              activeBorder="border-green-400"
+              activeBg="bg-green-50"
+              onClick={() => setFiltroEstado('Listo')}
+            />
+            <StatCard
+              icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+              iconBg="bg-purple-100 text-purple-700"
+              label="Órdenes entregadas"
+              value={stats.entregadas}
+              valueColor="text-purple-700"
+              active={filtroEstado === 'Entregado'}
+              activeBorder="border-purple-400"
+              activeBg="bg-purple-50"
+              onClick={() => setFiltroEstado('Entregado')}
+            />
+          </div>
+
+          {/* Filtros */}
+          <div className="flex items-center gap-1 mb-4 border-b border-gray-200 pb-3">
+            <div className="flex flex-wrap items-center gap-1 flex-1">
+              {ESTADOS_MAIN.map((e) => {
+                const count = e.value === 'todos' ? stats.abiertas
+                  : e.value === 'Chequeo' ? stats.chequeo
+                    : e.value === 'Reparación' ? stats.reparacion
+                      : e.value === 'Listo' ? stats.listos
+                        : stats.derivadas
+                return (
+                  <button
+                    key={e.value}
+                    onClick={() => setFiltroEstado(e.value)}
+                    className={[
+                      'inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition',
+                      filtroEstado === e.value
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200',
+                    ].join(' ')}
+                  >
+                    {e.label}
+                    <span className={`inline-flex items-center justify-center min-w-4 h-4 px-1 rounded-full text-[10px] font-bold ${filtroEstado === e.value ? 'bg-white/30 text-white' : 'bg-gray-200 text-gray-600'}`}>
+                      {count}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+            <div className="pl-3 border-l border-gray-200 ml-1">
               <button
-                onClick={() => { setSelectedBranchId(null); setFiltroEstado('Chequeo') }}
-                className="ml-auto text-xs font-medium text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                onClick={() => setFiltroEstado('Entregado')}
+                className={[
+                  'inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition',
+                  filtroEstado === 'Entregado'
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'bg-gray-100 text-gray-500 hover:bg-gray-200',
+                ].join(' ')}
               >
-                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
-                Volver a sucursales
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <polyline points="21 8 21 21 3 21 3 8" /><rect x="1" y="3" width="22" height="5" /><line x1="10" y1="12" x2="14" y2="12" />
+                </svg>
+                Entregados
               </button>
             </div>
-          )
-        })()}
-
-        {/* Stats cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
-          <StatCard
-            icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>}
-            iconBg="bg-amber-100 text-amber-700"
-            label="Órdenes abiertas"
-            value={stats.abiertas}
-            active={filtroEstado === 'todos'}
-            activeBorder="border-amber-400"
-            activeBg="bg-amber-50"
-            onClick={() => setFiltroEstado('todos')}
-          />
-          <StatCard
-            icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
-            iconBg="bg-green-100 text-green-700"
-            label="Listos para entregar"
-            value={stats.listos}
-            valueColor="text-green-700"
-            active={filtroEstado === 'Listo'}
-            activeBorder="border-green-400"
-            activeBg="bg-green-50"
-            onClick={() => setFiltroEstado('Listo')}
-          />
-          <StatCard
-            icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
-            iconBg="bg-purple-100 text-purple-700"
-            label="Órdenes entregadas"
-            value={stats.entregadas}
-            valueColor="text-purple-700"
-            active={filtroEstado === 'Entregado'}
-            activeBorder="border-purple-400"
-            activeBg="bg-purple-50"
-            onClick={() => setFiltroEstado('Entregado')}
-          />
-        </div>
-
-        {/* Filtros */}
-        <div className="flex items-center gap-1 mb-4 border-b border-gray-200 pb-3">
-          <div className="flex flex-wrap items-center gap-1 flex-1">
-            {ESTADOS_MAIN.map((e) => {
-              const count = e.value === 'todos' ? stats.abiertas
-                : e.value === 'Chequeo' ? stats.chequeo
-                : e.value === 'Reparación' ? stats.reparacion
-                : e.value === 'Listo' ? stats.listos
-                : stats.derivadas
-              return (
-                <button
-                  key={e.value}
-                  onClick={() => setFiltroEstado(e.value)}
-                  className={[
-                    'inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition',
-                    filtroEstado === e.value
-                      ? 'bg-blue-600 text-white shadow-sm'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200',
-                  ].join(' ')}
-                >
-                  {e.label}
-                  <span className={`inline-flex items-center justify-center min-w-4 h-4 px-1 rounded-full text-[10px] font-bold ${filtroEstado === e.value ? 'bg-white/30 text-white' : 'bg-gray-200 text-gray-600'}`}>
-                    {count}
-                  </span>
-                </button>
-              )
-            })}
           </div>
-          <div className="pl-3 border-l border-gray-200 ml-1">
-            <button
-              onClick={() => setFiltroEstado('Entregado')}
-              className={[
-                'inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition',
-                filtroEstado === 'Entregado'
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'bg-gray-100 text-gray-500 hover:bg-gray-200',
-              ].join(' ')}
-            >
-              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/>
+
+          {/* Banner archivo si está en "Entregado" */}
+          {filtroEstado === 'Entregado' && (
+            <div className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 mb-4 text-sm text-gray-500">
+              <svg className="w-4 h-4 flex-shrink-0 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <polyline points="21 8 21 21 3 21 3 8" /><rect x="1" y="3" width="22" height="5" /><line x1="10" y1="12" x2="14" y2="12" />
               </svg>
-              Entregados
-            </button>
-          </div>
-        </div>
-
-        {/* Banner archivo si está en "Entregado" */}
-        {filtroEstado === 'Entregado' && (
-          <div className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 mb-4 text-sm text-gray-500">
-            <svg className="w-4 h-4 flex-shrink-0 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <polyline points="21 8 21 21 3 21 3 8" /><rect x="1" y="3" width="22" height="5" /><line x1="10" y1="12" x2="14" y2="12" />
-            </svg>
-            <span>Historial — estas órdenes ya fueron entregadas.</span>
-            <button onClick={() => setFiltroEstado('todos')} className="ml-auto text-blue-600 text-xs font-medium hover:underline">
-              ← Volver al activo
-            </button>
-          </div>
-        )}
-
-        {/* Tabla */}
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          {lista.length === 0 ? (
-            <div className="py-16 text-center text-gray-400 text-sm">
-              {busqueda || filtroEstado !== 'todos'
-                ? 'Sin resultados para ese filtro'
-                : 'No hay órdenes todavía'}
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-gray-100 bg-gray-50">
-                    <th className="text-left px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wide">N°</th>
-                    <th className="text-left px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wide">Fecha</th>
-                    <th className="text-left px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wide">Cliente</th>
-                    <th className="text-left px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wide">Equipo</th>
-                    <th className="text-left px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wide">Estado</th>
-                    <th className="text-right px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wide">Precio</th>
-                    <th className="px-4 py-3" />
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {lista.map((o) => {
-                    const isDerived = derivadoIds.has(o.id)
-                    const derivedTsl = isDerived
-                      ? (traslados ?? []).find((t) => t.order_id === o.id && t.estado !== 'retornado')
-                      : null
-                    const activa = o.status !== 'Entregado'
-                    const age = ordenAge(o)
-                    const rowTint = activa ? (age > 14 ? 'bg-red-50/60' : age > 7 ? 'bg-amber-50/60' : '') : ''
-                    const ageChip = !activa
-                      ? 'bg-gray-100 text-gray-500'
-                      : age > 14 ? 'bg-red-100 text-red-700'
-                      : age > 7 ? 'bg-amber-100 text-amber-700'
-                      : 'bg-gray-100 text-gray-500'
-                    return (
-                      <tr
-                        key={o.id}
-                        onClick={() => setDetalleNum(o.num)}
-                        className={`${rowTint} hover:bg-blue-50/40 transition-colors cursor-pointer`}
-                      >
-                        <td className="px-4 py-3 font-semibold text-gray-700">#{o.num}</td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <span className="text-gray-500">{fmtFecha(o.fecha)}</span>
-                          <span className={`ml-2 inline-block text-[11px] font-semibold rounded-full px-2 py-0.5 ${ageChip}`}>
-                            {activa ? ageLabel(age) : 'Entregado'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <p className="font-medium text-gray-800">{[o.nombre, o.apellido].filter(Boolean).join(' ')}</p>
-                          {o.tel && <p className="text-xs text-gray-400">{o.tel}</p>}
-                        </td>
-                        <td className="px-4 py-3 text-gray-600">{o.modelo || '—'}</td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center flex-wrap gap-1.5">
-                            <EstadoBadge estado={o.status} subestado={o.subestado} />
-                            {isDerived && (
-                              <span className="inline-flex items-center gap-1 bg-amber-100 text-amber-800 rounded-full px-2 py-0.5 text-xs font-semibold">
-                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h5M20 20v-5h-5M4 9a8 8 0 0114-3M20 15a8 8 0 01-14 3" />
-                                </svg>
-                                {derivedTsl?.tecnico ?? 'Derivado'}
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-right font-semibold text-gray-800">
-                          <Money value={totalOrden(o)} />
-                        </td>
-                        <td className="px-4 py-3 text-right whitespace-nowrap">
-                          {o.status === 'Entregado' && (o.numero_boleta || o.venta_id) && (
-                            <span className="inline-flex items-center gap-1 bg-green-50 text-green-700 border border-green-200 rounded-full px-2 py-0.5 text-[10px] font-semibold mr-2">
-                              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                              {o.numero_boleta || 'Con venta'}
-                            </span>
-                          )}
-                          {o.status === 'Entregado' && !o.numero_boleta && !o.venta_id && (
-                            <button
-                              onClick={(e) => { e.stopPropagation(); setOrdenAReabrir(o) }}
-                              className="mr-2 text-xs text-amber-600 hover:underline font-medium"
-                            >
-                              Reabrir
-                            </button>
-                          )}
-                          <button
-                            onClick={(e) => { e.stopPropagation(); abrirEditar(o) }}
-                            className="text-xs text-blue-600 hover:underline font-medium"
-                          >
-                            Editar
-                          </button>
-                          {esAdmin && (
-                            <button
-                              onClick={(e) => { e.stopPropagation(); setOrdenAEliminar(o) }}
-                              title="Eliminar orden"
-                              className="ml-3 text-gray-300 hover:text-red-500 transition-colors align-middle"
-                            >
-                              <svg className="w-4 h-4 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                              </svg>
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
+              <span>Historial — estas órdenes ya fueron entregadas.</span>
+              <button onClick={() => setFiltroEstado('todos')} className="ml-auto text-blue-600 text-xs font-medium hover:underline">
+                ← Volver al activo
+              </button>
             </div>
           )}
-        </div>
+
+          {/* Tabla */}
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            {lista.length === 0 ? (
+              <div className="py-16 text-center text-gray-400 text-sm">
+                {busqueda || filtroEstado !== 'todos'
+                  ? 'Sin resultados para ese filtro'
+                  : 'No hay órdenes todavía'}
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-100 bg-gray-50">
+                      <th className="text-left px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wide">N°</th>
+                      <th className="text-left px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wide">Fecha</th>
+                      <th className="text-left px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wide">Cliente</th>
+                      <th className="text-left px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wide">Equipo</th>
+                      <th className="text-left px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wide">Estado</th>
+                      <th className="text-right px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wide">Precio</th>
+                      <th className="px-4 py-3" />
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {lista.map((o) => {
+                      const isDerived = derivadoIds.has(o.id)
+                      const derivedTsl = isDerived
+                        ? (traslados ?? []).find((t) => t.order_id === o.id && t.estado !== 'retornado')
+                        : null
+                      const activa = o.status !== 'Entregado'
+                      const age = ordenAge(o)
+                      const rowTint = activa ? (age > 14 ? 'bg-red-50/60' : age > 7 ? 'bg-amber-50/60' : '') : ''
+                      const ageChip = !activa
+                        ? 'bg-gray-100 text-gray-500'
+                        : age > 14 ? 'bg-red-100 text-red-700'
+                          : age > 7 ? 'bg-amber-100 text-amber-700'
+                            : 'bg-gray-100 text-gray-500'
+                      return (
+                        <tr
+                          key={o.id}
+                          onClick={() => setDetalleNum(o.num)}
+                          className={`${rowTint} hover:bg-blue-50/40 transition-colors cursor-pointer`}
+                        >
+                          <td className="px-4 py-3 font-semibold text-gray-700">#{o.num}</td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <span className="text-gray-500">{fmtFecha(o.fecha)}</span>
+                            <span className={`ml-2 inline-block text-[11px] font-semibold rounded-full px-2 py-0.5 ${ageChip}`}>
+                              {activa ? ageLabel(age) : 'Entregado'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <p className="font-medium text-gray-800">{[o.nombre, o.apellido].filter(Boolean).join(' ')}</p>
+                            {o.tel && <p className="text-xs text-gray-400">{o.tel}</p>}
+                          </td>
+                          <td className="px-4 py-3 text-gray-600">{o.modelo || '—'}</td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center flex-wrap gap-1.5">
+                              <EstadoBadge estado={o.status} subestado={o.subestado} />
+                              {isDerived && (
+                                <span className="inline-flex items-center gap-1 bg-amber-100 text-amber-800 rounded-full px-2 py-0.5 text-xs font-semibold">
+                                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h5M20 20v-5h-5M4 9a8 8 0 0114-3M20 15a8 8 0 01-14 3" />
+                                  </svg>
+                                  {derivedTsl?.tecnico ?? 'Derivado'}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-right font-semibold text-gray-800">
+                            <Money value={totalOrden(o)} />
+                          </td>
+                          <td className="px-4 py-3 text-right whitespace-nowrap">
+                            {o.status === 'Entregado' && (o.numero_boleta || o.venta_id) && (
+                              <span className="inline-flex items-center gap-1 bg-green-50 text-green-700 border border-green-200 rounded-full px-2 py-0.5 text-[10px] font-semibold mr-2">
+                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                                {o.numero_boleta || 'Con venta'}
+                              </span>
+                            )}
+                            {o.status === 'Entregado' && !o.numero_boleta && !o.venta_id && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setOrdenAReabrir(o) }}
+                                className="mr-2 text-xs text-amber-600 hover:underline font-medium"
+                              >
+                                Reabrir
+                              </button>
+                            )}
+                            <button
+                              onClick={(e) => { e.stopPropagation(); abrirEditar(o) }}
+                              className="text-xs text-blue-600 hover:underline font-medium"
+                            >
+                              Editar
+                            </button>
+                            {esAdmin && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setOrdenAEliminar(o) }}
+                                title="Eliminar orden"
+                                className="ml-3 text-gray-300 hover:text-red-500 transition-colors align-middle"
+                              >
+                                <svg className="w-4 h-4 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
 
         </>)}
 
