@@ -144,17 +144,21 @@ function emailShell(tallerNombre: string, logoUrl: string | undefined, body: str
 }
 
 // Pills de contacto (tel WA + email) para sección sucursal
-function contactPills(tel?: string, email?: string): string {
+function contactPills(tel?: string, email?: string, ordenNum?: string | number): string {
   if (!tel && !email) return ''
   const telLimpio = (tel ?? '').replace(/\s/g, '')
   
+  const waUrl = ordenNum 
+    ? `https://wa.me/${telLimpio}?text=${encodeURIComponent(`Hola, quiero información sobre la orden #${String(ordenNum).padStart(4, '0')}`)}`
+    : `https://wa.me/${telLimpio}`
+
   const waPill = telLimpio ? `
     <td style="padding-right:8px">
       <table cellpadding="0" cellspacing="0" border="0">
         <tr>
           <td style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;text-align:center;">
-            <a href="https://wa.me/${telLimpio}" target="_blank" style="display:inline-block;padding:7px 12px;text-decoration:none;color:#15803d;font-size:12px;font-weight:700;">
-              <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/6b/WhatsApp.svg/150px-WhatsApp.svg.png" width="14" height="14" style="vertical-align:middle;margin-right:6px;border:0" alt="WA">
+            <a href="${waUrl}" target="_blank" style="display:inline-block;padding:7px 12px;text-decoration:none;color:#15803d;font-size:12px;font-weight:700;">
+              <img src="https://img.icons8.com/color/48/whatsapp--v1.png" width="14" height="14" style="vertical-align:middle;margin-right:6px;border:0" alt="WA">
               <span style="vertical-align:middle">${telLimpio}</span>
             </a>
           </td>
@@ -222,7 +226,7 @@ export function buildEmailIngreso(d: IngresoEmailData): string {
     <div style="background:#f8fafc;border-radius:12px;padding:16px 18px;margin-bottom:20px;border:1px solid #eef0f5">
       ${secIcon('Sucursal asignada')}
       ${campo2col(['Sucursal', d.branchNombre], ['Dirección', d.branchDir ?? ''])}
-      ${contactPills(d.branchTel, d.branchEmail)}
+      ${contactPills(d.branchTel, d.branchEmail, d.orden.num)}
     </div>
 
     ${fotosHtml}
