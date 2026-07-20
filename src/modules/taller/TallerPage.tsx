@@ -381,7 +381,7 @@ export function TallerPage() {
 
       {tallerTab === 'ordenes' && (<>
 
-        {esAdmin && !selectedBranchId ? (
+        {esAdmin && !selectedBranchId && !busqueda.trim() ? (
           <BranchSelector
             bodegas={bodegas}
             ordenes={ordenes ?? []}
