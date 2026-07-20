@@ -104,13 +104,7 @@ export function TallerPage() {
   const lista = useMemo(() => {
     let r = ordenes ?? []
     if (esAdmin && selectedBranchId) r = r.filter((o) => o.branchId === selectedBranchId)
-    if (filtroEstado === 'todos') {
-      r = r.filter((o) => o.status !== 'Entregado')
-    } else if (filtroEstado === 'Derivado') {
-      r = r.filter((o) => o.status !== 'Entregado' && derivadoIds.has(o.id))
-    } else {
-      r = r.filter((o) => o.status === filtroEstado)
-    }
+    
     if (busqueda.trim()) {
       const q = busqueda.toLowerCase()
       r = r.filter(
@@ -121,6 +115,14 @@ export function TallerPage() {
           o.tel?.includes(q) ||
           o.rut?.toLowerCase().includes(q),
       )
+    } else {
+      if (filtroEstado === 'todos') {
+        r = r.filter((o) => o.status !== 'Entregado')
+      } else if (filtroEstado === 'Derivado') {
+        r = r.filter((o) => o.status !== 'Entregado' && derivadoIds.has(o.id))
+      } else {
+        r = r.filter((o) => o.status === filtroEstado)
+      }
     }
     return [...r].sort((a, b) => (b.fecha ?? '').localeCompare(a.fecha ?? ''))
   }, [ordenes, filtroEstado, busqueda, derivadoIds, esAdmin, selectedBranchId])
