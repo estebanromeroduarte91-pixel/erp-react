@@ -138,7 +138,7 @@ export function useCrearOrden() {
   return useMutation({
     mutationFn: async (o: Orden) => {
       const row = { id: o.id, empresa_id: empresaId!, ...filaOrdenParcial(o) }
-      const { error } = await supabase.from('ordenes').insert(row)
+      const { error } = await supabase.from('ordenes').insert(row).select()
       if (error) throw error
     },
     // Update optimista: la orden aparece al instante en la lista sin esperar el
@@ -165,7 +165,7 @@ export function useActualizarOrden() {
   return useMutation({
     mutationFn: async (o: Partial<Orden> & { id: string }) => {
       const { id, ...rest } = o
-      const { error } = await supabase.from('ordenes').update(filaOrdenParcial(rest)).eq('id', id).eq('empresa_id', empresaId!)
+      const { error } = await supabase.from('ordenes').update(filaOrdenParcial(rest)).eq('id', id).eq('empresa_id', empresaId!).select()
       if (error) throw error
     },
     // Update optimista: refleja el cambio al instante. Si la orden no está en la
