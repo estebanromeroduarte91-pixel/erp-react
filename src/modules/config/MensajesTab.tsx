@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useMsgTemplates, useGuardarMsgTemplates } from '@/lib/queries'
 import { Spinner } from '@/components/shared/Spinner'
 import type { MsgTemplates } from '@/types'
@@ -27,9 +27,13 @@ export function MensajesTab() {
   const [tpls, setTpls] = useState<MsgTemplates>({})
   const [guardado, setGuardado] = useState('')
 
-  useEffect(() => {
-    if (saved !== undefined) setTpls({ ...MSG_DEFAULTS, ...saved })
-  }, [saved])
+  // Ajuste de estado durante el render en vez de useEffect — se sincroniza
+  // una sola vez cuando llegan los datos guardados.
+  const [savedSynced, setSavedSynced] = useState(false)
+  if (!savedSynced && saved !== undefined) {
+    setSavedSynced(true)
+    setTpls({ ...MSG_DEFAULTS, ...saved })
+  }
 
   function set(key: string, val: string) { setTpls(t => ({ ...t, [key]: val })) }
 

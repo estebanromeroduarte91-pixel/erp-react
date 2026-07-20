@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useTerminos, useGuardarTerminos } from '@/lib/queries'
 import { Spinner } from '@/components/shared/Spinner'
 
@@ -8,7 +8,12 @@ export function TerminosTab() {
   const [texto, setTexto] = useState('')
   const [guardado, setGuardado] = useState(false)
 
-  useEffect(() => { if (terminos !== undefined) setTexto(terminos) }, [terminos])
+  // Ajuste de estado durante el render en vez de useEffect.
+  const [terminosSynced, setTerminosSynced] = useState(false)
+  if (!terminosSynced && terminos !== undefined) {
+    setTerminosSynced(true)
+    setTexto(terminos)
+  }
 
   async function handleGuardar() {
     await guardar.mutateAsync(texto)

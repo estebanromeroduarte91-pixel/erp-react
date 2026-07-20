@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import * as XLSX from 'xlsx'
 import { useEquipos, useGuardarEquipos, useCatEquipo, useMarcasEquipo, useGuardarMarcasEquipo } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
@@ -108,7 +108,6 @@ export function EquiposTab() {
   const [modal, setModal] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
   const [form, setForm] = useState<EquipoForm>(EMPTY_FORM)
-  const [dupWarnings, setDupWarnings] = useState<DupMatch[]>([])
   const [ignoredDups, setIgnoredDups] = useState<Set<string>>(new Set())
 
   // Modal importar
@@ -120,12 +119,14 @@ export function EquiposTab() {
   const [importError, setImportError] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
 
-  // Detectar duplicados al escribir modelo en el modal manual
-  useEffect(() => {
-    if (!modal || form.modelo.trim().length < 3) { setDupWarnings([]); return }
+  // Detectar duplicados al escribir modelo en el modal manual — valor derivado
+  // (useMemo), no hace falta estado + efecto para esto: todo lo que necesita
+  // ya está disponible durante el render.
+  const dupWarnings = useMemo(() => {
+    if (!modal || form.modelo.trim().length < 3) return []
     const dups = buscarDups(form.modelo, form.marca, equipos ?? [], editId ?? undefined)
-    setDupWarnings(dups.filter(d => !ignoredDups.has(d.equipo.id)))
-  }, [form.modelo, form.marca, modal, equipos, editId, ignoredDups])
+    return dups.filter(d => !ignoredDups.has(d.equipo.id))
+  }, [modal, form.modelo, form.marca, equipos, editId, ignoredDups])
 
   // Pills de marcas
   const marcasPills = useMemo(() => {
@@ -176,7 +177,6 @@ export function EquiposTab() {
   function usarExistente(eq: Equipo) {
     setForm(f => ({ ...f, marca: eq.marca ?? f.marca, modelo: eq.modelo ?? '', categoria: eq.categoria ?? f.categoria }))
     setEditId(eq.id)
-    setDupWarnings([])
   }
 
   function ignorarDup(id: string) {

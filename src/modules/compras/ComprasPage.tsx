@@ -563,6 +563,7 @@ function ModalRecibirOC({
       bodega_id: bodId,
       bodega_nombre: bodegas.find(b => b.id === bodId)?.nombre ?? bodegas.find(b => b.id === bodId)?.name ?? '',
       notas: notas.trim() || undefined,
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars -- se destructura solo para omitirlo
       items: items.map(({ _bodega_id: _b, ...rest }) => rest),
     }))
     onConfirm(recepciones)
@@ -1033,7 +1034,12 @@ export function ComprasPage() {
   const [search, setSearch] = useState('')
   const [toast, setToast] = useState<string | null>(null)
 
-  // Auto-open new OC modal when navigated from Kits (e.g. "Crear OC" button)
+  // Auto-open new OC modal when navigated from Kits (e.g. "Crear OC" button).
+  // Efecto legítimo (no solo ajuste de estado): también limpia el historial del
+  // navegador para que el modal no reaparezca al volver atrás — un sistema externo real.
+  // Se auto-limita: history.replaceState borra location.state, así no vuelve a dispararse.
+  // `setSection` se omite a propósito de las deps: es una función nueva cada render
+  // (envuelve setSearchParams), agregarla no aporta nada y generaría su propio warning.
   useEffect(() => {
     const state = location.state as { kitItems?: OCItem[]; kitNombre?: string } | null
     if (state?.kitItems?.length) {
@@ -1047,9 +1053,11 @@ export function ComprasPage() {
         notas: state.kitNombre ? `Kit: ${state.kitNombre}` : '',
       }
       setSection('ocs')
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- ver comentario arriba, el efecto se auto-limita
       setModal({ type: 'nueva', oc: kitOC as OC })
       window.history.replaceState({}, '')
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- setSection omitida a propósito, ver comentario arriba
   }, [location.state])
 
   const { data: rawOcs = [] } = useOCs()
@@ -1224,6 +1232,7 @@ export function ComprasPage() {
     if (!esAdmin) return
     const oc = ocs.find(o => o.id === ocId)
     if (!oc || !confirm(`¿Eliminar la OC ${oc.numero}?\n\nEsta acción no se puede deshacer, pero quedará registrada en el historial de forma permanente.`)) return
+    // eslint-disable-next-line react-hooks/purity -- dentro de un event handler async, nunca se ejecuta durante el render
     const logEntry: OCLogEntry = { ...oc, _eliminada_en: today(), _eliminada_ts: Date.now() }
     await guardarOCLog.mutateAsync([...log, logEntry])
     await eliminarOC.mutateAsync(ocId)

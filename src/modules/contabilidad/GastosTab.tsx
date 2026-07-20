@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo } from 'react'
 import { useGastos, useCrearGasto, useActualizarGasto, useEliminarGasto, useGastoCats, useGuardarGastoCats, usePlanCuentas, useCatCuentaMap, useAsientos, useGuardarAsientos, useBodegas } from '@/lib/queries'
 import { asientoDeGasto, asientoIdDeGasto, nextNumeroAsiento } from '@/lib/contabilidad'
 import { GASTO_GENERAL_ID } from '@/lib/gastos'
@@ -58,22 +58,23 @@ export function GastosTab() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editando, setEditando] = useState<Gasto | null>(null)
 
-  // Drag & drop de pills
-  const dragIdx = useRef<number | null>(null)
+  // Drag & drop de pills. `dragIdx` afecta el render (resalta el destino), así
+  // que es estado real, no un ref — leerlo durante el render no está permitido para refs.
+  const [dragIdx, setDragIdx] = useState<number | null>(null)
   const [dragOver, setDragOver] = useState<number | null>(null)
 
-  function onDragStart(i: number) { dragIdx.current = i }
+  function onDragStart(i: number) { setDragIdx(i) }
   function onDragEnter(i: number) { setDragOver(i) }
   function onDragEnd() {
-    const from = dragIdx.current
+    const from = dragIdx
     if (from === null || dragOver === null || from === dragOver) {
-      dragIdx.current = null; setDragOver(null); return
+      setDragIdx(null); setDragOver(null); return
     }
     const next = [...(cats ?? [])]
     const [moved] = next.splice(from, 1)
     next.splice(dragOver, 0, moved)
     guardarCats.mutateAsync(next)
-    dragIdx.current = null; setDragOver(null)
+    setDragIdx(null); setDragOver(null)
   }
 
   const catMap = useMemo(() => {
@@ -211,7 +212,11 @@ export function GastosTab() {
             return (
               <div key={r.cat} className="border-b border-gray-50 last:border-b-0">
                 <button
-                  onClick={() => setExpandidas(prev => { const n = new Set(prev); n.has(r.cat) ? n.delete(r.cat) : n.add(r.cat); return n })}
+                  onClick={() => setExpandidas(prev => {
+                    const n = new Set(prev)
+                    if (n.has(r.cat)) n.delete(r.cat); else n.add(r.cat)
+                    return n
+                  })}
                   className="w-full flex items-center gap-2.5 px-4 py-3 hover:bg-gray-50 transition text-left">
                   <svg className={`w-4 h-4 text-gray-400 transition-transform ${abierta ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
                   <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: color }} />
@@ -263,7 +268,7 @@ export function GastosTab() {
               onClick={() => setFiltroCat(filtroCat === c.nombre ? null : c.nombre)}
               className={['px-3 py-1 rounded-full text-xs font-semibold border transition flex items-center gap-1.5 cursor-grab active:cursor-grabbing select-none',
                 filtroCat === c.nombre ? 'text-white border-transparent' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400',
-                dragOver === i && dragIdx.current !== i ? 'ring-2 ring-offset-1 ring-blue-400 scale-105' : '',
+                dragOver === i && dragIdx !== i ? 'ring-2 ring-offset-1 ring-blue-400 scale-105' : '',
               ].join(' ')}
               style={filtroCat === c.nombre ? { background: c.color, borderColor: c.color } : {}}>
               <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: c.color }} />

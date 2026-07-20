@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useChecklist, useGuardarChecklistIngreso, useChecklistSalida, useGuardarChecklistSalida } from '@/lib/queries'
 import { Spinner } from '@/components/shared/Spinner'
 
@@ -12,7 +12,14 @@ function ChecklistEditor({ titulo, items, onSave, saving }: {
   const [nuevo, setNuevo] = useState('')
   const [guardado, setGuardado] = useState(false)
 
-  useEffect(() => { setLista(items) }, [items])
+  // Ajuste de estado durante el render en vez de useEffect (evita el
+  // setState síncrono dentro de un efecto) — patrón oficial de React para
+  // resetear estado local cuando cambia un prop.
+  const [itemsSynced, setItemsSynced] = useState(items)
+  if (items !== itemsSynced) {
+    setItemsSynced(items)
+    setLista(items)
+  }
 
   function agregar() {
     const v = nuevo.trim()

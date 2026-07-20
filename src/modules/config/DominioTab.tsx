@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useEmailDomain, useGuardarEmailDomain } from '@/lib/queries'
 import { supabase } from '@/lib/supabase'
 import { Spinner } from '@/components/shared/Spinner'
@@ -29,12 +29,14 @@ export function DominioTab() {
   const [loading, setLoading] = useState<string | null>(null)
   const [toast, setToast] = useState<{ msg: string; type: 'ok' | 'err' } | null>(null)
 
-  useEffect(() => {
-    if (saved !== undefined) {
-      setDomain(saved)
-      if (!saved.domainId) setInput(saved.domain ?? '')
-    }
-  }, [saved])
+  // Ajuste de estado durante el render en vez de useEffect (evita el setState
+  // síncrono dentro de un efecto) — se sincroniza una vez cuando llegan los datos.
+  const [savedSynced, setSavedSynced] = useState(false)
+  if (!savedSynced && saved !== undefined) {
+    setSavedSynced(true)
+    setDomain(saved)
+    if (!saved.domainId) setInput(saved.domain ?? '')
+  }
 
   function showToast(msg: string, type: 'ok' | 'err' = 'ok') {
     setToast({ msg, type })

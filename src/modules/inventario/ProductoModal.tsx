@@ -11,7 +11,7 @@ interface Props {
 
 function uid() { return Math.random().toString(36).slice(2) + Date.now().toString(36) }
 
-export function nextSku(productos: Producto[]): string {
+function nextSku(productos: Producto[]): string {
   const nums = productos.map(p => parseInt(p.sku ?? '', 10)).filter(n => !isNaN(n))
   const max = nums.length ? Math.max(...nums) : 998
   return String(max % 2 === 0 ? max + 2 : max + 1)

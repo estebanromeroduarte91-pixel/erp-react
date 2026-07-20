@@ -98,14 +98,16 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
 
   const o = ordenes?.find(x => x.num === num)
 
-  // Sync inspección local con la orden cuando cambia
-  const inspecRef = useRef<string | null>(null)
+  // Sync inspección local con la orden cuando cambia. Se usa useState (no un ref)
+  // para trackear el último id sincronizado, siguiendo el patrón oficial de React
+  // para "ajustar estado cuando cambia un prop" — mutar un ref durante el render
+  // no está permitido (lo marca react-hooks/refs).
+  const [inspecSyncedId, setInspecSyncedId] = useState<string | null>(null)
   const qrInspecSnapshot = useRef<string[]>([])
-  if (o && inspecRef.current !== o.id) {
-    inspecRef.current = o.id
+  if (o && inspecSyncedId !== o.id) {
+    setInspecSyncedId(o.id)
     setInspecNotas(o.inspeccion?.notas ?? '')
     setInspecFotos(o.inspeccion?.fotos ?? [])
-    qrInspecSnapshot.current = o.inspeccion?.fotos ?? []
     // Merge template con estado guardado en la orden
     const saved = o.checkIngreso ?? []
     const merged: CheckItem[] = checklistTemplate.map(label => {
@@ -134,6 +136,32 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
     }, 3000)
     return () => clearInterval(id)
   }, [showQrInspec, showQrIngreso, qc, empresaId])
+
+  const pollAprobacion = useCallback(async () => {
+    if (!o?.aprobacion_token || o.aprobacion_estado !== 'pendiente') return
+    const { data } = await supabase
+      .from('aprobaciones')
+      .select('token,estado,aprobado_en')
+      .eq('token', o.aprobacion_token)
+      .neq('estado', 'pendiente')
+      .maybeSingle()
+    if (!data) return
+    await actualizarOrden.mutateAsync({
+      id: o.id, aprobacion_estado: data.estado as 'aprobado' | 'rechazado', aprobacion_fecha: data.aprobado_en,
+    })
+  }, [o, actualizarOrden])
+
+  useEffect(() => {
+    if (o?.aprobacion_estado !== 'pendiente') return
+    const id = setInterval(() => void pollAprobacion(), 30_000)
+    return () => clearInterval(id)
+  }, [o?.aprobacion_estado, pollAprobacion])
+
+  useEffect(() => {
+    if (!aprobMsg) return
+    const id = setTimeout(() => setAprobMsg(null), 5000)
+    return () => clearTimeout(id)
+  }, [aprobMsg])
 
   if (isLoading) return (
     <div className="flex items-center justify-center h-full py-24">
@@ -299,7 +327,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
     if (!w) return
     w.document.write(`<!DOCTYPE html><html><head><title>Etiqueta OT #${o.num}</title>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
   @page{size:6cm 4cm;margin:0}
   *{box-sizing:border-box;margin:0;padding:0}
@@ -334,7 +362,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
 <script>
   new QRCode(document.getElementById('qr'),{text:'${otUrl}',width:52,height:52,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.M});
   window.onload=()=>setTimeout(()=>window.print(),600);
-<\/script>
+</script>
 </body></html>`)
     w.document.close()
   }
@@ -559,32 +587,6 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
       setAprobEnviando(false)
     }
   }
-
-  const pollAprobacion = useCallback(async () => {
-    if (!orden.aprobacion_token || orden.aprobacion_estado !== 'pendiente') return
-    const { data } = await supabase
-      .from('aprobaciones')
-      .select('token,estado,aprobado_en')
-      .eq('token', orden.aprobacion_token)
-      .neq('estado', 'pendiente')
-      .maybeSingle()
-    if (!data) return
-    await actualizarOrden.mutateAsync({
-      id: orden.id, aprobacion_estado: data.estado as 'aprobado' | 'rechazado', aprobacion_fecha: data.aprobado_en,
-    })
-  }, [orden.aprobacion_token, orden.aprobacion_estado, orden.id, actualizarOrden])
-
-  useEffect(() => {
-    if (orden.aprobacion_estado !== 'pendiente') return
-    const id = setInterval(() => void pollAprobacion(), 30_000)
-    return () => clearInterval(id)
-  }, [orden.aprobacion_estado, pollAprobacion])
-
-  useEffect(() => {
-    if (!aprobMsg) return
-    const id = setTimeout(() => setAprobMsg(null), 5000)
-    return () => clearTimeout(id)
-  }, [aprobMsg])
 
   async function eliminarFotoIngreso(idx: number) {
     setGuardandoIngreso(true)

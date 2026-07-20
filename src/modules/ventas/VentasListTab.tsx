@@ -30,6 +30,20 @@ const PERIODO_LABEL: Record<Periodo, string> = {
   hoy: 'Hoy', mes: 'Este mes', año: 'Este año', todo: 'Todo el tiempo', rango: 'Rango',
 }
 
+// Usa el costo FIFO congelado en la venta (costo_total). Para ventas anteriores a esa
+// funcionalidad, que no tienen costo congelado, recae en el precio_compra actual del producto.
+// Función de módulo (no closure) para no depender de react-hooks/exhaustive-deps.
+function calcUtilidad(lista: Venta[], prodsMap: Map<string, number>) {
+  return lista.reduce((sum, v) => {
+    const costo = (v.items ?? []).reduce((cs, it) => {
+      if (it.costo_total != null) return cs + it.costo_total
+      if (!it.producto_id) return cs
+      return cs + it.cantidad * (prodsMap.get(it.producto_id) ?? 0)
+    }, 0)
+    return sum + (v.total ?? 0) - costo
+  }, 0)
+}
+
 export function VentasListTab() {
   const { data: ventas, isLoading } = useVentas()
   const { data: metodos } = useMetodosPago()
@@ -59,25 +73,12 @@ export function VentasListTab() {
     return m
   }, [productos])
 
-  // Usa el costo FIFO congelado en la venta (costo_total). Para ventas anteriores a esa
-  // funcionalidad, que no tienen costo congelado, recae en el precio_compra actual del producto.
-  function calcUtilidad(lista: Venta[]) {
-    return lista.reduce((sum, v) => {
-      const costo = (v.items ?? []).reduce((cs, it) => {
-        if (it.costo_total != null) return cs + it.costo_total
-        if (!it.producto_id) return cs
-        return cs + it.cantidad * (prodsMap.get(it.producto_id) ?? 0)
-      }, 0)
-      return sum + (v.total ?? 0) - costo
-    }, 0)
-  }
-
   const historico = useMemo(() => {
     const todas = (ventas ?? []).filter(v => v.estado === 'pagada')
     return {
       count: todas.length,
       total: todas.reduce((s, v) => s + (v.total_iva ?? 0), 0),
-      utilidad: calcUtilidad(todas),
+      utilidad: calcUtilidad(todas, prodsMap),
     }
   }, [ventas, prodsMap])
 
@@ -86,7 +87,7 @@ export function VentasListTab() {
 
   const totalVentas = periodoFiltrado.reduce((s, v) => s + (v.total_iva ?? 0), 0)
   const totalNeto = periodoFiltrado.reduce((s, v) => s + (v.total ?? 0), 0)
-  const utilidad = useMemo(() => calcUtilidad(periodoFiltrado), [periodoFiltrado, prodsMap])
+  const utilidad = useMemo(() => calcUtilidad(periodoFiltrado, prodsMap), [periodoFiltrado, prodsMap])
 
   const metodosSorted = useMemo(() => {
     const map: Record<string, { total: number; count: number }> = {}
@@ -100,16 +101,16 @@ export function VentasListTab() {
   }, [periodoFiltrado])
 
   const lista = useMemo(() => {
-    let arr = [...(ventas ?? [])].sort((a, b) => b.fecha.localeCompare(a.fecha))
+    const arr = [...(ventas ?? [])].sort((a, b) => b.fecha.localeCompare(a.fecha))
     let filtered = filtroEstado === 'todas'
       ? filtrarPorFecha(arr, periodo, desde, hasta)
       : filtrarPorFecha(arr.filter(v => v.estado === filtroEstado), periodo, desde, hasta)
     if (busqueda.trim()) {
-      const q = busqueda.toLowerCase().replace(/[.\-]/g, '')
+      const q = busqueda.toLowerCase().replace(/[.-]/g, '')
       filtered = filtered.filter(v =>
         v.numero.toLowerCase().includes(busqueda.toLowerCase()) ||
         v.cliente.toLowerCase().includes(busqueda.toLowerCase()) ||
-        (v.numero.replace(/[.\-]/g, '')).includes(q)
+        (v.numero.replace(/[.-]/g, '')).includes(q)
       )
     }
     return filtered

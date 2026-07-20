@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useRef } from 'react'
 import { useSeguimientoConfig, useGuardarSeguimientoConfig } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
@@ -25,11 +25,17 @@ export function SeguimientoTab() {
     const { error } = await supabase.storage.from('erp-assets').upload(path, file, { upsert: true, contentType: file.type })
     if (error) { setErrorLogo('Error al subir: ' + error.message); setSubiendoLogo(false); return }
     const { data: urlData } = supabase.storage.from('erp-assets').getPublicUrl(path)
+    // eslint-disable-next-line react-hooks/purity -- dentro de un event handler async, nunca se ejecuta durante el render
     set('logoUrl', urlData.publicUrl + '?t=' + Date.now())
     setSubiendoLogo(false)
   }
 
-  useEffect(() => { if (cfg) setForm(cfg) }, [cfg])
+  // Ajuste de estado durante el render en vez de useEffect.
+  const [cfgSynced, setCfgSynced] = useState(false)
+  if (!cfgSynced && cfg) {
+    setCfgSynced(true)
+    setForm(cfg)
+  }
 
   function set(k: keyof SeguimientoConfig, v: string | number) {
     setForm(f => ({ ...f, [k]: v }))

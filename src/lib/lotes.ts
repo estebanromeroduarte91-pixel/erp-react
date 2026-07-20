@@ -21,7 +21,7 @@ export function reconciliarLotes(
 ): LoteInventario[] {
   const objetivo = Math.max(0, Math.round(nuevaCantidad))
   const actual = stockDeLotes(lotes, productoId, bodegaId)
-  let diff = objetivo - actual
+  const diff = objetivo - actual
   if (diff === 0) return lotes
 
   // Falta stock en los lotes → nueva capa con el costo actual.

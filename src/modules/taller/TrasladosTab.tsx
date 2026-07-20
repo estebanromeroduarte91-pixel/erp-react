@@ -7,6 +7,9 @@ import type { Traslado, EstadoTraslado, TecnicoExterno, EstadoOrden } from '@/ty
 
 const PIPELINE_ORDEN: EstadoOrden[] = ['Chequeo', 'Reparación', 'Listo', 'Entregado']
 function uid() { return Math.random().toString(36).slice(2) + Date.now().toString(36) }
+// Referencia estable para el fallback de `traslados` — evita que `?? []` cree
+// un array nuevo cada render, lo que rompería la memoización de los useMemo de abajo.
+const EMPTY_TRASLADOS: Traslado[] = []
 
 const ESTADO_LABEL: Record<EstadoTraslado, string> = {
   'enviado':      'Enviado',
@@ -138,7 +141,7 @@ export function TrasladosTab() {
   const [nuevoTecnico, setNuevoTecnico] = useState({ nombre: '', telefono: '' })
   const [guardando, setGuardando] = useState(false)
 
-  const all = traslados ?? []
+  const all = traslados ?? EMPTY_TRASLADOS
   const activos = useMemo(
     () => all.filter((t) => t.estado !== 'retornado'),
     [all],

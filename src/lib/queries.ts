@@ -253,6 +253,7 @@ function hidratarProducto(row: Record<string, unknown>): Producto {
   const stock_sucursales: Record<string, number> = {}
   const stockRows = (row.producto_stock as { bodega_id: string; cantidad: number }[] | undefined) ?? []
   for (const s of stockRows) stock_sucursales[s.bodega_id] = s.cantidad
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- se destructura solo para omitirlo de `rest`
   const { producto_stock: _omit, ...rest } = row
   return { ...(rest as unknown as Producto), stock_sucursales }
 }

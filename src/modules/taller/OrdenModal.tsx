@@ -182,12 +182,16 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
       }).slice(0, 6)
     : (clientes ?? []).slice(0, 6)
 
-  // Inicializa checklist cuando cargan los labels del servidor
-  useEffect(() => {
-    if (!checklistLabels?.length) return
-    if (checkIngreso.length > 0) return  // ya tiene datos (edición)
-    setCheckIngreso(checklistLabels.map((label) => ({ label, checked: false })))
-  }, [checklistLabels])  // eslint-disable-line react-hooks/exhaustive-deps
+  // Inicializa checklist cuando cargan los labels del servidor (una sola vez).
+  // Ajuste de estado durante el render en vez de en un efecto — evita el
+  // render en cascada que genera un setState síncrono dentro de useEffect.
+  const [checklistInited, setChecklistInited] = useState(false)
+  if (!checklistInited && checklistLabels?.length) {
+    setChecklistInited(true)
+    if (checkIngreso.length === 0) {  // ya tiene datos (edición) -> no pisar
+      setCheckIngreso(checklistLabels.map((label) => ({ label, checked: false })))
+    }
+  }
 
   // Fotos: lee archivos como base64
   function handleFotos(e: React.ChangeEvent<HTMLInputElement>) {
@@ -268,17 +272,18 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
   }
 
   // Al editar una orden, localiza el cliente en el directorio (por RUT, o nombre+apellido)
-  // para habilitar el botón de edición del cliente sobre el chip.
-  useEffect(() => {
-    if (clienteEditId || !clientes || !clienteSeleccionado) return
+  // para habilitar el botón de edición del cliente sobre el chip. Se intenta una
+  // sola vez, ajustando el estado durante el render (mismo motivo que arriba).
+  const [clienteMatchTried, setClienteMatchTried] = useState(false)
+  if (!clienteMatchTried && !clienteEditId && clientes && clienteSeleccionado) {
+    setClienteMatchTried(true)
     const rutNorm = form.rut.trim().toLowerCase().replace(/\s/g, '')
     const match = clientes.find((c) =>
       (rutNorm && c.rut && c.rut.toLowerCase().replace(/\s/g, '') === rutNorm) ||
       (c.nombre === form.nombre && (c.apellido ?? '') === form.apellido),
     )
     if (match) setClienteEditId(match.id)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clientes])
+  }
 
   const [errorNuevoCliente, setErrorNuevoCliente] = useState('')
   const [clienteDuplicado, setClienteDuplicado] = useState<NonNullable<typeof clientes>[number] | null>(null)

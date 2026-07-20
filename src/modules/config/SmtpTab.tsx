@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useSmtpConfig, useGuardarSmtpConfig } from '@/lib/queries'
 import { Spinner } from '@/components/shared/Spinner'
 import type { SmtpConfig } from '@/types'
@@ -11,7 +11,12 @@ export function SmtpTab() {
   const [showPw, setShowPw] = useState(false)
   const [guardado, setGuardado] = useState(false)
 
-  useEffect(() => { if (cfg) setForm(cfg) }, [cfg])
+  // Ajuste de estado durante el render en vez de useEffect.
+  const [cfgSynced, setCfgSynced] = useState(false)
+  if (!cfgSynced && cfg) {
+    setCfgSynced(true)
+    setForm(cfg)
+  }
 
   function set(k: keyof SmtpConfig, v: string | number | boolean) {
     setForm(f => ({ ...f, [k]: v }))

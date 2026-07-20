@@ -16,7 +16,12 @@ function ListaEditable({
   const [lista, setLista] = useState<string[]>(items)
   const [nuevo, setNuevo] = useState('')
 
-  useEffect(() => { setLista(items) }, [items])
+  // Ajuste de estado durante el render en vez de useEffect.
+  const [itemsSynced, setItemsSynced] = useState(items)
+  if (items !== itemsSynced) {
+    setItemsSynced(items)
+    setLista(items)
+  }
   const [editIdx, setEditIdx] = useState<number | null>(null)
   const [editVal, setEditVal] = useState('')
   const [guardado, setGuardado] = useState(false)
@@ -328,7 +333,7 @@ export function EquiposConfigTab() {
     if (missing.length === 0) return
     syncedRef.current = true
     guardarMar.mutateAsync([...new Set([...marcas, ...brandsInCatalog])].sort())
-  }, [equipos, marcas])
+  }, [equipos, marcas, guardarMar])
 
   if (loadCat || loadMar) return <div className="flex justify-center py-16"><Spinner className="w-8 h-8" /></div>
 

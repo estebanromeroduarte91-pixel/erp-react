@@ -4,6 +4,7 @@ import { useVentas, useGastos, useOrdenes, useBodegas, useMetodosPago, useOCs, u
 import { gastosPorSucursal } from '@/lib/gastos'
 import { Spinner } from '@/components/shared/Spinner'
 import { useIsMobile } from '@/lib/useIsMobile'
+import type { Bodega, Venta } from '@/types'
 
 type Rango = 'hoy' | 'mes' | 'año' | 'rango'
 
@@ -86,6 +87,290 @@ const C = {
   red: '#dc2626',
   greenBg: '#dcfce7',
   redBg: '#fee2e2',
+}
+
+type DashboardStats = {
+  ventasBrutas: number
+  ventasBrutasPrev: number
+  ventasNetas: number
+  totalOC: number
+  totalGastos: number
+  totalCosto: number
+  totalSalida: number
+  utilidad: number
+  margen: number
+  txCount: number
+  ticketProm: number
+  sucursales: { id: string; nombre: string; total: number; totalPrev: number; neto: number; count: number; part: number; utilidad: number; color: string }[]
+  mpPorSuc: { totalSuc: number; sorted: [string, number][] }[]
+  mpGlobalSorted: [string, number][]
+  ultimasVentas: Venta[]
+}
+
+// ── Componentes compartidos entre mobile y desktop ────────────────────────
+// A nivel de módulo (no dentro de DashboardPage) — definirlos dentro del render
+// hacía que React los tratara como un tipo de componente nuevo en cada render,
+// forzando un remount completo de su subárbol (react-hooks/static-components).
+
+function RangoSelector({ rango, setRango }: { rango: Rango; setRango: (r: Rango) => void }) {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
+      {(['hoy', 'mes', 'año', 'rango'] as Rango[]).map(r => (
+        <button key={r} onClick={() => setRango(r)} style={{
+          padding: '7px 0', fontSize: 13, fontWeight: 500, textAlign: 'center',
+          borderRadius: 20, border: `0.5px solid ${rango === r ? '#3656e6' : C.border}`,
+          cursor: 'pointer', transition: 'all .15s', fontFamily: 'inherit',
+          background: rango === r ? '#3656e6' : C.card,
+          color: rango === r ? '#fff' : C.textSecondary,
+          WebkitAppearance: 'none', appearance: 'none',
+        }}>
+          {r === 'hoy' ? 'Hoy' : r === 'mes' ? 'Mes' : r === 'año' ? 'Año' : 'Rango'}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function DateField({ value, onChange, label, isMobile }: { value: string; onChange: (v: string) => void; label: string; isMobile: boolean }) {
+  return (
+    <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
+      <input
+        type="date"
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        onClick={e => { if (!isMobile) { try { (e.target as HTMLInputElement).showPicker() } catch { /* showPicker no soportado en este navegador — ignorar */ } } }}
+        style={{
+          width: '100%', fontSize: 16, padding: '8px 10px',
+          border: `0.5px solid ${C.border}`, borderRadius: 10,
+          background: C.card, fontFamily: 'inherit', outline: 'none',
+          WebkitAppearance: 'none', appearance: 'none',
+          color: value ? C.textPrimary : 'transparent',
+          boxSizing: 'border-box',
+        }}
+      />
+      {!value && (
+        <div style={{
+          position: 'absolute', inset: 0, display: 'flex', alignItems: 'center',
+          padding: '0 10px', pointerEvents: 'none', gap: 4,
+        }}>
+          <span style={{ fontSize: 13, color: C.textMuted, flex: 1 }}>{label}</span>
+          <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+            <rect x="1" y="2.5" width="13" height="11.5" rx="2" stroke={C.textMuted} strokeWidth="1.1"/>
+            <path d="M1 6h13M5 1v3M10 1v3" stroke={C.textMuted} strokeWidth="1.1" strokeLinecap="round"/>
+          </svg>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function RangoCustom({ rango, customDesde, setCustomDesde, customHasta, setCustomHasta, isMobile }: {
+  rango: Rango; customDesde: string; setCustomDesde: (v: string) => void; customHasta: string; setCustomHasta: (v: string) => void; isMobile: boolean
+}) {
+  if (rango !== 'rango') return null
+  return (
+    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+      <DateField value={customDesde} onChange={setCustomDesde} label="Desde" isMobile={isMobile} />
+      <span style={{ fontSize: 12, color: C.textMuted, flexShrink: 0 }}>—</span>
+      <DateField value={customHasta} onChange={setCustomHasta} label="Hasta" isMobile={isMobile} />
+    </div>
+  )
+}
+
+function SectionLabel({ text }: { text: string }) {
+  return <p style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '.5px', margin: '0 0 8px' }}>{text}</p>
+}
+
+function KpiGrid({ cols, stats }: { cols: number; stats: DashboardStats }) {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0,1fr))`, gap: 8 }}>
+      {[
+        { label: 'Ventas brutas', value: fmt(stats.ventasBrutas), sub: `${stats.txCount} transacciones`, curr: stats.ventasBrutas, prev: stats.ventasBrutasPrev },
+        { label: 'Ventas netas', value: fmt(stats.ventasNetas), sub: 'sin IVA' },
+        { label: 'Utilidad Sucursales', value: fmt(stats.utilidad), sub: `margen ${stats.margen}%`, green: stats.utilidad >= 0 },
+        { label: 'Transacciones', value: String(stats.txCount), sub: stats.ticketProm > 0 ? `${fmt(stats.ticketProm)} prom.` : '—' },
+      ].map(k => (
+        <div key={k.label} style={{ background: C.card, borderRadius: 12, padding: '12px 14px', border: `0.5px solid ${C.border}` }}>
+          <p style={{ fontSize: 11, fontWeight: 600, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '.4px', margin: '0 0 4px' }}>{k.label}</p>
+          <p style={{ fontSize: 18, fontWeight: 700, color: k.green ? C.green : C.textPrimary, margin: 0, lineHeight: 1 }}>{k.value}</p>
+          <div style={{ marginTop: 4 }}>
+            {k.curr !== undefined && k.prev !== undefined && k.prev > 0
+              ? <DeltaBadge curr={k.curr} prev={k.prev} />
+              : <span style={{ fontSize: 11, color: C.textMuted }}>{k.sub}</span>
+            }
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function SucursalCards({ stack = false, stats, setSucDetalle }: { stack?: boolean; stats: DashboardStats; setSucDetalle: (v: { id: string; nombre: string } | null) => void }) {
+  return (
+    <div>
+      <SectionLabel text="Ventas por sucursal" />
+      <div style={{ display: 'grid', gridTemplateColumns: stack ? '1fr' : 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
+        {stats.sucursales.length === 0 && (
+          <p style={{ color: C.textMuted, fontSize: 13, textAlign: 'center', padding: '20px 0' }}>Sin ventas en este período</p>
+        )}
+        {stats.sucursales.map(s => (
+          <div key={s.id} onClick={() => setSucDetalle({ id: s.id, nombre: s.nombre })} style={{ background: C.card, border: `0.5px solid ${C.border}`, borderRadius: 12, overflow: 'hidden', cursor: 'pointer' }}>
+            <div style={{ height: 3, background: s.color }} />
+            <div style={{ padding: '12px 14px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <span style={{ fontSize: 14, fontWeight: 600, color: C.textPrimary }}>{s.nombre}</span>
+                <DeltaBadge curr={s.total} prev={s.totalPrev} />
+              </div>
+              <p style={{ fontSize: 22, fontWeight: 700, color: C.textPrimary, margin: '0 0 10px' }}>{fmt(s.total)}</p>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, borderTop: `0.5px solid ${C.border}`, paddingTop: 10 }}>
+                {[{ label: 'Neto', value: fmt(s.neto) }, { label: 'Ventas', value: String(s.count) }, { label: 'Participación', value: `${s.part}%` }].map(d => (
+                  <div key={d.label}>
+                    <p style={{ fontSize: 10, fontWeight: 600, color: C.textMuted, margin: '0 0 2px', textTransform: 'uppercase', letterSpacing: '.3px' }}>{d.label}</p>
+                    <p style={{ fontSize: 12, color: C.textSecondary, margin: 0 }}>{d.value}</p>
+                  </div>
+                ))}
+              </div>
+              <div style={{ marginTop: 8, padding: '6px 8px', background: s.utilidad >= 0 ? C.greenBg : C.redBg, borderRadius: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: 11, color: C.textSecondary }}>Utilidad</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: s.utilidad >= 0 ? C.green : C.red }}>
+                  {s.utilidad >= 0 ? '+' : ''}{fmt(s.utilidad)}
+                </span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function MetodosPagoCard({ tienesSucs, bodegas, tabMp, setTabMp, expandedMp, setExpandedMp, mpActivos, getMpLabel, drillVentas, sucActiva }: {
+  tienesSucs: boolean
+  bodegas: Bodega[]
+  tabMp: number
+  setTabMp: (i: number) => void
+  expandedMp: string | null
+  setExpandedMp: (id: string | null) => void
+  mpActivos: { totalSuc: number; sorted: [string, number][] }
+  getMpLabel: (id: string) => string
+  drillVentas: Venta[]
+  sucActiva: DashboardStats['sucursales'][number] | null
+}) {
+  return (
+    <div style={{ background: C.card, border: `0.5px solid ${C.border}`, borderRadius: 12, overflow: 'hidden' }}>
+      <div style={{ padding: '12px 14px 0' }}>
+        <SectionLabel text="Métodos de pago" />
+        {tienesSucs && bodegas.length > 0 && (
+          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${bodegas.length}, 1fr)`, borderBottom: `0.5px solid ${C.border}` }}>
+            {bodegas.map((b, i) => (
+              <button key={b.id} onClick={() => { setTabMp(i); setExpandedMp(null) }} style={{
+                padding: '8px 4px', fontSize: 12,
+                fontWeight: tabMp === i ? 700 : 400,
+                color: tabMp === i ? C.textPrimary : C.textMuted,
+                background: tabMp === i ? C.bg : 'transparent',
+                border: 'none',
+                borderRight: i < bodegas.length - 1 ? `0.5px solid ${C.border}` : 'none',
+                cursor: 'pointer', fontFamily: 'inherit',
+              }}>
+                {b.nombre ?? b.name ?? 'Sucursal'}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      <div style={{ padding: '10px 14px' }}>
+        {mpActivos.sorted.length === 0 ? (
+          <p style={{ textAlign: 'center', color: C.textMuted, fontSize: 13, padding: '16px 0', margin: 0 }}>Sin ventas</p>
+        ) : (
+          <>
+            {mpActivos.sorted.map(([id, total], i) => {
+              const pct = mpActivos.totalSuc > 0 ? Math.round(total / mpActivos.totalSuc * 100) : 0
+              const isOpen = expandedMp === id
+              return (
+                <div key={id}>
+                  <button
+                    onClick={() => setExpandedMp(isOpen ? null : id)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+                      padding: '9px 0', background: 'transparent', border: 'none',
+                      borderBottom: (!isOpen && i < mpActivos.sorted.length - 1) ? `0.5px solid ${C.border}` : 'none',
+                      cursor: 'pointer', fontFamily: 'inherit',
+                    }}
+                  >
+                    <div style={{ width: 7, height: 7, borderRadius: '50%', background: MP_COLORS[i] ?? '#64748b', flexShrink: 0 }} />
+                    <span style={{ fontSize: 13, color: isOpen ? '#2563eb' : C.textSecondary, flex: 1, textAlign: 'left', fontWeight: isOpen ? 600 : 400 }}>{getMpLabel(id)}</span>
+                    <span style={{ fontSize: 11, color: C.textMuted, marginRight: 4 }}>{pct}%</span>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: C.textPrimary, marginRight: 6 }}>{fmt(total)}</span>
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ flexShrink: 0, transition: 'transform .2s', transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+                      <path d="M2 4l4 4 4-4" stroke={isOpen ? '#2563eb' : C.textMuted} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </button>
+
+                  {isOpen && (
+                    <div style={{ background: C.bg, borderRadius: 8, margin: '4px 0 8px', padding: '0 10px', border: `0.5px solid ${C.border}` }}>
+                      <div style={{ padding: '8px 0 6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `0.5px solid ${C.border}` }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '.4px' }}>{drillVentas.length} ventas</span>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '.4px' }}>{fmt(total)} total</span>
+                      </div>
+                      {drillVentas.length === 0
+                        ? <p style={{ textAlign: 'center', color: C.textMuted, fontSize: 12, padding: '12px 0', margin: 0 }}>Sin ventas</p>
+                        : drillVentas.map((v, vi) => (
+                          <div key={v.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: vi < drillVentas.length - 1 ? `0.5px solid ${C.border}` : 'none' }}>
+                            <div>
+                              <p style={{ fontSize: 12, fontWeight: 600, color: '#2563eb', margin: 0 }}>{v.numero}</p>
+                              <p style={{ fontSize: 11, color: C.textMuted, margin: 0 }}>{v.cliente || '—'}</p>
+                            </div>
+                            <span style={{ fontSize: 13, fontWeight: 600, color: C.textPrimary }}>{fmt(+v.total_iva)}</span>
+                          </div>
+                        ))
+                      }
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+            {tienesSucs && sucActiva && (
+              <div style={{ marginTop: 10, paddingTop: 10, borderTop: `0.5px solid ${C.border}`, display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: 12, color: C.textMuted }}>Total {sucActiva.nombre}</span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: C.textPrimary }}>{fmt(mpActivos.totalSuc)}</span>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function GastosCard({ stats }: { stats: DashboardStats }) {
+  return (
+    <div style={{ background: C.card, border: `0.5px solid ${C.border}`, borderRadius: 12, padding: '12px 14px' }}>
+      <SectionLabel text="Total gastado" />
+      {[
+        { label: 'Costo de productos vendidos', value: stats.totalCosto, to: '/ventas' },
+        { label: 'Gastos operacionales', value: stats.totalGastos, to: '/contabilidad' },
+      ].map((row, i, arr) => (
+        <Link key={row.label} to={row.to} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: i < arr.length - 1 ? `0.5px solid ${C.border}` : 'none', textDecoration: 'none' }}>
+          <span style={{ fontSize: 13, color: '#2563eb' }}>{row.label}</span>
+          <span style={{ fontSize: 13, fontWeight: 600, color: C.textPrimary }}>{fmt(row.value)}</span>
+        </Link>
+      ))}
+      <div style={{ marginTop: 10, paddingTop: 10, borderTop: `0.5px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+        <span style={{ fontSize: 13, color: C.textSecondary }}>Total salida</span>
+        <span style={{ fontSize: 17, fontWeight: 700, color: C.red }}>{fmt(stats.totalSalida)}</span>
+      </div>
+      <div style={{ marginTop: 8, padding: '8px 10px', background: stats.utilidad >= 0 ? C.greenBg : C.redBg, borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span style={{ fontSize: 12, color: C.textSecondary }}>Resultado neto</span>
+        <span style={{ fontSize: 14, fontWeight: 700, color: stats.utilidad >= 0 ? C.green : C.red }}>
+          {stats.utilidad >= 0 ? '+' : ''}{fmt(stats.utilidad)}
+        </span>
+      </div>
+      <Link to="/compras" style={{ marginTop: 8, padding: '8px 10px', background: C.bg, borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center', textDecoration: 'none' }}>
+        <span style={{ fontSize: 11, color: C.textMuted }}>Compras del período (inversión en stock, no es gasto)</span>
+        <span style={{ fontSize: 12, fontWeight: 600, color: C.textSecondary }}>{fmt(stats.totalOC)}</span>
+      </Link>
+    </div>
+  )
 }
 
 export function DashboardPage() {
@@ -216,241 +501,6 @@ export function DashboardPage() {
     ? (stats.mpPorSuc[tabMp] ?? { totalSuc: 0, sorted: [] })
     : { totalSuc: stats.ventasBrutas, sorted: stats.mpGlobalSorted }
 
-  // ── Shared components ──────────────────────────────────────
-
-  const RangoSelector = () => (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
-      {(['hoy', 'mes', 'año', 'rango'] as Rango[]).map(r => (
-        <button key={r} onClick={() => setRango(r)} style={{
-          padding: '7px 0', fontSize: 13, fontWeight: 500, textAlign: 'center',
-          borderRadius: 20, border: `0.5px solid ${rango === r ? '#3656e6' : C.border}`,
-          cursor: 'pointer', transition: 'all .15s', fontFamily: 'inherit',
-          background: rango === r ? '#3656e6' : C.card,
-          color: rango === r ? '#fff' : C.textSecondary,
-          WebkitAppearance: 'none', appearance: 'none',
-        }}>
-          {r === 'hoy' ? 'Hoy' : r === 'mes' ? 'Mes' : r === 'año' ? 'Año' : 'Rango'}
-        </button>
-      ))}
-    </div>
-  )
-
-  const DateField = ({ value, onChange, label }: { value: string; onChange: (v: string) => void; label: string }) => (
-    <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
-      <input
-        type="date"
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        onClick={e => { if (!isMobile) { try { (e.target as HTMLInputElement).showPicker() } catch {} } }}
-        style={{
-          width: '100%', fontSize: 16, padding: '8px 10px',
-          border: `0.5px solid ${C.border}`, borderRadius: 10,
-          background: C.card, fontFamily: 'inherit', outline: 'none',
-          WebkitAppearance: 'none', appearance: 'none',
-          color: value ? C.textPrimary : 'transparent',
-          boxSizing: 'border-box',
-        }}
-      />
-      {!value && (
-        <div style={{
-          position: 'absolute', inset: 0, display: 'flex', alignItems: 'center',
-          padding: '0 10px', pointerEvents: 'none', gap: 4,
-        }}>
-          <span style={{ fontSize: 13, color: C.textMuted, flex: 1 }}>{label}</span>
-          <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
-            <rect x="1" y="2.5" width="13" height="11.5" rx="2" stroke={C.textMuted} strokeWidth="1.1"/>
-            <path d="M1 6h13M5 1v3M10 1v3" stroke={C.textMuted} strokeWidth="1.1" strokeLinecap="round"/>
-          </svg>
-        </div>
-      )}
-    </div>
-  )
-
-  const RangoCustom = () => rango === 'rango' ? (
-    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-      <DateField value={customDesde} onChange={setCustomDesde} label="Desde" />
-      <span style={{ fontSize: 12, color: C.textMuted, flexShrink: 0 }}>—</span>
-      <DateField value={customHasta} onChange={setCustomHasta} label="Hasta" />
-    </div>
-  ) : null
-
-  const SectionLabel = ({ text }: { text: string }) => (
-    <p style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '.5px', margin: '0 0 8px' }}>{text}</p>
-  )
-
-  const KpiGrid = ({ cols }: { cols: number }) => (
-    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0,1fr))`, gap: 8 }}>
-      {[
-        { label: 'Ventas brutas', value: fmt(stats.ventasBrutas), sub: `${stats.txCount} transacciones`, curr: stats.ventasBrutas, prev: stats.ventasBrutasPrev },
-        { label: 'Ventas netas', value: fmt(stats.ventasNetas), sub: 'sin IVA' },
-        { label: 'Utilidad Sucursales', value: fmt(stats.utilidad), sub: `margen ${stats.margen}%`, green: stats.utilidad >= 0 },
-        { label: 'Transacciones', value: String(stats.txCount), sub: stats.ticketProm > 0 ? `${fmt(stats.ticketProm)} prom.` : '—' },
-      ].map(k => (
-        <div key={k.label} style={{ background: C.card, borderRadius: 12, padding: '12px 14px', border: `0.5px solid ${C.border}` }}>
-          <p style={{ fontSize: 11, fontWeight: 600, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '.4px', margin: '0 0 4px' }}>{k.label}</p>
-          <p style={{ fontSize: 18, fontWeight: 700, color: k.green ? C.green : C.textPrimary, margin: 0, lineHeight: 1 }}>{k.value}</p>
-          <div style={{ marginTop: 4 }}>
-            {k.curr !== undefined && k.prev !== undefined && k.prev > 0
-              ? <DeltaBadge curr={k.curr} prev={k.prev} />
-              : <span style={{ fontSize: 11, color: C.textMuted }}>{k.sub}</span>
-            }
-          </div>
-        </div>
-      ))}
-    </div>
-  )
-
-  const SucursalCards = ({ stack = false }: { stack?: boolean }) => (
-    <div>
-      <SectionLabel text="Ventas por sucursal" />
-      <div style={{ display: 'grid', gridTemplateColumns: stack ? '1fr' : 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
-        {stats.sucursales.length === 0 && (
-          <p style={{ color: C.textMuted, fontSize: 13, textAlign: 'center', padding: '20px 0' }}>Sin ventas en este período</p>
-        )}
-        {stats.sucursales.map(s => (
-          <div key={s.id} onClick={() => setSucDetalle({ id: s.id, nombre: s.nombre })} style={{ background: C.card, border: `0.5px solid ${C.border}`, borderRadius: 12, overflow: 'hidden', cursor: 'pointer' }}>
-            <div style={{ height: 3, background: s.color }} />
-            <div style={{ padding: '12px 14px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                <span style={{ fontSize: 14, fontWeight: 600, color: C.textPrimary }}>{s.nombre}</span>
-                <DeltaBadge curr={s.total} prev={s.totalPrev} />
-              </div>
-              <p style={{ fontSize: 22, fontWeight: 700, color: C.textPrimary, margin: '0 0 10px' }}>{fmt(s.total)}</p>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, borderTop: `0.5px solid ${C.border}`, paddingTop: 10 }}>
-                {[{ label: 'Neto', value: fmt(s.neto) }, { label: 'Ventas', value: String(s.count) }, { label: 'Participación', value: `${s.part}%` }].map(d => (
-                  <div key={d.label}>
-                    <p style={{ fontSize: 10, fontWeight: 600, color: C.textMuted, margin: '0 0 2px', textTransform: 'uppercase', letterSpacing: '.3px' }}>{d.label}</p>
-                    <p style={{ fontSize: 12, color: C.textSecondary, margin: 0 }}>{d.value}</p>
-                  </div>
-                ))}
-              </div>
-              <div style={{ marginTop: 8, padding: '6px 8px', background: s.utilidad >= 0 ? C.greenBg : C.redBg, borderRadius: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: 11, color: C.textSecondary }}>Utilidad</span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: s.utilidad >= 0 ? C.green : C.red }}>
-                  {s.utilidad >= 0 ? '+' : ''}{fmt(s.utilidad)}
-                </span>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-
-  const MetodosPagoCard = () => (
-    <div style={{ background: C.card, border: `0.5px solid ${C.border}`, borderRadius: 12, overflow: 'hidden' }}>
-      <div style={{ padding: '12px 14px 0' }}>
-        <SectionLabel text="Métodos de pago" />
-        {tienesSucs && bodegas.length > 0 && (
-          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${bodegas.length}, 1fr)`, borderBottom: `0.5px solid ${C.border}` }}>
-            {bodegas.map((b, i) => (
-              <button key={b.id} onClick={() => { setTabMp(i); setExpandedMp(null) }} style={{
-                padding: '8px 4px', fontSize: 12,
-                fontWeight: tabMp === i ? 700 : 400,
-                color: tabMp === i ? C.textPrimary : C.textMuted,
-                background: tabMp === i ? C.bg : 'transparent',
-                border: 'none',
-                borderRight: i < bodegas.length - 1 ? `0.5px solid ${C.border}` : 'none',
-                cursor: 'pointer', fontFamily: 'inherit',
-              }}>
-                {b.nombre ?? b.name ?? 'Sucursal'}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-      <div style={{ padding: '10px 14px' }}>
-        {mpActivos.sorted.length === 0 ? (
-          <p style={{ textAlign: 'center', color: C.textMuted, fontSize: 13, padding: '16px 0', margin: 0 }}>Sin ventas</p>
-        ) : (
-          <>
-            {mpActivos.sorted.map(([id, total], i) => {
-              const pct = mpActivos.totalSuc > 0 ? Math.round(total / mpActivos.totalSuc * 100) : 0
-              const isOpen = expandedMp === id
-              return (
-                <div key={id}>
-                  <button
-                    onClick={() => setExpandedMp(isOpen ? null : id)}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 10, width: '100%',
-                      padding: '9px 0', background: 'transparent', border: 'none',
-                      borderBottom: (!isOpen && i < mpActivos.sorted.length - 1) ? `0.5px solid ${C.border}` : 'none',
-                      cursor: 'pointer', fontFamily: 'inherit',
-                    }}
-                  >
-                    <div style={{ width: 7, height: 7, borderRadius: '50%', background: MP_COLORS[i] ?? '#64748b', flexShrink: 0 }} />
-                    <span style={{ fontSize: 13, color: isOpen ? '#2563eb' : C.textSecondary, flex: 1, textAlign: 'left', fontWeight: isOpen ? 600 : 400 }}>{getMpLabel(id)}</span>
-                    <span style={{ fontSize: 11, color: C.textMuted, marginRight: 4 }}>{pct}%</span>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: C.textPrimary, marginRight: 6 }}>{fmt(total)}</span>
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ flexShrink: 0, transition: 'transform .2s', transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>
-                      <path d="M2 4l4 4 4-4" stroke={isOpen ? '#2563eb' : C.textMuted} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  </button>
-
-                  {isOpen && (
-                    <div style={{ background: C.bg, borderRadius: 8, margin: '4px 0 8px', padding: '0 10px', border: `0.5px solid ${C.border}` }}>
-                      <div style={{ padding: '8px 0 6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `0.5px solid ${C.border}` }}>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '.4px' }}>{drillVentas.length} ventas</span>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '.4px' }}>{fmt(total)} total</span>
-                      </div>
-                      {drillVentas.length === 0
-                        ? <p style={{ textAlign: 'center', color: C.textMuted, fontSize: 12, padding: '12px 0', margin: 0 }}>Sin ventas</p>
-                        : drillVentas.map((v, vi) => (
-                          <div key={v.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: vi < drillVentas.length - 1 ? `0.5px solid ${C.border}` : 'none' }}>
-                            <div>
-                              <p style={{ fontSize: 12, fontWeight: 600, color: '#2563eb', margin: 0 }}>{v.numero}</p>
-                              <p style={{ fontSize: 11, color: C.textMuted, margin: 0 }}>{v.cliente || '—'}</p>
-                            </div>
-                            <span style={{ fontSize: 13, fontWeight: 600, color: C.textPrimary }}>{fmt(+v.total_iva)}</span>
-                          </div>
-                        ))
-                      }
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-            {tienesSucs && sucActiva && (
-              <div style={{ marginTop: 10, paddingTop: 10, borderTop: `0.5px solid ${C.border}`, display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: 12, color: C.textMuted }}>Total {sucActiva.nombre}</span>
-                <span style={{ fontSize: 13, fontWeight: 600, color: C.textPrimary }}>{fmt(mpActivos.totalSuc)}</span>
-              </div>
-            )}
-          </>
-        )}
-      </div>
-    </div>
-  )
-
-  const GastosCard = () => (
-    <div style={{ background: C.card, border: `0.5px solid ${C.border}`, borderRadius: 12, padding: '12px 14px' }}>
-      <SectionLabel text="Total gastado" />
-      {[
-        { label: 'Costo de productos vendidos', value: stats.totalCosto, to: '/ventas' },
-        { label: 'Gastos operacionales', value: stats.totalGastos, to: '/contabilidad' },
-      ].map((row, i, arr) => (
-        <Link key={row.label} to={row.to} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: i < arr.length - 1 ? `0.5px solid ${C.border}` : 'none', textDecoration: 'none' }}>
-          <span style={{ fontSize: 13, color: '#2563eb' }}>{row.label}</span>
-          <span style={{ fontSize: 13, fontWeight: 600, color: C.textPrimary }}>{fmt(row.value)}</span>
-        </Link>
-      ))}
-      <div style={{ marginTop: 10, paddingTop: 10, borderTop: `0.5px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-        <span style={{ fontSize: 13, color: C.textSecondary }}>Total salida</span>
-        <span style={{ fontSize: 17, fontWeight: 700, color: C.red }}>{fmt(stats.totalSalida)}</span>
-      </div>
-      <div style={{ marginTop: 8, padding: '8px 10px', background: stats.utilidad >= 0 ? C.greenBg : C.redBg, borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span style={{ fontSize: 12, color: C.textSecondary }}>Resultado neto</span>
-        <span style={{ fontSize: 14, fontWeight: 700, color: stats.utilidad >= 0 ? C.green : C.red }}>
-          {stats.utilidad >= 0 ? '+' : ''}{fmt(stats.utilidad)}
-        </span>
-      </div>
-      <Link to="/compras" style={{ marginTop: 8, padding: '8px 10px', background: C.bg, borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center', textDecoration: 'none' }}>
-        <span style={{ fontSize: 11, color: C.textMuted }}>Compras del período (inversión en stock, no es gasto)</span>
-        <span style={{ fontSize: 12, fontWeight: 600, color: C.textSecondary }}>{fmt(stats.totalOC)}</span>
-      </Link>
-    </div>
-  )
-
   // ── Mobile ────────────────────────────────────────────────────
   const totalSuc = ventasSuc.reduce((s, v) => s + (+v.total_iva || 0), 0)
   const sucModal = sucDetalle ? (
@@ -496,10 +546,10 @@ export function DashboardPage() {
           <span style={{ fontSize: 12, color: C.textMuted }}>{labelRango(rango)}</span>
         </div>
 
-        <RangoSelector />
-        {rango === 'rango' && <RangoCustom />}
+        <RangoSelector rango={rango} setRango={setRango} />
+        {rango === 'rango' && <RangoCustom rango={rango} customDesde={customDesde} setCustomDesde={setCustomDesde} customHasta={customHasta} setCustomHasta={setCustomHasta} isMobile={isMobile} />}
 
-        <KpiGrid cols={2} />
+        <KpiGrid cols={2} stats={stats} />
 
         {tienesSucs && (
           <div>
@@ -529,8 +579,8 @@ export function DashboardPage() {
           </div>
         )}
 
-        <MetodosPagoCard />
-        <GastosCard />
+        <MetodosPagoCard tienesSucs={tienesSucs} bodegas={bodegas} tabMp={tabMp} setTabMp={setTabMp} expandedMp={expandedMp} setExpandedMp={setExpandedMp} mpActivos={mpActivos} getMpLabel={getMpLabel} drillVentas={drillVentas} sucActiva={sucActiva} />
+        <GastosCard stats={stats} />
 
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
@@ -567,24 +617,24 @@ export function DashboardPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <h2 style={{ fontSize: 20, fontWeight: 800, color: C.textPrimary, margin: 0 }}>Dashboard</h2>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-          <div style={{ width: 300 }}><RangoSelector /></div>
+          <div style={{ width: 300 }}><RangoSelector rango={rango} setRango={setRango} /></div>
         </div>
       </div>
 
-      {rango === 'rango' && <div style={{ maxWidth: 420 }}><RangoCustom /></div>}
+      {rango === 'rango' && <div style={{ maxWidth: 420 }}><RangoCustom rango={rango} customDesde={customDesde} setCustomDesde={setCustomDesde} customHasta={customHasta} setCustomHasta={setCustomHasta} isMobile={isMobile} /></div>}
 
-      <KpiGrid cols={4} />
+      <KpiGrid cols={4} stats={stats} />
 
       {tienesSucs
-        ? <SucursalCards />
+        ? <SucursalCards stats={stats} setSucDetalle={setSucDetalle} />
         : <div style={{ background: C.card, borderRadius: 12, border: `0.5px solid ${C.border}`, padding: '20px', textAlign: 'center', color: C.textMuted, fontSize: 13 }}>
             Configura bodegas en Inventario para ver ventas por sucursal.
           </div>
       }
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-        <MetodosPagoCard />
-        <GastosCard />
+        <MetodosPagoCard tienesSucs={tienesSucs} bodegas={bodegas} tabMp={tabMp} setTabMp={setTabMp} expandedMp={expandedMp} setExpandedMp={setExpandedMp} mpActivos={mpActivos} getMpLabel={getMpLabel} drillVentas={drillVentas} sucActiva={sucActiva} />
+        <GastosCard stats={stats} />
       </div>
 
       <div style={{ background: C.card, border: `0.5px solid ${C.border}`, borderRadius: 12, overflow: 'hidden' }}>

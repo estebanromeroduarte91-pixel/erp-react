@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import { useTraslados, useGuardarTraslados, useTecnicosExternos, useGuardarTecnicosExternos } from '@/lib/queries'
 import { QrFotosModal } from './QrFotosModal'
 import type { Orden, Traslado, TecnicoExterno, EstadoTraslado } from '@/types'
@@ -59,11 +59,15 @@ export function DerivarModal({ orden, onClose }: { orden: Orden; onClose: () => 
   // Evidencia fotográfica: fotos guardadas del traslado + fotos que llegaron por QR (orden.photosTraslado)
   const [fotos, setFotos] = useState<string[]>(() => [...new Set([...(existente?.fotos ?? []), ...(orden.photosTraslado ?? [])])])
 
-  // Cuando llegan fotos por QR a la orden, sumarlas al buffer sin duplicar
-  useEffect(() => {
+  // Cuando llegan fotos por QR a la orden, sumarlas al buffer sin duplicar.
+  // Ajuste de estado durante el render en vez de useEffect — se compara contra
+  // la última referencia vista de orden.photosTraslado (patrón oficial de React).
+  const [qrSynced, setQrSynced] = useState(orden.photosTraslado)
+  if (orden.photosTraslado !== qrSynced) {
+    setQrSynced(orden.photosTraslado)
     const qr = orden.photosTraslado ?? []
     if (qr.length) setFotos(prev => [...new Set([...prev, ...qr])])
-  }, [orden.photosTraslado])
+  }
 
   const set = (field: keyof typeof form, val: string) => setForm(f => ({ ...f, [field]: val }))
 

@@ -94,13 +94,16 @@ export function OrdenDetalle({ orden: o, onClose, onEditar }: Props) {
   const total = totalOrden(o)
   const pipelineIdx = PIPELINE.indexOf(o.status as EstadoOrden)
 
-  // Sincronizar fotos de inspección cuando el QR (página Netlify) escribe a la DB vía realtime
-  useEffect(() => {
-    if (!showInspeccion) {
-      setInspecFotos(o.inspeccion?.fotos ?? [])
-      setInspecNotas(o.inspeccion?.notas ?? '')
-    }
-  }, [o.inspeccion?.fotos, o.inspeccion?.notas]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Sincronizar fotos de inspección cuando el QR (página Netlify) escribe a la DB vía
+  // realtime. Ajuste de estado durante el render en vez de useEffect — se compara
+  // contra la última referencia vista, y solo si el panel está cerrado (para no
+  // pisar una edición local en curso).
+  const [inspecDbSynced, setInspecDbSynced] = useState({ fotos: o.inspeccion?.fotos, notas: o.inspeccion?.notas })
+  if (!showInspeccion && (o.inspeccion?.fotos !== inspecDbSynced.fotos || o.inspeccion?.notas !== inspecDbSynced.notas)) {
+    setInspecDbSynced({ fotos: o.inspeccion?.fotos, notas: o.inspeccion?.notas })
+    setInspecFotos(o.inspeccion?.fotos ?? [])
+    setInspecNotas(o.inspeccion?.notas ?? '')
+  }
 
   // Polling: detectar cuando el cliente aprueba/rechaza el presupuesto
   useEffect(() => {
@@ -122,7 +125,7 @@ export function OrdenDetalle({ orden: o, onClose, onEditar }: Props) {
     }
     const interval = setInterval(check, 15000)
     return () => clearInterval(interval)
-  }, [o.aprobacion_estado, o.aprobacion_token, empresaId])
+  }, [o.aprobacion_estado, o.aprobacion_token, o.id, empresaId, actualizarOrden])
 
   const branch = bodegas.find(b => b.id === o.branchId)
   const branchNombre = branch?.nombre ?? branch?.name ?? segCfg?.nombreTaller ?? ''

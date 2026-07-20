@@ -705,6 +705,11 @@ function BranchSelector({
   ordenes: Orden[]
   onSelect: (id: string) => void
 }) {
+  // Se congela "ahora" una sola vez al montar (lazy init) en vez de llamar
+  // Date.now() en cada render — evita la función impura durante el render
+  // (react-hooks/purity); no hace falta que tikee en vivo para un conteo en días.
+  const [now] = useState(() => Date.now())
+
   if (!bodegas.length) {
     return (
       <div className="text-center py-16 text-gray-400 text-sm">
@@ -722,7 +727,7 @@ function BranchSelector({
           const reparacion = bo.filter((o) => o.status === 'Reparación').length
           const listas = bo.filter((o) => o.status === 'Listo').length
           const ultima = bo.length ? bo.reduce((a, c) => (!a.fecha || c.fecha > a.fecha ? c : a), bo[0]) : null
-          const dias = ultima ? Math.floor((Date.now() - new Date(ultima.fecha).getTime()) / 86400000) : null
+          const dias = ultima ? Math.floor((now - new Date(ultima.fecha).getTime()) / 86400000) : null
           const nombre = b.nombre ?? b.name ?? 'Sin nombre'
           return (
             <div

@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import { useClientes, useCrearCliente, useActualizarCliente, useEliminarCliente, useOrdenes, useVentas } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { useIsMobile } from '@/lib/useIsMobile'
@@ -71,9 +71,9 @@ export function ClientesTab() {
   )
   function setSeleccionado(c: Cliente | null) { setSeleccionadoId(c?.id ?? null) }
 
-  useEffect(() => {
-    if (!seleccionadoId && lista.length > 0 && !isMobile) setSeleccionadoId(lista[0].id)
-  }, [lista, isMobile, seleccionadoId])
+  // Ajuste de estado durante el render en vez de useEffect — auto-selecciona
+  // el primer cliente en desktop; el guard (!seleccionadoId) evita el loop.
+  if (!seleccionadoId && lista.length > 0 && !isMobile) setSeleccionadoId(lista[0].id)
 
   const stats = useMemo(() => {
     if (!seleccionado) return null
@@ -231,8 +231,14 @@ function DetailPanel({ cliente, stats, esAdmin, onEditar, onEliminar }: {
     : null
   const ultimas3Ots = (stats?.ots ?? []).slice(0, 3)
 
-  // Resetear vista al cambiar de cliente
-  useEffect(() => { setVista(null); setOtNum(null) }, [cliente.id])
+  // Resetear vista al cambiar de cliente — ajuste de estado durante el
+  // render en vez de useEffect (patrón oficial de React).
+  const [clienteIdSynced, setClienteIdSynced] = useState(cliente.id)
+  if (cliente.id !== clienteIdSynced) {
+    setClienteIdSynced(cliente.id)
+    setVista(null)
+    setOtNum(null)
+  }
 
   if (otNum) {
     return (
