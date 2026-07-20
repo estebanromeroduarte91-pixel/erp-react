@@ -75,7 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setEstado({
         session,
         empresaId: perfil.empresa_id,
-        empresaNombre: emp?.nombre || 'TallerPro',
+        empresaNombre: emp?.nombre || 'Steve Docs',
         rol,
         cargoId,
         branchId,
@@ -102,7 +102,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setEstado({
         session,
         empresaId: emp?.id || null,
-        empresaNombre: emp?.nombre || 'TallerPro',
+        empresaNombre: emp?.nombre || 'Steve Docs',
         rol: 'admin',
         cargoId: null,
         branchId: null,

@@ -160,7 +160,7 @@ export function OrdenDetalle({ orden: o, onClose, onEditar }: Props) {
     // Envío automático de email al poner Listo
     if (esListo && emailMsg && o.email && empresaId) {
       const html = buildEmailListo({
-        tallerNombre: segCfg?.nombreTaller ?? 'TallerPro',
+        tallerNombre: segCfg?.nombreTaller ?? 'Steve Docs',
         logoUrl: segCfg?.logoUrl,
         msgTexto: emailMsg,
         orden: { num: o.num, modelo: o.modelo ?? '', nombre: o.nombre ?? '' },
@@ -187,7 +187,7 @@ export function OrdenDetalle({ orden: o, onClose, onEditar }: Props) {
     if (!notifEstado?.emailMsg || !o.email || !empresaId) return
     setEnviandoEmail(true)
     const html = buildEmailListo({
-      tallerNombre: segCfg?.nombreTaller ?? 'TallerPro',
+      tallerNombre: segCfg?.nombreTaller ?? 'Steve Docs',
       logoUrl: segCfg?.logoUrl,
       msgTexto: notifEstado.emailMsg,
       orden: { num: o.num, modelo: o.modelo ?? '', nombre: o.nombre ?? '' },
@@ -236,7 +236,7 @@ export function OrdenDetalle({ orden: o, onClose, onEditar }: Props) {
         v: 2,
         items: (o.repuestos ?? []).map(r => ({ name: r.name, qty: r.qty, precio: r.precio ?? 0 })),
         trabajo: o.trabajo ?? '',
-        taller: segCfg?.nombreTaller ?? 'TallerPro',
+        taller: segCfg?.nombreTaller ?? 'Steve Docs',
         sucursal: branchNombre,
         horario: branchHorario,
         tel: branchTel,
@@ -275,7 +275,7 @@ export function OrdenDetalle({ orden: o, onClose, onEditar }: Props) {
       const introTexto = aprobMsgEmail.split(/\n\n/)[0] ?? aprobMsgEmail
       const items = o.repuestos ?? []
       const html = buildEmailAprobacion({
-        tallerNombre: segCfg?.nombreTaller ?? 'TallerPro',
+        tallerNombre: segCfg?.nombreTaller ?? 'Steve Docs',
         logoUrl: segCfg?.logoUrl,
         introTexto,
         orden: { num: o.num, modelo: o.modelo ?? '', nombre: o.nombre ?? '', trabajo: o.trabajo },
@@ -312,7 +312,7 @@ export function OrdenDetalle({ orden: o, onClose, onEditar }: Props) {
       const vars = buildVars(o.num)
       const msgTexto = tpl ? rellenarTemplate(tpl, { ...vars, diagnostico: inspecNotas }) : inspecNotas
       const html = buildEmailInspeccion({
-        tallerNombre: segCfg?.nombreTaller ?? 'TallerPro',
+        tallerNombre: segCfg?.nombreTaller ?? 'Steve Docs',
         logoUrl: segCfg?.logoUrl,
         msgTexto,
         orden: { num: o.num, modelo: o.modelo ?? '', nombre: o.nombre ?? '', serie: o.serie },

@@ -487,7 +487,7 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
         }
         const msgTexto = rellenarTemplate(tpl, vars)
         const html = buildEmailIngreso({
-          tallerNombre: segCfg?.nombreTaller ?? 'TallerPro',
+          tallerNombre: segCfg?.nombreTaller ?? 'Steve Docs',
           logoUrl: segCfg?.logoUrl,
           msgTexto,
           orden: {

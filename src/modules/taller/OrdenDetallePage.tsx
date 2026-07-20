@@ -197,7 +197,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
   function buildListoHtml(msgTexto: string) {
     const branch = bodegas.find(b => b.id === orden.branchId)
     return buildEmailListo({
-      tallerNombre: segCfg?.nombreTaller ?? 'TallerPro',
+      tallerNombre: segCfg?.nombreTaller ?? 'Steve Docs',
       logoUrl: segCfg?.logoUrl,
       msgTexto,
       orden: { num: orden.num, modelo: orden.modelo ?? '', nombre: orden.nombre ?? '' },
@@ -257,7 +257,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
       const vars = buildVars()
       const branch = bodegas.find(b => b.id === orden.branchId)
       const branchNombre = branch?.nombre ?? branch?.name ?? segCfg?.nombreTaller ?? ''
-      const tallerNombre = segCfg?.nombreTaller ?? 'TallerPro'
+      const tallerNombre = segCfg?.nombreTaller ?? 'Steve Docs'
       const status = orden.status as EstadoOrden
 
       let asunto: string
@@ -413,7 +413,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
         const rawTpl = msgTemplates?.inspeccion_email ?? `Hola {{nombre}}, al abrir tu {{modelo}} para la reparación detectamos algunos detalles que queremos informarte antes de continuar.`
         const msgTexto = rawTpl.split(/\n\n/)[0].replace(/\{\{(\w+)\}\}/g, (_, k: string) => tplVars[k] ?? '')
         const html = buildEmailInspeccion({
-          tallerNombre: segCfg?.nombreTaller ?? 'TallerPro',
+          tallerNombre: segCfg?.nombreTaller ?? 'Steve Docs',
           logoUrl: segCfg?.logoUrl,
           msgTexto,
           orden: { num: orden.num ?? '', modelo: orden.modelo ?? '', nombre: orden.nombre ?? '', serie: orden.serie },
@@ -517,7 +517,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
           v: 2,
           items: (aprobOrden.repuestos ?? []).map(r => ({ name: r.name, qty: r.qty, precio: r.precio ?? 0 })),
           trabajo: aprobOrden.trabajo ?? '',
-          taller: segCfg?.nombreTaller ?? 'TallerPro',
+          taller: segCfg?.nombreTaller ?? 'Steve Docs',
           sucursal: aprobBranch?.nombre ?? aprobBranch?.name ?? '',
           horario: aprobHorario,
           tel: aprobBranch?.tel ?? '',
@@ -565,7 +565,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
       // Solo el primer párrafo como intro (las líneas Trabajo/Presupuesto/Orden ya van en las tarjetas)
       const introTexto = rawTpl.split(/\n\n/)[0].replace(/\{\{(\w+)\}\}/g, (_, k: string) => tplVars[k] ?? '')
       const html = buildEmailAprobacion({
-        tallerNombre: segCfg?.nombreTaller ?? 'TallerPro',
+        tallerNombre: segCfg?.nombreTaller ?? 'Steve Docs',
         logoUrl: segCfg?.logoUrl,
         introTexto,
         orden: { num: aprobOrden.num ?? '', modelo: aprobOrden.modelo ?? '', nombre: aprobOrden.nombre ?? '', trabajo: aprobOrden.trabajo },

@@ -92,7 +92,7 @@ export function SmtpTab() {
           <div>
             <label className="text-xs font-medium text-gray-600 block mb-1">Nombre del remitente</label>
             <input type="text" value={form.from_name ?? ''} onChange={e => set('from_name', e.target.value)}
-              placeholder="TallerPro"
+              placeholder="Steve Docs"
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
           </div>
           <div>

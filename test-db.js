@@ -8,21 +8,15 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 async function run() {
   const { data, error } = await supabase
-    .from('ordenes')
-    .insert({
-      id: 'test-insert-123',
-      empresa_id: 'f347f086-d2ba-40b0-ab70-95a7c02c8781',
-      num: '9999',
-      fecha: new Date().toISOString(),
-      nombre: 'Test',
-      is_draft: false
-    })
-    .select()
+    .from('clientes')
+    .select('*')
+    .ilike('apellido', '%gaete%')
   
   if (error) {
-    console.error('Error inserting:', error)
+    console.error('Error fetching:', error)
   } else {
-    console.log('Successfully inserted:', data)
+    console.log('Results for gaete in clientes:')
+    console.log(JSON.stringify(data, null, 2))
   }
 }
 
