@@ -147,13 +147,36 @@ function emailShell(tallerNombre: string, logoUrl: string | undefined, body: str
 function contactPills(tel?: string, email?: string): string {
   if (!tel && !email) return ''
   const telLimpio = (tel ?? '').replace(/\s/g, '')
-  const waIcon = `<img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iIzE1ODAzZCIgZD0iTTE3LjQ3MiAxNC4zODJjLS4yOTctLjE0OS0xLjc1OC0uODY3LTIuMDMtLjk2Ny0uMjczLS4wOTktLjQ3MS0uMTQ4LS42Ny4xNS0uMTk3LjI5Ny0uNzY3Ljk2Ni0uOTQgMS4xNjQtLjE3My4xOTktLjM0Ny4yMjMtLjY0NC4wNzUtLjI5Ny0uMTUtMS4yNTUtLjQ2My0yLjM5LTEuNDc1LS44ODMtLjc4OC0xLjQ4LTEuNzYxLTEuNjUzLTIuMDU5LS4xNzMtLjI5Ny0uMDE4LS40NTguMTMtLjYwNi4xMzQtLjEzMy4yOTgtLjM0Ny40NDYtLjUyLjE0OS0uMTc0LjE5OC0uMjk4LjI5OC0uNDk3LjA5OS0uMTk4LjA1LS4zNzEtLjAyNS0uNTItLjA3NS0uMTQ5LS42NjktMS42MTItLjkxNi0yLjIwNy0uMjQyLS41NzktLjQ4Ny0uNS0uNjY5LS41MS0uMTczLS4wMDgtLjM3MS0uMDEtLjU3LS4wMS0uMTk4IDAtLjUyLjA3NC0uNzkyLjM3Mi0uMjcyLjI5Ny0xLjA0IDEuMDE2LTEuMDQgMi40NzkgMCAxLjQ2MiAxLjA2NSAyLjg3NSAxLjIxMyAzLjA3NC4xNDkuMTk4IDIuMDk2IDMuMiA1LjA3NyA0LjQ4Ny43MDkuMzA2IDEuMjYyLjQ4OSAxLjY5NC42MjUuNzEyLjIyNyAxLjM2LjE5NSAxLjg3MS4xMTguNTcxLS4wODUgMS43NTgtLjcxOSAyLjAwNi0xLjQxMy4yNDgtLjY5NC4yNDgtMS4yODkuMTczLTEuNDEzLS4wNzQtLjEyNC0uMjcyLS4xOTgtLjU3LS4zNDd6Ii8+PHBhdGggZmlsbD0iIzE1ODAzZCIgZD0iTTEyIDJDNi40NzcgMiAyIDYuNDc3IDIgMTJjMCAxLjg5LjUyNSAzLjY2IDEuNDM4IDUuMTY4TDIgMjJsNC45ODctMS4zOTlBOS45NTQgOS45NTQgMCAwIDAgMTIgMjJjNS41MjMgMCAxMC00LjQ3NyAxMC0xMFMxNy41MjMgMiAxMiAyem0wIDE4Yy0xLjY2IDAtMy4yMDItLjQ5LTQuNDg5LTEuMzMzbC0uMzIyLS4xOS0zLjMuOTI0LjkxNi0zLjIyLS4yMS0uMzM4QTcuOTU3IDcuOTU3IDAgMCAxIDQgMTJjMC00LjQxOCAzLjU4Mi04IDgtOHM4IDMuNTgyIDggOC0zLjU4MiA4LTggOHoiLz48L3N2Zz4=" width="16" height="16" style="display:block;margin:auto">`
-  const mailIcon = `<table cellpadding="0" cellspacing="0" border="0"><tr><td style="width:22px;height:22px;background:#3b82f6;border-radius:5px;text-align:center;vertical-align:middle"><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMyIgaGVpZ2h0PSIxMyIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHJlY3QgeD0iMiIgeT0iNCIgd2lkdGg9IjIwIiBoZWlnaHQ9IjE2IiByeD0iMiIvPjxwYXRoIGQ9Im0yMiA3LTguOTcgNS43YTEuOTQgMS45NCAwIDAgMS0yLjA2IDBMMiA3Ii8+PC9zdmc+" width="13" height="13" style="display:block;margin:4px auto"></td></tr></table>`
-  const pills = [
-    telLimpio ? `<td style="padding-right:8px"><a href="https://wa.me/${telLimpio}" target="_blank" style="text-decoration:none"><table cellpadding="0" cellspacing="0" border="0"><tr><td style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:7px 12px"><table cellpadding="0" cellspacing="0" border="0"><tr><td style="vertical-align:middle;padding-right:7px">${waIcon}</td><td style="vertical-align:middle;font-size:12px;font-weight:700;color:#15803d">${telLimpio}</td></tr></table></td></tr></table></a></td>` : '',
-    email ? `<td><table cellpadding="0" cellspacing="0" border="0"><tr><td style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:7px 12px"><table cellpadding="0" cellspacing="0" border="0"><tr><td style="vertical-align:middle;padding-right:7px">${mailIcon}</td><td style="vertical-align:middle;font-size:12px;font-weight:700;color:#1d4ed8">${email}</td></tr></table></td></tr></table></td>` : '',
-  ].filter(Boolean).join('')
-  return `<table cellpadding="0" cellspacing="0" border="0" style="margin-top:10px"><tr>${pills}</tr></table>`
+  
+  const waPill = telLimpio ? `
+    <td style="padding-right:8px">
+      <table cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;text-align:center;">
+            <a href="https://wa.me/${telLimpio}" target="_blank" style="display:inline-block;padding:7px 12px;text-decoration:none;color:#15803d;font-size:12px;font-weight:700;">
+              <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/6b/WhatsApp.svg/150px-WhatsApp.svg.png" width="14" height="14" style="vertical-align:middle;margin-right:6px;border:0" alt="WA">
+              <span style="vertical-align:middle">${telLimpio}</span>
+            </a>
+          </td>
+        </tr>
+      </table>
+    </td>` : ''
+
+  const emailPill = email ? `
+    <td>
+      <table cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;text-align:center;">
+            <a href="mailto:${email}" target="_blank" style="display:inline-block;padding:7px 12px;text-decoration:none;color:#1d4ed8;font-size:12px;font-weight:700;">
+              <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/ec/Email_icon.svg/150px-Email_icon.svg.png" width="14" height="14" style="vertical-align:middle;margin-right:6px;border:0" alt="Email">
+              <span style="vertical-align:middle">${email}</span>
+            </a>
+          </td>
+        </tr>
+      </table>
+    </td>` : ''
+
+  return `<table cellpadding="0" cellspacing="0" border="0" style="margin-top:10px"><tr>${waPill}${emailPill}</tr></table>`
 }
 
 // ── Email: Ingreso de orden ────────────────────────────────────────────────────
