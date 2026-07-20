@@ -134,6 +134,7 @@ export function Login() {
       className="flex items-center justify-center p-4"
       style={{
         minHeight: '100dvh',
+        paddingTop: 'calc(env(safe-area-inset-top, 0px) + 16px)',
         backgroundColor: '#fff',
         backgroundImage:
           'radial-gradient(480px 420px at 50% 50%, rgba(255,255,255,.92) 0%, rgba(255,255,255,.6) 42%, rgba(255,255,255,0) 68%), url(/login-pattern.webp)',

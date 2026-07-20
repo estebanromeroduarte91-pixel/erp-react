@@ -37,7 +37,7 @@ html, body, #root {
 
 body {
   font-family: 'Manrope', system-ui, -apple-system, sans-serif;
-  background: var(--gray-50);
+  background: #fff;
   color: var(--gray-800);
   font-size: 14px;
   -webkit-font-smoothing: antialiased;
