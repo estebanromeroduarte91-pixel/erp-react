@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useBodegas, useGuardarBodegas } from '@/lib/queries'
+import { useBodegas, useGuardarBodegas, usePlanLimits } from '@/lib/queries'
 import { Spinner } from '@/components/shared/Spinner'
 import type { Bodega } from '@/types'
 
@@ -34,7 +34,10 @@ const EMPTY_FORM = { nombre: '', direccion: '', tel: '', email: '', horario: '' 
 
 export function BodegasTab() {
   const { data: bodegas, isLoading } = useBodegas()
+  const { data: limits } = usePlanLimits()
   const guardar = useGuardarBodegas()
+
+  const limitReached = limits ? (bodegas?.length ?? 0) >= limits.max_sucursales : false
 
   const [modal, setModal] = useState<{ open: boolean; id: string | null; form: typeof EMPTY_FORM }>({
     open: false, id: null, form: EMPTY_FORM,
@@ -99,10 +102,18 @@ export function BodegasTab() {
           Cada sucursal tiene su dirección, horario y contacto — se usan automáticamente en los correos de órdenes.
         </p>
         <button onClick={abrirNueva}
-          className="ml-4 flex-shrink-0 px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition">
+          disabled={limitReached}
+          title={limitReached ? 'Has alcanzado el límite de sucursales de tu plan' : ''}
+          className={`ml-4 flex-shrink-0 px-4 py-2 text-sm font-semibold text-white rounded-xl transition ${limitReached ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}>
           + Nueva sucursal
         </button>
       </div>
+
+      {limitReached && (
+        <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-xl text-sm mb-4">
+          <strong>Atención:</strong> Has alcanzado el límite de <strong>{limits?.max_sucursales}</strong> sucursales de tu plan actual. Contáctanos para hacer un upgrade de plan.
+        </div>
+      )}
 
       {/* Lista de sucursales */}
       {(bodegas ?? []).length === 0 ? (

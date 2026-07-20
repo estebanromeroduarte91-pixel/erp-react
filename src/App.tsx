@@ -4,6 +4,7 @@ import { Login } from '@/modules/auth/Login'
 import { ResetPassword } from '@/modules/auth/ResetPassword'
 import { TrialExpirado } from '@/modules/auth/TrialExpirado'
 import { Shell } from '@/components/layout/Shell'
+import { LandingPage } from '@/modules/landing/LandingPage'
 import { TallerPage } from '@/modules/taller/TallerPage'
 import { InventarioPage } from '@/modules/inventario/InventarioPage'
 import { ContactosPage } from '@/modules/contactos/ContactosPage'
@@ -34,7 +35,15 @@ function AppRoutes() {
   // Llegó por el enlace de "olvidé mi contraseña" → fijar nueva clave (antes de todo lo demás)
   if (recoveryMode) return <ResetPassword />
 
-  if (!session) return <Login />
+  if (!session) {
+    return (
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    )
+  }
 
   // El dueño de Pixit nunca queda bloqueado afuera de su propio panel, aunque
   // su empresa de pruebas esté vencida/suspendida.
@@ -45,6 +54,7 @@ function AppRoutes() {
     <Shell>
       <Routes>
         <Route path="/" element={<Navigate to={soloPlatformAdmin ? '/pixit-admin' : '/dashboard'} replace />} />
+        <Route path="/login" element={<Navigate to={soloPlatformAdmin ? '/pixit-admin' : '/dashboard'} replace />} />
         {!soloPlatformAdmin && <>
           <Route path="/taller" element={<TallerPage />} />
           <Route path="/dashboard"     element={<DashboardPage />} />

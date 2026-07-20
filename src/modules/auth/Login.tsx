@@ -62,7 +62,6 @@ export function Login() {
     const err = await login(email, password)
     setCargando(false)
     if (err) setError(err)
-    else navigate('/dashboard', { replace: true })
   }
 
   async function onRegistro(e: React.FormEvent) {

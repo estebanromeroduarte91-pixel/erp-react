@@ -2,7 +2,7 @@ import { useState } from 'react'
 import {
   useUserProfiles, useToggleUsuarioActivo, useUserCargoMap, useGuardarUserConfig,
   usePendingInvites, useCrearInvitacion, useCancelarInvitacion, useCargos, useBodegas,
-  useActualizarNombreUsuario, useFichaUsuario, useGuardarFichaUsuario,
+  useActualizarNombreUsuario, useFichaUsuario, useGuardarFichaUsuario, usePlanLimits,
 } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { Spinner } from '@/components/shared/Spinner'
@@ -521,8 +521,16 @@ export function AccesosTab() {
   const toggleActivo = useToggleUsuarioActivo()
   const cancelarInvite = useCancelarInvitacion()
 
+  const { data: limits } = usePlanLimits()
+
   const [editUser, setEditUser] = useState<{ userId: string; nombre: string; currentRole: string; initialTab: FichaTab } | null>(null)
   const [showInvite, setShowInvite] = useState(false)
+
+  // Calcular si se llegó al límite de usuarios activos + invitaciones pendientes
+  const activeUsersCount = perfiles.filter(p => p.activo).length
+  const pendingInvitesCount = invites.length
+  const totalUsers = activeUsersCount + pendingInvitesCount
+  const limitReached = limits ? totalUsers >= limits.max_usuarios : false
 
   if (loadU || loadI) return <div className="flex justify-center py-16"><Spinner className="w-8 h-8" /></div>
 
@@ -534,10 +542,18 @@ export function AccesosTab() {
           <p className="text-xs text-gray-400 mt-0.5">Gestiona quién puede ingresar al ERP y con qué permisos</p>
         </div>
         <button onClick={() => setShowInvite(true)}
-          className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 transition">
+          disabled={limitReached}
+          title={limitReached ? 'Has alcanzado el límite de usuarios de tu plan' : ''}
+          className={`px-4 py-2 text-sm font-semibold text-white rounded-xl transition ${limitReached ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}>
           + Invitar usuario
         </button>
       </div>
+
+      {limitReached && (
+        <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-xl text-sm mb-4">
+          <strong>Atención:</strong> Has alcanzado el límite de <strong>{limits?.max_usuarios}</strong> usuarios (activos + invitaciones) de tu plan actual. Contáctanos para hacer un upgrade.
+        </div>
+      )}
 
       <div className="space-y-2">
         {perfiles.length === 0

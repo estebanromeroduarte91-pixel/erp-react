@@ -5,10 +5,11 @@ import { DominioTab } from './DominioTab'
 import { CargosTab } from './CargosTab'
 import { AccesosTab } from './AccesosTab'
 import { NotificacionesTab } from './NotificacionesTab'
+import { SuscripcionTab } from './SuscripcionTab'
 
-type Tab = 'dominio' | 'smtp' | 'cargos' | 'accesos' | 'notificaciones'
+type Tab = 'dominio' | 'smtp' | 'cargos' | 'accesos' | 'notificaciones' | 'suscripcion'
 
-const TABS_VALIDOS: Tab[] = ['dominio', 'smtp', 'cargos', 'accesos', 'notificaciones']
+const TABS_VALIDOS: Tab[] = ['dominio', 'smtp', 'cargos', 'accesos', 'notificaciones', 'suscripcion']
 function resolveConfigTab(param: string | null): Tab {
   return TABS_VALIDOS.includes(param as Tab) ? (param as Tab) : 'dominio'
 }
@@ -25,6 +26,7 @@ export function ConfigPage() {
     { key: 'cargos',  label: 'Cargos',  adminOnly: true },
     { key: 'accesos', label: 'Accesos', adminOnly: true },
     { key: 'notificaciones', label: 'Notificaciones', adminOnly: true },
+    { key: 'suscripcion', label: 'Mi Plan', adminOnly: true },
   ]
   const tabs = allTabs.filter(t => !t.adminOnly || esAdmin)
 
@@ -49,6 +51,7 @@ export function ConfigPage() {
       {tab === 'cargos'  && esAdmin  && <CargosTab />}
       {tab === 'accesos' && esAdmin  && <AccesosTab />}
       {tab === 'notificaciones' && esAdmin && <NotificacionesTab />}
+      {tab === 'suscripcion' && esAdmin && <SuscripcionTab />}
     </div>
   )
 }

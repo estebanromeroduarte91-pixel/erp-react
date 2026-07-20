@@ -1871,3 +1871,4 @@ export function useActualizarEmpresaAdmin() {
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['pixit_admin_empresas'] }),
   })
 }
+export * from './queries/usePlanLimits'
