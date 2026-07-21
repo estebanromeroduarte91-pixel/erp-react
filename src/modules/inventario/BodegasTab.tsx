@@ -20,6 +20,22 @@ function bloquesDesdeHorario(h: Bodega['horario']): BloqueEditor[] {
   return [bloqueVacio()]
 }
 
+// Input de hora en texto libre (formato 24h, ej. "19:00") — se reemplaza el
+// <input type="time"> nativo porque su formato AM/PM lo decide el navegador/SO
+// y no se puede forzar de forma confiable con lang/atributos HTML.
+function filtrarHora(v: string): string {
+  return v.replace(/[^\d:]/g, '').slice(0, 5)
+}
+function normalizarHora(v: string): string {
+  const digits = v.replace(/\D/g, '')
+  if (!digits) return ''
+  let hh = digits.slice(0, 2)
+  let mm = digits.slice(2, 4).padEnd(2, '0')
+  if (parseInt(hh, 10) > 23) hh = '23'
+  if (parseInt(mm, 10) > 59) mm = '59'
+  return `${hh.padStart(2, '0')}:${mm}`
+}
+
 const ALL_DIAS = ['lun', 'mar', 'mie', 'jue', 'vie', 'sab', 'dom']
 const LBL_DIAS: Record<string, string> = { lun: 'Lun', mar: 'Mar', mie: 'Mié', jue: 'Jue', vie: 'Vie', sab: 'Sáb', dom: 'Dom' }
 
@@ -277,10 +293,16 @@ export function BodegasTab() {
                         })}
                       </div>
                       <div className="flex items-center gap-2">
-                        <input type="time" lang="en-GB" value={b.desde ?? ''} onChange={e => setBloque(b.id, { desde: e.target.value })}
+                        <input type="text" inputMode="numeric" placeholder="09:00" maxLength={5}
+                          value={b.desde ?? ''}
+                          onChange={e => setBloque(b.id, { desde: filtrarHora(e.target.value) })}
+                          onBlur={e => setBloque(b.id, { desde: normalizarHora(e.target.value) })}
                           className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-none focus:border-blue-400" />
                         <span className="text-gray-400 text-xs">a</span>
-                        <input type="time" lang="en-GB" value={b.hasta ?? ''} onChange={e => setBloque(b.id, { hasta: e.target.value })}
+                        <input type="text" inputMode="numeric" placeholder="19:00" maxLength={5}
+                          value={b.hasta ?? ''}
+                          onChange={e => setBloque(b.id, { hasta: filtrarHora(e.target.value) })}
+                          onBlur={e => setBloque(b.id, { hasta: normalizarHora(e.target.value) })}
                           className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-none focus:border-blue-400" />
                         {modal.form.bloques.length > 1 && (
                           <button type="button" onClick={() => quitarBloque(b.id)}
