@@ -10,7 +10,7 @@ import { diasHabilesEnRango, diasAcumulados } from '@/lib/vacaciones'
 import type { UserConfig, FichaUsuario, RegistroVacaciones, RegistroInasistencia } from '@/types'
 
 const ROLES_LABEL: Record<string, string> = {
-  admin: 'Super-admin', encargado: 'Encargado', tecnico: 'Técnico', vendedor: 'Vendedor',
+  admin: 'Administrador', encargado: 'Encargado', tecnico: 'Técnico', vendedor: 'Vendedor',
 }
 const APP_BASE_URL = window.location.origin + window.location.pathname
 
@@ -70,7 +70,7 @@ function PerfilTab({ userId, nombre, currentRole, onClose }: {
         <label className="text-xs font-semibold text-gray-600 block mb-1">Cargo</label>
         <select value={cargoId} onChange={e => setCargoId(e.target.value)}
           className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
-          <option value="__admin">Super-admin (acceso total)</option>
+          <option value="__admin">Administrador (acceso total)</option>
           {cargos.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
         </select>
       </div>
@@ -459,7 +459,7 @@ function InviteModal({ onClose }: { onClose: () => void }) {
             <label className="text-xs font-semibold text-gray-600 block mb-1">Cargo</label>
             <select value={cargoId} onChange={e => setCargoId(e.target.value)}
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
-              <option value="__superadmin">Super-admin (acceso total)</option>
+              <option value="__superadmin">Administrador (acceso total)</option>
               {cargos.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
             </select>
           </div>
@@ -563,7 +563,7 @@ export function AccesosTab() {
               const uCfg = uMap[p.id] ?? {}
               const cargo = cargos.find(c => c.id === uCfg.cargoId)
               const branch = bodegas.find(b => b.id === uCfg.branchId)
-              const rolLabel = p.role === 'admin' ? 'Super-admin' : (cargo?.nombre ?? ROLES_LABEL[p.role] ?? p.role)
+              const rolLabel = p.role === 'admin' ? 'Administrador' : (cargo?.nombre ?? ROLES_LABEL[p.role] ?? p.role)
               const branchLabel = p.role === 'admin' && !branch ? 'Global' : (branch ? (branch.nombre ?? branch.name) : 'Sin sucursal')
 
               return (
