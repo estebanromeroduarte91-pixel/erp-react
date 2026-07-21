@@ -19,7 +19,6 @@ type ImportRowCliente = {
   rut: string | null
   tel: string | null
   email: string | null
-  direccion: string | null
 }
 
 function parseExcelClientes(file: File): Promise<ImportRowCliente[]> {
@@ -45,7 +44,6 @@ function parseExcelClientes(file: File): Promise<ImportRowCliente[]> {
           rut:       findOpt(row, 'rut'),
           tel:       findOpt(row, 'telefono', 'teléfono', 'fono', 'phone', 'celular'),
           email:     findOpt(row, 'email', 'correo', 'mail'),
-          direccion: findOpt(row, 'direccion', 'dirección', 'address'),
         })).filter(r => r.nombre)
         resolve(rows)
       } catch (err) { reject(err) }
@@ -56,10 +54,10 @@ function parseExcelClientes(file: File): Promise<ImportRowCliente[]> {
 }
 
 function descargarPlantillaClientes() {
-  const headers = ['Nombre', 'Apellido', 'RUT', 'Teléfono', 'Email', 'Dirección']
+  const headers = ['Nombre', 'Apellido', 'RUT', 'Teléfono', 'Email']
   const ejemplo = {
     Nombre: 'Juan', Apellido: 'Pérez', RUT: '12.345.678-9',
-    Teléfono: '+56 9 1234 5678', Email: 'juan@ejemplo.com', Dirección: 'Av. Ejemplo 123',
+    Teléfono: '+56 9 1234 5678', Email: 'juan@ejemplo.com',
   }
   const ws = XLSX.utils.json_to_sheet([ejemplo], { header: headers })
   const wb = XLSX.utils.book_new()
@@ -151,7 +149,7 @@ export function ClientesTab() {
           rut: r.rut ?? existente?.rut,
           tel: r.tel ?? existente?.tel,
           email: r.email ?? existente?.email,
-          direccion: r.direccion ?? existente?.direccion,
+          direccion: existente?.direccion,
           fecha_creacion: existente?.fecha_creacion ?? new Date().toISOString(),
         }
       })
@@ -328,7 +326,7 @@ export function ClientesTab() {
                 <p className="text-xs text-gray-400 mt-0.5">
                   {importRows.length > 0
                     ? `${importRows.length} clientes listos para importar`
-                    : 'Columnas: Nombre, Apellido, RUT, Teléfono, Email, Dirección'}
+                    : 'Columnas: Nombre, Apellido, RUT, Teléfono, Email'}
                 </p>
                 {importRows.length === 0 && (
                   <button onClick={descargarPlantillaClientes}
