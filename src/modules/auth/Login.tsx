@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { dbGet, dbSet } from '@/lib/db'
+import { TIER_LIMITS } from '@/lib/queries/usePlanLimits'
 
 const INVITE_TOKEN = new URLSearchParams(window.location.search).get('invite')
 
@@ -72,10 +73,14 @@ export function Login() {
     if (err) { setCargando(false); setError(_tradError(err.message)); return }
     if (!data.session) { setCargando(false); setConfirmarEmail(true); return }
     const trialTermina = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
-    const { error: empErr } = await supabase.from('empresas').insert({
+    const { data: empData, error: empErr } = await supabase.from('empresas').insert({
       nombre: empresaNombre.trim(), owner_id: data.user!.id, plan_estado: 'trial', trial_termina: trialTermina,
-    })
+    }).select('id').single()
     if (empErr) { setCargando(false); setError('Error: ' + empErr.message); return }
+    // Durante el trial el acceso ya es 100% sin importar el tier (ver usePuedeUsarModulo),
+    // pero se deja el plan cargado en Scale para que al vencer el trial sin upgrade
+    // la empresa quede en el tier más alto en vez de caer al default Starter.
+    await dbSet(empData.id, 'plan_limits', { tier: 'scale', ...TIER_LIMITS.scale })
     // Fuerza que el AuthProvider vuelva a arrancar y encuentre la empresa recién creada
     // (evita una carrera con el listener de auth, que puede disparar antes de este insert).
     window.location.reload()

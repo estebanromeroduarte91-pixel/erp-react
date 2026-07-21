@@ -16,6 +16,27 @@ export const DEFAULT_PLAN_LIMITS: PlanLimits = {
   max_sucursales: 1
 }
 
+// Límites de cada tier — única fuente de verdad usada tanto al activar un plan
+// pagado (Panel Pixit) como al asignar el plan del trial (Login.tsx, Scale).
+export const TIER_LIMITS: Record<PlanTier, { max_usuarios: number; max_sucursales: number }> = {
+  starter: { max_usuarios: 1, max_sucursales: 1 },
+  pro: { max_usuarios: 5, max_sucursales: 3 },
+  scale: { max_usuarios: 999, max_sucursales: 999 },
+}
+
+export const TIER_ORDER: PlanTier[] = ['starter', 'pro', 'scale']
+
+// Nombre visible de cada módulo, para listar en pantalla qué incluye/pierde cada tier.
+export const MODULO_LABELS: Record<string, string> = {
+  taller: 'Órdenes de taller',
+  pos: 'Ventas / POS',
+  estadisticas: 'Estadísticas',
+  mensajes: 'Mensajes y notificaciones',
+  accesos: 'Gestión de accesos y cargos',
+  gastos: 'Gastos',
+  compras: 'Compras (órdenes de compra)',
+}
+
 // Módulos habilitados por tier. 'pro' y 'scale' heredan todo lo de abajo —
 // hoy no hay diferencia de módulos entre pro y scale (Scale solo escala los
 // límites de cantidad); "traslados" y "seguimiento_postventa" no están en esta

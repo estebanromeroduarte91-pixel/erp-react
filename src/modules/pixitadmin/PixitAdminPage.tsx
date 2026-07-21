@@ -2,6 +2,9 @@ import { useState, useMemo } from 'react'
 import { usePlatformEmpresas, useActualizarEmpresaAdmin, type EmpresaAdmin } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { Spinner } from '@/components/shared/Spinner'
+import { useUpdatePlanLimits, TIER_LIMITS, TIER_ORDER, type PlanTier } from '@/lib/queries/usePlanLimits'
+
+const TIER_NOMBRE: Record<PlanTier, string> = { starter: 'Starter', pro: 'Pro', scale: 'Scale' }
 
 function fmtFecha(f: string | null) {
   if (!f) return '—'
@@ -35,8 +38,10 @@ function EstadoPill({ e }: { e: EmpresaAdmin }) {
 export function PixitAdminPage() {
   const { data: empresas, isLoading } = usePlatformEmpresas()
   const actualizar = useActualizarEmpresaAdmin()
+  const actualizarLimits = useUpdatePlanLimits()
   const { startImpersonation } = useAuth()
   const [busqueda, setBusqueda] = useState('')
+  const [tierPorActivar, setTierPorActivar] = useState<Record<string, PlanTier>>({})
 
   const lista = useMemo(() => {
     if (!busqueda.trim()) return empresas ?? []
@@ -62,6 +67,13 @@ export function PixitAdminPage() {
       : `¿Reactivar el acceso de "${e.nombre}"?`
     if (!confirm(msg)) return
     await actualizar.mutateAsync({ id: e.id, plan_estado: suspender ? 'suspendida' : 'activo' })
+  }
+
+  async function activarPlan(e: EmpresaAdmin) {
+    const tier = tierPorActivar[e.id] ?? 'starter'
+    if (!confirm(`¿Activar el plan ${TIER_NOMBRE[tier]} para "${e.nombre}"? Debes haber confirmado el pago antes de hacer esto.`)) return
+    await actualizarLimits.mutateAsync({ empresaId: e.id, limits: { tier, ...TIER_LIMITS[tier] } })
+    await actualizar.mutateAsync({ id: e.id, plan_estado: 'activo' })
   }
 
   if (isLoading) return <div className="flex justify-center py-16"><Spinner className="w-8 h-8" /></div>
@@ -126,6 +138,20 @@ export function PixitAdminPage() {
                 <td className="px-4 py-3 text-gray-500">{fmtFecha(e.creado_en)}</td>
                 <td className="px-4 py-3 text-right">
                   <div className="flex items-center justify-end gap-2">
+                    <select
+                      value={tierPorActivar[e.id] ?? 'starter'}
+                      onChange={ev => setTierPorActivar(t => ({ ...t, [e.id]: ev.target.value as PlanTier }))}
+                      className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white text-gray-600 opacity-0 group-hover:opacity-100"
+                    >
+                      {TIER_ORDER.map(tier => <option key={tier} value={tier}>{TIER_NOMBRE[tier]}</option>)}
+                    </select>
+                    <button
+                      onClick={() => activarPlan(e)}
+                      disabled={actualizarLimits.isPending || actualizar.isPending}
+                      className="px-3 py-1.5 text-xs font-semibold text-green-700 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 transition disabled:opacity-50 opacity-0 group-hover:opacity-100"
+                    >
+                      Activar plan
+                    </button>
                     <button
                       onClick={() => startImpersonation(e.id, e.nombre)}
                       className="px-3 py-1.5 text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 transition flex items-center gap-1 opacity-0 group-hover:opacity-100"
