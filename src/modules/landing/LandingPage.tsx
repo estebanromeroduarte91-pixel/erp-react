@@ -57,11 +57,11 @@ export function LandingPage() {
           <a href="#features" className="hover:text-blue-600 transition">Características</a>
           <a href="#pricing" className="hover:text-blue-600 transition">Precios</a>
         </nav>
-        <div className="flex items-center gap-4">
-          <Link to="/login" className="text-sm font-semibold text-slate-600 hover:text-blue-600 transition hidden sm:block">
+        <div className="flex items-center gap-3 sm:gap-4">
+          <Link to="/login" className="text-sm font-semibold text-slate-600 hover:text-blue-600 transition">
             Iniciar Sesión
           </Link>
-          <Link to="/login" className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-full text-sm font-bold transition shadow-lg shadow-blue-600/30">
+          <Link to="/login" className="bg-blue-600 hover:bg-blue-700 text-white px-4 sm:px-5 py-2 sm:py-2.5 rounded-full text-sm font-bold transition shadow-lg shadow-blue-600/30">
             Prueba Gratis
           </Link>
         </div>
