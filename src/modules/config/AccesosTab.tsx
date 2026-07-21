@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import {
-  useUserProfiles, useToggleUsuarioActivo, useUserCargoMap, useGuardarUserConfig,
+  useUserProfiles, useToggleUsuarioActivo, useEliminarUsuario, useUserCargoMap, useGuardarUserConfig,
   usePendingInvites, useCrearInvitacion, useCancelarInvitacion, useCargos, useBodegas,
   useActualizarNombreUsuario, useFichaUsuario, useGuardarFichaUsuario, usePlanLimits,
 } from '@/lib/queries'
@@ -524,7 +524,13 @@ export function AccesosTab() {
   const { data: bodegas = [] } = useBodegas()
   const { data: uMap = {} } = useUserCargoMap()
   const toggleActivo = useToggleUsuarioActivo()
+  const eliminarUsuario = useEliminarUsuario()
   const cancelarInvite = useCancelarInvitacion()
+
+  function handleEliminar(id: string, nombre: string) {
+    if (!confirm(`¿Eliminar a "${nombre}" del sistema? No podrá volver a operar en esta empresa. Esta acción no se puede deshacer.`)) return
+    eliminarUsuario.mutate(id)
+  }
 
   const { data: limits } = usePlanLimits()
 
@@ -600,6 +606,12 @@ export function AccesosTab() {
                           className="px-3 py-1 text-xs border border-gray-200 rounded-lg text-gray-500 hover:bg-gray-100 transition">
                           Editar
                         </button>
+                        {!p.activo && (
+                          <button onClick={() => handleEliminar(p.id, p.nombre)}
+                            className="px-3 py-1 text-xs border border-red-200 rounded-lg text-red-500 hover:bg-red-50 transition">
+                            Eliminar
+                          </button>
+                        )}
                       </>
                     ) : (
                       <span className="text-xs text-gray-400 px-1">(tú)</span>

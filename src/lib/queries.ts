@@ -1957,6 +1957,22 @@ export function useToggleUsuarioActivo() {
   })
 }
 
+// Elimina el perfil de un usuario (no la cuenta de Supabase Auth en sí, para eso
+// hace falta la Admin API con service_role). Sin fila en user_profiles, esa
+// cuenta ya no tiene empresa asociada al iniciar sesión — queda efectivamente
+// sin poder operar en el ERP, a diferencia de "activo" que hoy no bloquea nada.
+export function useEliminarUsuario() {
+  const qc = useQueryClient()
+  const { empresaId } = useAuth()
+  return useMutation({
+    mutationFn: async (userId: string) => {
+      const { error } = await supabase.from('user_profiles').delete().eq('id', userId)
+      if (error) throw error
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['user_profiles', empresaId] }),
+  })
+}
+
 export function useActualizarNombreUsuario() {
   const qc = useQueryClient()
   const { empresaId } = useAuth()
