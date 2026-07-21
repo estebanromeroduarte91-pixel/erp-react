@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react'
 import { useLocation, useSearchParams } from 'react-router-dom'
 import { KitsTab } from './KitsTab'
 import { useAuth } from '@/context/AuthContext'
@@ -169,7 +169,7 @@ function ProveedorCombo({
 
 // ─── Row de producto en modal Nueva OC ───────────────────────
 
-function ItemRow({
+const ItemRow = memo(function ItemRow({
   item, bodegas, productos, onUpdate, onRemove,
 }: {
   item: OCItem
@@ -180,9 +180,11 @@ function ItemRow({
 }) {
   const [q, setQ] = useState(item.producto_nombre)
   const { anchorRef, open, setOpen, openMenu, rect } = useAnchoredMenu()
-  const results = q.length
-    ? productos.filter(p => p.nombre.toLowerCase().includes(q.toLowerCase())).slice(0, 10)
-    : productos.slice(0, 10)
+  const results = useMemo(() => {
+    return q.length
+      ? productos.filter(p => p.nombre.toLowerCase().includes(q.toLowerCase())).slice(0, 10)
+      : productos.slice(0, 10)
+  }, [q, productos])
 
   function selectProd(p: Producto) {
     const pn = p.precio_compra ?? 0
@@ -282,7 +284,7 @@ function ItemRow({
       </td>
     </tr>
   )
-}
+})
 
 function newItem(): OCItem {
   return { id: uid(), producto_id: '', producto_nombre: '', cantidad: 1, precio_neto: 0, precio_iva: 0, precio_unitario: 0, subtotal: 0, bodega_id: '', bodega_nombre: '' }
@@ -390,9 +392,13 @@ function ModalNuevaOC({
 
   const total = items.reduce((s, i) => s + i.subtotal, 0)
 
-  function updateItem(id: string, patch: Partial<OCItem>) {
+  const updateItem = useCallback((id: string, patch: Partial<OCItem>) => {
     setItems(prev => prev.map(it => it.id === id ? { ...it, ...patch } : it))
-  }
+  }, [])
+
+  const removeItem = useCallback((id: string) => {
+    setItems(prev => prev.filter(i => i.id !== id))
+  }, [])
 
   function applyBodegaDef(bodId: string, bodNombre: string) {
     setBodegaDef({ id: bodId, nombre: bodNombre })
@@ -489,7 +495,7 @@ function ModalNuevaOC({
               <tbody>
                 {items.map(it => (
                   <ItemRow key={it.id} item={it} bodegas={bodegas} productos={productos}
-                    onUpdate={updateItem} onRemove={id => setItems(prev => prev.filter(i => i.id !== id))} />
+                    onUpdate={updateItem} onRemove={removeItem} />
                 ))}
               </tbody>
             </table>
