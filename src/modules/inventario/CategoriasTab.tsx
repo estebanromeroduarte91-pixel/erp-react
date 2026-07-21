@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useCategorias, useGuardarCategorias, useProductos } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import type { Categoria } from '@/types'
@@ -98,32 +98,41 @@ function categoriasDesdeProductos(productos: { categoria?: string; subcategoria?
   }))
 }
 
+type CategoriaVista = Categoria & { derivada?: boolean }
+
+// Combina las categorías curadas (guardadas explícitamente) con las que ya
+// tienen los productos cargados — así la lista siempre refleja lo que existe,
+// sin que el usuario tenga que "importarlas" a mano para que aparezcan.
+function combinarCategorias(categorias: Categoria[], productos: { categoria?: string; subcategoria?: string }[]): CategoriaVista[] {
+  const porNombre = new Map<string, CategoriaVista>()
+  for (const c of categorias) porNombre.set(c.nombre.toLowerCase(), { ...c })
+  for (const d of categoriasDesdeProductos(productos)) {
+    const key = d.nombre.toLowerCase()
+    const existente = porNombre.get(key)
+    if (existente) {
+      const subs = new Set([...(existente.subcategorias ?? []), ...(d.subcategorias ?? [])])
+      existente.subcategorias = [...subs].sort()
+    } else {
+      porNombre.set(key, { ...d, derivada: true })
+    }
+  }
+  return [...porNombre.values()].sort((a, b) => a.nombre.localeCompare(b.nombre))
+}
+
 export function CategoriasTab() {
   const { data: categorias = [], isLoading } = useCategorias()
   const { data: productos = [] } = useProductos()
   const guardar = useGuardarCategorias()
   const { esAdmin } = useAuth()
   const [modal, setModal] = useState<{ open: false } | { open: true; cat?: Categoria }>({ open: false })
-  const [importando, setImportando] = useState(false)
+
+  const categoriasVista = useMemo(() => combinarCategorias(categorias, productos), [categorias, productos])
 
   async function handleSave(cat: Categoria) {
     const existe = categorias.find(c => c.id === cat.id)
     const updated = existe ? categorias.map(c => c.id === cat.id ? cat : c) : [...categorias, cat]
     await guardar.mutateAsync(updated)
     setModal({ open: false })
-  }
-
-  async function handleImportar() {
-    const derivadas = categoriasDesdeProductos(productos)
-    if (!derivadas.length) return
-    setImportando(true)
-    try {
-      const existentesPorNombre = new Set(categorias.map(c => c.nombre.toLowerCase()))
-      const nuevas = derivadas.filter(c => !existentesPorNombre.has(c.nombre.toLowerCase()))
-      if (nuevas.length) await guardar.mutateAsync([...categorias, ...nuevas])
-    } finally {
-      setImportando(false)
-    }
   }
 
   async function handleDelete(id: string) {
@@ -138,13 +147,8 @@ export function CategoriasTab() {
   return (
     <div>
       <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
-        <p className="text-sm text-gray-500">{categorias.length} categoría{categorias.length !== 1 ? 's' : ''}</p>
+        <p className="text-sm text-gray-500">{categoriasVista.length} categoría{categoriasVista.length !== 1 ? 's' : ''}</p>
         <div className="flex gap-2">
-          <button onClick={handleImportar} disabled={importando || !productos.length}
-            title="Crea una categoría por cada valor distinto que ya tengan tus productos"
-            className="inline-flex items-center gap-2 bg-white border border-gray-200 text-gray-700 text-sm font-semibold px-4 py-2 rounded-lg hover:bg-gray-50 transition disabled:opacity-50">
-            {importando ? 'Importando…' : 'Importar desde productos'}
-          </button>
           <button onClick={() => setModal({ open: true })}
             className="inline-flex items-center gap-2 bg-blue-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 transition">
             + Nueva categoría
@@ -152,7 +156,7 @@ export function CategoriasTab() {
         </div>
       </div>
 
-      {categorias.length === 0 ? (
+      {categoriasVista.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-200 py-16 text-center">
           <svg className="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M7 7h.01M7 3h5a2 2 0 011.414.586l7 7a2 2 0 010 2.828l-5 5a2 2 0 01-2.828 0l-7-7A2 2 0 013 11V6a3 3 0 013-3z" />
@@ -162,7 +166,7 @@ export function CategoriasTab() {
         </div>
       ) : (
         <div className="grid gap-3">
-          {categorias.map(cat => (
+          {categoriasVista.map(cat => (
             <div key={cat.id} className="bg-white rounded-xl border border-gray-200 p-4 flex items-start gap-4">
               <div style={{ width: 40, height: 40, borderRadius: 10, background: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <svg style={{ width: 18, height: 18, color: 'var(--primary)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -170,7 +174,14 @@ export function CategoriasTab() {
                 </svg>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-semibold text-gray-800">{cat.nombre}</p>
+                <p className="font-semibold text-gray-800 flex items-center gap-2">
+                  {cat.nombre}
+                  {cat.derivada && (
+                    <span className="text-[10px] font-semibold text-gray-400 bg-gray-100 rounded-full px-2 py-0.5" title="Detectada automáticamente desde tus productos">
+                      auto
+                    </span>
+                  )}
+                </p>
                 {(cat.subcategorias ?? []).length > 0 && (
                   <div className="flex flex-wrap gap-1.5 mt-2">
                     {cat.subcategorias!.map(s => (
@@ -184,7 +195,7 @@ export function CategoriasTab() {
                   className="text-xs text-blue-600 hover:underline font-medium">
                   Editar
                 </button>
-                {esAdmin && (
+                {esAdmin && !cat.derivada && (
                   <button onClick={() => handleDelete(cat.id)}
                     className="text-xs text-red-500 hover:underline font-medium">
                     Eliminar
