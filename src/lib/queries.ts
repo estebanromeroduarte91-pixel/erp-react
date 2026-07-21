@@ -881,6 +881,53 @@ function filasVentaItems(v: Venta, empresaId: string) {
 
 export function useVentas() {
   const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  const instanceId = useId()
+
+  // Realtime: los eventos de postgres_changes solo traen la fila de `ventas`,
+  // sin el join a `venta_items` — a diferencia de Órdenes, no alcanza con
+  // hidratar el payload directo. En vez de invalidar y redescargar toda la
+  // tabla (con su join) por cada venta de cualquier usuario, se busca solo
+  // esa fila puntual (con join) y se inyecta en la caché.
+  useEffect(() => {
+    if (!empresaId) return
+    const channel = supabase
+      .channel(`rt-ventas-${empresaId}-${instanceId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'ventas', filter: `empresa_id=eq.${empresaId}` },
+        (payload) => {
+          if (payload.eventType === 'DELETE') {
+            const oldId = (payload.old as { id?: string }).id
+            if (!oldId) return
+            qc.setQueryData<Venta[]>(['ventas', empresaId], (old = []) => old.filter((v) => v.id !== oldId))
+            return
+          }
+          const id = (payload.new as { id: string }).id
+          void supabase
+            .from('ventas')
+            .select(VENTA_COLS)
+            .eq('id', id)
+            .single()
+            .then(({ data, error }) => {
+              if (error || !data) return
+              const venta = hidratarVenta(data)
+              qc.setQueryData<Venta[]>(['ventas', empresaId], (old = []) => {
+                const idx = old.findIndex((v) => v.id === venta.id)
+                if (idx >= 0) {
+                  const copy = [...old]
+                  copy[idx] = venta
+                  return copy
+                }
+                return [venta, ...old]
+              })
+            })
+        },
+      )
+      .subscribe()
+    return () => { void supabase.removeChannel(channel) }
+  }, [empresaId, qc, instanceId])
+
   return useQuery({
     queryKey: ['ventas', empresaId],
     queryFn: async () => {
@@ -917,7 +964,15 @@ export function useGuardarVenta() {
         if (e2) throw e2
       }
     },
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ['ventas', empresaId] }),
+    // Update optimista: la venta aparece al instante sin esperar el refetch
+    // paginado. El eco de Realtime (arriba) reconcilia con el servidor después.
+    onMutate: async (v: Venta) => {
+      await qc.cancelQueries({ queryKey: ['ventas', empresaId] })
+      const prev = qc.getQueryData<Venta[]>(['ventas', empresaId])
+      qc.setQueryData<Venta[]>(['ventas', empresaId], (old = []) => [v, ...old])
+      return { prev }
+    },
+    onError: (_e, _v, ctx) => { if (ctx?.prev) qc.setQueryData(['ventas', empresaId], ctx.prev) },
   })
 }
 
@@ -931,7 +986,14 @@ export function useAnularVenta() {
       const { error } = await supabase.from('ventas').update({ estado: 'anulada' }).eq('id', id).eq('empresa_id', empresaId!)
       if (error) throw error
     },
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ['ventas', empresaId] }),
+    onMutate: async (id: string) => {
+      await qc.cancelQueries({ queryKey: ['ventas', empresaId] })
+      const prev = qc.getQueryData<Venta[]>(['ventas', empresaId])
+      qc.setQueryData<Venta[]>(['ventas', empresaId], (old = []) =>
+        old.map((v) => (v.id === id ? { ...v, estado: 'anulada' } : v)))
+      return { prev }
+    },
+    onError: (_e, _id, ctx) => { if (ctx?.prev) qc.setQueryData(['ventas', empresaId], ctx.prev) },
   })
 }
 
