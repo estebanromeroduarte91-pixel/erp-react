@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useCategorias, useGuardarCategorias } from '@/lib/queries'
+import { useCategorias, useGuardarCategorias, useProductos } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import type { Categoria } from '@/types'
 
@@ -82,17 +82,48 @@ function ModalCategoria({
   )
 }
 
+// Deriva categorías+subcategorías a partir de los productos ya cargados (ej. de
+// una importación masiva por Excel) — evita tener que volver a tipearlas a mano.
+function categoriasDesdeProductos(productos: { categoria?: string; subcategoria?: string }[]): Categoria[] {
+  const map = new Map<string, Set<string>>()
+  for (const p of productos) {
+    const nombre = p.categoria?.trim()
+    if (!nombre) continue
+    if (!map.has(nombre)) map.set(nombre, new Set())
+    const sub = p.subcategoria?.trim()
+    if (sub) map.get(nombre)!.add(sub)
+  }
+  return [...map.entries()].map(([nombre, subs]) => ({
+    id: uid(), nombre, subcategorias: [...subs].sort(),
+  }))
+}
+
 export function CategoriasTab() {
   const { data: categorias = [], isLoading } = useCategorias()
+  const { data: productos = [] } = useProductos()
   const guardar = useGuardarCategorias()
   const { esAdmin } = useAuth()
   const [modal, setModal] = useState<{ open: false } | { open: true; cat?: Categoria }>({ open: false })
+  const [importando, setImportando] = useState(false)
 
   async function handleSave(cat: Categoria) {
     const existe = categorias.find(c => c.id === cat.id)
     const updated = existe ? categorias.map(c => c.id === cat.id ? cat : c) : [...categorias, cat]
     await guardar.mutateAsync(updated)
     setModal({ open: false })
+  }
+
+  async function handleImportar() {
+    const derivadas = categoriasDesdeProductos(productos)
+    if (!derivadas.length) return
+    setImportando(true)
+    try {
+      const existentesPorNombre = new Set(categorias.map(c => c.nombre.toLowerCase()))
+      const nuevas = derivadas.filter(c => !existentesPorNombre.has(c.nombre.toLowerCase()))
+      if (nuevas.length) await guardar.mutateAsync([...categorias, ...nuevas])
+    } finally {
+      setImportando(false)
+    }
   }
 
   async function handleDelete(id: string) {
@@ -106,12 +137,19 @@ export function CategoriasTab() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
         <p className="text-sm text-gray-500">{categorias.length} categoría{categorias.length !== 1 ? 's' : ''}</p>
-        <button onClick={() => setModal({ open: true })}
-          className="inline-flex items-center gap-2 bg-blue-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 transition">
-          + Nueva categoría
-        </button>
+        <div className="flex gap-2">
+          <button onClick={handleImportar} disabled={importando || !productos.length}
+            title="Crea una categoría por cada valor distinto que ya tengan tus productos"
+            className="inline-flex items-center gap-2 bg-white border border-gray-200 text-gray-700 text-sm font-semibold px-4 py-2 rounded-lg hover:bg-gray-50 transition disabled:opacity-50">
+            {importando ? 'Importando…' : 'Importar desde productos'}
+          </button>
+          <button onClick={() => setModal({ open: true })}
+            className="inline-flex items-center gap-2 bg-blue-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 transition">
+            + Nueva categoría
+          </button>
+        </div>
       </div>
 
       {categorias.length === 0 ? (
