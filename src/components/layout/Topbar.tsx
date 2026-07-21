@@ -3,7 +3,7 @@ import { useAuth } from '@/context/AuthContext'
 import { CambiarPasswordModal } from '@/components/shared/CambiarPasswordModal'
 
 export function Topbar() {
-  const { logout } = useAuth()
+  const { logout, impersonatedEmpresaId, impersonatedEmpresaNombre, stopImpersonation } = useAuth()
   const [pwOpen, setPwOpen] = useState(false)
 
   return (
@@ -15,6 +15,29 @@ export function Topbar() {
       display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
     }}>
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        {impersonatedEmpresaId && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8, 
+            background: 'var(--amber-50, #fffbeb)', border: '1px solid var(--amber-200, #fde68a)', 
+            padding: '4px 12px', borderRadius: 8, marginRight: 16
+          }}>
+            <span style={{width: 8, height: 8, borderRadius: '50%', background: '#f59e0b', animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite'}}></span>
+            <span style={{fontSize: 13, fontWeight: 500, color: '#92400e'}}>
+              Viendo: <strong style={{fontWeight: 700}}>{impersonatedEmpresaNombre}</strong>
+            </span>
+            <button
+              onClick={stopImpersonation}
+              style={{
+                marginLeft: 8, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5,
+                color: '#b45309', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4
+              }}
+              onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = '#78350f'}
+              onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = '#b45309'}
+            >
+              Salir <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+          </div>
+        )}
         <button
           onClick={() => setPwOpen(true)}
           title="Cambiar contraseña"

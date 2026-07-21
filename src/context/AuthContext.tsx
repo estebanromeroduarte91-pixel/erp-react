@@ -16,6 +16,8 @@ interface AuthState {
   cargando: boolean
   planEstado: string | null   // 'trial' | 'activo' | 'vencido' | null (empresas antiguas, sin restricción)
   trialTermina: string | null // ISO date; solo aplica si planEstado === 'trial'
+  impersonatedEmpresaId: string | null
+  impersonatedEmpresaNombre: string | null
 }
 
 interface AuthContextValue extends AuthState {
@@ -27,6 +29,9 @@ interface AuthContextValue extends AuthState {
   login: (email: string, password: string) => Promise<string | null>
   logout: () => Promise<void>
   clearRecovery: () => void
+  startImpersonation: (id: string, nombre: string) => void
+  stopImpersonation: () => void
+  realEmpresaId: string | null
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -42,6 +47,8 @@ const ESTADO_INICIAL: AuthState = {
   cargando: true,
   planEstado: null,
   trialTermina: null,
+  impersonatedEmpresaId: null,
+  impersonatedEmpresaNombre: null,
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -72,6 +79,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const cargoId = uCfg?.cargoId || (roleRaw !== 'admin' ? roleRaw : null)
       const rol = cargoId === 'encargado' ? 'encargado' : roleRaw
       const branchId = (roleRaw === 'admin' && !uCfg?.branchId) ? null : (uCfg?.branchId || null)
+      const savedImpersonatedId = sessionStorage.getItem('pixit_impersonated_id')
+      const savedImpersonatedNombre = sessionStorage.getItem('pixit_impersonated_nombre')
+
       setEstado({
         session,
         empresaId: perfil.empresa_id,
@@ -83,6 +93,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         cargando: false,
         planEstado: emp?.plan_estado ?? null,
         trialTermina: emp?.trial_termina ?? null,
+        impersonatedEmpresaId: savedImpersonatedId,
+        impersonatedEmpresaNombre: savedImpersonatedNombre,
       })
     } else {
       // Flujo de propietario: la empresa se busca por owner_id
@@ -99,6 +111,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           { onConflict: 'id', ignoreDuplicates: true },
         )
       }
+      
+      const savedImpersonatedId = sessionStorage.getItem('pixit_impersonated_id')
+      const savedImpersonatedNombre = sessionStorage.getItem('pixit_impersonated_nombre')
+
       setEstado({
         session,
         empresaId: emp?.id || null,
@@ -110,6 +126,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         cargando: false,
         planEstado: emp?.plan_estado ?? null,
         trialTermina: emp?.trial_termina ?? null,
+        impersonatedEmpresaId: savedImpersonatedId,
+        impersonatedEmpresaNombre: savedImpersonatedNombre,
       })
     }
   }
@@ -146,11 +164,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setRecoveryMode(false)
   }
 
+  function startImpersonation(id: string, nombre: string) {
+    if (!esPlatformAdmin) return
+    sessionStorage.setItem('pixit_impersonated_id', id)
+    sessionStorage.setItem('pixit_impersonated_nombre', nombre)
+    setEstado((prev) => ({ ...prev, impersonatedEmpresaId: id, impersonatedEmpresaNombre: nombre }))
+    window.location.href = '/' // Force a full reload to reset react-query cache and UI state
+  }
+
+  function stopImpersonation() {
+    sessionStorage.removeItem('pixit_impersonated_id')
+    sessionStorage.removeItem('pixit_impersonated_nombre')
+    setEstado((prev) => ({ ...prev, impersonatedEmpresaId: null, impersonatedEmpresaNombre: null }))
+    window.location.href = '/pixit-admin'
+  }
+
   const esAdmin = estado.rol === 'admin'
   const trialExpirado = estado.planEstado === 'trial' && !!estado.trialTermina && new Date(estado.trialTermina) < new Date()
   const cuentaSuspendida = estado.planEstado === 'suspendida'
 
-  return <AuthContext.Provider value={{ ...estado, esAdmin, esPlatformAdmin, recoveryMode, trialExpirado, cuentaSuspendida, login, logout, clearRecovery }}>{children}</AuthContext.Provider>
+  const value: AuthContextValue = {
+    ...estado,
+    realEmpresaId: estado.empresaId,
+    empresaId: estado.impersonatedEmpresaId || estado.empresaId,
+    empresaNombre: estado.impersonatedEmpresaNombre || estado.empresaNombre,
+    esAdmin,
+    esPlatformAdmin,
+    recoveryMode,
+    trialExpirado,
+    cuentaSuspendida,
+    login,
+    logout,
+    clearRecovery,
+    startImpersonation,
+    stopImpersonation,
+  }
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
 // eslint-disable-next-line react-refresh/only-export-components

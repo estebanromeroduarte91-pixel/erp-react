@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { usePlatformEmpresas, useActualizarEmpresaAdmin, type EmpresaAdmin } from '@/lib/queries'
+import { useAuth } from '@/context/AuthContext'
 import { Spinner } from '@/components/shared/Spinner'
 
 function fmtFecha(f: string | null) {
@@ -34,6 +35,7 @@ function EstadoPill({ e }: { e: EmpresaAdmin }) {
 export function PixitAdminPage() {
   const { data: empresas, isLoading } = usePlatformEmpresas()
   const actualizar = useActualizarEmpresaAdmin()
+  const { startImpersonation } = useAuth()
   const [busqueda, setBusqueda] = useState('')
 
   const lista = useMemo(() => {
@@ -117,23 +119,31 @@ export function PixitAdminPage() {
               <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-gray-400">Sin resultados</td></tr>
             )}
             {lista.map(e => (
-              <tr key={e.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/60">
+              <tr key={e.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/60 group">
                 <td className="px-4 py-3 font-medium text-gray-800">{e.nombre}</td>
                 <td className="px-4 py-3"><EstadoPill e={e} /></td>
                 <td className="px-4 py-3 text-gray-600">{e.usuarios}</td>
                 <td className="px-4 py-3 text-gray-500">{fmtFecha(e.creado_en)}</td>
                 <td className="px-4 py-3 text-right">
-                  <button
-                    onClick={() => toggleSuspension(e)}
-                    disabled={actualizar.isPending}
-                    className={`text-xs font-semibold px-3 py-1.5 rounded-lg border transition disabled:opacity-50 ${
-                      e.plan_estado === 'suspendida'
-                        ? 'border-green-200 text-green-700 hover:bg-green-50'
-                        : 'border-red-200 text-red-600 hover:bg-red-50'
-                    }`}
-                  >
-                    {e.plan_estado === 'suspendida' ? 'Reactivar' : 'Suspender'}
-                  </button>
+                  <div className="flex items-center justify-end gap-2">
+                    <button
+                      onClick={() => startImpersonation(e.id, e.nombre)}
+                      className="px-3 py-1.5 text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 transition flex items-center gap-1 opacity-0 group-hover:opacity-100"
+                    >
+                      <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg> Entrar
+                    </button>
+                    <button
+                      onClick={() => toggleSuspension(e)}
+                      disabled={actualizar.isPending}
+                      className={`text-xs font-semibold px-3 py-1.5 rounded-lg border transition disabled:opacity-50 ${
+                        e.plan_estado === 'suspendida'
+                          ? 'border-green-200 text-green-700 hover:bg-green-50'
+                          : 'border-red-200 text-red-600 hover:bg-red-50'
+                      }`}
+                    >
+                      {e.plan_estado === 'suspendida' ? 'Reactivar' : 'Suspender'}
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
