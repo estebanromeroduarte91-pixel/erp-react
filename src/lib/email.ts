@@ -47,7 +47,10 @@ export async function sendEmail(
 
   // Prioridad 2: SMTP / Resend manual (legacy)
   const fromEmail = cfg?.from_email || tpCfg?.from_email || tpCfg?.email || 'onboarding@resend.dev'
-  const fromName = cfg?.from_name || tpCfg?.nombre || 'Steve Docs'
+  // "Pixit" es el respaldo neutral cuando la empresa no puso su propio nombre de
+  // taller — antes decía "Steve Docs" a secas, el taller de Esteban, hardcodeado
+  // como si fuera el default de cualquier cliente nuevo de la plataforma.
+  const fromName = cfg?.from_name || tpCfg?.nombre || 'Pixit'
   try {
     const body: Record<string, unknown> = { to, subject, html: bodyHtml, from: fromEmail, from_name: fromName }
     if (cfg?.host && cfg?.user && cfg?.password) {
@@ -66,6 +69,20 @@ export async function sendEmail(
   } catch (e) {
     return { ok: false, error: (e as Error).message }
   }
+}
+
+// Indica si un correo enviado con sendEmail() de verdad llega a una casilla que
+// la empresa lee (dominio propio verificado, o SMTP/Resend manual con su email
+// real) — o si va a salir del remitente genérico de respaldo (onboarding@resend.dev,
+// que nadie del taller revisa). Los templates usan esto para no invitar al
+// cliente a "responder este correo" cuando esa respuesta se perdería.
+export async function puedeResponderCorreo(empresaId: string): Promise<boolean> {
+  const [cfg, dom] = await Promise.all([
+    dbGet<SmtpConfig>(empresaId, 'tp_smtp_config'),
+    dbGet<EmailDomain>(empresaId, 'tp_email_domain'),
+  ])
+  if (dom?.status === 'verified' && dom.from_email) return true
+  return !!(cfg?.from_email && cfg?.host && cfg?.user && cfg?.password)
 }
 
 // ── Helpers compartidos ────────────────────────────────────────────────────────
@@ -255,6 +272,10 @@ interface ListoEmailData {
   orden: { num: string | number; modelo: string; nombre: string }
   branchNombre: string
   horario?: string
+  // false cuando el correo sale del remitente genérico de respaldo (sin dominio
+  // propio ni SMTP configurado) — nadie del taller lee esa casilla, así que no
+  // se invita al cliente a responder ahí. Ver puedeResponderCorreo().
+  puedeResponder?: boolean
 }
 
 export function buildEmailListo(d: ListoEmailData): string {
@@ -285,7 +306,11 @@ export function buildEmailListo(d: ListoEmailData): string {
         </tr>
       </table>
     </div>
-    <p style="font-size:13px;color:#6b7280;margin:0">¿Tienes alguna pregunta? Responde directamente a este correo.</p>`
+    <p style="font-size:13px;color:#6b7280;margin:0">${
+      d.puedeResponder === false
+        ? '¿Tienes alguna pregunta? Contáctanos por WhatsApp o en la sucursal — este correo es solo informativo.'
+        : '¿Tienes alguna pregunta? Responde directamente a este correo.'
+    }</p>`
   return emailShell(d.tallerNombre, d.logoUrl, body)
 }
 
@@ -297,6 +322,7 @@ interface InspeccionEmailData {
   orden: { num: string | number; modelo: string; nombre: string; serie?: string }
   notas?: string
   fotos?: string[]
+  puedeResponder?: boolean
 }
 
 export function buildEmailInspeccion(d: InspeccionEmailData): string {
@@ -334,7 +360,11 @@ export function buildEmailInspeccion(d: InspeccionEmailData): string {
     </div>
     ${notasHtml}
     ${fotosHtml}
-    <p style="font-size:13px;color:#6b7280;margin:0">Cualquier consulta puedes responder directamente a este correo.</p>`
+    <p style="font-size:13px;color:#6b7280;margin:0">${
+      d.puedeResponder === false
+        ? 'Cualquier consulta, contáctanos por WhatsApp o en la sucursal — este correo es solo informativo.'
+        : 'Cualquier consulta puedes responder directamente a este correo.'
+    }</p>`
   return emailShell(d.tallerNombre, d.logoUrl, body)
 }
 

@@ -5,7 +5,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useOrdenes, useActualizarOrden, useMsgTemplates, useSeguimientoConfig, useChecklist, useBuscarProductos, useAjustarStock, useBodegas, useTraslados } from '@/lib/queries'
 import { DerivarModal } from './DerivarModal'
 import { useAuth } from '@/context/AuthContext'
-import { sendEmail, buildEmailIngreso, buildEmailAprobacion, buildEmailInspeccion, buildEmailListo } from '@/lib/email'
+import { sendEmail, buildEmailIngreso, buildEmailAprobacion, buildEmailInspeccion, buildEmailListo, puedeResponderCorreo } from '@/lib/email'
 import { supabase } from '@/lib/supabase'
 import { EstadoBadge } from '@/components/shared/Badge'
 import { Money } from '@/components/shared/Money'
@@ -196,7 +196,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
     }
   }
 
-  function buildListoHtml(msgTexto: string) {
+  async function buildListoHtml(msgTexto: string) {
     const branch = bodegas.find(b => b.id === orden.branchId)
     return buildEmailListo({
       tallerNombre: segCfg?.nombreTaller ?? 'Steve Docs',
@@ -205,6 +205,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
       orden: { num: orden.num, modelo: orden.modelo ?? '', nombre: orden.nombre ?? '' },
       branchNombre: branch?.nombre ?? branch?.name ?? segCfg?.nombreTaller ?? '',
       horario: formatHorario(branch?.horario) || formatHorario(segCfg?.horario) || '',
+      puedeResponder: empresaId ? await puedeResponderCorreo(empresaId) : false,
     })
   }
 
@@ -223,7 +224,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
     const waMsg = esListo && msgTemplates?.listo_wa ? rellenarTemplate(msgTemplates.listo_wa, vars) : ''
     const emailMsg = esListo && msgTemplates?.listo_email ? rellenarTemplate(msgTemplates.listo_email, vars) : ''
     if (esListo && emailMsg && orden.email && empresaId) {
-      void sendEmail(empresaId, orden.email, asuntoListo(estado), buildListoHtml(emailMsg))
+      void buildListoHtml(emailMsg).then(html => sendEmail(empresaId, orden.email!, asuntoListo(estado), html))
       setEmailOk(true)
     }
     const mostrarEmail = esListo && emailMsg && orden.email && !empresaId
@@ -242,7 +243,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
   async function enviarEmail() {
     if (!notif?.emailMsg || !orden.email || !empresaId) return
     setEnviandoEmail(true)
-    await sendEmail(empresaId, orden.email, asuntoListo(notif.estado), buildListoHtml(notif.emailMsg))
+    await sendEmail(empresaId, orden.email, asuntoListo(notif.estado), await buildListoHtml(notif.emailMsg))
     setEnviandoEmail(false)
     setEmailOk(true)
   }
@@ -270,7 +271,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
           ? rellenarTemplate(msgTemplates.listo_email, vars)
           : `Hola ${orden.nombre}, tu ${orden.modelo ?? 'equipo'} ${status === 'Listo' ? 'está listo para retirar' : 'ha sido entregado'}.`
         asunto = asuntoListo(status)
-        html = buildListoHtml(msgTexto)
+        html = await buildListoHtml(msgTexto)
       } else if (status === 'Chequeo') {
         const msgTexto = msgTemplates?.ingreso_email
           ? rellenarTemplate(msgTemplates.ingreso_email, vars)
@@ -297,7 +298,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
           ? rellenarTemplate(msgTemplates.listo_email, vars)
           : `Hola ${orden.nombre}, tu ${orden.modelo ?? 'equipo'} se encuentra actualmente en reparación.`
         asunto = `Tu equipo está en reparación — #OT-${String(orden.num).padStart(4, '0')}`
-        html = buildListoHtml(msgTexto)
+        html = await buildListoHtml(msgTexto)
       }
 
       await sendEmail(empresaId, orden.email, asunto, html)
@@ -421,6 +422,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
           orden: { num: orden.num ?? '', modelo: orden.modelo ?? '', nombre: orden.nombre ?? '', serie: orden.serie },
           notas: inspecNotas,
           fotos: inspecFotos,
+          puedeResponder: empresaId ? await puedeResponderCorreo(empresaId) : false,
         })
         const asunto = `Reporte de inspección — ${orden.modelo ?? 'Equipo'} #OT-${String(orden.num).padStart(4, '0')}`
         const res = await sendEmail(empresaId, orden.email!, asunto, html)

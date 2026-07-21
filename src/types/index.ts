@@ -100,6 +100,15 @@ export interface Producto {
   tipo?: 'producto' | 'servicio'
 }
 
+export interface HorarioBloque {
+  dias?: string[]  // códigos de 3 letras: lun, mar, mie, jue, vie, sab, dom
+  desde?: string   // "HH:MM"
+  hasta?: string   // "HH:MM"
+}
+export interface HorarioEstructurado {
+  bloques: HorarioBloque[]
+}
+
 export interface Bodega {
   id: string
   nombre?: string   // la mayoría usa "nombre", algunos "name"
@@ -107,7 +116,10 @@ export interface Bodega {
   direccion?: string
   tel?: string
   email?: string
-  horario?: string
+  // string = formato libre antiguo; objeto = editor estructurado por bloques
+  // de días/horas (BodegasTab). formatHorario() en taller/utils.ts sabe leer
+  // ambos.
+  horario?: string | HorarioEstructurado
   activo?: boolean
 }
 

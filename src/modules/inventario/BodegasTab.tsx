@@ -1,9 +1,24 @@
 import { useState } from 'react'
 import { useBodegas, useGuardarBodegas, usePlanLimits } from '@/lib/queries'
 import { Spinner } from '@/components/shared/Spinner'
-import type { Bodega } from '@/types'
+import type { Bodega, HorarioBloque, HorarioEstructurado } from '@/types'
 
 function uid() { return Math.random().toString(36).slice(2) + Date.now().toString(36) }
+
+type BloqueEditor = HorarioBloque & { id: string }
+const bloqueVacio = (): BloqueEditor => ({ id: uid(), dias: [], desde: '', hasta: '' })
+
+// El horario guardado puede venir en formato libre (string antiguo) o
+// estructurado ({bloques}). El editor solo trabaja con bloques — si viene
+// como texto libre no hay forma de "parsearlo" de vuelta, así que arranca
+// con un bloque vacío (se reemplaza al guardar).
+function bloquesDesdeHorario(h: Bodega['horario']): BloqueEditor[] {
+  if (h && typeof h === 'object' && Array.isArray((h as HorarioEstructurado).bloques)) {
+    const bs = (h as HorarioEstructurado).bloques.map(b => ({ id: uid(), dias: b.dias ?? [], desde: b.desde ?? '', hasta: b.hasta ?? '' }))
+    return bs.length ? bs : [bloqueVacio()]
+  }
+  return [bloqueVacio()]
+}
 
 const ALL_DIAS = ['lun', 'mar', 'mie', 'jue', 'vie', 'sab', 'dom']
 const LBL_DIAS: Record<string, string> = { lun: 'Lun', mar: 'Mar', mie: 'Mié', jue: 'Jue', vie: 'Vie', sab: 'Sáb', dom: 'Dom' }
@@ -30,7 +45,7 @@ function formatHorario(h: unknown): string {
   return fmtBloque(obj as { dias?: string[]; desde?: string; hasta?: string })
 }
 
-const EMPTY_FORM = { nombre: '', direccion: '', tel: '', email: '', horario: '' }
+const EMPTY_FORM = { nombre: '', direccion: '', tel: '', email: '', bloques: [bloqueVacio()] }
 
 export function BodegasTab() {
   const { data: bodegas, isLoading } = useBodegas()
@@ -45,7 +60,7 @@ export function BodegasTab() {
   const [guardando, setGuardando] = useState(false)
 
   function abrirNueva() {
-    setModal({ open: true, id: null, form: EMPTY_FORM })
+    setModal({ open: true, id: null, form: { nombre: '', direccion: '', tel: '', email: '', bloques: [bloqueVacio()] } })
   }
 
   function abrirEditar(b: Bodega) {
@@ -57,25 +72,53 @@ export function BodegasTab() {
         direccion: b.direccion ?? '',
         tel: b.tel ?? '',
         email: b.email ?? '',
-        horario: formatHorario(b.horario),
+        bloques: bloquesDesdeHorario(b.horario),
       },
     })
   }
 
-  function set(k: keyof typeof EMPTY_FORM, v: string) {
+  function set(k: 'nombre' | 'direccion' | 'tel' | 'email', v: string) {
     setModal(m => ({ ...m, form: { ...m.form, [k]: v } }))
+  }
+
+  function setBloque(id: string, patch: Partial<HorarioBloque>) {
+    setModal(m => ({ ...m, form: { ...m.form, bloques: m.form.bloques.map(b => b.id === id ? { ...b, ...patch } : b) } }))
+  }
+
+  function toggleDia(id: string, dia: string) {
+    setModal(m => ({
+      ...m,
+      form: {
+        ...m.form,
+        bloques: m.form.bloques.map(b => b.id === id
+          ? { ...b, dias: (b.dias ?? []).includes(dia) ? (b.dias ?? []).filter(d => d !== dia) : [...(b.dias ?? []), dia] }
+          : b),
+      },
+    }))
+  }
+
+  function agregarBloque() {
+    setModal(m => ({ ...m, form: { ...m.form, bloques: [...m.form.bloques, bloqueVacio()] } }))
+  }
+
+  function quitarBloque(id: string) {
+    setModal(m => ({ ...m, form: { ...m.form, bloques: m.form.bloques.filter(b => b.id !== id) } }))
   }
 
   async function guardarModal() {
     if (!modal.form.nombre.trim()) return
     setGuardando(true)
+    // Solo se guardan los bloques con al menos un día u horario definido.
+    const bloquesLimpios: HorarioBloque[] = modal.form.bloques
+      .filter(b => (b.dias ?? []).length > 0 || b.desde || b.hasta)
+      .map(({ dias, desde, hasta }) => ({ dias, desde, hasta }))
     const datos = {
       nombre: modal.form.nombre.trim(),
       name: modal.form.nombre.trim(),
       direccion: modal.form.direccion.trim(),
       tel: modal.form.tel.trim(),
       email: modal.form.email.trim(),
-      horario: modal.form.horario.trim(),
+      horario: bloquesLimpios.length ? { bloques: bloquesLimpios } : '',
     }
     if (modal.id) {
       await guardar.mutateAsync((bodegas ?? []).map(b => b.id === modal.id ? { ...b, ...datos } : b))
@@ -219,9 +262,47 @@ export function BodegasTab() {
               </div>
               <div>
                 <label className="text-xs font-medium text-gray-600 block mb-1">Horario de atención</label>
-                <input value={modal.form.horario} onChange={e => set('horario', e.target.value)}
-                  placeholder="Ej: Lun–Vie 10:00–19:00, Sáb 10:00–14:00"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+                <div className="space-y-2">
+                  {modal.form.bloques.map(b => (
+                    <div key={b.id} className="border border-gray-200 rounded-lg p-2.5 bg-gray-50">
+                      <div className="flex flex-wrap gap-1 mb-2">
+                        {ALL_DIAS.map(d => {
+                          const activo = (b.dias ?? []).includes(d)
+                          return (
+                            <button key={d} type="button" onClick={() => toggleDia(b.id, d)}
+                              className={`w-9 h-7 text-[11px] font-semibold rounded-md border transition ${activo ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'}`}>
+                              {LBL_DIAS[d]}
+                            </button>
+                          )
+                        })}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input type="time" value={b.desde ?? ''} onChange={e => setBloque(b.id, { desde: e.target.value })}
+                          className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-none focus:border-blue-400" />
+                        <span className="text-gray-400 text-xs">a</span>
+                        <input type="time" value={b.hasta ?? ''} onChange={e => setBloque(b.id, { hasta: e.target.value })}
+                          className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-none focus:border-blue-400" />
+                        {modal.form.bloques.length > 1 && (
+                          <button type="button" onClick={() => quitarBloque(b.id)}
+                            className="text-gray-300 hover:text-red-500 transition flex-shrink-0" aria-label="Quitar bloque">
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <button type="button" onClick={agregarBloque}
+                  className="text-xs font-semibold text-blue-600 hover:underline mt-2">
+                  + Agregar otro bloque (ej. horario distinto el sábado)
+                </button>
+                {formatHorario({ bloques: modal.form.bloques.map(({ dias, desde, hasta }) => ({ dias, desde, hasta })) }) && (
+                  <p className="text-xs text-gray-500 mt-2">
+                    Vista previa: <strong>{formatHorario({ bloques: modal.form.bloques.map(({ dias, desde, hasta }) => ({ dias, desde, hasta })) })}</strong>
+                  </p>
+                )}
                 <p className="text-[11px] text-gray-400 mt-1">Este horario aparece en los correos de órdenes listas para retirar.</p>
               </div>
 

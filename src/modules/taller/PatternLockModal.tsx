@@ -6,6 +6,15 @@ const DOT_POS: Record<number, [number, number]> = {
   7: [70, 210], 8: [140, 210], 9: [210, 210],
 }
 
+// Líneas guía (grilla + diagonales entre puntos adyacentes) para ubicarse rápido
+// al dibujar — no son parte de la clave, solo referencia visual, como en el
+// desbloqueo por patrón de Android.
+const GUIDE_LINES: [number, number][] = [
+  [1, 2], [2, 3], [4, 5], [5, 6], [7, 8], [8, 9],
+  [1, 4], [4, 7], [2, 5], [5, 8], [3, 6], [6, 9],
+  [1, 5], [5, 9], [3, 5], [5, 7],
+]
+
 interface Props {
   initial?: number[]
   onSave: (seq: number[]) => void
@@ -29,6 +38,20 @@ export function PatternLockModal({ initial = [], onSave, onClose }: Props) {
     ctx.beginPath()
     ctx.roundRect(0, 0, 280, 280, 14)
     ctx.fill()
+
+    // Grilla guía tenue entre puntos adyacentes — solo referencia visual, para
+    // ubicarse rápido antes/mientras se dibuja.
+    ctx.strokeStyle = 'rgba(255,255,255,0.22)'
+    ctx.lineWidth = 1.5
+    ctx.lineCap = 'round'
+    for (const [a, b] of GUIDE_LINES) {
+      const [ax, ay] = DOT_POS[a]
+      const [bx, by] = DOT_POS[b]
+      ctx.beginPath()
+      ctx.moveTo(ax, ay)
+      ctx.lineTo(bx, by)
+      ctx.stroke()
+    }
 
     // Línea entre puntos conectados
     if (seq.length > 1) {

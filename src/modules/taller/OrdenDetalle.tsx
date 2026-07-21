@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useActualizarOrden, useMsgTemplates, useSeguimientoConfig, useBodegas } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
-import { sendEmail, buildEmailListo, buildEmailInspeccion, buildEmailAprobacion } from '@/lib/email'
+import { sendEmail, buildEmailListo, buildEmailInspeccion, buildEmailAprobacion, puedeResponderCorreo } from '@/lib/email'
 import { EstadoBadge } from '@/components/shared/Badge'
 import { Money } from '@/components/shared/Money'
 import { QrFotosModal } from './QrFotosModal'
@@ -166,6 +166,7 @@ export function OrdenDetalle({ orden: o, onClose, onEditar }: Props) {
         orden: { num: o.num, modelo: o.modelo ?? '', nombre: o.nombre ?? '' },
         branchNombre,
         horario: branchHorario,
+        puedeResponder: await puedeResponderCorreo(empresaId),
       })
       const asunto = estado === 'Listo'
         ? `Tu ${o.modelo} está listo para retirar — #OT-${String(o.num).padStart(4, '0')}`
@@ -193,6 +194,7 @@ export function OrdenDetalle({ orden: o, onClose, onEditar }: Props) {
       orden: { num: o.num, modelo: o.modelo ?? '', nombre: o.nombre ?? '' },
       branchNombre,
       horario: branchHorario,
+      puedeResponder: await puedeResponderCorreo(empresaId),
     })
     const esListo = notifEstado.estado === 'Listo'
     const asunto = esListo
@@ -318,6 +320,7 @@ export function OrdenDetalle({ orden: o, onClose, onEditar }: Props) {
         orden: { num: o.num, modelo: o.modelo ?? '', nombre: o.nombre ?? '', serie: o.serie },
         notas: inspecNotas,
         fotos: inspecFotos,
+        puedeResponder: await puedeResponderCorreo(empresaId),
       })
       void sendEmail(empresaId, o.email, `Inspección de equipo — ${o.modelo} #OT-${String(o.num).padStart(4, '0')}`, html)
     }

@@ -1,5 +1,6 @@
-import { useState, useMemo } from 'react'
-import { useClientes, useCrearCliente, useActualizarCliente, useEliminarCliente, useOrdenes, useVentas } from '@/lib/queries'
+import { useState, useMemo, useRef } from 'react'
+import * as XLSX from 'xlsx'
+import { useClientes, useCrearCliente, useActualizarCliente, useEliminarCliente, useImportarClientes, useOrdenes, useVentas } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { useIsMobile } from '@/lib/useIsMobile'
 import { Spinner } from '@/components/shared/Spinner'
@@ -9,6 +10,62 @@ import { OrdenDetallePage } from '@/modules/taller/OrdenDetallePage'
 import type { Cliente } from '@/types'
 
 function uid() { return Math.random().toString(36).slice(2) + Date.now().toString(36) }
+
+// ── Importación masiva desde Excel ──────────────────────────────
+
+type ImportRowCliente = {
+  nombre: string
+  apellido: string | null
+  rut: string | null
+  tel: string | null
+  email: string | null
+  direccion: string | null
+}
+
+function parseExcelClientes(file: File): Promise<ImportRowCliente[]> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = e => {
+      try {
+        const wb = XLSX.read(e.target!.result, { type: 'array' })
+        const ws = wb.Sheets[wb.SheetNames[0]]
+        const raw: Record<string, string>[] = XLSX.utils.sheet_to_json(ws, { defval: '' })
+        const norm = (s: string) => s.toLowerCase().trim().normalize('NFD').replace(/[̀-ͯ]/g, '')
+        const find = (row: Record<string, string>, ...keys: string[]) => {
+          const col = Object.keys(row).find(k => keys.some(kk => norm(k) === norm(kk)))
+          return col ? String(row[col]).trim() : ''
+        }
+        const findOpt = (row: Record<string, string>, ...keys: string[]): string | null => {
+          const v = find(row, ...keys)
+          return v === '' ? null : v
+        }
+        const rows = raw.map(row => ({
+          nombre:    find(row, 'nombre', 'name'),
+          apellido:  findOpt(row, 'apellido', 'lastname', 'last name'),
+          rut:       findOpt(row, 'rut'),
+          tel:       findOpt(row, 'telefono', 'teléfono', 'fono', 'phone', 'celular'),
+          email:     findOpt(row, 'email', 'correo', 'mail'),
+          direccion: findOpt(row, 'direccion', 'dirección', 'address'),
+        })).filter(r => r.nombre)
+        resolve(rows)
+      } catch (err) { reject(err) }
+    }
+    reader.onerror = reject
+    reader.readAsArrayBuffer(file)
+  })
+}
+
+function descargarPlantillaClientes() {
+  const headers = ['Nombre', 'Apellido', 'RUT', 'Teléfono', 'Email', 'Dirección']
+  const ejemplo = {
+    Nombre: 'Juan', Apellido: 'Pérez', RUT: '12.345.678-9',
+    Teléfono: '+56 9 1234 5678', Email: 'juan@ejemplo.com', Dirección: 'Av. Ejemplo 123',
+  }
+  const ws = XLSX.utils.json_to_sheet([ejemplo], { header: headers })
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Clientes')
+  XLSX.writeFile(wb, 'plantilla_clientes.xlsx')
+}
 
 function initials(nombre: string) {
   return nombre.split(' ').filter(Boolean).map(w => w[0]).slice(0, 2).join('').toUpperCase()
@@ -46,6 +103,7 @@ export function ClientesTab() {
   const crearCliente = useCrearCliente()
   const actualizarCliente = useActualizarCliente()
   const eliminarCliente = useEliminarCliente()
+  const importarClientes = useImportarClientes()
   const { esAdmin } = useAuth()
   const isMobile = useIsMobile()
 
@@ -53,6 +111,57 @@ export function ClientesTab() {
   const [seleccionadoId, setSeleccionadoId] = useState<string | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
   const [editando, setEditando] = useState<Cliente | null>(null)
+
+  const [importModal, setImportModal] = useState(false)
+  const [importRows, setImportRows] = useState<ImportRowCliente[]>([])
+  const [importError, setImportError] = useState('')
+  const [importLoading, setImportLoading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  async function handleFileChangeClientes(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setImportError('')
+    setImportRows([])
+    try {
+      const rows = await parseExcelClientes(file)
+      if (!rows.length) { setImportError('El archivo no contiene clientes válidos (falta la columna Nombre).'); return }
+      setImportRows(rows)
+    } catch {
+      setImportError('Error al leer el archivo. Verifica que sea un .xlsx válido.')
+    }
+    e.target.value = ''
+  }
+
+  async function confirmarImportClientes() {
+    if (!importRows.length) return
+    setImportLoading(true)
+    try {
+      // Empareja por RUT (dígitos, sin puntos/guion) para no duplicar clientes ya
+      // existentes — una fila con el mismo RUT actualiza en vez de crear otro.
+      const existentes = clientes ?? []
+      const porRut = new Map(existentes.filter(c => c.rut).map(c => [c.rut!.replace(/\D/g, ''), c]))
+      const nuevos: Cliente[] = importRows.map(r => {
+        const rutClean = r.rut ? r.rut.replace(/\D/g, '') : ''
+        const existente = rutClean ? porRut.get(rutClean) : undefined
+        return {
+          id: existente?.id ?? uid(),
+          nombre: r.nombre || existente?.nombre || '',
+          apellido: r.apellido ?? existente?.apellido,
+          rut: r.rut ?? existente?.rut,
+          tel: r.tel ?? existente?.tel,
+          email: r.email ?? existente?.email,
+          direccion: r.direccion ?? existente?.direccion,
+          fecha_creacion: existente?.fecha_creacion ?? new Date().toISOString(),
+        }
+      })
+      await importarClientes.mutateAsync(nuevos)
+      setImportModal(false)
+      setImportRows([])
+    } finally {
+      setImportLoading(false)
+    }
+  }
 
   const lista = useMemo(() => {
     if (!busqueda.trim()) return clientes ?? []
@@ -150,6 +259,13 @@ export function ClientesTab() {
                 placeholder="Buscar…"
                 style={{ width: '100%', paddingLeft: 30, paddingRight: 10, paddingTop: 7, paddingBottom: 7, fontSize: 16, border: '0.5px solid #e5e7eb', borderRadius: 8, background: '#fff', outline: 'none', fontFamily: 'inherit', color: '#111' }} />
             </div>
+            {esAdmin && (
+              <button onClick={() => { setImportRows([]); setImportError(''); setImportModal(true) }}
+                title="Importar clientes desde Excel"
+                style={{ background: '#f9fafb', color: '#374151', border: '0.5px solid #e5e7eb', borderRadius: 8, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+              </button>
+            )}
             <button onClick={abrirNuevo} style={{ background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 8, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             </button>
@@ -201,6 +317,90 @@ export function ClientesTab() {
           datos={editando as unknown as Record<string,string>|null}
           onClose={() => setModalOpen(false)}
           onGuardar={guardarCliente} />
+      )}
+
+      {importModal && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 flex flex-col max-h-[90vh]">
+            <div className="flex items-start justify-between gap-4 px-6 py-4 border-b border-gray-100">
+              <div>
+                <h2 className="text-base font-semibold text-gray-900">Importar clientes desde Excel</h2>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  {importRows.length > 0
+                    ? `${importRows.length} clientes listos para importar`
+                    : 'Columnas: Nombre, Apellido, RUT, Teléfono, Email, Dirección'}
+                </p>
+                {importRows.length === 0 && (
+                  <button onClick={descargarPlantillaClientes}
+                    className="text-xs font-semibold text-blue-600 hover:underline mt-1.5 flex items-center gap-1">
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-8-4v-9m0 9l-3-3m3 3l3-3" />
+                    </svg>
+                    Descargar plantilla Excel
+                  </button>
+                )}
+              </div>
+              <button onClick={() => setImportModal(false)} className="text-gray-400 hover:text-gray-600 text-xl leading-none flex-shrink-0 mt-0.5">✕</button>
+            </div>
+
+            <div className="px-6 py-5 flex-1 overflow-y-auto space-y-4">
+              <div onClick={() => fileInputRef.current?.click()}
+                className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50/30 transition">
+                <svg className="w-8 h-8 mx-auto text-gray-300 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+                <p className="text-sm font-semibold text-gray-600">
+                  {importRows.length > 0 ? 'Cargar otro archivo' : 'Seleccionar archivo Excel'}
+                </p>
+                <p className="text-xs text-gray-400 mt-0.5">Soporta .xlsx y .xls</p>
+                <input ref={fileInputRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleFileChangeClientes} />
+              </div>
+
+              {importError && (
+                <p className="text-sm text-red-600 bg-red-50 rounded-lg px-4 py-2">{importError}</p>
+              )}
+
+              {importRows.length > 0 && (() => {
+                const existentes = clientes ?? []
+                const rutsExistentes = new Set(existentes.filter(c => c.rut).map(c => c.rut!.replace(/\D/g, '')))
+                const dupCount = importRows.filter(r => r.rut && rutsExistentes.has(r.rut.replace(/\D/g, ''))).length
+                return (
+                  <>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="rounded-xl p-3 bg-green-50 border border-green-100">
+                        <p className="text-xl font-semibold text-green-800">{importRows.length - dupCount}</p>
+                        <p className="text-xs text-green-700 mt-0.5">Se crearán</p>
+                      </div>
+                      <div className="rounded-xl p-3 bg-blue-50 border border-blue-100">
+                        <p className="text-xl font-semibold text-blue-800">{dupCount}</p>
+                        <p className="text-xs text-blue-700 mt-0.5">Se actualizarán (RUT ya existe)</p>
+                      </div>
+                    </div>
+                    <div className="border border-gray-100 rounded-xl overflow-hidden max-h-52 overflow-y-auto">
+                      {importRows.slice(0, 50).map((r, i) => (
+                        <div key={i} className={`flex items-center justify-between gap-3 px-4 py-2 text-sm ${i > 0 ? 'border-t border-gray-50' : ''}`}>
+                          <span className="text-gray-800 truncate">{r.nombre} {r.apellido ?? ''}</span>
+                          <span className="text-gray-400 text-xs flex-shrink-0">{r.rut || r.email || r.tel || '—'}</span>
+                        </div>
+                      ))}
+                      {importRows.length > 50 && (
+                        <p className="text-xs text-gray-400 text-center py-2 border-t border-gray-50">y {importRows.length - 50} más…</p>
+                      )}
+                    </div>
+                  </>
+                )
+              })()}
+            </div>
+
+            <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-100 bg-gray-50 rounded-b-2xl">
+              <button onClick={() => setImportModal(false)} className="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-100 transition">Cancelar</button>
+              <button onClick={confirmarImportClientes} disabled={!importRows.length || importLoading}
+                className="px-5 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition">
+                {importLoading ? 'Importando…' : `Importar ${importRows.length || ''} cliente${importRows.length === 1 ? '' : 's'}`}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

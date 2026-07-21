@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useGuardarProducto } from '@/lib/queries'
+import { useState, useMemo } from 'react'
+import { useGuardarProducto, useCategorias } from '@/lib/queries'
 import type { Producto, Bodega } from '@/types'
 
 interface Props {
@@ -40,8 +40,28 @@ export function ProductoModal({ producto, productos, bodegas, onClose }: Props) 
 
   const tieneSucs = bodegas.length > 0
 
-  // Categorías existentes para autocompletar
-  const cats = [...new Set(productos.map((p) => p.categoria).filter(Boolean))].sort() as string[]
+  // Categorías: la lista curada (Inventario → Categorías) es la fuente principal
+  // (trae también sus subcategorías, para enlazar el submenú); se completa con
+  // categorías sueltas que ya tengan productos pero no estén en la lista curada,
+  // para no perder ninguna por no haberla registrado ahí.
+  const { data: categoriasCuradas = [] } = useCategorias()
+  const cats = useMemo(() => {
+    const deProductos = new Set(productos.map((p) => p.categoria).filter(Boolean) as string[])
+    const deCuradas = new Set(categoriasCuradas.map((c) => c.nombre))
+    return [...new Set([...deCuradas, ...deProductos])].sort()
+  }, [productos, categoriasCuradas])
+
+  // Subcategorías sugeridas: las de la categoría curada que coincide con lo
+  // escrito (si existe), si no, las que ya usan otros productos de esa categoría.
+  const subcats = useMemo(() => {
+    const curada = categoriasCuradas.find((c) => c.nombre.toLowerCase() === categoria.trim().toLowerCase())
+    if (curada) return [...new Set(curada.subcategorias ?? [])].sort()
+    const deProductos = productos
+      .filter((p) => p.categoria?.toLowerCase() === categoria.trim().toLowerCase())
+      .map((p) => p.subcategoria)
+      .filter(Boolean) as string[]
+    return [...new Set(deProductos)].sort()
+  }, [categoria, categoriasCuradas, productos])
 
   async function handleGuardar() {
     if (!nombre.trim()) { setError('El nombre es obligatorio'); return }
@@ -144,7 +164,15 @@ export function ProductoModal({ producto, productos, bodegas, onClose }: Props) 
                   {cats.map((c) => <option key={c} value={c} />)}
                 </datalist>
               </div>
-              <Field label="Subcategoría" value={subcategoria} onChange={setSubcategoria} placeholder="Ej: iPhone 14" />
+              <div>
+                <label className="text-xs font-medium text-gray-600 mb-1 block">Subcategoría</label>
+                <input value={subcategoria} onChange={(e) => setSubcategoria(e.target.value)}
+                  list="subcats-list" placeholder="Ej: iPhone 14"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+                <datalist id="subcats-list">
+                  {subcats.map((s) => <option key={s} value={s} />)}
+                </datalist>
+              </div>
               <div className="col-span-2">
                 <label className="text-xs font-medium text-gray-600 mb-1 block">Descripción</label>
                 <textarea value={descripcion} onChange={(e) => setDescripcion(e.target.value)}

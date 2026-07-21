@@ -11,6 +11,7 @@ import { EquipoSelector } from './EquipoSelector'
 import { useAnchorRect, fixedDropdownStyle } from '@/lib/useAnchorRect'
 import { PatternLockModal } from './PatternLockModal'
 import { QrFotosModal } from './QrFotosModal'
+import { formatHorario } from './utils'
 import type { Orden, EstadoOrden, Repuesto, Producto, CheckItem } from '@/types'
 
 const ESTADOS_OT: EstadoOrden[] = ['Chequeo', 'Reparación', 'Listo', 'Entregado', 'No reparable']
@@ -469,7 +470,7 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
           modelo: form.modelo,
           orden: String(num),
           sucursal: branchNombre,
-          horario: branch?.horario ?? segCfg?.horario ?? '',
+          horario: formatHorario(branch?.horario) || segCfg?.horario || '',
           fecha_estimada: form.fechaEstimada ?? '',
         }
         const msgTexto = rellenarTemplate(tpl, vars)
