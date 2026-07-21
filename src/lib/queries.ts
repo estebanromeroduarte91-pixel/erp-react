@@ -1757,6 +1757,40 @@ function filaOCParcial(o: Partial<OC>): Record<string, unknown> {
 
 export function useOCs() {
   const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  const instanceId = useId()
+
+  // Realtime: inyecta el cambio directo en la caché (mismo patrón que Órdenes).
+  useEffect(() => {
+    if (!empresaId) return
+    const channel = supabase
+      .channel(`rt-ocs-${empresaId}-${instanceId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'ocs', filter: `empresa_id=eq.${empresaId}` },
+        (payload) => {
+          if (payload.eventType === 'DELETE') {
+            const oldId = (payload.old as { id?: string }).id
+            if (!oldId) return
+            qc.setQueryData<OC[]>(['ocs', empresaId], (old = []) => old.filter((o) => o.id !== oldId))
+            return
+          }
+          const oc = hidratarOC(payload.new as Record<string, unknown>)
+          qc.setQueryData<OC[]>(['ocs', empresaId], (old = []) => {
+            const idx = old.findIndex((o) => o.id === oc.id)
+            if (idx >= 0) {
+              const copy = [...old]
+              copy[idx] = oc
+              return copy
+            }
+            return [oc, ...old]
+          })
+        },
+      )
+      .subscribe()
+    return () => { void supabase.removeChannel(channel) }
+  }, [empresaId, qc, instanceId])
+
   return useQuery({
     queryKey: ['ocs', empresaId],
     queryFn: async () => {
@@ -1788,7 +1822,14 @@ export function useCrearOC() {
       const { error } = await supabase.from('ocs').insert(row)
       if (error) throw error
     },
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ['ocs', empresaId] }),
+    // Sin invalidate: el eco de Realtime (arriba) ya trae la fila confirmada.
+    onMutate: async (o: OC) => {
+      await qc.cancelQueries({ queryKey: ['ocs', empresaId] })
+      const prev = qc.getQueryData<OC[]>(['ocs', empresaId])
+      qc.setQueryData<OC[]>(['ocs', empresaId], (old = []) => [o, ...old])
+      return { prev }
+    },
+    onError: (_e, _o, ctx) => { if (ctx?.prev) qc.setQueryData(['ocs', empresaId], ctx.prev) },
   })
 }
 
@@ -1802,7 +1843,14 @@ export function useActualizarOC() {
       const { error } = await supabase.from('ocs').update(filaOCParcial(rest)).eq('id', id).eq('empresa_id', empresaId!)
       if (error) throw error
     },
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ['ocs', empresaId] }),
+    onMutate: async (o: Partial<OC> & { id: string }) => {
+      await qc.cancelQueries({ queryKey: ['ocs', empresaId] })
+      const prev = qc.getQueryData<OC[]>(['ocs', empresaId])
+      qc.setQueryData<OC[]>(['ocs', empresaId], (old = []) =>
+        old.map((x) => (x.id === o.id ? { ...x, ...o } : x)))
+      return { prev }
+    },
+    onError: (_e, _o, ctx) => { if (ctx?.prev) qc.setQueryData(['ocs', empresaId], ctx.prev) },
   })
 }
 
@@ -1814,7 +1862,13 @@ export function useEliminarOC() {
       const { error } = await supabase.from('ocs').delete().eq('id', id).eq('empresa_id', empresaId!)
       if (error) throw error
     },
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ['ocs', empresaId] }),
+    onMutate: async (id: string) => {
+      await qc.cancelQueries({ queryKey: ['ocs', empresaId] })
+      const prev = qc.getQueryData<OC[]>(['ocs', empresaId])
+      qc.setQueryData<OC[]>(['ocs', empresaId], (old = []) => old.filter((o) => o.id !== id))
+      return { prev }
+    },
+    onError: (_e, _id, ctx) => { if (ctx?.prev) qc.setQueryData(['ocs', empresaId], ctx.prev) },
   })
 }
 

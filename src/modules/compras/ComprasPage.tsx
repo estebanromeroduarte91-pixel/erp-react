@@ -1,10 +1,10 @@
-import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react'
+import { useState, useEffect, useRef, useCallback, memo } from 'react'
 import { useLocation, useSearchParams } from 'react-router-dom'
 import { KitsTab } from './KitsTab'
 import { useAuth } from '@/context/AuthContext'
 import {
   useOCs, useCrearOC, useActualizarOC, useEliminarOC, useOCLog, useGuardarOCLog,
-  useIncrementarContadorOC, useProductos, useBodegas,
+  useIncrementarContadorOC, useBuscarProductos, useBodegas,
   useProveedores, useGuardarProveedores, useAjustarStock,
   usePlanCuentas, useAsientos, useGuardarAsientos,
   useMovimientos, useGuardarMovimientos,
@@ -170,21 +170,18 @@ function ProveedorCombo({
 // ─── Row de producto en modal Nueva OC ───────────────────────
 
 const ItemRow = memo(function ItemRow({
-  item, bodegas, productos, onUpdate, onRemove,
+  item, bodegas, onUpdate, onRemove,
 }: {
   item: OCItem
   bodegas: Bodega[]
-  productos: Producto[]
   onUpdate: (id: string, patch: Partial<OCItem>) => void
   onRemove: (id: string) => void
 }) {
   const [q, setQ] = useState(item.producto_nombre)
   const { anchorRef, open, setOpen, openMenu, rect } = useAnchoredMenu()
-  const results = useMemo(() => {
-    return q.length
-      ? productos.filter(p => p.nombre.toLowerCase().includes(q.toLowerCase())).slice(0, 10)
-      : productos.slice(0, 10)
-  }, [q, productos])
+  // Búsqueda server-side (ilike + índice) en vez de filtrar el catálogo
+  // completo en el navegador — evita esperar a que bajen todos los productos.
+  const { data: results = [] } = useBuscarProductos(q)
 
   function selectProd(p: Producto) {
     const pn = p.precio_compra ?? 0
@@ -372,12 +369,11 @@ function ModalNuevoProveedor({
 // ─── Modal: Nueva / Editar OC ─────────────────────────────────
 
 function ModalNuevaOC({
-  ocEdit, proveedores, bodegas, productos, onSave, onClose, onCrearProveedor,
+  ocEdit, proveedores, bodegas, onSave, onClose, onCrearProveedor,
 }: {
   ocEdit?: OC
   proveedores: Proveedor[]
   bodegas: Bodega[]
-  productos: Producto[]
   onSave: (data: Partial<OC> & { id?: string }) => void
   onClose: () => void
   onCrearProveedor: (data: { nombre: string; rut?: string; telefono?: string; email?: string }) => Promise<Proveedor>
@@ -494,7 +490,7 @@ function ModalNuevaOC({
               </thead>
               <tbody>
                 {items.map(it => (
-                  <ItemRow key={it.id} item={it} bodegas={bodegas} productos={productos}
+                  <ItemRow key={it.id} item={it} bodegas={bodegas}
                     onUpdate={updateItem} onRemove={removeItem} />
                 ))}
               </tbody>
@@ -1069,7 +1065,6 @@ export function ComprasPage() {
   const { data: rawOcs = [] } = useOCs()
   const { data: log = [] } = useOCLog()
   const { data: proveedores = [] } = useProveedores()
-  const { data: productos = [] } = useProductos()
   const { data: bodegas = [] } = useBodegas()
   const crearOC = useCrearOC()
   const actualizarOC = useActualizarOC()
@@ -1473,7 +1468,6 @@ export function ComprasPage() {
           ocEdit={modal.oc}
           proveedores={proveedores}
           bodegas={bodegas}
-          productos={productos}
           onSave={handleSaveOC}
           onClose={() => setModal({ type: 'none' })}
           onCrearProveedor={handleCrearProveedor}

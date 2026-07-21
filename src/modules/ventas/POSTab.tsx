@@ -1,10 +1,10 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
-import { useProductos, useAjustarStock, useVentas, useGuardarVenta, useMetodosPago, useCajaSesiones, useCajas, useGuardarCajaSesiones, useIncrementarContadorVenta, useOrdenes, useActualizarOrden, useMovimientos, useGuardarMovimientos, useUserProfiles, useUserCargoMap, useCargos, useLotes, useActualizarLotes, useClientes, useCrearCliente, CARGOS_DEFAULT } from '@/lib/queries'
+import { useProductos, useBuscarProductos, useAjustarStock, useVentas, useGuardarVenta, useMetodosPago, useCajaSesiones, useCajas, useGuardarCajaSesiones, useIncrementarContadorVenta, useOrdenes, useActualizarOrden, useMovimientos, useGuardarMovimientos, useUserProfiles, useUserCargoMap, useCargos, useLotes, useActualizarLotes, useClientes, useCrearCliente, CARGOS_DEFAULT } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { useAnchorRect, fixedDropdownStyle } from '@/lib/useAnchorRect'
 import { formatRut } from '@/lib/rut'
 import { IconCashRegister, IconLock, IconLockOpen, IconBuildingStore } from '@tabler/icons-react'
-import type { VentaItem, Venta, Orden, CajaSesion, LoteInventario } from '@/types'
+import type { VentaItem, Venta, Orden, CajaSesion, LoteInventario, Producto } from '@/types'
 
 const IVA = 0.19
 
@@ -290,17 +290,13 @@ export function POSTab() {
     ).slice(0, 6)
   }, [otsListas, busquedaOT])
 
-  const resultados = useMemo(() => {
-    if (!busqueda.trim()) return []
-    const q = busqueda.toLowerCase()
-    return (productos ?? []).filter(p =>
-      p.nombre.toLowerCase().includes(q) || (p.sku ?? '').toLowerCase().includes(q)
-    ).slice(0, 8)
-  }, [productos, busqueda])
+  // Búsqueda server-side (ilike + índice) en vez de filtrar el catálogo
+  // completo en el navegador — el buscador del POS no espera a que baje
+  // todo el catálogo para mostrar resultados.
+  const { data: resultados = [] } = useBuscarProductos(busqueda)
 
-  function agregarProducto(pId: string) {
-    const p = (productos ?? []).find(x => x.id === pId)
-    if (!p) return
+  function agregarProducto(p: Producto) {
+    const pId = p.id
     const precioIva = p.precio_venta ?? 0
     const precioNeto = Math.round(precioIva / (1 + IVA))
     const exist = items.find(i => i.producto_id === pId)
@@ -766,7 +762,7 @@ export function POSTab() {
               {resultados.map(p => (
                 <li key={p.id}>
                   <button
-                    onClick={() => agregarProducto(p.id)}
+                    onClick={() => agregarProducto(p)}
                     className="w-full flex items-center justify-between px-3 py-2 text-sm hover:bg-blue-50 transition-colors text-left"
                   >
                     <span>

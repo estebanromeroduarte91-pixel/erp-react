@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { formatRut } from '@/lib/rut'
-import { useCrearOrden, useActualizarOrden, useClientes, useCrearCliente, useActualizarCliente, useProductos, useChecklist, useUserProfiles, useMsgTemplates, useSeguimientoConfig, useBodegas } from '@/lib/queries'
+import { useCrearOrden, useActualizarOrden, useClientes, useCrearCliente, useActualizarCliente, useBuscarProductos, useChecklist, useUserProfiles, useMsgTemplates, useSeguimientoConfig, useBodegas } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { sendEmail, buildEmailIngreso } from '@/lib/email'
@@ -61,7 +61,6 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
   const { data: clientes } = useClientes()
   const crearCliente = useCrearCliente()
   const actualizarCliente = useActualizarCliente()
-  const { data: productos } = useProductos()
   const { data: checklistLabels } = useChecklist()
   const { data: usuarios = [] } = useUserProfiles()
   const { data: msgTemplates } = useMsgTemplates()
@@ -357,12 +356,9 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
   }
 
   // ── Repuestos ──────────────────────────────────────────────
-  const productosFiltrados = repBusqueda.trim()
-    ? (productos ?? []).filter((p) =>
-        p.nombre.toLowerCase().includes(repBusqueda.toLowerCase()) ||
-        p.sku?.toLowerCase().includes(repBusqueda.toLowerCase())
-      ).slice(0, 8)
-    : []
+  // Búsqueda server-side (ilike + índice) en vez de filtrar el catálogo
+  // completo en el navegador.
+  const { data: productosFiltrados = [] } = useBuscarProductos(repBusqueda)
 
   function agregarRepuesto(p: Producto) {
     const existe = repuestos.findIndex((r) => r.productId === p.id)

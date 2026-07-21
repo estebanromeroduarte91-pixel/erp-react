@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { useOrdenes, useActualizarOrden, useMsgTemplates, useSeguimientoConfig, useChecklist, useProductos, useAjustarStock, useBodegas, useTraslados } from '@/lib/queries'
+import { useOrdenes, useActualizarOrden, useMsgTemplates, useSeguimientoConfig, useChecklist, useBuscarProductos, useAjustarStock, useBodegas, useTraslados } from '@/lib/queries'
 import { DerivarModal } from './DerivarModal'
 import { useAuth } from '@/context/AuthContext'
 import { sendEmail, buildEmailIngreso, buildEmailAprobacion, buildEmailInspeccion, buildEmailListo } from '@/lib/email'
@@ -42,7 +42,6 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
   const { data: segCfg } = useSeguimientoConfig()
 
   const { data: checklistTemplate = [] } = useChecklist()
-  const { data: productos = [] } = useProductos()
   const ajustarStock = useAjustarStock()
   const { data: bodegas = [] } = useBodegas()
   const { data: traslados = [] } = useTraslados()
@@ -95,6 +94,9 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
   const [repPrecio, setRepPrecio] = useState('')
   const [repManualNombre, setRepManualNombre] = useState('')
   const [repManual, setRepManual] = useState(false)
+  // Búsqueda server-side (ilike + índice) en vez de filtrar el catálogo
+  // completo en el navegador.
+  const { data: repResultados = [] } = useBuscarProductos(repSearch)
 
   const o = ordenes?.find(x => x.num === num)
 
@@ -1457,10 +1459,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
 
                   {/* Lista de resultados */}
                   {repSearch.trim().length > 0 && !repSelected && (() => {
-                    const q = repSearch.toLowerCase()
-                    const results = productos
-                      .filter(p => p.nombre.toLowerCase().includes(q) || (p.sku ?? '').toLowerCase().includes(q))
-                      .slice(0, 8)
+                    const results = repResultados
                     return results.length > 0 ? (
                       <div className="border border-gray-200 rounded-xl overflow-hidden mb-3">
                         {results.map((p, i) => {
