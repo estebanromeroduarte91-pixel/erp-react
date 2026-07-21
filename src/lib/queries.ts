@@ -829,6 +829,28 @@ export function useClientes() {
   })
 }
 
+// Búsqueda server-side (ilike + índice) por nombre, apellido, RUT o teléfono.
+// Para selectores dentro de un modal (ej. elegir cliente en una orden o venta)
+// que no necesitan el directorio completo, solo encontrar 1-2 coincidencias.
+export function useBuscarClientes(query: string) {
+  const { empresaId } = useAuth()
+  const safe = query.replace(/[%,()]/g, ' ').trim()
+  return useQuery({
+    queryKey: ['clientes', empresaId, 'buscar', safe],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('clientes')
+        .select('*')
+        .eq('empresa_id', empresaId!)
+        .or(`nombre.ilike.%${safe}%,apellido.ilike.%${safe}%,rut.ilike.%${safe}%,tel.ilike.%${safe}%`)
+        .limit(8)
+      if (error) throw error
+      return (data ?? []).map(hidratarCliente)
+    },
+    enabled: !!empresaId && safe.length > 0,
+  })
+}
+
 export function useCrearCliente() {
   const { empresaId } = useAuth()
   const qc = useQueryClient()

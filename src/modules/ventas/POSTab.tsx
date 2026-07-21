@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
-import { useProductos, useBuscarProductos, useAjustarStock, useVentas, useGuardarVenta, useMetodosPago, useCajaSesiones, useCajas, useGuardarCajaSesiones, useIncrementarContadorVenta, useOrdenes, useActualizarOrden, useMovimientos, useGuardarMovimientos, useUserProfiles, useUserCargoMap, useCargos, useLotes, useActualizarLotes, useClientes, useCrearCliente, CARGOS_DEFAULT } from '@/lib/queries'
+import { useProductos, useBuscarProductos, useAjustarStock, useVentas, useGuardarVenta, useMetodosPago, useCajaSesiones, useCajas, useGuardarCajaSesiones, useIncrementarContadorVenta, useOrdenes, useActualizarOrden, useMovimientos, useGuardarMovimientos, useUserProfiles, useUserCargoMap, useCargos, useLotes, useActualizarLotes, useClientes, useBuscarClientes, useCrearCliente, CARGOS_DEFAULT } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { useAnchorRect, fixedDropdownStyle } from '@/lib/useAnchorRect'
 import { formatRut } from '@/lib/rut'
@@ -82,16 +82,11 @@ export function POSTab() {
   const clienteRef = useRef<HTMLDivElement>(null)
   const { ref: clienteAnchorRef, rect: clienteRect } = useAnchorRect<HTMLInputElement>(clienteAbierto)
 
+  // Búsqueda server-side mientras se escribe; sin texto, primeros del
+  // directorio ya cargado (que se mantiene en memoria para el chequeo de RUT duplicado).
+  const { data: clientesBuscados = [] } = useBuscarClientes(cliente)
   const clientesFiltrados = cliente.trim()
-    ? (clientesDir ?? []).filter((c) => {
-        const q = cliente.toLowerCase()
-        return (
-          c.nombre.toLowerCase().includes(q) ||
-          (c.apellido ?? '').toLowerCase().includes(q) ||
-          (c.rut ?? '').toLowerCase().includes(q) ||
-          (c.tel ?? '').includes(q)
-        )
-      }).slice(0, 6)
+    ? clientesBuscados
     : (clientesDir ?? []).slice(0, 6)
 
   function seleccionarCliente(c: NonNullable<typeof clientesDir>[number]) {

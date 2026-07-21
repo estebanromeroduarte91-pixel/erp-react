@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { formatRut } from '@/lib/rut'
-import { useCrearOrden, useActualizarOrden, useClientes, useCrearCliente, useActualizarCliente, useBuscarProductos, useChecklist, useUserProfiles, useMsgTemplates, useSeguimientoConfig, useBodegas } from '@/lib/queries'
+import { useCrearOrden, useActualizarOrden, useClientes, useBuscarClientes, useCrearCliente, useActualizarCliente, useBuscarProductos, useChecklist, useUserProfiles, useMsgTemplates, useSeguimientoConfig, useBodegas } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { sendEmail, buildEmailIngreso } from '@/lib/email'
@@ -169,16 +169,12 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
 
   const clienteSeleccionado = form.nombre.trim() || form.apellido.trim()
 
+  // Búsqueda server-side mientras se escribe (evita esperar el directorio
+  // completo de clientes); sin texto, muestra los primeros del directorio ya
+  // cargado (que igual se mantiene en memoria para la validación de RUT duplicado).
+  const { data: clientesBuscados = [] } = useBuscarClientes(busquedaCliente)
   const clientesFiltrados = busquedaCliente.trim()
-    ? (clientes ?? []).filter((c) => {
-        const q = busquedaCliente.toLowerCase()
-        return (
-          c.nombre.toLowerCase().includes(q) ||
-          (c.apellido ?? '').toLowerCase().includes(q) ||
-          (c.rut ?? '').toLowerCase().includes(q) ||
-          (c.tel ?? '').includes(q)
-        )
-      }).slice(0, 6)
+    ? clientesBuscados
     : (clientes ?? []).slice(0, 6)
 
   // Inicializa checklist cuando cargan los labels del servidor (una sola vez).
