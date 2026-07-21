@@ -277,10 +277,10 @@ export function BodegasTab() {
                         })}
                       </div>
                       <div className="flex items-center gap-2">
-                        <input type="time" value={b.desde ?? ''} onChange={e => setBloque(b.id, { desde: e.target.value })}
+                        <input type="time" lang="en-GB" value={b.desde ?? ''} onChange={e => setBloque(b.id, { desde: e.target.value })}
                           className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-none focus:border-blue-400" />
                         <span className="text-gray-400 text-xs">a</span>
-                        <input type="time" value={b.hasta ?? ''} onChange={e => setBloque(b.id, { hasta: e.target.value })}
+                        <input type="time" lang="en-GB" value={b.hasta ?? ''} onChange={e => setBloque(b.id, { hasta: e.target.value })}
                           className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-none focus:border-blue-400" />
                         {modal.form.bloques.length > 1 && (
                           <button type="button" onClick={() => quitarBloque(b.id)}
