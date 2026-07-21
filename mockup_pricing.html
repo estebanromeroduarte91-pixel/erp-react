@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mockup Pricing Pixit</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-900 font-sans py-20 px-4 md:px-8">
+
+  <section id="pricing" class="max-w-6xl mx-auto">
+    <!-- Header -->
+    <div class="text-center mb-16">
+      <h2 class="text-4xl md:text-5xl font-extrabold text-slate-900 mb-4 tracking-tight">Planes de Pago</h2>
+      <p class="text-lg text-slate-600 max-w-2xl mx-auto">Toma el control de tu negocio con una sola aplicación. Sin cobros ocultos.</p>
+      
+      <!-- Toggle Mensual/Anual -->
+      <div class="mt-8 flex justify-center items-center gap-4">
+        <span class="text-sm font-semibold text-slate-900">Mensual</span>
+        <button class="relative inline-flex h-7 w-14 items-center rounded-full bg-blue-600 transition-colors focus:outline-none">
+          <span class="translate-x-8 inline-block h-5 w-5 transform rounded-full bg-white transition-transform"></span>
+        </button>
+        <span class="text-sm font-semibold text-slate-500">Anual <span class="ml-1 text-xs font-bold text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded-full">-20%</span></span>
+      </div>
+    </div>
+
+    <!-- Pricing Cards -->
+    <div class="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto items-center">
+      
+      <!-- 1. Básico -->
+      <div class="bg-white border border-slate-200 rounded-3xl p-8 shadow-sm relative transition duration-300 hover:shadow-lg">
+        <h3 class="text-xl font-bold text-slate-900 mb-2">Básico</h3>
+        <p class="text-sm text-slate-500 mb-6 h-10">Para talleres que recién empiezan. <br/><span class="font-semibold text-blue-600">1 Sucursal</span></p>
+        <div class="mb-6">
+          <span class="text-4xl font-extrabold text-slate-900">$16</span><span class="text-lg font-medium text-slate-500">.70</span>
+          <span class="text-sm text-slate-500 block">USD / Mes</span>
+        </div>
+        <button class="w-full bg-slate-100 hover:bg-slate-200 text-slate-900 font-bold py-3 px-4 rounded-xl transition duration-200 mb-8">
+          Comenzar Básico
+        </button>
+        
+        <div class="space-y-4">
+          <p class="text-sm font-bold text-slate-900 uppercase tracking-wider">Incluye:</p>
+          <ul class="space-y-3 text-sm text-slate-600">
+            <li class="flex items-center gap-3"><svg class="w-5 h-5 text-blue-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Usuarios ilimitados</li>
+            <li class="flex items-center gap-3"><svg class="w-5 h-5 text-blue-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Administración de tareas</li>
+            <li class="flex items-center gap-3"><svg class="w-5 h-5 text-blue-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Administración de clientes y stock</li>
+            <li class="flex items-center gap-3"><svg class="w-5 h-5 text-blue-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Proveedores y servicios</li>
+            <li class="flex items-center gap-3"><svg class="w-5 h-5 text-blue-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Finanzas básicas (ventas)</li>
+            <li class="flex items-center gap-3 text-slate-400"><svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg> Finanzas completas</li>
+            <li class="flex items-center gap-3 text-slate-400"><svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg> Alerta de stock bajo</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- 2. Pro (Destacado) -->
+      <div class="bg-gradient-to-b from-blue-600 to-purple-700 rounded-3xl p-8 shadow-2xl relative transform md:-translate-y-4 md:scale-105 ring-4 ring-blue-600/30">
+        <!-- Etiqueta "Más Popular" -->
+        <div class="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-gradient-to-r from-amber-400 to-orange-500 text-white text-xs font-extrabold uppercase tracking-widest py-1.5 px-4 rounded-full shadow-lg">
+          Best Pricing
+        </div>
+        
+        <h3 class="text-xl font-bold text-white mb-2">Pro</h3>
+        <p class="text-sm text-blue-100 mb-6 h-10">Gestionador completo para expandirte. <br/><span class="font-semibold text-white">1 a 3 Sucursales</span></p>
+        <div class="mb-6 text-white">
+          <span class="text-5xl font-extrabold">$29</span><span class="text-xl font-medium text-blue-200">.16</span>
+          <span class="text-sm text-blue-200 block">USD / Mes</span>
+        </div>
+        <button class="w-full bg-white hover:bg-slate-50 text-blue-700 font-extrabold py-3 px-4 rounded-xl transition duration-200 shadow-lg mb-8">
+          Comenzar Prueba Gratis
+        </button>
+        
+        <div class="space-y-4">
+          <p class="text-sm font-bold text-white uppercase tracking-wider">Todo lo de Básico, más:</p>
+          <ul class="space-y-3 text-sm text-blue-50">
+            <li class="flex items-center gap-3"><svg class="w-5 h-5 text-blue-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Aplicación Móvil incluida</li>
+            <li class="flex items-center gap-3"><svg class="w-5 h-5 text-blue-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Soporte prioritario a usuarios</li>
+            <li class="flex items-center gap-3"><svg class="w-5 h-5 text-blue-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Finanzas completas y reportes</li>
+            <li class="flex items-center gap-3"><svg class="w-5 h-5 text-blue-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Alertas automáticas de stock bajo</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- 3. Pro Franquicias -->
+      <div class="bg-white border border-slate-200 rounded-3xl p-8 shadow-sm relative transition duration-300 hover:shadow-lg">
+        <h3 class="text-xl font-bold text-slate-900 mb-2">Pro Franquicias</h3>
+        <p class="text-sm text-slate-500 mb-6 h-10">Control total para cadenas grandes. <br/><span class="font-semibold text-purple-600">3 o más Sucursales</span></p>
+        <div class="mb-6">
+          <span class="text-4xl font-extrabold text-slate-900">$41</span><span class="text-lg font-medium text-slate-500">.65</span>
+          <span class="text-sm text-slate-500 block">USD / Mes</span>
+        </div>
+        <button class="w-full bg-slate-100 hover:bg-slate-200 text-slate-900 font-bold py-3 px-4 rounded-xl transition duration-200 mb-8">
+          Contactar Ventas
+        </button>
+        
+        <div class="space-y-4">
+          <p class="text-sm font-bold text-slate-900 uppercase tracking-wider">Todo lo de Pro, más:</p>
+          <ul class="space-y-3 text-sm text-slate-600">
+            <li class="flex items-center gap-3"><svg class="w-5 h-5 text-purple-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Bodegas ilimitadas</li>
+            <li class="flex items-center gap-3"><svg class="w-5 h-5 text-purple-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Traspaso de stock entre tiendas</li>
+            <li class="flex items-center gap-3"><svg class="w-5 h-5 text-purple-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Consolidación financiera global</li>
+            <li class="flex items-center gap-3"><svg class="w-5 h-5 text-purple-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Agente de cuenta dedicado</li>
+          </ul>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+</body>
+</html>

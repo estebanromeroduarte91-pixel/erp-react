@@ -91,10 +91,12 @@ export function useOrdenes() {
   const qc = useQueryClient()
   const instanceId = useId()
 
-  // Realtime: invalida la query cuando cambia la tabla `ordenes`.
-  // El nombre del canal incluye un id único por instancia del hook para que
-  // dos componentes que usen useOrdenes a la vez (ej. lista + modal de detalle)
-  // no choquen suscribiéndose al mismo canal de Supabase.
+  // Realtime: inyecta el cambio directo en la caché en vez de invalidar y
+  // volver a descargar la tabla completa (cara con miles de órdenes, y se
+  // dispara para TODOS los usuarios conectados por cada INSERT/UPDATE/DELETE
+  // de cualquiera). El nombre del canal incluye un id único por instancia del
+  // hook para que dos componentes que usen useOrdenes a la vez (ej. lista +
+  // modal de detalle) no choquen suscribiéndose al mismo canal de Supabase.
   useEffect(() => {
     if (!empresaId) return
     const channel = supabase
@@ -102,7 +104,31 @@ export function useOrdenes() {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'ordenes', filter: `empresa_id=eq.${empresaId}` },
-        () => void qc.invalidateQueries({ queryKey: ['ordenes', empresaId] }),
+        (payload) => {
+          if (payload.eventType === 'DELETE') {
+            const oldId = (payload.old as { id?: string }).id
+            if (!oldId) return
+            qc.setQueryData<Orden[]>(['ordenes', empresaId], (old = []) => old.filter((o) => o.id !== oldId))
+            return
+          }
+          const row = payload.new as Record<string, unknown>
+          // Los borradores del QR no viven en esta lista: si llega uno, o si una
+          // orden pasó a ser borrador, asegurarse de sacarla de la caché.
+          if (row.is_draft) {
+            qc.setQueryData<Orden[]>(['ordenes', empresaId], (old = []) => old.filter((o) => o.id !== row.id))
+            return
+          }
+          const orden = hidratarOrden(row)
+          qc.setQueryData<Orden[]>(['ordenes', empresaId], (old = []) => {
+            const idx = old.findIndex((o) => o.id === orden.id)
+            if (idx >= 0) {
+              const copy = [...old]
+              copy[idx] = orden
+              return copy
+            }
+            return [orden, ...old]
+          })
+        },
       )
       .subscribe()
     return () => { void supabase.removeChannel(channel) }
@@ -151,10 +177,10 @@ export function useCrearOrden() {
       qc.setQueryData<Orden[]>(['ordenes', empresaId], (old = []) => [o, ...old])
       return { prev }
     },
+    // Sin onSettled: el insert real dispara el evento Realtime (arriba), que ya
+    // actualiza la caché con la fila confirmada del servidor. Invalidar aquí
+    // además volvería a descargar toda la tabla por cada orden creada.
     onError: (_e, _o, ctx) => { if (ctx?.prev) qc.setQueryData(['ordenes', empresaId], ctx.prev) },
-    // Solo re-sincroniza con el servidor si fue una orden real (no un borrador),
-    // para no disparar el refetch caro en cada clic de "QR iPhone".
-    onSettled: (_d, _e, o) => { if (!o._draft) void qc.invalidateQueries({ queryKey: ['ordenes', empresaId] }) },
   })
 }
 
@@ -185,8 +211,9 @@ export function useActualizarOrden() {
       })
       return { prev }
     },
+    // Sin invalidate: el update real dispara el evento Realtime (arriba), que
+    // ya reconcilia la caché con la fila confirmada del servidor.
     onError: (_e, _o, ctx) => { if (ctx?.prev) qc.setQueryData(['ordenes', empresaId], ctx.prev) },
-    onSettled: () => void qc.invalidateQueries({ queryKey: ['ordenes', empresaId] }),
   })
 }
 
@@ -198,7 +225,15 @@ export function useEliminarOrden() {
       const { error } = await supabase.from('ordenes').delete().eq('id', id).eq('empresa_id', empresaId!)
       if (error) throw error
     },
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ['ordenes', empresaId] }),
+    onMutate: async (id: string) => {
+      await qc.cancelQueries({ queryKey: ['ordenes', empresaId] })
+      const prev = qc.getQueryData<Orden[]>(['ordenes', empresaId])
+      qc.setQueryData<Orden[]>(['ordenes', empresaId], (old = []) => old.filter((o) => o.id !== id))
+      return { prev }
+    },
+    onError: (_e, _id, ctx) => { if (ctx?.prev) qc.setQueryData(['ordenes', empresaId], ctx.prev) },
+    // Sin invalidate en éxito: el DELETE real dispara el evento Realtime
+    // (arriba), que ya confirma/mantiene la fila fuera de la caché.
   })
 }
 
