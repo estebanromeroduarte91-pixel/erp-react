@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useVentas, useGastos, useBodegas, useMetodosPago, useOCs, useProductos } from '@/lib/queries'
+import { useVentasEnRango, useUltimasVentas, useGastosEnRango, useBodegas, useMetodosPago, useOCsEnRango, useProductos } from '@/lib/queries'
 import { gastosPorSucursal } from '@/lib/gastos'
 import { Spinner } from '@/components/shared/Spinner'
 import { useIsMobile } from '@/lib/useIsMobile'
@@ -104,7 +104,6 @@ type DashboardStats = {
   sucursales: { id: string; nombre: string; total: number; totalPrev: number; neto: number; count: number; part: number; utilidad: number; color: string }[]
   mpPorSuc: { totalSuc: number; sorted: [string, number][] }[]
   mpGlobalSorted: [string, number][]
-  ultimasVentas: Venta[]
 }
 
 // ── Componentes compartidos entre mobile y desktop ────────────────────────
@@ -374,14 +373,6 @@ function GastosCard({ stats }: { stats: DashboardStats }) {
 }
 
 export function DashboardPage() {
-  const { data: ventas,  isLoading: loadV } = useVentas()
-  const { data: gastos,  isLoading: loadG } = useGastos()
-  const { data: ocs,     isLoading: loadOC } = useOCs()
-  const { data: productos = [] } = useProductos()
-  const { data: bodegasRaw = [] } = useBodegas()
-  const bodegas = useMemo(() => [...bodegasRaw].sort((a, b) => (b.nombre ?? b.name ?? '').localeCompare(a.nombre ?? a.name ?? '', 'es')), [bodegasRaw])
-  const { data: metodos  = [] } = useMetodosPago()
-
   const [rango, setRango]             = useState<Rango>('hoy')
   const [customDesde, setCustomDesde] = useState('')
   const [customHasta, setCustomHasta] = useState('')
@@ -393,6 +384,20 @@ export function DashboardPage() {
 
   const { desde, hasta } = periodoDesdeHasta(rango, customDesde, customHasta)
   const { desde: pDesde, hasta: pHasta } = prevPeriod(rango, desde, hasta)
+  // Cubre período actual + anterior (comparación) en una sola consulta acotada,
+  // en vez de traer todo el historial y filtrar en el navegador — el Dashboard
+  // es la primera pantalla tras el login, no necesita años de datos para pintar.
+  const rangoDesde = pDesde < desde ? pDesde : desde
+  const rangoHasta = pHasta > hasta ? pHasta : hasta
+
+  const { data: ventas,  isLoading: loadV } = useVentasEnRango(rangoDesde, rangoHasta)
+  const { data: ultimasVentasData = [] } = useUltimasVentas(5)
+  const { data: gastos,  isLoading: loadG } = useGastosEnRango(rangoDesde, rangoHasta)
+  const { data: ocs,     isLoading: loadOC } = useOCsEnRango(rangoDesde, rangoHasta)
+  const { data: productos = [] } = useProductos()
+  const { data: bodegasRaw = [] } = useBodegas()
+  const bodegas = useMemo(() => [...bodegasRaw].sort((a, b) => (b.nombre ?? b.name ?? '').localeCompare(a.nombre ?? a.name ?? '', 'es')), [bodegasRaw])
+  const { data: metodos  = [] } = useMetodosPago()
 
   // Ventas de la sucursal seleccionada (para el detalle al tocar una tarjeta)
   const ventasSuc = useMemo(() => {
@@ -485,10 +490,14 @@ export function DashboardPage() {
     vPer.forEach(v => { const mp = v.metodo_pago || 'otro'; mpGlobal[mp] = (mpGlobal[mp] ?? 0) + (+v.total_iva || 0) })
     const mpGlobalSorted = Object.entries(mpGlobal).sort((a, b) => b[1] - a[1])
 
-    const ultimasVentas = [...vArr].sort((a, b) => (b.fecha ?? '').localeCompare(a.fecha ?? '')).slice(0, 5)
-
-    return { ventasBrutas, ventasBrutasPrev, ventasNetas, totalOC, totalGastos, totalCosto, totalSalida, utilidad, margen, txCount, ticketProm, sucursales, mpPorSuc, mpGlobalSorted, ultimasVentas }
+    return { ventasBrutas, ventasBrutasPrev, ventasNetas, totalOC, totalGastos, totalCosto, totalSalida, utilidad, margen, txCount, ticketProm, sucursales, mpPorSuc, mpGlobalSorted }
   }, [ventas, gastos, ocs, productos, bodegas, desde, hasta, pDesde, pHasta])
+  // Actividad reciente: siempre las últimas ventas reales, sin importar el
+  // período seleccionado (consulta chica aparte, no depende del rango visible).
+  const ultimasVentas = useMemo(
+    () => [...ultimasVentasData].sort((a, b) => (b.fecha ?? '').localeCompare(a.fecha ?? '')),
+    [ultimasVentasData],
+  )
 
   if (loadV || loadG || loadOC) {
     return <div className="flex justify-center py-16"><Spinner className="w-8 h-8" /></div>
@@ -587,10 +596,10 @@ export function DashboardPage() {
             <Link to="/ventas" style={{ fontSize: 12, color: '#2563eb', textDecoration: 'none', fontWeight: 500 }}>Ver todas</Link>
           </div>
           <div style={{ background: C.card, border: `0.5px solid ${C.border}`, borderRadius: 12, overflow: 'hidden' }}>
-            {stats.ultimasVentas.length === 0
+            {ultimasVentas.length === 0
               ? <p style={{ textAlign: 'center', color: C.textMuted, fontSize: 13, padding: '20px 0', margin: 0 }}>Sin ventas</p>
-              : stats.ultimasVentas.map((v, i) => (
-                <div key={v.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderBottom: i < stats.ultimasVentas.length - 1 ? `0.5px solid ${C.border}` : 'none' }}>
+              : ultimasVentas.map((v, i) => (
+                <div key={v.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderBottom: i < ultimasVentas.length - 1 ? `0.5px solid ${C.border}` : 'none' }}>
                   <div style={{ flex: 1 }}>
                     <p style={{ fontSize: 13, fontWeight: 600, color: C.textPrimary, margin: 0 }}>{v.numero}</p>
                     <p style={{ fontSize: 11, color: C.textMuted, margin: 0 }}>{v.cliente || '—'}</p>
@@ -641,7 +650,7 @@ export function DashboardPage() {
           <span style={{ fontSize: 14, fontWeight: 700, color: C.textPrimary }}>Últimas ventas</span>
           <Link to="/ventas" style={{ fontSize: 12, color: '#2563eb', textDecoration: 'none', fontWeight: 500 }}>Ver todas</Link>
         </div>
-        {stats.ultimasVentas.length === 0
+        {ultimasVentas.length === 0
           ? <p style={{ textAlign: 'center', color: C.textMuted, fontSize: 13, padding: '24px 0', margin: 0 }}>Sin ventas aún</p>
           : (
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -653,8 +662,8 @@ export function DashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {stats.ultimasVentas.map((v, i) => (
-                  <tr key={v.id} style={{ borderBottom: i < stats.ultimasVentas.length - 1 ? `0.5px solid ${C.borderLight}` : 'none' }}>
+                {ultimasVentas.map((v, i) => (
+                  <tr key={v.id} style={{ borderBottom: i < ultimasVentas.length - 1 ? `0.5px solid ${C.borderLight}` : 'none' }}>
                     <td style={{ padding: '9px 14px', fontSize: 12, fontWeight: 600, color: '#2563eb' }}>{v.numero}</td>
                     <td style={{ padding: '9px 14px', fontSize: 13, color: C.textPrimary, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.cliente || '—'}</td>
                     <td style={{ padding: '9px 14px', fontSize: 12, color: C.textMuted }}>{v.fecha}</td>

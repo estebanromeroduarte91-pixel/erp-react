@@ -1104,6 +1104,49 @@ export function useVentas() {
   })
 }
 
+// Ventas acotadas a un rango de fechas — para el Dashboard, que solo necesita
+// el período visible + el anterior (comparación), no el historial completo.
+// A diferencia de useVentas(), no mantiene Realtime propio: el Dashboard no es
+// una lista colaborativa en vivo, y cambiar de período ya vuelve a pedir datos.
+export function useVentasEnRango(desde: string, hasta: string) {
+  const { empresaId } = useAuth()
+  return useQuery({
+    queryKey: ['ventas', empresaId, 'rango', desde, hasta],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('ventas')
+        .select(VENTA_COLS)
+        .eq('empresa_id', empresaId!)
+        .gte('fecha', desde)
+        .lte('fecha', hasta)
+      if (error) throw error
+      return (data ?? []).map(hidratarVenta)
+    },
+    enabled: !!empresaId && !!desde && !!hasta,
+  })
+}
+
+// Últimas N ventas (no anuladas) sin importar el período seleccionado — para el
+// widget de actividad reciente del Dashboard.
+export function useUltimasVentas(limite = 5) {
+  const { empresaId } = useAuth()
+  return useQuery({
+    queryKey: ['ventas', empresaId, 'ultimas', limite],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('ventas')
+        .select(VENTA_COLS)
+        .eq('empresa_id', empresaId!)
+        .neq('estado', 'anulada')
+        .order('fecha', { ascending: false })
+        .limit(limite)
+      if (error) throw error
+      return (data ?? []).map(hidratarVenta)
+    },
+    enabled: !!empresaId,
+  })
+}
+
 // Crea UNA venta nueva: un insert a `ventas` + sus líneas a `venta_items`.
 // Reemplaza el patrón anterior de reescribir el array completo en cada venta.
 export function useGuardarVenta() {
@@ -1332,6 +1375,26 @@ export function useGastos() {
       return filas.map(hidratarGasto)
     },
     enabled: !!empresaId,
+  })
+}
+
+// Gastos acotados a un rango de fechas — mismo motivo que useVentasEnRango.
+export function useGastosEnRango(desde: string, hasta: string) {
+  const { empresaId } = useAuth()
+  return useQuery({
+    queryKey: ['gastos', empresaId, 'rango', desde, hasta],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('gastos')
+        .select('*')
+        .eq('empresa_id', empresaId!)
+        .gte('fecha', desde)
+        .lte('fecha', hasta)
+        .order('fecha', { ascending: false })
+      if (error) throw error
+      return (data ?? []).map(hidratarGasto)
+    },
+    enabled: !!empresaId && !!desde && !!hasta,
   })
 }
 
@@ -1831,6 +1894,25 @@ export function useOCs() {
       return filas.map(hidratarOC)
     },
     enabled: !!empresaId,
+  })
+}
+
+// OCs acotadas a un rango de fechas — mismo motivo que useVentasEnRango.
+export function useOCsEnRango(desde: string, hasta: string) {
+  const { empresaId } = useAuth()
+  return useQuery({
+    queryKey: ['ocs', empresaId, 'rango', desde, hasta],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('ocs')
+        .select('*')
+        .eq('empresa_id', empresaId!)
+        .gte('fecha', desde)
+        .lte('fecha', hasta)
+      if (error) throw error
+      return (data ?? []).map(hidratarOC)
+    },
+    enabled: !!empresaId && !!desde && !!hasta,
   })
 }
 
