@@ -1,8 +1,10 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { useProductos, useBuscarProductos, useAjustarStock, useVentas, useGuardarVenta, useMetodosPago, useCajaSesiones, useCajas, useGuardarCajaSesiones, useIncrementarContadorVenta, useOrdenes, useActualizarOrden, useMovimientos, useGuardarMovimientos, useUserProfiles, useUserCargoMap, useCargos, useLotes, useActualizarLotes, useClientes, useBuscarClientes, useCrearCliente, CARGOS_DEFAULT } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
+
 import { useAnchorRect, fixedDropdownStyle } from '@/lib/useAnchorRect'
 import { formatRut } from '@/lib/rut'
+import { capWords } from '@/lib/formatters'
 import { IconCashRegister, IconLock, IconLockOpen, IconBuildingStore } from '@tabler/icons-react'
 import type { VentaItem, Venta, Orden, CajaSesion, LoteInventario, Producto } from '@/types'
 
@@ -1016,12 +1018,14 @@ export function POSTab() {
                 <div>
                   <label className="text-xs font-medium text-gray-600 mb-1 block">Nombre *</label>
                   <input value={nuevoCliente.nombre} onChange={(e) => setNuevoCliente((n) => ({ ...n, nombre: e.target.value }))}
+                    onBlur={(e) => setNuevoCliente((n) => ({ ...n, nombre: capWords(e.target.value) }))}
                     placeholder="Juan" autoFocus autoCapitalize="words" autoCorrect="on"
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
                 </div>
                 <div>
                   <label className="text-xs font-medium text-gray-600 mb-1 block">Apellido</label>
                   <input value={nuevoCliente.apellido} onChange={(e) => setNuevoCliente((n) => ({ ...n, apellido: e.target.value }))}
+                    onBlur={(e) => setNuevoCliente((n) => ({ ...n, apellido: capWords(e.target.value) }))}
                     placeholder="Pérez" autoCapitalize="words" autoCorrect="on"
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
                 </div>

@@ -4,6 +4,7 @@ import { useAuth } from '@/context/AuthContext'
 import { useIsMobile } from '@/lib/useIsMobile'
 import { Spinner } from '@/components/shared/Spinner'
 import { formatRut } from '@/lib/rut'
+import { capWords, capFirst } from '@/lib/formatters'
 import { OrdenDetallePage } from '@/modules/taller/OrdenDetallePage'
 import type { Cliente } from '@/types'
 
@@ -500,6 +501,11 @@ function ContactoModal({ titulo, campos, datos, onClose, onGuardar }: {
               <label className="text-xs font-medium text-gray-600 mb-1 block">{c.label}</label>
               <input type={c.type ?? 'text'} value={form[c.key]}
                 onChange={e => setForm(f => ({ ...f, [c.key]: c.key === 'rut' ? formatRut(e.target.value) : e.target.value }))}
+                onBlur={e => {
+                  const v = e.target.value;
+                  if (['nombre', 'apellido', 'razon_social', 'contacto'].includes(c.key)) setForm(f => ({ ...f, [c.key]: capWords(v) }))
+                  else if (['direccion', 'notas'].includes(c.key)) setForm(f => ({ ...f, [c.key]: capFirst(v) }))
+                }}
                 placeholder={c.placeholder}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
             </div>

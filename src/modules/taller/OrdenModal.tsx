@@ -3,6 +3,7 @@ import { formatRut } from '@/lib/rut'
 import { useCrearOrden, useActualizarOrden, useClientes, useBuscarClientes, useCrearCliente, useActualizarCliente, useBuscarProductos, useChecklist, useUserProfiles, useMsgTemplates, useSeguimientoConfig, useBodegas } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
+import { capFirst, capWords } from '@/lib/formatters'
 import { sendEmail, buildEmailIngreso } from '@/lib/email'
 import { notifyNuevoEquipo } from '@/lib/push-notify'
 import { Money } from '@/components/shared/Money'
@@ -41,13 +42,7 @@ const EMPTY: FormData = {
   presup: '', costo: '', status: 'Chequeo', fechaEstimada: '', numero_boleta: '',
 }
 
-// Capitaliza la primera letra de cada palabra (nombres) o solo del string (textos libres)
-function capWords(s: string) {
-  return s.replace(/\b\w/g, c => c.toUpperCase())
-}
-function capFirst(s: string) {
-  return s.charAt(0).toUpperCase() + s.slice(1)
-}
+
 
 // Interpola variables {{nombre}}, {{modelo}}, etc. en un template de mensaje
 function rellenarTemplate(tpl: string, vars: Record<string, string>): string {

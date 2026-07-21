@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { useEquipos, useGuardarEquipos, useCatEquipo, useMarcasEquipo } from '@/lib/queries'
+
 import { useAnchorRect, fixedDropdownStyle } from '@/lib/useAnchorRect'
 import type { Equipo } from '@/types'
 

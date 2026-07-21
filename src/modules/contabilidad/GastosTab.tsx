@@ -3,6 +3,7 @@ import { useGastos, useCrearGasto, useActualizarGasto, useEliminarGasto, useGast
 import { asientoDeGasto, asientoIdDeGasto, nextNumeroAsiento } from '@/lib/contabilidad'
 import { GASTO_GENERAL_ID } from '@/lib/gastos'
 import { Spinner } from '@/components/shared/Spinner'
+import { capFirst } from '@/lib/formatters'
 import type { Gasto, GastoCat, Bodega } from '@/types'
 
 function uid() { return Math.random().toString(36).slice(2) + Date.now().toString(36) }
@@ -440,7 +441,8 @@ function GastoModal({ cats, bodegas, gasto, subcatsPorCat, onClose, onGuardar }:
             <div>
               <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider block mb-1.5">Descripción</label>
               <input type="text" value={descripcion}
-                onChange={e => { const v = e.target.value; setDescripcion(v.charAt(0).toUpperCase() + v.slice(1)) }}
+                onChange={e => setDescripcion(e.target.value)}
+                onBlur={e => setDescripcion(capFirst(e.target.value))}
                 placeholder="Ej: Agua y luz de octubre"
                 className="w-full px-3 py-2 border border-gray-200 rounded-lg text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400 transition" />
             </div>
