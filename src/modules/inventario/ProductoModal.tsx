@@ -79,7 +79,7 @@ export function ProductoModal({ producto, productos, bodegas, onClose }: Props) 
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/40 md:p-4">
+    <div className="fixed inset-0 z-[110] flex items-end md:items-center justify-center bg-black/40 md:p-4">
       <div className="bg-white rounded-t-2xl md:rounded-2xl shadow-2xl w-full md:max-w-xl flex flex-col max-h-[92vh] md:max-h-[90vh]">
 
         {/* Header */}

@@ -254,7 +254,7 @@ export function ConteosTab() {
 
       {/* Detalle de un conteo */}
       {detalle && (
-        <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/40 md:p-4">
+        <div className="fixed inset-0 z-[110] flex items-end md:items-center justify-center bg-black/40 md:p-4">
           <div className="bg-white rounded-t-2xl md:rounded-2xl shadow-2xl w-full md:max-w-lg flex flex-col max-h-[85vh]">
             <div className="flex items-start justify-between px-5 py-4 border-b border-gray-100">
               <div>

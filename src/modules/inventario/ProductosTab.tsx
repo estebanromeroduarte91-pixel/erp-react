@@ -600,7 +600,7 @@ export function ProductosTab() {
         const showCols = importTab === 'dup' ? 'dup' : importTab === 'sinsku' ? 'sinsku' : 'todos'
 
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 flex flex-col max-h-[90vh]">
 
               {/* Header */}

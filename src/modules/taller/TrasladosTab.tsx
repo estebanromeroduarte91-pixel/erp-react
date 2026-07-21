@@ -584,7 +584,7 @@ function TrasladoModal({
     setForm((f) => ({ ...f, [field]: val }))
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40 p-4"
 >
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh]">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
@@ -747,7 +747,7 @@ function TecnicosModal({
   onClose: () => void
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40 p-4"
 >
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">

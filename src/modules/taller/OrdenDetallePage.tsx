@@ -1140,7 +1140,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
 
       {/* Modal subestado al poner Listo / Entregado */}
       {pendingEstado && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xs overflow-hidden">
             <div className="px-5 py-4 border-b border-gray-100">
               <h3 className="font-semibold text-gray-900">Mover a <span className="text-blue-600">{pendingEstado}</span></h3>
@@ -1174,7 +1174,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
 
       {/* Modal notificación al cambiar estado */}
       {notif && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
             <div className="px-5 py-4 border-b border-gray-200">
               <h3 className="font-semibold text-gray-900">Orden movida a <span className="text-blue-600">{notif.estado}</span></h3>
