@@ -56,7 +56,7 @@ export function SeguimientoTab() {
         <h3 className="text-sm font-bold text-gray-700 mb-4">Información del taller</h3>
         <div className="grid grid-cols-2 gap-4">
           {[
-            { key: 'nombreTaller', label: 'Nombre del taller *', placeholder: 'Steve Docs', span2: true },
+            { key: 'nombreTaller', label: 'Nombre del taller *', placeholder: 'Mi Taller', span2: true },
             { key: 'emailContacto', label: 'Email de contacto', placeholder: 'contacto@taller.cl' },
             { key: 'telefono', label: 'Teléfono', placeholder: '+56 9 XXXX XXXX' },
             { key: 'horario', label: 'Horario', placeholder: 'Lun–Vie 10:00–19:00' },

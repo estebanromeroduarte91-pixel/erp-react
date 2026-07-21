@@ -59,6 +59,20 @@ function toAppleCase(s: string): string {
   return r
 }
 
+function descargarPlantillaHistorial() {
+  const headers = ['Orden N°', 'Cliente', 'CI', 'Teléfono', 'Correo', 'Sucursal', 'Marca', 'Modelo', 'Trabajo', 'Ingreso', 'Entrega', 'Total']
+  const ejemplo = {
+    'Orden N°': 1001, Cliente: 'Juan Pérez', CI: '12.345.678-9',
+    Teléfono: '+56 9 1234 5678', Correo: 'juan@ejemplo.com', Sucursal: 'Casa Matriz',
+    Marca: 'Apple', Modelo: 'iPhone 12', Trabajo: 'Cambio de pantalla',
+    Ingreso: '01/03/2025', Entrega: '03/03/2025', Total: 45000,
+  }
+  const ws = XLSX.utils.json_to_sheet([ejemplo], { header: headers })
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Historial')
+  XLSX.writeFile(wb, 'plantilla_historial_ordenes.xlsx')
+}
+
 function getBranchId(bodegas: { id: string; nombre?: string; name?: string }[], sucursal: string): string | undefined {
   const q = sucursal.toLowerCase().trim()
   const b = bodegas.find(x => {
@@ -228,20 +242,29 @@ export function HistorialImportTab() {
     <div className="max-w-3xl">
       <h2 className="text-base font-semibold text-gray-900 mb-1">Subir historial</h2>
       <p className="text-sm text-gray-500 mb-6">
-        Importa órdenes históricas desde un Excel exportado de Gestioo.
+        Importa órdenes históricas desde un archivo Excel.
         Las órdenes ya existentes (mismo N°) se omiten automáticamente.
       </p>
 
       {/* Zona de carga */}
       {estado === 'idle' && (
-        <label className="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition">
-          <svg className="w-8 h-8 text-gray-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
-          </svg>
-          <span className="text-sm font-medium text-gray-600">Seleccionar archivo Excel</span>
-          <span className="text-xs text-gray-400 mt-1">.xlsx — formato Gestioo consolidado</span>
-          <input ref={fileRef} type="file" accept=".xlsx" className="hidden" onChange={handleFile} />
-        </label>
+        <>
+          <button onClick={descargarPlantillaHistorial}
+            className="text-xs font-semibold text-blue-600 hover:underline mb-3 flex items-center gap-1">
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-8-4v-9m0 9l-3-3m3 3l3-3" />
+            </svg>
+            Descargar plantilla Excel
+          </button>
+          <label className="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition">
+            <svg className="w-8 h-8 text-gray-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+            </svg>
+            <span className="text-sm font-medium text-gray-600">Seleccionar archivo Excel</span>
+            <span className="text-xs text-gray-400 mt-1">.xlsx — con columnas de Orden N°, Cliente, Modelo, Trabajo y Fechas</span>
+            <input ref={fileRef} type="file" accept=".xlsx" className="hidden" onChange={handleFile} />
+          </label>
+        </>
       )}
 
       {/* Preview */}
