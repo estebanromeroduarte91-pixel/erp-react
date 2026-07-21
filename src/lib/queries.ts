@@ -323,6 +323,64 @@ function filasStock(prods: Producto[]) {
 
 export function useProductos() {
   const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  const instanceId = useId()
+
+  // Realtime: `producto_stock` no tiene columna empresa_id (se filtra por RLS),
+  // y ni esa tabla ni el payload de `productos` traen el join completo — así
+  // que, igual que Ventas, ante cualquier cambio se busca solo esa fila puntual
+  // (con su stock por sucursal) en vez de invalidar y redescargar el catálogo
+  // completo. Esto también cubre los ajustes de stock que hace fn_ajustar_stock
+  // directo sobre `producto_stock` (ventas, OCs, conteos, etc).
+  useEffect(() => {
+    if (!empresaId) return
+    const refetchProducto = (id: string) => {
+      void supabase
+        .from('productos')
+        .select(PRODUCTO_COLS)
+        .eq('id', id)
+        .single()
+        .then(({ data, error }) => {
+          if (error || !data) return
+          const producto = hidratarProducto(data)
+          qc.setQueryData<Producto[]>(['productos', empresaId], (old = []) => {
+            const idx = old.findIndex((p) => p.id === producto.id)
+            if (idx >= 0) {
+              const copy = [...old]
+              copy[idx] = producto
+              return copy
+            }
+            return [producto, ...old]
+          })
+        })
+    }
+    const channel = supabase
+      .channel(`rt-productos-${empresaId}-${instanceId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'productos', filter: `empresa_id=eq.${empresaId}` },
+        (payload) => {
+          if (payload.eventType === 'DELETE') {
+            const oldId = (payload.old as { id?: string }).id
+            if (!oldId) return
+            qc.setQueryData<Producto[]>(['productos', empresaId], (old = []) => old.filter((p) => p.id !== oldId))
+            return
+          }
+          refetchProducto((payload.new as { id: string }).id)
+        },
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'producto_stock' },
+        (payload) => {
+          const row = (payload.eventType === 'DELETE' ? payload.old : payload.new) as { producto_id?: string }
+          if (row.producto_id) refetchProducto(row.producto_id)
+        },
+      )
+      .subscribe()
+    return () => { void supabase.removeChannel(channel) }
+  }, [empresaId, qc, instanceId])
+
   return useQuery({
     queryKey: ['productos', empresaId],
     queryFn: async () => {
@@ -382,7 +440,22 @@ export function useGuardarProducto() {
         if (e2) throw e2
       }
     },
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ['productos', empresaId] }),
+    // Sin invalidate: el eco de Realtime (arriba) refresca esa fila puntual.
+    onMutate: async (p: Producto) => {
+      await qc.cancelQueries({ queryKey: ['productos', empresaId] })
+      const prev = qc.getQueryData<Producto[]>(['productos', empresaId])
+      qc.setQueryData<Producto[]>(['productos', empresaId], (old = []) => {
+        const idx = old.findIndex((x) => x.id === p.id)
+        if (idx >= 0) {
+          const copy = [...old]
+          copy[idx] = p
+          return copy
+        }
+        return [p, ...old]
+      })
+      return { prev }
+    },
+    onError: (_e, _p, ctx) => { if (ctx?.prev) qc.setQueryData(['productos', empresaId], ctx.prev) },
   })
 }
 
@@ -394,7 +467,13 @@ export function useEliminarProducto() {
       const { error } = await supabase.from('productos').delete().eq('id', id).eq('empresa_id', empresaId!)
       if (error) throw error
     },
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ['productos', empresaId] }),
+    onMutate: async (id: string) => {
+      await qc.cancelQueries({ queryKey: ['productos', empresaId] })
+      const prev = qc.getQueryData<Producto[]>(['productos', empresaId])
+      qc.setQueryData<Producto[]>(['productos', empresaId], (old = []) => old.filter((p) => p.id !== id))
+      return { prev }
+    },
+    onError: (_e, _id, ctx) => { if (ctx?.prev) qc.setQueryData(['productos', empresaId], ctx.prev) },
   })
 }
 
@@ -695,6 +774,40 @@ function filaClienteParcial(c: Partial<Cliente>): Record<string, unknown> {
 
 export function useClientes() {
   const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  const instanceId = useId()
+
+  // Realtime: inyecta el cambio directo en la caché (mismo patrón que Órdenes).
+  useEffect(() => {
+    if (!empresaId) return
+    const channel = supabase
+      .channel(`rt-clientes-${empresaId}-${instanceId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'clientes', filter: `empresa_id=eq.${empresaId}` },
+        (payload) => {
+          if (payload.eventType === 'DELETE') {
+            const oldId = (payload.old as { id?: string }).id
+            if (!oldId) return
+            qc.setQueryData<Cliente[]>(['clientes', empresaId], (old = []) => old.filter((c) => c.id !== oldId))
+            return
+          }
+          const cliente = hidratarCliente(payload.new as Record<string, unknown>)
+          qc.setQueryData<Cliente[]>(['clientes', empresaId], (old = []) => {
+            const idx = old.findIndex((c) => c.id === cliente.id)
+            if (idx >= 0) {
+              const copy = [...old]
+              copy[idx] = cliente
+              return copy
+            }
+            return [cliente, ...old]
+          })
+        },
+      )
+      .subscribe()
+    return () => { void supabase.removeChannel(channel) }
+  }, [empresaId, qc, instanceId])
+
   return useQuery({
     queryKey: ['clientes', empresaId],
     queryFn: async () => {
@@ -725,7 +838,14 @@ export function useCrearCliente() {
       const { error } = await supabase.from('clientes').insert(row)
       if (error) throw error
     },
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ['clientes', empresaId] }),
+    // Sin invalidate: el eco de Realtime (arriba) ya trae la fila confirmada.
+    onMutate: async (c: Cliente) => {
+      await qc.cancelQueries({ queryKey: ['clientes', empresaId] })
+      const prev = qc.getQueryData<Cliente[]>(['clientes', empresaId])
+      qc.setQueryData<Cliente[]>(['clientes', empresaId], (old = []) => [c, ...old])
+      return { prev }
+    },
+    onError: (_e, _c, ctx) => { if (ctx?.prev) qc.setQueryData(['clientes', empresaId], ctx.prev) },
   })
 }
 
@@ -738,7 +858,14 @@ export function useActualizarCliente() {
       const { error } = await supabase.from('clientes').update(filaClienteParcial(rest)).eq('id', id).eq('empresa_id', empresaId!)
       if (error) throw error
     },
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ['clientes', empresaId] }),
+    onMutate: async (c: Partial<Cliente> & { id: string }) => {
+      await qc.cancelQueries({ queryKey: ['clientes', empresaId] })
+      const prev = qc.getQueryData<Cliente[]>(['clientes', empresaId])
+      qc.setQueryData<Cliente[]>(['clientes', empresaId], (old = []) =>
+        old.map((x) => (x.id === c.id ? { ...x, ...c } : x)))
+      return { prev }
+    },
+    onError: (_e, _c, ctx) => { if (ctx?.prev) qc.setQueryData(['clientes', empresaId], ctx.prev) },
   })
 }
 
@@ -750,7 +877,13 @@ export function useEliminarCliente() {
       const { error } = await supabase.from('clientes').delete().eq('id', id).eq('empresa_id', empresaId!)
       if (error) throw error
     },
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ['clientes', empresaId] }),
+    onMutate: async (id: string) => {
+      await qc.cancelQueries({ queryKey: ['clientes', empresaId] })
+      const prev = qc.getQueryData<Cliente[]>(['clientes', empresaId])
+      qc.setQueryData<Cliente[]>(['clientes', empresaId], (old = []) => old.filter((c) => c.id !== id))
+      return { prev }
+    },
+    onError: (_e, _id, ctx) => { if (ctx?.prev) qc.setQueryData(['clientes', empresaId], ctx.prev) },
   })
 }
 
@@ -1121,8 +1254,43 @@ function filaGastoParcial(g: Partial<Gasto>): Record<string, unknown> {
   return row
 }
 
+function ordenarPorFechaDesc(lista: Gasto[]): Gasto[] {
+  return [...lista].sort((a, b) => (a.fecha < b.fecha ? 1 : a.fecha > b.fecha ? -1 : 0))
+}
+
 export function useGastos() {
   const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  const instanceId = useId()
+
+  // Realtime: inyecta el cambio directo en la caché (mismo patrón que Órdenes),
+  // reordenando por fecha para mantener el mismo orden que trae la query inicial.
+  useEffect(() => {
+    if (!empresaId) return
+    const channel = supabase
+      .channel(`rt-gastos-${empresaId}-${instanceId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'gastos', filter: `empresa_id=eq.${empresaId}` },
+        (payload) => {
+          if (payload.eventType === 'DELETE') {
+            const oldId = (payload.old as { id?: string }).id
+            if (!oldId) return
+            qc.setQueryData<Gasto[]>(['gastos', empresaId], (old = []) => old.filter((g) => g.id !== oldId))
+            return
+          }
+          const gasto = hidratarGasto(payload.new as Record<string, unknown>)
+          qc.setQueryData<Gasto[]>(['gastos', empresaId], (old = []) => {
+            const idx = old.findIndex((g) => g.id === gasto.id)
+            const next = idx >= 0 ? old.map((g, i) => (i === idx ? gasto : g)) : [gasto, ...old]
+            return ordenarPorFechaDesc(next)
+          })
+        },
+      )
+      .subscribe()
+    return () => { void supabase.removeChannel(channel) }
+  }, [empresaId, qc, instanceId])
+
   return useQuery({
     queryKey: ['gastos', empresaId],
     queryFn: async () => {
@@ -1155,7 +1323,13 @@ export function useCrearGasto() {
       const { error } = await supabase.from('gastos').insert(row)
       if (error) throw error
     },
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ['gastos', empresaId] }),
+    onMutate: async (g: Gasto) => {
+      await qc.cancelQueries({ queryKey: ['gastos', empresaId] })
+      const prev = qc.getQueryData<Gasto[]>(['gastos', empresaId])
+      qc.setQueryData<Gasto[]>(['gastos', empresaId], (old = []) => ordenarPorFechaDesc([g, ...old]))
+      return { prev }
+    },
+    onError: (_e, _g, ctx) => { if (ctx?.prev) qc.setQueryData(['gastos', empresaId], ctx.prev) },
   })
 }
 
@@ -1169,7 +1343,14 @@ export function useActualizarGasto() {
       const { error } = await supabase.from('gastos').update(filaGastoParcial(rest)).eq('id', id).eq('empresa_id', empresaId!)
       if (error) throw error
     },
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ['gastos', empresaId] }),
+    onMutate: async (g: Partial<Gasto> & { id: string }) => {
+      await qc.cancelQueries({ queryKey: ['gastos', empresaId] })
+      const prev = qc.getQueryData<Gasto[]>(['gastos', empresaId])
+      qc.setQueryData<Gasto[]>(['gastos', empresaId], (old = []) =>
+        ordenarPorFechaDesc(old.map((x) => (x.id === g.id ? { ...x, ...g } : x))))
+      return { prev }
+    },
+    onError: (_e, _g, ctx) => { if (ctx?.prev) qc.setQueryData(['gastos', empresaId], ctx.prev) },
   })
 }
 
@@ -1181,7 +1362,13 @@ export function useEliminarGasto() {
       const { error } = await supabase.from('gastos').delete().eq('id', id).eq('empresa_id', empresaId!)
       if (error) throw error
     },
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ['gastos', empresaId] }),
+    onMutate: async (id: string) => {
+      await qc.cancelQueries({ queryKey: ['gastos', empresaId] })
+      const prev = qc.getQueryData<Gasto[]>(['gastos', empresaId])
+      qc.setQueryData<Gasto[]>(['gastos', empresaId], (old = []) => old.filter((g) => g.id !== id))
+      return { prev }
+    },
+    onError: (_e, _id, ctx) => { if (ctx?.prev) qc.setQueryData(['gastos', empresaId], ctx.prev) },
   })
 }
 
