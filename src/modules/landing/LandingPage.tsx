@@ -3,8 +3,8 @@ import { Link } from 'react-router-dom'
 function HeroMockup() {
   return (
     <div className="mt-20 w-full max-w-5xl mx-auto relative group px-4 sm:px-6">
-      {/* Glow detrás de la imagen */}
-      <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-purple-600 rounded-[2rem] blur-2xl opacity-20 group-hover:opacity-30 transition duration-1000"></div>
+      {/* Glow detrás de la imagen (Optimizado) */}
+      <div className="absolute -inset-1 bg-gradient-to-r from-blue-600/30 to-purple-600/30 rounded-[2rem] blur-xl group-hover:blur-2xl transition duration-1000 transform-gpu"></div>
       
       <div className="relative bg-white/70 backdrop-blur-xl border border-white/50 shadow-2xl rounded-[2rem] p-2 md:p-4">
         <div className="bg-slate-100 rounded-[1.5rem] overflow-hidden border border-slate-200/50">
@@ -42,10 +42,10 @@ export function LandingPage() {
   return (
     <div className="min-h-screen relative overflow-hidden bg-white text-slate-900 font-sans selection:bg-blue-100 selection:text-blue-900">
       
-      {/* Fondos dinámicos (Manchas difuminadas estilo Startup) */}
+      {/* Fondos dinámicos (Optimizados para no sobrecargar GPU) */}
       <div className="fixed inset-0 pointer-events-none z-0">
-        <div className="absolute top-[20%] left-[10%] w-[50vw] h-[50vw] bg-blue-400/10 rounded-full blur-[100px] mix-blend-multiply"></div>
-        <div className="absolute bottom-[10%] right-[10%] w-[40vw] h-[40vw] bg-purple-400/10 rounded-full blur-[100px] mix-blend-multiply"></div>
+        <div className="absolute top-[20%] left-[10%] w-[50vw] h-[50vw] bg-blue-400/20 rounded-full blur-3xl opacity-50 transform-gpu"></div>
+        <div className="absolute bottom-[10%] right-[10%] w-[40vw] h-[40vw] bg-purple-400/20 rounded-full blur-3xl opacity-50 transform-gpu"></div>
       </div>
 
       {/* Navegación */}

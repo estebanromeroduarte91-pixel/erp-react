@@ -1,22 +1,25 @@
+import { lazy, Suspense } from 'react'
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { Login } from '@/modules/auth/Login'
 import { ResetPassword } from '@/modules/auth/ResetPassword'
 import { TrialExpirado } from '@/modules/auth/TrialExpirado'
-import { Shell } from '@/components/layout/Shell'
 import { LandingPage } from '@/modules/landing/LandingPage'
-import { TallerPage } from '@/modules/taller/TallerPage'
-import { InventarioPage } from '@/modules/inventario/InventarioPage'
-import { ContactosPage } from '@/modules/contactos/ContactosPage'
-import { VentasPage } from '@/modules/ventas/VentasPage'
-import { ContabilidadPage } from '@/modules/contabilidad/ContabilidadPage'
-import { DashboardPage } from '@/modules/dashboard/DashboardPage'
-import { EstadisticasPage } from '@/modules/estadisticas/EstadisticasPage'
-import { ConfigPage } from '@/modules/config/ConfigPage'
-import { ComprasPage } from '@/modules/compras/ComprasPage'
-import { BuscarPage } from '@/modules/buscar/BuscarPage'
-import { PixitAdminPage } from '@/modules/pixitadmin/PixitAdminPage'
+import { Shell } from '@/components/layout/Shell'
 import { Spinner } from '@/components/shared/Spinner'
+
+// Carga perezosa (Lazy Loading) de todos los módulos pesados del ERP
+const TallerPage = lazy(() => import('@/modules/taller/TallerPage').then(m => ({ default: m.TallerPage })))
+const InventarioPage = lazy(() => import('@/modules/inventario/InventarioPage').then(m => ({ default: m.InventarioPage })))
+const ContactosPage = lazy(() => import('@/modules/contactos/ContactosPage').then(m => ({ default: m.ContactosPage })))
+const VentasPage = lazy(() => import('@/modules/ventas/VentasPage').then(m => ({ default: m.VentasPage })))
+const ContabilidadPage = lazy(() => import('@/modules/contabilidad/ContabilidadPage').then(m => ({ default: m.ContabilidadPage })))
+const DashboardPage = lazy(() => import('@/modules/dashboard/DashboardPage').then(m => ({ default: m.DashboardPage })))
+const EstadisticasPage = lazy(() => import('@/modules/estadisticas/EstadisticasPage').then(m => ({ default: m.EstadisticasPage })))
+const ConfigPage = lazy(() => import('@/modules/config/ConfigPage').then(m => ({ default: m.ConfigPage })))
+const ComprasPage = lazy(() => import('@/modules/compras/ComprasPage').then(m => ({ default: m.ComprasPage })))
+const BuscarPage = lazy(() => import('@/modules/buscar/BuscarPage').then(m => ({ default: m.BuscarPage })))
+const PixitAdminPage = lazy(() => import('@/modules/pixitadmin/PixitAdminPage').then(m => ({ default: m.PixitAdminPage })))
 
 function AppRoutes() {
   const { session, cargando, recoveryMode, trialExpirado, cuentaSuspendida, esPlatformAdmin, empresaId } = useAuth()
@@ -52,24 +55,30 @@ function AppRoutes() {
 
   return (
     <Shell>
-      <Routes>
-        <Route path="/" element={<Navigate to={soloPlatformAdmin ? '/pixit-admin' : '/dashboard'} replace />} />
-        <Route path="/login" element={<Navigate to={soloPlatformAdmin ? '/pixit-admin' : '/dashboard'} replace />} />
-        {!soloPlatformAdmin && <>
-          <Route path="/taller" element={<TallerPage />} />
-          <Route path="/dashboard"     element={<DashboardPage />} />
-          <Route path="/inventario"    element={<InventarioPage />} />
-          <Route path="/ventas"        element={<VentasPage />} />
-          <Route path="/contactos"     element={<ContactosPage />} />
-          <Route path="/contabilidad"  element={<ContabilidadPage />} />
-          <Route path="/estadisticas"  element={<EstadisticasPage />} />
-          <Route path="/config"        element={<ConfigPage />} />
-          <Route path="/compras"       element={<ComprasPage />} />
-          <Route path="/buscar"        element={<BuscarPage />} />
-        </>}
-        {esPlatformAdmin && <Route path="/pixit-admin" element={<PixitAdminPage />} />}
-        <Route path="*"              element={<Navigate to={soloPlatformAdmin ? '/pixit-admin' : '/taller'} replace />} />
-      </Routes>
+      <Suspense fallback={
+        <div className="flex min-h-screen items-center justify-center">
+          <Spinner className="w-8 h-8" />
+        </div>
+      }>
+        <Routes>
+          <Route path="/" element={<Navigate to={soloPlatformAdmin ? '/pixit-admin' : '/dashboard'} replace />} />
+          <Route path="/login" element={<Navigate to={soloPlatformAdmin ? '/pixit-admin' : '/dashboard'} replace />} />
+          {!soloPlatformAdmin && <>
+            <Route path="/taller" element={<TallerPage />} />
+            <Route path="/dashboard"     element={<DashboardPage />} />
+            <Route path="/inventario"    element={<InventarioPage />} />
+            <Route path="/ventas"        element={<VentasPage />} />
+            <Route path="/contactos"     element={<ContactosPage />} />
+            <Route path="/contabilidad"  element={<ContabilidadPage />} />
+            <Route path="/estadisticas"  element={<EstadisticasPage />} />
+            <Route path="/config"        element={<ConfigPage />} />
+            <Route path="/compras"       element={<ComprasPage />} />
+            <Route path="/buscar"        element={<BuscarPage />} />
+          </>}
+          {esPlatformAdmin && <Route path="/pixit-admin" element={<PixitAdminPage />} />}
+          <Route path="*"              element={<Navigate to={soloPlatformAdmin ? '/pixit-admin' : '/taller'} replace />} />
+        </Routes>
+      </Suspense>
     </Shell>
   )
 }
