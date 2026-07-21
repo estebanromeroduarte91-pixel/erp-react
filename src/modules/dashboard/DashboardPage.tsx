@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useVentas, useGastos, useOrdenes, useBodegas, useMetodosPago, useOCs, useProductos } from '@/lib/queries'
+import { useVentas, useGastos, useBodegas, useMetodosPago, useOCs, useProductos } from '@/lib/queries'
 import { gastosPorSucursal } from '@/lib/gastos'
 import { Spinner } from '@/components/shared/Spinner'
 import { useIsMobile } from '@/lib/useIsMobile'
@@ -378,7 +378,6 @@ export function DashboardPage() {
   const { data: gastos,  isLoading: loadG } = useGastos()
   const { data: ocs,     isLoading: loadOC } = useOCs()
   const { data: productos = [] } = useProductos()
-  const { isLoading: loadO } = useOrdenes()
   const { data: bodegasRaw = [] } = useBodegas()
   const bodegas = useMemo(() => [...bodegasRaw].sort((a, b) => (b.nombre ?? b.name ?? '').localeCompare(a.nombre ?? a.name ?? '', 'es')), [bodegasRaw])
   const { data: metodos  = [] } = useMetodosPago()
@@ -491,7 +490,7 @@ export function DashboardPage() {
     return { ventasBrutas, ventasBrutasPrev, ventasNetas, totalOC, totalGastos, totalCosto, totalSalida, utilidad, margen, txCount, ticketProm, sucursales, mpPorSuc, mpGlobalSorted, ultimasVentas }
   }, [ventas, gastos, ocs, productos, bodegas, desde, hasta, pDesde, pHasta])
 
-  if (loadV || loadG || loadO || loadOC) {
+  if (loadV || loadG || loadOC) {
     return <div className="flex justify-center py-16"><Spinner className="w-8 h-8" /></div>
   }
 
