@@ -98,35 +98,73 @@ export function LandingPage() {
           </div>
           
           <div className="grid md:grid-cols-3 gap-8">
-            <div className="bg-white/50 backdrop-blur-sm border border-slate-200 rounded-3xl p-8 hover:shadow-xl transition hover:-translate-y-1">
-              <div className="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center mb-6 text-blue-600">
+            
+            {/* 1. POS */}
+            <div className="bg-white/50 backdrop-blur-sm border border-slate-200 rounded-3xl p-8 hover:shadow-xl hover:shadow-blue-500/10 transition duration-300 hover:-translate-y-1 group">
+              <div className="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center mb-6 text-blue-600 group-hover:scale-110 transition-transform duration-300">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
               </div>
               <h3 className="text-xl font-bold text-slate-900 mb-3">POS Ágil y Moderno</h3>
-              <p className="text-slate-600 leading-relaxed">
+              <p className="text-slate-600 leading-relaxed text-sm">
                 Vende accesorios, registra pagos mixtos e imprime boletas electrónicas en segundos con una interfaz pensada para la velocidad.
               </p>
             </div>
             
-            <div className="bg-white/50 backdrop-blur-sm border border-slate-200 rounded-3xl p-8 hover:shadow-xl transition hover:-translate-y-1">
-              <div className="w-12 h-12 bg-purple-100 rounded-2xl flex items-center justify-center mb-6 text-purple-600">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
+            {/* 2. Órdenes de Trabajo */}
+            <div className="bg-white/50 backdrop-blur-sm border border-slate-200 rounded-3xl p-8 hover:shadow-xl hover:shadow-purple-500/10 transition duration-300 hover:-translate-y-1 group">
+              <div className="w-12 h-12 bg-purple-100 rounded-2xl flex items-center justify-center mb-6 text-purple-600 group-hover:scale-110 transition-transform duration-300">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
               </div>
-              <h3 className="text-xl font-bold text-slate-900 mb-3">Taller y Reparaciones</h3>
-              <p className="text-slate-600 leading-relaxed">
-                Sigue el estado de cada orden, notifica a tus clientes por WhatsApp o Email automáticamente y gestiona repuestos fácilmente.
+              <h3 className="text-xl font-bold text-slate-900 mb-3">Órdenes de Trabajo</h3>
+              <p className="text-slate-600 leading-relaxed text-sm">
+                Crea órdenes de reparación súper detalladas, sigue el estado de cada equipo y notifica a tus clientes por WhatsApp 100% en piloto automático.
               </p>
             </div>
             
-            <div className="bg-white/50 backdrop-blur-sm border border-slate-200 rounded-3xl p-8 hover:shadow-xl transition hover:-translate-y-1">
-              <div className="w-12 h-12 bg-emerald-100 rounded-2xl flex items-center justify-center mb-6 text-emerald-600">
+            {/* 3. Multi-Sucursal */}
+            <div className="bg-white/50 backdrop-blur-sm border border-slate-200 rounded-3xl p-8 hover:shadow-xl hover:shadow-emerald-500/10 transition duration-300 hover:-translate-y-1 group">
+              <div className="w-12 h-12 bg-emerald-100 rounded-2xl flex items-center justify-center mb-6 text-emerald-600 group-hover:scale-110 transition-transform duration-300">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
               </div>
               <h3 className="text-xl font-bold text-slate-900 mb-3">Multi-Sucursal</h3>
-              <p className="text-slate-600 leading-relaxed">
+              <p className="text-slate-600 leading-relaxed text-sm">
                 Controla múltiples bodegas, traslada stock entre tiendas y da acceso a todo tu equipo con roles y permisos específicos.
               </p>
             </div>
+
+            {/* 4. Gastos */}
+            <div className="bg-white/50 backdrop-blur-sm border border-slate-200 rounded-3xl p-8 hover:shadow-xl hover:shadow-red-500/10 transition duration-300 hover:-translate-y-1 group">
+              <div className="w-12 h-12 bg-red-100 rounded-2xl flex items-center justify-center mb-6 text-red-600 group-hover:scale-110 transition-transform duration-300">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+              </div>
+              <h3 className="text-xl font-bold text-slate-900 mb-3">Control de Gastos</h3>
+              <p className="text-slate-600 leading-relaxed text-sm">
+                Registra facturas, sueldos y servicios básicos para saber exactamente cuál es tu margen de ganancia real a fin de mes.
+              </p>
+            </div>
+
+            {/* 5. Órdenes de Compra */}
+            <div className="bg-white/50 backdrop-blur-sm border border-slate-200 rounded-3xl p-8 hover:shadow-xl hover:shadow-amber-500/10 transition duration-300 hover:-translate-y-1 group">
+              <div className="w-12 h-12 bg-amber-100 rounded-2xl flex items-center justify-center mb-6 text-amber-600 group-hover:scale-110 transition-transform duration-300">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+              </div>
+              <h3 className="text-xl font-bold text-slate-900 mb-3">Órdenes de Compra</h3>
+              <p className="text-slate-600 leading-relaxed text-sm">
+                Automatiza la reposición de repuestos con tus proveedores y actualiza tu inventario en todas las bodegas con un solo clic.
+              </p>
+            </div>
+
+            {/* 6. Estadísticas */}
+            <div className="bg-white/50 backdrop-blur-sm border border-slate-200 rounded-3xl p-8 hover:shadow-xl hover:shadow-indigo-500/10 transition duration-300 hover:-translate-y-1 group">
+              <div className="w-12 h-12 bg-indigo-100 rounded-2xl flex items-center justify-center mb-6 text-indigo-600 group-hover:scale-110 transition-transform duration-300">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+              </div>
+              <h3 className="text-xl font-bold text-slate-900 mb-3">Contabilidad y Reportes</h3>
+              <p className="text-slate-600 leading-relaxed text-sm">
+                Gráficos en tiempo real sobre tus ventas, comisiones de técnicos y flujos de caja. Reportes listos para enviar a tu contador.
+              </p>
+            </div>
+
           </div>
         </section>
       </main>
