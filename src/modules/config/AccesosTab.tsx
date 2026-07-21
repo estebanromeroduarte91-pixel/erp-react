@@ -12,7 +12,12 @@ import type { UserConfig, FichaUsuario, RegistroVacaciones, RegistroInasistencia
 const ROLES_LABEL: Record<string, string> = {
   admin: 'Administrador', encargado: 'Encargado', tecnico: 'Técnico', vendedor: 'Vendedor',
 }
+// Login.tsx lee el token de invitación desde window.location.search (query real,
+// no el hash), pero la app enruta por hash (#/...) — sin "#/login" al final,
+// HashRouter resuelve la ruta "/" y muestra la landing en vez de la pantalla
+// de invitación, aunque el query string sí llegue con el token.
 const APP_BASE_URL = window.location.origin + window.location.pathname
+const INVITE_URL_SUFFIX = '#/login'
 
 function uid() { return Math.random().toString(36).slice(2) + Date.now().toString(36) }
 
@@ -430,7 +435,7 @@ function InviteModal({ onClose }: { onClose: () => void }) {
     const ROLE_MAP: Record<string, string> = { tecnico: 'tecnico', vendedor: 'vendedor', encargado: 'encargado' }
     const role = isSuperAdmin ? 'admin' : (ROLE_MAP[cargoId] ?? cargos.find(c => c.id === cargoId)?.rol ?? 'tecnico')
     const token = await crear.mutateAsync({ nombre: nombre.trim(), email: email.trim().toLowerCase(), role, cargoId, branchId })
-    setLink(`${APP_BASE_URL}?invite=${token}`)
+    setLink(`${APP_BASE_URL}?invite=${token}${INVITE_URL_SUFFIX}`)
   }
 
   function copiar() {
@@ -610,7 +615,7 @@ export function AccesosTab() {
         {invites.length === 0
           ? <p className="text-sm text-gray-400">Sin invitaciones pendientes.</p>
           : invites.map(inv => {
-              const url = `${APP_BASE_URL}?invite=${inv.token}`
+              const url = `${APP_BASE_URL}?invite=${inv.token}${INVITE_URL_SUFFIX}`
               return (
                 <div key={inv.id} className="flex items-center justify-between gap-3 px-4 py-3 bg-white border border-gray-200 rounded-xl mb-2">
                   <div>
