@@ -168,15 +168,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!esPlatformAdmin) return
     sessionStorage.setItem('pixit_impersonated_id', id)
     sessionStorage.setItem('pixit_impersonated_nombre', nombre)
-    setEstado((prev) => ({ ...prev, impersonatedEmpresaId: id, impersonatedEmpresaNombre: nombre }))
-    window.location.href = '/' // Force a full reload to reset react-query cache and UI state
+    window.location.href = window.location.pathname + '#/'
+    window.location.reload()
   }
 
   function stopImpersonation() {
     sessionStorage.removeItem('pixit_impersonated_id')
     sessionStorage.removeItem('pixit_impersonated_nombre')
-    setEstado((prev) => ({ ...prev, impersonatedEmpresaId: null, impersonatedEmpresaNombre: null }))
-    window.location.href = '/pixit-admin'
+    window.location.href = window.location.pathname + '#/pixit-admin'
+    window.location.reload()
   }
 
   const esAdmin = estado.rol === 'admin'
