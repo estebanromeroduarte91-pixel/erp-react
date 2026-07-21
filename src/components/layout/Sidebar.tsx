@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
-import { useCargos } from '@/lib/queries'
+import { useCargos, usePuedeUsarModulo } from '@/lib/queries'
 
 // ── Tipos ─────────────────────────────────────────────────────
 interface SubItem { to: string; label: string; icon: React.ReactNode }
@@ -243,6 +243,9 @@ export function Sidebar() {
 
   // Cargos desde la única fuente de verdad (con fallback a CARGOS_DEFAULT incluido en useCargos)
   const { data: cargos = [] } = useCargos()
+  const puedeAccesos = usePuedeUsarModulo('accesos')
+  const puedeCompras = usePuedeUsarModulo('compras')
+  const puedeGastos = usePuedeUsarModulo('gastos')
 
   // Permisos efectivos del usuario actual
   const permisos: Record<string, boolean> = (() => {
@@ -268,7 +271,7 @@ export function Sidebar() {
 
   // Filtrar items de administración según permisos
   // Regla de seguridad fija: Accesos y Cargos siempre son exclusivos del admin
-  const adminItemsFiltrados = rol === 'admin' ? ADMIN_ITEMS : ADMIN_ITEMS.filter(si => {
+  const adminItemsFiltrados = (rol === 'admin' ? ADMIN_ITEMS : ADMIN_ITEMS.filter(si => {
     if (si.type === 'single') {
       const to = (si.item as NavSingle).to
       if (to.includes('accesos') || to.includes('cargos')) return false
@@ -282,6 +285,17 @@ export function Sidebar() {
       return false
     }
     return false
+  // El plan del negocio aplica encima del permiso de cargo, incluso para el
+  // admin — permiso de cargo dice "quién puede administrar", el plan dice
+  // "qué pagó la empresa"; son ejes distintos (ver usePuedeUsarModulo).
+  })).filter(si => {
+    if (si.type === 'single') {
+      const to = (si.item as NavSingle).to
+      if (to.includes('accesos') || to.includes('cargos')) return puedeAccesos
+      return true
+    }
+    if ((si.item as NavGroup).id === 'contabilidad') return puedeCompras || puedeGastos
+    return true
   })
 
   const allGroups = [...OP_ITEMS, ...ADMIN_ITEMS].filter(si => si.type === 'group').map(si => si.item as NavGroup)

@@ -1,5 +1,7 @@
 import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
+import { usePuedeUsarModulo } from '@/lib/queries'
+import { ModuloBloqueado } from '@/components/shared/ModuloBloqueado'
 import { SmtpTab } from './SmtpTab'
 import { DominioTab } from './DominioTab'
 import { CargosTab } from './CargosTab'
@@ -16,19 +18,22 @@ function resolveConfigTab(param: string | null): Tab {
 
 export function ConfigPage() {
   const { esAdmin } = useAuth()
+  const puedeAccesos = usePuedeUsarModulo('accesos')
   const [searchParams, setSearchParams] = useSearchParams()
   const tab = resolveConfigTab(searchParams.get('tab'))
   const setTab = (key: Tab) => setSearchParams(key === 'dominio' ? {} : { tab: key }, { replace: true })
 
-  const allTabs: { key: Tab; label: string; adminOnly?: boolean }[] = [
+  const allTabs: { key: Tab; label: string; adminOnly?: boolean; requierePlan?: boolean }[] = [
     { key: 'dominio', label: 'Dominio' },
     { key: 'smtp',    label: 'SMTP' },
-    { key: 'cargos',  label: 'Cargos',  adminOnly: true },
-    { key: 'accesos', label: 'Accesos', adminOnly: true },
+    { key: 'cargos',  label: 'Cargos',  adminOnly: true, requierePlan: true },
+    { key: 'accesos', label: 'Accesos', adminOnly: true, requierePlan: true },
     { key: 'notificaciones', label: 'Notificaciones', adminOnly: true },
+    // "Mi Plan" siempre visible para el admin — tiene que poder ver su plan
+    // aunque sea Starter, no tendría sentido gatearla por el plan mismo.
     { key: 'suscripcion', label: 'Mi Plan', adminOnly: true },
   ]
-  const tabs = allTabs.filter(t => !t.adminOnly || esAdmin)
+  const tabs = allTabs.filter(t => (!t.adminOnly || esAdmin) && (!t.requierePlan || puedeAccesos))
 
   return (
     <div className="px-4 md:px-0">
@@ -48,8 +53,8 @@ export function ConfigPage() {
 
       {tab === 'dominio'             && <DominioTab />}
       {tab === 'smtp'                && <SmtpTab />}
-      {tab === 'cargos'  && esAdmin  && <CargosTab />}
-      {tab === 'accesos' && esAdmin  && <AccesosTab />}
+      {tab === 'cargos'  && esAdmin  && (puedeAccesos ? <CargosTab /> : <ModuloBloqueado nombre="Gestión de permisos" />)}
+      {tab === 'accesos' && esAdmin  && (puedeAccesos ? <AccesosTab /> : <ModuloBloqueado nombre="Gestión de permisos" />)}
       {tab === 'notificaciones' && esAdmin && <NotificacionesTab />}
       {tab === 'suscripcion' && esAdmin && <SuscripcionTab />}
     </div>

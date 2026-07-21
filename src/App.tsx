@@ -1,12 +1,14 @@
 import { lazy, Suspense } from 'react'
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
+import { usePuedeUsarModulo } from '@/lib/queries'
 import { Login } from '@/modules/auth/Login'
 import { ResetPassword } from '@/modules/auth/ResetPassword'
 import { TrialExpirado } from '@/modules/auth/TrialExpirado'
 import { LandingPage } from '@/modules/landing/LandingPage'
 import { Shell } from '@/components/layout/Shell'
 import { Spinner } from '@/components/shared/Spinner'
+import { ModuloBloqueado } from '@/components/shared/ModuloBloqueado'
 
 // Carga perezosa (Lazy Loading) de todos los módulos pesados del ERP
 const TallerPage = lazy(() => import('@/modules/taller/TallerPage').then(m => ({ default: m.TallerPage })))
@@ -26,6 +28,8 @@ function AppRoutes() {
   // Un platform admin sin empresa propia (solo entra a administrar la plataforma,
   // no opera ningún taller) cae directo al panel — el resto de las rutas requieren empresa.
   const soloPlatformAdmin = esPlatformAdmin && !empresaId
+  const puedeCompras = usePuedeUsarModulo('compras')
+  const puedeGastos = usePuedeUsarModulo('gastos')
 
   if (cargando) {
     return (
@@ -69,10 +73,10 @@ function AppRoutes() {
             <Route path="/inventario"    element={<InventarioPage />} />
             <Route path="/ventas"        element={<VentasPage />} />
             <Route path="/contactos"     element={<ContactosPage />} />
-            <Route path="/contabilidad"  element={<ContabilidadPage />} />
+            <Route path="/contabilidad"  element={puedeGastos ? <ContabilidadPage /> : <ModuloBloqueado nombre="Gastos" />} />
             <Route path="/estadisticas"  element={<EstadisticasPage />} />
             <Route path="/config"        element={<ConfigPage />} />
-            <Route path="/compras"       element={<ComprasPage />} />
+            <Route path="/compras"       element={puedeCompras ? <ComprasPage /> : <ModuloBloqueado nombre="Compras" />} />
             <Route path="/buscar"        element={<BuscarPage />} />
           </>}
           {esPlatformAdmin && <Route path="/pixit-admin" element={<PixitAdminPage />} />}

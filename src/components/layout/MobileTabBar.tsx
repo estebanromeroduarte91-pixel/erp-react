@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
+import { usePuedeUsarModulo } from '@/lib/queries'
 import { CambiarPasswordModal } from '@/components/shared/CambiarPasswordModal'
 
 const TABS = [
@@ -66,8 +67,15 @@ export function MobileTabBar() {
   const { logout } = useAuth()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [pwOpen, setPwOpen] = useState(false)
+  const puedeCompras = usePuedeUsarModulo('compras')
+  const puedeGastos = usePuedeUsarModulo('gastos')
 
-  const masActive = MAS_ITEMS.some(i => i.to === pathname)
+  const masItems = MAS_ITEMS.filter(item => {
+    if (item.to === '/compras') return puedeCompras
+    if (item.to === '/contabilidad') return puedeGastos
+    return true
+  })
+  const masActive = masItems.some(i => i.to === pathname)
 
   return (
     <>
@@ -90,7 +98,7 @@ export function MobileTabBar() {
         pointerEvents: drawerOpen ? 'auto' : 'none',
       }}>
         <div style={{ width: 36, height: 4, background: '#e5e7eb', borderRadius: 99, margin: '4px auto 16px' }} />
-        {MAS_ITEMS.map(item => (
+        {masItems.map(item => (
           <Link
             key={item.to}
             to={item.to}
