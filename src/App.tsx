@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react'
+import { Suspense } from 'react'
 import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { usePuedeUsarModulo } from '@/lib/queries'
@@ -10,19 +10,23 @@ import { Shell } from '@/components/layout/Shell'
 import { Spinner } from '@/components/shared/Spinner'
 import { ModuloBloqueado } from '@/components/shared/ModuloBloqueado'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
+import { lazyWithReload } from '@/lib/lazyWithReload'
 
-// Carga perezosa (Lazy Loading) de todos los módulos pesados del ERP
-const TallerPage = lazy(() => import('@/modules/taller/TallerPage').then(m => ({ default: m.TallerPage })))
-const InventarioPage = lazy(() => import('@/modules/inventario/InventarioPage').then(m => ({ default: m.InventarioPage })))
-const ContactosPage = lazy(() => import('@/modules/contactos/ContactosPage').then(m => ({ default: m.ContactosPage })))
-const VentasPage = lazy(() => import('@/modules/ventas/VentasPage').then(m => ({ default: m.VentasPage })))
-const ContabilidadPage = lazy(() => import('@/modules/contabilidad/ContabilidadPage').then(m => ({ default: m.ContabilidadPage })))
-const DashboardPage = lazy(() => import('@/modules/dashboard/DashboardPage').then(m => ({ default: m.DashboardPage })))
-const EstadisticasPage = lazy(() => import('@/modules/estadisticas/EstadisticasPage').then(m => ({ default: m.EstadisticasPage })))
-const ConfigPage = lazy(() => import('@/modules/config/ConfigPage').then(m => ({ default: m.ConfigPage })))
-const ComprasPage = lazy(() => import('@/modules/compras/ComprasPage').then(m => ({ default: m.ComprasPage })))
-const BuscarPage = lazy(() => import('@/modules/buscar/BuscarPage').then(m => ({ default: m.BuscarPage })))
-const PixitAdminPage = lazy(() => import('@/modules/pixitadmin/PixitAdminPage').then(m => ({ default: m.PixitAdminPage })))
+// Carga perezosa (Lazy Loading) de todos los módulos pesados del ERP.
+// lazyWithReload (en vez de lazy de React) recarga la página sola una vez si
+// el chunk pedido ya no existe en el servidor (deploy nuevo mientras la
+// pestaña seguía abierta) — evita la pantalla en blanco tras un despliegue.
+const TallerPage = lazyWithReload(() => import('@/modules/taller/TallerPage').then(m => ({ default: m.TallerPage })))
+const InventarioPage = lazyWithReload(() => import('@/modules/inventario/InventarioPage').then(m => ({ default: m.InventarioPage })))
+const ContactosPage = lazyWithReload(() => import('@/modules/contactos/ContactosPage').then(m => ({ default: m.ContactosPage })))
+const VentasPage = lazyWithReload(() => import('@/modules/ventas/VentasPage').then(m => ({ default: m.VentasPage })))
+const ContabilidadPage = lazyWithReload(() => import('@/modules/contabilidad/ContabilidadPage').then(m => ({ default: m.ContabilidadPage })))
+const DashboardPage = lazyWithReload(() => import('@/modules/dashboard/DashboardPage').then(m => ({ default: m.DashboardPage })))
+const EstadisticasPage = lazyWithReload(() => import('@/modules/estadisticas/EstadisticasPage').then(m => ({ default: m.EstadisticasPage })))
+const ConfigPage = lazyWithReload(() => import('@/modules/config/ConfigPage').then(m => ({ default: m.ConfigPage })))
+const ComprasPage = lazyWithReload(() => import('@/modules/compras/ComprasPage').then(m => ({ default: m.ComprasPage })))
+const BuscarPage = lazyWithReload(() => import('@/modules/buscar/BuscarPage').then(m => ({ default: m.BuscarPage })))
+const PixitAdminPage = lazyWithReload(() => import('@/modules/pixitadmin/PixitAdminPage').then(m => ({ default: m.PixitAdminPage })))
 
 function AppRoutes() {
   const location = useLocation()
