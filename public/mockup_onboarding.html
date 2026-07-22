@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Onboarding Demo — Pixit</title>
+  <!-- Tailwind CSS v3 via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+    /* Animación de rebote sutil */
+    @keyframes bounceSubtle {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-4px); }
+    }
+    .animate-bounce-subtle {
+      animation: bounceSubtle 2s infinite ease-in-out;
+    }
+  </style>
+</head>
+<body class="bg-[#f2f2f7] min-h-screen text-slate-800 flex overflow-hidden select-none">
+
+  <!-- ================= SIDEBAR ================= -->
+  <aside class="w-60 bg-[#1c1c1e] text-white flex flex-col justify-between py-6 px-4 shrink-0 z-10">
+    <div>
+      <div class="px-3 mb-8">
+        <span class="font-extrabold text-xl tracking-tight text-white">Pixit</span>
+      </div>
+      
+      <nav class="space-y-1 text-sm font-semibold text-slate-400">
+        <div class="px-3 py-1 text-[10px] uppercase tracking-wider text-slate-500 font-bold mb-1">Operación</div>
+        <div class="flex items-center gap-3 px-3 py-2 bg-blue-600/10 text-blue-400 rounded-xl transition cursor-pointer">
+          <span>📊</span> Dashboard
+        </div>
+        <div id="step-sidebar-ventas" class="flex items-center gap-3 px-3 py-2 hover:bg-white/5 hover:text-white rounded-xl transition cursor-pointer">
+          <span>🛒</span> Ventas (POS)
+        </div>
+        <div id="step-sidebar-taller" class="flex items-center gap-3 px-3 py-2 hover:bg-white/5 hover:text-white rounded-xl transition cursor-pointer">
+          <span>🔧</span> Taller (Órdenes)
+        </div>
+        <div id="step-sidebar-inventario" class="flex items-center gap-3 px-3 py-2 hover:bg-white/5 hover:text-white rounded-xl transition cursor-pointer">
+          <span>📦</span> Inventario
+        </div>
+        <div class="flex items-center gap-3 px-3 py-2 hover:bg-white/5 hover:text-white rounded-xl transition cursor-pointer">
+          <span>👥</span> Contactos
+        </div>
+        
+        <div class="pt-4"></div>
+        <div class="px-3 py-1 text-[10px] uppercase tracking-wider text-slate-500 font-bold mb-1">Administración</div>
+        <div id="step-sidebar-config" class="flex items-center gap-3 px-3 py-2 hover:bg-white/5 hover:text-white rounded-xl transition cursor-pointer">
+          <span>⚙️</span> Configuración
+        </div>
+      </nav>
+    </div>
+    
+    <div>
+      <!-- Botón de Ayuda en Sidebar con SVG -->
+      <button id="btn-help-trigger" onclick="toggleHelpMenu()" class="w-full mb-4 flex items-center gap-3 px-3 py-2 bg-slate-800/50 hover:bg-slate-800 text-slate-300 hover:text-white rounded-xl transition text-xs font-bold">
+        <svg class="w-4 h-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+          <line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+        Centro de Ayuda
+      </button>
+      <div class="px-3 text-xs text-slate-500">v1.3.0</div>
+    </div>
+  </aside>
+
+  <!-- ================= MAIN CONTENT ================= -->
+  <main class="flex-1 p-8 flex flex-col gap-6 overflow-y-auto z-10 relative">
+    
+    <!-- HEADER -->
+    <div class="flex justify-between items-center">
+      <div>
+        <h2 class="text-2xl font-bold text-slate-900" id="page-title">Configuración General</h2>
+        <p class="text-sm text-slate-500 mt-1" id="page-subtitle">Ajustes generales, sucursales y notificaciones de tu negocio</p>
+      </div>
+      <div class="flex items-center gap-2 bg-white border border-slate-200 rounded-full px-4 py-1.5 text-xs font-semibold shadow-sm">
+        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+        Steve Docs
+      </div>
+    </div>
+
+    <!-- MOCKUP CONFIGURATION TABS & VIEW -->
+    <div id="config-view" class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6 flex-1 flex flex-col">
+      <!-- Tabs header -->
+      <div class="flex border-b border-slate-100 pb-px text-sm font-semibold text-slate-400 gap-6">
+        <button id="step-tab-seguimiento" class="pb-3 border-b-2 border-blue-600 text-blue-600">Postventa y Logo</button>
+        <button id="step-tab-sucursales" class="pb-3 hover:text-slate-600">Sucursales</button>
+        <button id="step-tab-smtp" class="pb-3 hover:text-slate-600">Correo SMTP</button>
+        <button id="step-tab-usuarios" class="pb-3 hover:text-slate-600">Usuarios y Permisos</button>
+      </div>
+
+      <!-- Tab Content Area -->
+      <div id="tab-content" class="flex-1 flex flex-col justify-center">
+        <!-- Logo Section Mockup -->
+        <div class="max-w-xl mx-auto w-full space-y-6 py-6">
+          <div class="border-2 border-dashed border-slate-200 rounded-2xl p-8 text-center bg-slate-50 flex flex-col items-center justify-center gap-3 relative" id="step-logo-upload">
+            <span class="text-4xl">🖼️</span>
+            <div>
+              <p class="font-bold text-slate-800 text-sm">Arrastra tu logotipo aquí</p>
+              <p class="text-xs text-slate-400 mt-1">Formatos PNG o JPG (Tamaño recomendado: 500x150px)</p>
+            </div>
+            <button class="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-semibold shadow-sm hover:bg-blue-700 transition">Examinar archivo</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MOCKUP INVENTARIO VIEW (Hidden by default, shown during tour) -->
+    <div id="inventario-view" class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6 flex-1 flex flex-col hidden">
+      <div class="flex justify-between items-center border-b border-slate-100 pb-4">
+        <span class="font-bold text-slate-800">Catálogo de Productos</span>
+        <div class="flex gap-2">
+          <button id="step-btn-importar-excel" class="px-4 py-2 border border-slate-200 hover:bg-slate-50 rounded-xl text-xs font-semibold transition">📥 Importar Excel</button>
+          <button id="step-btn-nuevo-producto" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-sm transition">➕ Nuevo Producto</button>
+        </div>
+      </div>
+      <div class="flex-1 flex flex-col items-center justify-center py-16 text-slate-400">
+        <span class="text-4xl mb-3">📦</span>
+        <p class="font-semibold text-sm">Aún no hay productos registrados</p>
+        <p class="text-xs mt-1">Crea productos manualmente o sube una planilla Excel</p>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ================= ONBOARDING CORE COMPONENTS ================= -->
+  
+  <!-- 1. SPOTLIGHT MASK (Fixed box with transparent window and massive backdrop shadow) -->
+  <div id="tour-spotlight" class="fixed rounded-xl border border-blue-400/50 shadow-[0_0_0_9999px_rgba(15,23,42,0.65)] pointer-events-none transition-all duration-500 ease-in-out z-[100] hidden">
+    <!-- Pulse ring on highlight -->
+    <span class="absolute -inset-1 rounded-xl border-2 border-blue-400 animate-ping opacity-75"></span>
+  </div>
+
+  <!-- 2. FLOATING POPOVER TOOLTIP -->
+  <div id="tour-popover" class="fixed bg-white/95 backdrop-blur-md border border-slate-200/50 shadow-2xl rounded-2xl p-5 w-80 flex flex-col gap-4 transition-all duration-500 ease-in-out z-[101] hidden select-text">
+    <div class="flex justify-between items-center">
+      <span class="text-[10px] font-extrabold uppercase tracking-widest text-blue-600 bg-blue-50 px-2 py-0.5 rounded" id="popover-badge">Paso 1 de 4</span>
+      <button class="text-slate-400 hover:text-slate-600 text-lg leading-none font-bold" onclick="endTour()">×</button>
+    </div>
+    <div>
+      <h4 class="font-bold text-slate-800 text-sm" id="popover-title">Título del paso</h4>
+      <p class="text-xs text-slate-600 mt-2 leading-relaxed" id="popover-content">Descripción detallada de la acción recomendada...</p>
+    </div>
+    
+    <div class="flex justify-between items-center pt-2 border-t border-slate-100">
+      <button class="text-[11px] font-semibold text-slate-400 hover:text-slate-600" onclick="endTour()">Omitir</button>
+      <div class="flex gap-1.5">
+        <button class="px-3 py-1.5 border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs font-semibold rounded-lg hidden" id="btn-back" onclick="prevStep()">Atrás</button>
+        <button class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg shadow-sm" id="btn-next" onclick="nextStep()">Siguiente</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. HELP CENTER WIDGET (Contextual Popover Aligned next to Sidebar) -->
+  <div class="fixed left-[245px] bottom-14 z-[90]">
+    <!-- Help Center Menu -->
+    <div id="help-menu" class="bg-white border border-slate-200 shadow-2xl rounded-2xl p-5 w-80 space-y-4 transition-all duration-300 transform scale-90 translate-x-[-10px] opacity-0 pointer-events-none">
+      <div class="border-b border-slate-100 pb-3 flex justify-between items-center">
+        <div>
+          <h4 class="font-extrabold text-slate-900 text-sm">Centro de Ayuda</h4>
+          <p class="text-[10px] text-slate-400 mt-0.5">Guías interactivas del sistema</p>
+        </div>
+        <svg class="w-4 h-4 text-blue-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+        </svg>
+      </div>
+      
+      <div class="space-y-2">
+        <button class="w-full text-left p-3 hover:bg-blue-50 border border-slate-100 rounded-xl transition flex justify-between items-center group" onclick="startTour('config')">
+          <div>
+            <p class="font-bold text-xs text-slate-800">1. Ajustes e Inicialización</p>
+            <p class="text-[10px] text-slate-400 mt-0.5">Sucursales, logotipos y SMTP</p>
+          </div>
+          <svg class="w-3.5 h-3.5 text-blue-500 opacity-0 group-hover:opacity-100 transition-all transform translate-x-[-4px] group-hover:translate-x-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+        
+        <button class="w-full text-left p-3 hover:bg-blue-50 border border-slate-100 rounded-xl transition flex justify-between items-center group" onclick="startTour('inventory')">
+          <div>
+            <p class="font-bold text-xs text-slate-800">2. Cargar Inventario</p>
+            <p class="text-[10px] text-slate-400 mt-0.5">Productos y carga masiva Excel</p>
+          </div>
+          <svg class="w-3.5 h-3.5 text-blue-500 opacity-0 group-hover:opacity-100 transition-all transform translate-x-[-4px] group-hover:translate-x-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+
+        <button class="w-full text-left p-3 hover:bg-blue-50 border border-slate-100 rounded-xl transition flex justify-between items-center group" onclick="startTour('pos')">
+          <div>
+            <p class="font-bold text-xs text-slate-800">3. Ventas y Órdenes</p>
+            <p class="text-[10px] text-slate-400 mt-0.5">Flujo diario taller y POS</p>
+          </div>
+          <svg class="w-3.5 h-3.5 text-blue-500 opacity-0 group-hover:opacity-100 transition-all transform translate-x-[-4px] group-hover:translate-x-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+      </div>
+      <p class="text-[9px] text-center text-slate-400">Pixit Onboarding v1.0 • Reduce el soporte técnico</p>
+    </div>
+  </div>
+
+  <!-- Welcome Modal (Initially visible) -->
+  <div id="welcome-modal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-[150] flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl shadow-2xl p-8 max-w-md text-center space-y-6 border border-slate-100 animate-bounce-subtle">
+      <div class="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto text-3xl">🚀</div>
+      <div class="space-y-2">
+        <h3 class="text-xl font-bold text-slate-900">¡Bienvenido a Pixit!</h3>
+        <p class="text-xs text-slate-500 leading-relaxed">Configura tu taller de forma rápida e independiente con nuestras guías interactivas paso a paso. Aprendamos juntos cómo cargar productos, logo y generar ventas.</p>
+      </div>
+      <div class="flex flex-col gap-2">
+        <button class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md transition" id="btn-start-tour-welcome" onclick="closeWelcomeAndStart()">Iniciar Guía Interactiva</button>
+        <button class="w-full py-3 border border-slate-200 hover:bg-slate-50 text-slate-600 font-semibold text-xs rounded-xl transition" onclick="document.getElementById('welcome-modal').classList.add('hidden')">Configurar más tarde</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= PROTOTYPE TOUR LOGIC ================= -->
+  <script>
+    // Tour Step Definitions
+    const tours = {
+      config: [
+        {
+          targetId: 'step-sidebar-config',
+          title: 'Configura tu Negocio',
+          content: 'El primer paso es acceder a la pantalla de Configuración general, donde ajustaremos los datos del taller, crearemos sucursales y cargaremos el logotipo.',
+          position: 'right',
+          action: () => showConfigView()
+        },
+        {
+          targetId: 'step-tab-seguimiento',
+          title: 'Postventa y Logotipo',
+          content: 'Aquí puedes configurar las notificaciones automatizadas y subir el logotipo que identificará tu marca.',
+          position: 'bottom'
+        },
+        {
+          targetId: 'step-logo-upload',
+          title: 'Subida de Logotipo',
+          content: 'Arrastra el logotipo de tu taller aquí. Se integrará automáticamente en las cabeceras de tus correos electrónicos de ingreso, listo, entregado y cotizaciones.',
+          position: 'top'
+        },
+        {
+          targetId: 'step-tab-sucursales',
+          title: 'Sucursales y Bodegas',
+          content: 'En esta pestaña podrás crear múltiples bodegas secundarias si manejas stock repartido, o locales de atención a público.',
+          position: 'bottom'
+        },
+        {
+          targetId: 'step-tab-smtp',
+          title: 'Configura tu Correo SMTP',
+          content: 'Vincula tu cuenta de correo corporativo para que todas las comunicaciones de postventa se envíen desde tu propia casilla con dominio personalizado.',
+          position: 'bottom'
+        },
+        {
+          targetId: 'step-tab-usuarios',
+          title: 'Usuarios y Permisos',
+          content: 'Finalmente, añade a tu equipo de trabajo asignándole roles limitados (ej. vendedor que no ve utilidad de inventario, o técnico sin permisos financieros).',
+          position: 'bottom'
+        }
+      ],
+      inventory: [
+        {
+          targetId: 'step-sidebar-inventario',
+          title: 'Módulo de Inventario',
+          content: 'Hagamos clic en Inventario para organizar tu catálogo de productos, repuestos y servicios.',
+          position: 'right',
+          action: () => showInventoryView()
+        },
+        {
+          targetId: 'step-btn-importar-excel',
+          title: 'Carga Masiva de Productos',
+          content: 'Si ya tienes una lista de precios en Excel, puedes descargar nuestra plantilla y cargar miles de productos en lote.',
+          position: 'bottom'
+        },
+        {
+          targetId: 'step-btn-importar-excel', // Re-target for the custom notice
+          title: '¿Para qué sirve la columna "Enlace"?',
+          content: '<strong>IMPORTANTE:</strong> Sirve para agrupar productos en el módulo de <strong>Kits / Equipos para Desarme</strong> (cuando compras un equipo para usar sus repuestos). Esto asocia todas las piezas bajo un mismo modelo, permitiendo que el sistema cargue todos los componentes del equipo automáticamente y te evite ingresarlos uno por uno.',
+          position: 'bottom'
+        },
+        {
+          targetId: 'step-btn-nuevo-producto',
+          title: 'Creación Manual',
+          content: 'O bien, presiona este botón si quieres agregar un producto o servicio de manera manual rellenando sus costos y stocks iniciales.',
+          position: 'bottom'
+        }
+      ],
+      pos: [
+        {
+          targetId: 'step-sidebar-ventas',
+          title: 'Punto de Venta (POS)',
+          content: 'Ingresa a la pantalla de Ventas para realizar transacciones rápidas por caja y emitir comprobantes de pago.',
+          position: 'right'
+        },
+        {
+          targetId: 'step-sidebar-taller',
+          title: 'Órdenes de Trabajo',
+          content: 'Y en el módulo de Taller gestionarás todo el ciclo técnico: ingresos de equipos, asignación a técnicos y presupuestos.',
+          position: 'right'
+        }
+      ]
+    };
+
+    let activeTour = [];
+    let currentStepIdx = 0;
+
+    function toggleHelpMenu() {
+      const menu = document.getElementById('help-menu');
+      menu.classList.toggle('opacity-0');
+      menu.classList.toggle('pointer-events-none');
+      menu.classList.toggle('scale-90');
+      menu.classList.toggle('translate-x-[-10px]');
+    }
+
+    function showConfigView() {
+      document.getElementById('config-view').classList.remove('hidden');
+      document.getElementById('inventario-view').classList.add('hidden');
+      document.getElementById('page-title').textContent = 'Configuración General';
+      document.getElementById('page-subtitle').textContent = 'Ajustes generales, sucursales y notificaciones de tu negocio';
+    }
+
+    function showInventoryView() {
+      document.getElementById('config-view').classList.add('hidden');
+      document.getElementById('inventario-view').classList.remove('hidden');
+      document.getElementById('page-title').textContent = 'Inventario';
+      document.getElementById('page-subtitle').textContent = 'Administra el catálogo de servicios, repuestos y stock de tu negocio';
+    }
+
+    function closeWelcomeAndStart() {
+      document.getElementById('welcome-modal').classList.add('hidden');
+      startTour('config');
+    }
+
+    function startTour(tourId) {
+      // Close help menu if open
+      const menu = document.getElementById('help-menu');
+      menu.classList.add('opacity-0', 'pointer-events-none', 'scale-90', 'translate-x-[-10px]');
+
+      activeTour = tours[tourId];
+      currentStepIdx = 0;
+      showStep();
+    }
+
+    function showStep() {
+      if (currentStepIdx >= activeTour.length) {
+        endTour();
+        return;
+      }
+
+      const step = activeTour[currentStepIdx];
+      const target = document.getElementById(step.targetId);
+      
+      if (!target) {
+        console.warn(`Target element not found: #${step.targetId}`);
+        return;
+      }
+
+      // Execute side action if any (like changing mock pages)
+      if (step.action) step.action();
+
+      // Show spotlight & popover
+      const spotlight = document.getElementById('tour-spotlight');
+      const popover = document.getElementById('tour-popover');
+      spotlight.classList.remove('hidden');
+      popover.classList.remove('hidden');
+
+      // Calculate coordinates of target element
+      const rect = target.getBoundingClientRect();
+      
+      // Position spotlight exactly around target with spacing
+      spotlight.style.top = (rect.top - 6) + 'px';
+      spotlight.style.left = (rect.left - 6) + 'px';
+      spotlight.style.width = (rect.width + 12) + 'px';
+      spotlight.style.height = (rect.height + 12) + 'px';
+
+      // Update Popover content
+      document.getElementById('popover-badge').textContent = `Paso ${currentStepIdx + 1} de ${activeTour.length}`;
+      document.getElementById('popover-title').textContent = step.title;
+      document.getElementById('popover-content').innerHTML = step.content;
+
+      // Toggle Back button
+      const btnBack = document.getElementById('btn-back');
+      if (currentStepIdx > 0) {
+        btnBack.classList.remove('hidden');
+      } else {
+        btnBack.classList.add('hidden');
+      }
+
+      // Toggle Next button text at end
+      const btnNext = document.getElementById('btn-next');
+      if (currentStepIdx === activeTour.length - 1) {
+        btnNext.textContent = 'Finalizar';
+      } else {
+        btnNext.textContent = 'Siguiente';
+      }
+
+      // Position Popover dynamically based on step.position
+      const popoverWidth = 320;
+      const popoverHeight = 180;
+      let pTop = 0, pLeft = 0;
+
+      const pos = step.position || 'bottom';
+      if (pos === 'right') {
+        pTop = rect.top + (rect.height / 2) - 90;
+        pLeft = rect.right + 20;
+      } else if (pos === 'left') {
+        pTop = rect.top + (rect.height / 2) - 90;
+        pLeft = rect.left - popoverWidth - 20;
+      } else if (pos === 'top') {
+        pTop = rect.top - popoverHeight - 20;
+        pLeft = rect.left + (rect.width / 2) - (popoverWidth / 2);
+      } else { // bottom
+        pTop = rect.bottom + 20;
+        pLeft = rect.left + (rect.width / 2) - (popoverWidth / 2);
+      }
+
+      // Constrain inside viewport boundaries
+      pLeft = Math.max(10, Math.min(window.innerWidth - popoverWidth - 10, pLeft));
+      pTop = Math.max(10, Math.min(window.innerHeight - popoverHeight - 10, pTop));
+
+      popover.style.top = pTop + 'px';
+      popover.style.left = pLeft + 'px';
+    }
+
+    function nextStep() {
+      currentStepIdx++;
+      showStep();
+    }
+
+    function prevStep() {
+      if (currentStepIdx > 0) {
+        currentStepIdx--;
+        showStep();
+      }
+    }
+
+    function endTour() {
+      document.getElementById('tour-spotlight').classList.add('hidden');
+      document.getElementById('tour-popover').classList.add('hidden');
+      showConfigView(); // reset mock view
+    }
+  </script>
+</body>
+</html>

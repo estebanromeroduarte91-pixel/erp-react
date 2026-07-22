@@ -11,6 +11,8 @@ import { Spinner } from '@/components/shared/Spinner'
 import { ModuloBloqueado } from '@/components/shared/ModuloBloqueado'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import { lazyWithReload } from '@/lib/lazyWithReload'
+import { TourProvider } from '@/modules/onboarding/TourProvider'
+import { TourOverlay } from '@/modules/onboarding/TourOverlay'
 
 // Carga perezosa (Lazy Loading) de todos los módulos pesados del ERP.
 // lazyWithReload (en vez de lazy de React) recarga la página sola una vez si
@@ -101,7 +103,10 @@ export default function App() {
   return (
     <ErrorBoundary>
       <HashRouter>
-        <AppRoutes />
+        <TourProvider>
+          <AppRoutes />
+          <TourOverlay />
+        </TourProvider>
       </HashRouter>
     </ErrorBoundary>
   )

@@ -1264,6 +1264,7 @@ export function ComprasPage() {
           { id: 'kits', label: 'Kits / Equipos' },
         ] as { id: Section; label: string }[]).map(s => (
           <button key={s.id} onClick={() => setSection(s.id)}
+            id={`tour-compras-tab-${s.id}`}
             className="flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition"
             style={{ background: section === s.id ? '#3656e6' : '#f2f2f7', color: section === s.id ? '#fff' : '#6b7280' }}>
             {s.label}

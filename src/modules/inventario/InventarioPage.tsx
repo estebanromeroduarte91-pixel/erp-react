@@ -40,6 +40,7 @@ export function InventarioPage() {
       <div className="md:hidden flex gap-0 p-0.5 rounded-full mb-5" style={{ background: '#f2f2f7' }}>
         {TABS.map((t) => (
           <button key={t.id} onClick={() => setTab(t.id)}
+            id={`tour-inventario-tab-${t.id}`}
             className="flex-1 min-w-0 text-center py-2 px-0 rounded-full text-[12px] font-medium transition whitespace-nowrap"
             style={{ background: tab === t.id ? '#3656e6' : 'transparent', color: tab === t.id ? '#fff' : '#6b7280' }}>
             {t.labelMobile ?? t.label}
@@ -51,6 +52,7 @@ export function InventarioPage() {
       <div className="hidden md:flex gap-2 mb-5">
         {TABS.map((t) => (
           <button key={t.id} onClick={() => setTab(t.id)}
+            id={`tour-inventario-tab-${t.id}`}
             className="flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition"
             style={{ background: tab === t.id ? '#3656e6' : '#f2f2f7', color: tab === t.id ? '#fff' : '#6b7280' }}>
             {t.label}

@@ -320,7 +320,9 @@ export function ProductosTab() {
           </div>
           <div className="flex items-center gap-2">
             {esAdmin && (
-              <button onClick={() => { setImportRows([]); setImportError(''); setImportModal(true) }}
+              <button 
+                id="tour-inventario-btn-importar-excel"
+                onClick={() => { setImportRows([]); setImportError(''); setImportModal(true) }}
                 className="flex items-center gap-2 text-sm font-semibold px-3 py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition">
                 <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
@@ -346,7 +348,9 @@ export function ProductosTab() {
                 <span className="hidden sm:inline">Lotes de apertura</span>
               </button>
             )}
-            <button onClick={abrirNuevo}
+            <button 
+              id="tour-inventario-btn-nuevo-producto"
+              onClick={abrirNuevo}
               className="flex items-center gap-2 bg-blue-600 text-white text-sm font-semibold px-3 py-2 rounded-lg hover:bg-blue-700 transition">
               <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />

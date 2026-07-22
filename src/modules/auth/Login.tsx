@@ -2,8 +2,6 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { dbGet, dbSet } from '@/lib/db'
-import { TIER_LIMITS } from '@/lib/queries/usePlanLimits'
-import { EQUIPOS_SEED } from '@/lib/seed/equiposSeed'
 
 const INVITE_TOKEN = new URLSearchParams(window.location.search).get('invite')
 
@@ -28,6 +26,8 @@ export function Login() {
 
   // Registro (dueño nuevo)
   const [empresaNombre, setEmpresaNombre] = useState('')
+  const [nombrePersona, setNombrePersona] = useState('')
+  const [celular, setCelular] = useState('')
 
   // Invitado (staff que acepta una invitación)
   const [nombreInvitado, setNombreInvitado] = useState('')
@@ -66,27 +66,35 @@ export function Login() {
 
   async function onRegistro(e: React.FormEvent) {
     e.preventDefault()
-    if (!empresaNombre.trim() || !email || !password) { setError('Completa todos los campos'); return }
+    if (!empresaNombre.trim() || !nombrePersona.trim() || !celular.trim() || !email || !password) {
+      setError('Completa todos los campos'); return
+    }
     if (password.length < 6) { setError('La contraseña debe tener al menos 6 caracteres'); return }
     setError('')
     setCargando(true)
-    const { data, error: err } = await supabase.auth.signUp({ email: email.trim().toLowerCase(), password })
+    const emailNorm = email.trim().toLowerCase()
+    // Los datos del dueño (empresa, nombre, celular) viajan en user_metadata para
+    // que sobrevivan hasta que confirme el correo: la empresa se crea recién en
+    // ese primer ingreso confirmado (ver bootstrap en AuthContext).
+    const { data, error: err } = await supabase.auth.signUp({
+      email: emailNorm,
+      password,
+      options: {
+        emailRedirectTo: window.location.origin,
+        data: { empresa_nombre: empresaNombre.trim(), owner_nombre: nombrePersona.trim(), celular: celular.trim() },
+      },
+    })
     if (err) { setCargando(false); setError(_tradError(err.message)); return }
+    // Registra el lead para seguimiento comercial (aunque nunca confirme el correo).
+    // Best-effort: si falla no bloquea el registro.
+    await supabase.from('leads').insert({
+      nombre: nombrePersona.trim(), celular: celular.trim(), email: emailNorm,
+      empresa_nombre: empresaNombre.trim(), estado: 'registrado', user_id: data.user?.id ?? null,
+    }).then(() => {}, () => {})
+    // Sin sesión = Supabase exige confirmar el correo: mostramos esa pantalla.
     if (!data.session) { setCargando(false); setConfirmarEmail(true); return }
-    const trialTermina = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
-    const { data: empData, error: empErr } = await supabase.from('empresas').insert({
-      nombre: empresaNombre.trim(), owner_id: data.user!.id, plan_estado: 'trial', trial_termina: trialTermina,
-    }).select('id').single()
-    if (empErr) { setCargando(false); setError('Error: ' + empErr.message); return }
-    // Durante el trial el acceso ya es 100% sin importar el tier (ver usePuedeUsarModulo),
-    // pero se deja el plan cargado en Scale para que al vencer el trial sin upgrade
-    // la empresa quede en el tier más alto en vez de caer al default Starter.
-    await dbSet(empData.id, 'plan_limits', { tier: 'scale', ...TIER_LIMITS.scale })
-    // Catálogo de equipos (marca/modelo) precargado para cualquier plan —
-    // evita que el taller tenga que tipear su propia lista desde cero.
-    await dbSet(empData.id, 'tp_equipos', EQUIPOS_SEED)
-    // Fuerza que el AuthProvider vuelva a arrancar y encuentre la empresa recién creada
-    // (evita una carrera con el listener de auth, que puede disparar antes de este insert).
+    // Con sesión (confirmación desactivada en Supabase): el AuthContext detecta el
+    // user_metadata y crea la empresa/trial en el primer render. Solo recargamos.
     window.location.reload()
   }
 
@@ -167,11 +175,15 @@ export function Login() {
 
         {confirmarEmail ? (
           <div className="text-center space-y-3">
-            <div className="mx-auto w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
-              <svg className="w-6 h-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+            <div className="mx-auto w-12 h-12 rounded-full bg-[#e7ecff] flex items-center justify-center">
+              <svg className="w-6 h-6 text-[#3656e6]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
             </div>
             <p className="font-semibold text-gray-900">Revisa tu correo</p>
-            <p className="text-sm text-gray-500">Te enviamos un enlace a <span className="font-medium text-gray-700">{email}</span> para confirmar tu cuenta.</p>
+            <p className="text-sm text-gray-500">Te enviamos un enlace a <span className="font-medium text-gray-700">{email}</span>. Confírmalo para activar tu cuenta y empezar la prueba. Revisa también la carpeta de spam.</p>
+            <div className="flex items-start gap-2 rounded-lg bg-gray-50 px-3 py-2.5 text-left">
+              <svg className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              <span className="text-xs text-gray-500 leading-snug">Verificar el correo nos ayuda a evitar registros falsos y spam.</span>
+            </div>
             <button onClick={volverALogin} className="text-sm font-semibold text-[#3656e6] hover:underline">Volver al inicio de sesión</button>
           </div>
         ) : modo === 'recover' ? (
@@ -272,6 +284,26 @@ export function Login() {
                 autoFocus
                 className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-base md:text-sm outline-none focus:border-[#3656e6]"
                 placeholder="Mi taller"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-600">Nombre y apellido</label>
+              <input
+                type="text"
+                value={nombrePersona}
+                onChange={(e) => setNombrePersona(e.target.value)}
+                className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-base md:text-sm outline-none focus:border-[#3656e6]"
+                placeholder="Tu nombre"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-600">Celular / WhatsApp</label>
+              <input
+                type="tel"
+                value={celular}
+                onChange={(e) => setCelular(e.target.value)}
+                className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-base md:text-sm outline-none focus:border-[#3656e6]"
+                placeholder="+56 9 1234 5678"
               />
             </div>
             <div>

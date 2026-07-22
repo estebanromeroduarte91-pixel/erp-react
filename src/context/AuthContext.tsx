@@ -1,7 +1,9 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import type { Session } from '@supabase/supabase-js'
+import type { Session, User } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
-import { dbGet } from '@/lib/db'
+import { dbGet, dbSet } from '@/lib/db'
+import { TIER_LIMITS } from '@/lib/queries/usePlanLimits'
+import { EQUIPOS_SEED } from '@/lib/seed/equiposSeed'
 
 type Rol = 'admin' | 'encargado' | 'tecnico' | 'vendedor' | string
 
@@ -56,6 +58,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [recoveryMode, setRecoveryMode] = useState(false)
   const [esPlatformAdmin, setEsPlatformAdmin] = useState(false)
 
+  // Primer ingreso de un dueño que confirmó su correo: crea la empresa/trial a
+  // partir de los datos que dejó en user_metadata al registrarse. Antes esto se
+  // hacía en el propio registro, pero con la confirmación de correo la empresa no
+  // debe existir hasta que la persona confirme (evita cuentas basura / spam).
+  async function bootstrapEmpresaDesdeMetadata(user: User) {
+    const nombre = ((user.user_metadata?.empresa_nombre as string) || '').trim()
+    if (!nombre) return null
+    const trialTermina = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+    const { data: empData, error } = await supabase.from('empresas').insert({
+      nombre, owner_id: user.id, plan_estado: 'trial', trial_termina: trialTermina,
+    }).select('id,nombre,plan_estado,trial_termina').single()
+    if (error || !empData) {
+      // Carrera (el índice único por owner_id la rechazó): la empresa ya se creó
+      // en un render paralelo, la reutilizamos en vez de duplicarla.
+      const { data: existente } = await supabase.from('empresas')
+        .select('id,nombre,plan_estado,trial_termina').eq('owner_id', user.id).maybeSingle()
+      return existente ?? null
+    }
+    // Trial al 100%: se deja el tier en Scale para que al vencer el trial sin
+    // upgrade la empresa quede en el tier más alto, no en Starter.
+    await dbSet(empData.id, 'plan_limits', { tier: 'scale', ...TIER_LIMITS.scale })
+    await dbSet(empData.id, 'tp_equipos', EQUIPOS_SEED)
+    // El lead pasa de 'registrado' a 'confirmado' y queda vinculado a la empresa.
+    await supabase.from('leads').update({
+      estado: 'confirmado', empresa_id: empData.id, confirmado_en: new Date().toISOString(),
+    }).eq('user_id', user.id).then(() => {}, () => {})
+    return empData
+  }
+
   // Carga el perfil de la empresa para un usuario autenticado (equivale a _iniciarApp)
   async function cargarPerfil(session: Session) {
     const user = session.user
@@ -98,11 +129,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
     } else {
       // Flujo de propietario: la empresa se busca por owner_id
-      const { data: emp } = await supabase
+      const { data: empExistente } = await supabase
         .from('empresas')
         .select('id,nombre,plan_estado,trial_termina')
         .eq('owner_id', user.id)
         .maybeSingle()
+      // Si aún no existe pero hay datos de registro en user_metadata, es el primer
+      // ingreso confirmado: se crea aquí la empresa/trial.
+      const emp = empExistente?.id ? empExistente : await bootstrapEmpresaDesdeMetadata(user)
       if (emp?.id) {
         // Crea (idempotente) el perfil admin del dueño — sin esta fila, las políticas
         // RLS de las tablas relacionales (productos, ventas, etc.) bloquean todo.

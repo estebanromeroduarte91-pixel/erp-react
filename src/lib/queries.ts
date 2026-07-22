@@ -2335,6 +2335,47 @@ export function useActualizarEmpresaAdmin() {
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['pixit_admin_empresas'] }),
   })
 }
+
+// ── Leads / prospectos de registro (panel Pixit Admin) ────────────
+// Toda persona que se registra queda acá para seguimiento, aunque no confirme
+// el correo ni contrate. RLS: solo platform_admins leen/gestionan.
+export interface Lead {
+  id: string
+  nombre: string | null
+  celular: string | null
+  email: string | null
+  empresa_nombre: string | null
+  estado: string
+  empresa_id: string | null
+  creado_en: string | null
+  confirmado_en: string | null
+}
+
+export function useLeads() {
+  const { esPlatformAdmin } = useAuth()
+  return useQuery({
+    queryKey: ['pixit_admin_leads'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('leads')
+        .select('id,nombre,celular,email,empresa_nombre,estado,empresa_id,creado_en,confirmado_en')
+        .order('creado_en', { ascending: false })
+      if (error) throw error
+      return (data ?? []) as Lead[]
+    },
+    enabled: esPlatformAdmin,
+  })
+}
+
+export function useActualizarLead() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, estado }: { id: string; estado: string }) => {
+      const { error } = await supabase.from('leads').update({ estado }).eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['pixit_admin_leads'] }),
+  })
+}
 // ── Cotizaciones (solo lectura para el cliente, sin flujo de aprobación) ──
 
 // Órdenes ABIERTAS en versión liviana, solo para el selector "Vincular a orden"

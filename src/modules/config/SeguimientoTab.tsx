@@ -92,7 +92,7 @@ export function SeguimientoTab() {
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400 resize-none"
             />
           </div>
-          <div>
+          <div id="tour-logo-upload">
             <label className="text-xs font-medium text-gray-600 block mb-1">Logo del taller</label>
             <div className="flex gap-2 items-center">
               <input

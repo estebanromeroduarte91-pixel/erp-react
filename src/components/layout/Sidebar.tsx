@@ -2,16 +2,17 @@ import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { useCargos, usePuedeUsarModulo } from '@/lib/queries'
+import { useTour } from '@/modules/onboarding/TourContext'
 
 // ── Tipos ─────────────────────────────────────────────────────
-interface SubItem { to: string; label: string; icon: React.ReactNode }
+interface SubItem { to: string; label: string; icon: React.ReactNode; id?: string }
 interface NavGroup {
   id: string
   label: string
   icon: React.ReactNode
   sub: SubItem[]
 }
-interface NavSingle { to: string; label: string; icon: React.ReactNode }
+interface NavSingle { to: string; label: string; icon: React.ReactNode; id?: string }
 type SectionItem = { type: 'single'; item: NavSingle } | { type: 'group'; item: NavGroup }
 
 // ── Sección "Operación" ────────────────────────────────────────
@@ -48,7 +49,7 @@ const OP_ITEMS: SectionItem[] = [
         { to: '/taller', label: 'Órdenes', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="8" y="2.5" width="8" height="4" rx="1.2"/><path d="M16 4.5h2a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-13a2 2 0 0 1 2-2h2"/></svg> },
         { to: '/taller?tab=derivados', label: 'Derivados', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg> },
         { to: '/taller?tab=equipos', label: 'Equipos', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18" strokeWidth="2.5"/></svg> },
-        { to: '/taller?tab=settings', label: 'Configuración', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .32 1.77l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.6 1.6 0 0 0-1.77-.32 1.6 1.6 0 0 0-.97 1.47V21a2 2 0 0 1-4 0v-.09A1.6 1.6 0 0 0 9.18 19.4a1.6 1.6 0 0 0-1.77.32l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.6 1.6 0 0 0 .32-1.77 1.6 1.6 0 0 0-1.47-.97H3a2 2 0 0 1 0-4h.09A1.6 1.6 0 0 0 4.6 9.18a1.6 1.6 0 0 0-.32-1.77l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.6 1.6 0 0 0 1.77.32H9a1.6 1.6 0 0 0 .97-1.47V3a2 2 0 0 1 4 0v.09a1.6 1.6 0 0 0 .97 1.47 1.6 1.6 0 0 0 1.77-.32l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.6 1.6 0 0 0-.32 1.77V9a1.6 1.6 0 0 0 1.47.97H21a2 2 0 0 1 0 4h-.09a1.6 1.6 0 0 0-1.47.97z"/></svg> },
+        { to: '/taller?tab=settings', label: 'Configuración', id: 'tour-taller-tab-settings', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .32 1.77l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.6 1.6 0 0 0-1.77-.32 1.6 1.6 0 0 0-.97 1.47V21a2 2 0 0 1-4 0v-.09A1.6 1.6 0 0 0 9.18 19.4a1.6 1.6 0 0 0-1.77.32l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.6 1.6 0 0 0 .32-1.77 1.6 1.6 0 0 0-1.47-.97H3a2 2 0 0 1 0-4h.09A1.6 1.6 0 0 0 4.6 9.18a1.6 1.6 0 0 0-.32-1.77l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.6 1.6 0 0 0 1.77.32H9a1.6 1.6 0 0 0 .97-1.47V3a2 2 0 0 1 4 0v.09a1.6 1.6 0 0 0 .97 1.47 1.6 1.6 0 0 0 1.77-.32l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.6 1.6 0 0 0-.32 1.77V9a1.6 1.6 0 0 0 1.47.97H21a2 2 0 0 1 0 4h-.09a1.6 1.6 0 0 0-1.47.97z"/></svg> },
       ],
     },
   },
@@ -81,7 +82,7 @@ const OP_ITEMS: SectionItem[] = [
       sub: [
         { to: '/inventario', label: 'Productos', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg> },
         { to: '/inventario?tab=categorias', label: 'Categorías', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg> },
-        { to: '/inventario?tab=bodegas', label: 'Bodegas / Sucursales', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg> },
+        { to: '/inventario?tab=bodegas', label: 'Bodegas / Sucursales', id: 'tour-inventario-tab-bodegas', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg> },
         { to: '/inventario?tab=movimientos', label: 'Movimientos', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M7 16V4m0 0L3 8m4-4l4 4"/><path d="M17 8v12m0 0l4-4m-4 4l-4-4"/></svg> },
       ],
     },
@@ -121,9 +122,9 @@ const ADMIN_ITEMS: SectionItem[] = [
       label: 'Contabilidad',
       icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2.5H20v19H6.5A2.5 2.5 0 0 1 4 19v-14a2.5 2.5 0 0 1 2.5-2.5z"/></svg>,
       sub: [
-        { to: '/compras', label: 'Compras / OC', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg> },
+        { to: '/compras', label: 'Compras / OC', id: 'tour-compras-tab-oc', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg> },
         { to: '/compras?section=kits', label: 'Kits / Equipos', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg> },
-        { to: '/contabilidad', label: 'Gastos', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="M2.5 10h19"/><path d="M6 15h4"/></svg> },
+        { to: '/contabilidad', label: 'Gastos', id: 'tour-contabilidad-tab-gastos', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="M2.5 10h19"/><path d="M6 15h4"/></svg> },
         { to: '/contabilidad?tab=libro', label: 'Libro contable', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2.5H20v19H6.5A2.5 2.5 0 0 1 4 19v-14a2.5 2.5 0 0 1 2.5-2.5z"/></svg> },
       ],
     },
@@ -133,6 +134,7 @@ const ADMIN_ITEMS: SectionItem[] = [
     item: {
       to: '/config',
       label: 'Configuración',
+      id: 'tour-sidebar-config',
       icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .32 1.77l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.6 1.6 0 0 0-1.77-.32 1.6 1.6 0 0 0-.97 1.47V21a2 2 0 0 1-4 0v-.09A1.6 1.6 0 0 0 9.18 19.4a1.6 1.6 0 0 0-1.77.32l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.6 1.6 0 0 0 .32-1.77 1.6 1.6 0 0 0-1.47-.97H3a2 2 0 0 1 0-4h.09A1.6 1.6 0 0 0 4.6 9.18a1.6 1.6 0 0 0-.32-1.77l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.6 1.6 0 0 0 1.77.32H9a1.6 1.6 0 0 0 .97-1.47V3a2 2 0 0 1 4 0v.09a1.6 1.6 0 0 0 .97 1.47 1.6 1.6 0 0 0 1.77-.32l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.6 1.6 0 0 0-.32 1.77V9a1.6 1.6 0 0 0 1.47.97H21a2 2 0 0 1 0 4h-.09a1.6 1.6 0 0 0-1.47.97z"/></svg>,
     },
   },
@@ -168,6 +170,7 @@ function NavGroupItem({ item, open, onToggle }: { item: NavGroup; open: boolean;
   return (
     <>
       <button
+        id={`tour-sidebar-${item.id}`}
         onClick={onToggle}
         style={{
           display: 'flex', alignItems: 'center', gap: 10,
@@ -198,6 +201,7 @@ function NavGroupItem({ item, open, onToggle }: { item: NavGroup; open: boolean;
             <Link
               key={s.to}
               to={s.to}
+              id={s.id}
               style={{
                 display: 'flex', alignItems: 'center', gap: 10,
                 padding: '7px 12px 7px 44px', cursor: 'pointer',
@@ -223,6 +227,7 @@ function NavGroupItem({ item, open, onToggle }: { item: NavGroup; open: boolean;
 function SingleLink({ item, active }: { item: NavSingle; active: boolean }) {
   return (
     <Link to={item.to}
+      id={item.id}
       style={{
         display: 'flex', alignItems: 'center', gap: 10,
         padding: '8px 12px', cursor: 'pointer',
@@ -242,6 +247,7 @@ function SingleLink({ item, active }: { item: NavSingle; active: boolean }) {
 // ── Sidebar ────────────────────────────────────────────────────
 export function Sidebar() {
   const { nombre, rol, cargoId, esPlatformAdmin, empresaId } = useAuth()
+  const { isHelpMenuOpen, setHelpMenuOpen } = useTour()
   const location = useLocation()
   const initials = nombre.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?'
   const rolLabel = esPlatformAdmin && !empresaId ? 'Pixit Admin' : rol === 'admin' ? 'Administrador' : rol === 'encargado' ? 'Encargado' : rol === 'tecnico' ? 'Técnico' : rol === 'vendedor' ? 'Vendedor' : rol
@@ -378,10 +384,45 @@ export function Sidebar() {
         )}
       </nav>
 
+      {/* Botón de Ayuda en Sidebar con SVG */}
+      <div style={{ padding: '0 6px', borderTop: '1px solid var(--gray-100)', paddingTop: 10, marginTop: 'auto' }}>
+        <button
+          id="btn-help-trigger"
+          onClick={() => setHelpMenuOpen(!isHelpMenuOpen)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 10,
+            padding: '8px 12px', cursor: 'pointer', width: '100%', border: 'none',
+            borderRadius: 8, fontSize: 13, fontWeight: 700,
+            backgroundColor: isHelpMenuOpen ? 'var(--primary-light)' : 'var(--gray-50)',
+            color: isHelpMenuOpen ? 'var(--primary-dark)' : 'var(--gray-700)',
+            transition: 'all .15s', textAlign: 'left',
+          }}
+          onMouseEnter={e => { 
+            if (!isHelpMenuOpen) {
+              (e.currentTarget as HTMLElement).style.background = 'var(--gray-100)'
+            }
+          }}
+          onMouseLeave={e => { 
+            if (!isHelpMenuOpen) {
+              (e.currentTarget as HTMLElement).style.background = 'var(--gray-50)'
+            }
+          }}
+        >
+          <span style={{ color: isHelpMenuOpen ? 'var(--primary)' : 'var(--gray-500)', width: 20, display: 'flex', flexShrink: 0 }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+              <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+          </span>
+          Centro de Ayuda
+        </button>
+      </div>
+
       {/* User footer */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 10,
-        borderTop: '1px solid var(--gray-100)', padding: '12px 10px', marginTop: 'auto',
+        borderTop: '1px solid var(--gray-100)', padding: '12px 10px',
       }}>
         <div style={{
           width: 34, height: 34, borderRadius: 9,

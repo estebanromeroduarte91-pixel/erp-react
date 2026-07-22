@@ -355,6 +355,7 @@ export function TallerPage() {
             />
           </div>
           <button
+            id="tour-taller-btn-nueva-orden"
             onClick={abrirNueva}
             className="inline-flex items-center gap-2 bg-blue-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 transition"
           >
@@ -375,6 +376,7 @@ export function TallerPage() {
           <div className="flex gap-2 overflow-x-auto pb-1 mb-6" style={{ scrollbarWidth: 'none' }}>
             {CONFIG_TABS.map(t => (
               <button key={t.id} onClick={() => setConfigTab(t.id)}
+                id={`tour-taller-settings-tab-${t.id}`}
                 className="flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition"
                 style={{ background: configTab === t.id ? '#3656e6' : '#f2f2f7', color: configTab === t.id ? '#fff' : '#6b7280' }}>
                 {t.label}
