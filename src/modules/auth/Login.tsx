@@ -3,6 +3,7 @@ import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { dbGet, dbSet } from '@/lib/db'
 import { TIER_LIMITS } from '@/lib/queries/usePlanLimits'
+import { EQUIPOS_SEED } from '@/lib/seed/equiposSeed'
 
 const INVITE_TOKEN = new URLSearchParams(window.location.search).get('invite')
 
@@ -81,6 +82,9 @@ export function Login() {
     // pero se deja el plan cargado en Scale para que al vencer el trial sin upgrade
     // la empresa quede en el tier más alto en vez de caer al default Starter.
     await dbSet(empData.id, 'plan_limits', { tier: 'scale', ...TIER_LIMITS.scale })
+    // Catálogo de equipos (marca/modelo) precargado para cualquier plan —
+    // evita que el taller tenga que tipear su propia lista desde cero.
+    await dbSet(empData.id, 'tp_equipos', EQUIPOS_SEED)
     // Fuerza que el AuthProvider vuelva a arrancar y encuentre la empresa recién creada
     // (evita una carrera con el listener de auth, que puede disparar antes de este insert).
     window.location.reload()
