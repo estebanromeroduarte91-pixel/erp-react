@@ -20,16 +20,6 @@ function HeroMockup() {
                src="/app-screenshot.png" 
                alt="Pixit Dashboard" 
                className="w-full h-full object-cover object-top"
-               onError={(e) => {
-                 // Fallback si la imagen no existe todavía
-                 e.currentTarget.style.display = 'none';
-                 e.currentTarget.parentElement!.innerHTML = `
-                   <div class="absolute inset-0 bg-slate-100 flex flex-col items-center justify-center border-2 border-dashed border-slate-300 rounded-lg m-4 p-8 text-center">
-                     <svg class="w-16 h-16 text-slate-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                     <p class="text-slate-500 font-medium text-lg">Sube la captura real de la Orden a la carpeta public/<br/>con el nombre <b>app-screenshot.png</b></p>
-                   </div>
-                 `;
-               }}
              />
           </div>
         </div>
