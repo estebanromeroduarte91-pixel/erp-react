@@ -1,12 +1,73 @@
-import { useState, useMemo, useEffect } from 'react'
-import { useMovimientos, useGuardarMovimientos, useProductos, useBodegas, useAjustarStock } from '@/lib/queries'
+import { useState, useMemo, useEffect, memo } from 'react'
+import { useMovimientos, useGuardarMovimientos, useProductos, useBuscarProductos, useBodegas, useAjustarStock } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
+import { useAnchorRect, fixedDropdownStyle } from '@/lib/useAnchorRect'
 import { Spinner } from '@/components/shared/Spinner'
-import type { Movimiento, MovProducto } from '@/types'
+import type { Movimiento, MovProducto, Producto } from '@/types'
 
 function uid() { return Math.random().toString(36).slice(2) + Date.now().toString(36) }
 
-type LineaTraslado = { producto_id: string; cantidad: number }
+type LineaTraslado = { producto_id: string; cantidad: number; producto_nombre?: string }
+
+const LineaTrasladoRow = memo(function LineaTrasladoRow({
+  linea, stockOrigen, onUpdate, onRemove
+}: {
+  linea: LineaTraslado
+  stockOrigen: (id: string) => number
+  onUpdate: (patch: Partial<LineaTraslado>) => void
+  onRemove: () => void
+}) {
+  const [q, setQ] = useState(linea.producto_nombre ?? '')
+  const [open, setOpen] = useState(false)
+  const { ref: anchorRef, rect } = useAnchorRect<HTMLInputElement>(open)
+  const { data: results = [] } = useBuscarProductos(q)
+
+  function selectProd(p: Producto) {
+    onUpdate({ producto_id: p.id, producto_nombre: p.nombre })
+    setQ(p.nombre)
+    setOpen(false)
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <div className="flex-1 relative">
+        <input
+          ref={anchorRef}
+          type="text"
+          value={q}
+          placeholder="Buscar producto..."
+          onChange={e => { setQ(e.target.value); setOpen(true); onUpdate({ producto_id: '', producto_nombre: e.target.value }) }}
+          onFocus={() => setOpen(true)}
+          onBlur={() => setTimeout(() => setOpen(false), 200)}
+          className="w-full border border-gray-200 rounded-lg px-2.5 py-2 text-sm bg-white focus:outline-none focus:border-blue-400"
+        />
+        {open && results.length > 0 && (
+          <div style={fixedDropdownStyle(rect)} className="bg-white border border-gray-100 rounded-lg shadow-xl overflow-hidden py-1 max-h-60 overflow-y-auto">
+            {results.map(p => (
+              <div key={p.id}
+                onMouseDown={() => selectProd(p)}
+                className="px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 flex justify-between items-center"
+              >
+                <span className="font-medium">{p.nombre}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      <span className="text-[11px] text-gray-400 w-20 flex-shrink-0 text-right">
+        {linea.producto_id ? `Stock: ${stockOrigen(linea.producto_id)}` : ''}
+      </span>
+      <input type="number" min={1} value={linea.cantidad}
+        onChange={e => onUpdate({ cantidad: Math.max(1, +e.target.value) })}
+        className="w-20 flex-shrink-0 border border-gray-200 rounded-lg px-2.5 py-2 text-sm text-center bg-white focus:outline-none focus:border-blue-400" />
+      <button onClick={onRemove} className="text-gray-300 hover:text-red-500 flex-shrink-0" aria-label="Quitar">
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+  )
+})
 
 function ModalTraslado({ onClose }: { onClose: () => void }) {
   const { data: productos = [] } = useProductos()
@@ -24,10 +85,7 @@ function ModalTraslado({ onClose }: { onClose: () => void }) {
   const [error, setError] = useState('')
   const [guardando, setGuardando] = useState(false)
 
-  const productosConStock = useMemo(
-    () => productos.filter(p => p.tipo !== 'servicio'),
-    [productos],
-  )
+
 
   function nombreBodega(id: string) {
     const b = bodegas.find(x => x.id === id)
@@ -137,24 +195,13 @@ function ModalTraslado({ onClose }: { onClose: () => void }) {
           <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-2">Productos a trasladar</p>
           <div className="space-y-2">
             {lineas.map((l, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <select value={l.producto_id} onChange={e => setLinea(i, { producto_id: e.target.value })}
-                  className="flex-1 min-w-0 border border-gray-200 rounded-lg px-2.5 py-2 text-sm bg-white focus:outline-none focus:border-blue-400">
-                  <option value="">Selecciona un producto…</option>
-                  {productosConStock.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-                </select>
-                <span className="text-[11px] text-gray-400 w-20 flex-shrink-0 text-right">
-                  {l.producto_id ? `Stock: ${stockOrigen(l.producto_id)}` : ''}
-                </span>
-                <input type="number" min={1} value={l.cantidad}
-                  onChange={e => setLinea(i, { cantidad: Math.max(1, +e.target.value) })}
-                  className="w-20 flex-shrink-0 border border-gray-200 rounded-lg px-2.5 py-2 text-sm text-center bg-white focus:outline-none focus:border-blue-400" />
-                <button onClick={() => quitarLinea(i)} className="text-gray-300 hover:text-red-500 flex-shrink-0" aria-label="Quitar">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
+              <LineaTrasladoRow
+                key={i}
+                linea={l}
+                stockOrigen={stockOrigen}
+                onUpdate={patch => setLinea(i, patch)}
+                onRemove={() => quitarLinea(i)}
+              />
             ))}
           </div>
           <button onClick={() => setLineas(ls => [...ls, { producto_id: '', cantidad: 1 }])}
