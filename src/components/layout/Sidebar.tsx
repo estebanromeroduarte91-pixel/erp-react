@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { useCargos, usePuedeUsarModulo } from '@/lib/queries'
@@ -124,7 +124,7 @@ const ADMIN_ITEMS: SectionItem[] = [
       sub: [
         { to: '/compras', label: 'Compras / OC', id: 'tour-compras-tab-oc', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg> },
         { to: '/compras?section=kits', label: 'Kits / Equipos', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg> },
-        { to: '/contabilidad', label: 'Gastos', id: 'tour-contabilidad-tab-gastos', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="M2.5 10h19"/><path d="M6 15h4"/></svg> },
+        { to: '/contabilidad', label: 'Gastos', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="M2.5 10h19"/><path d="M6 15h4"/></svg> },
         { to: '/contabilidad?tab=libro', label: 'Libro contable', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2.5H20v19H6.5A2.5 2.5 0 0 1 4 19v-14a2.5 2.5 0 0 1 2.5-2.5z"/></svg> },
       ],
     },
@@ -246,7 +246,7 @@ function SingleLink({ item, active }: { item: NavSingle; active: boolean }) {
 
 // ── Sidebar ────────────────────────────────────────────────────
 export function Sidebar() {
-  const { nombre, rol, cargoId, esPlatformAdmin, empresaId } = useAuth()
+  const { nombre, rol, cargoId, esPlatformAdmin, empresaId, session } = useAuth()
   const { isHelpMenuOpen, setHelpMenuOpen } = useTour()
   const location = useLocation()
   const initials = nombre.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?'
@@ -315,6 +315,28 @@ export function Sidebar() {
   const allGroups = [...OP_ITEMS, ...ADMIN_ITEMS].filter(si => si.type === 'group').map(si => si.item as NavGroup)
   const activeGroupId = allGroups.find(g => g.sub.some(s => location.pathname === s.to.split('?')[0]))?.id ?? null
   const [openGroupId, setOpenGroupId] = useState<string | null>(activeGroupId)
+
+  // Auto-expande el grupo del sidebar que corresponde a la ruta activa. Sin esto,
+  // al navegar por código (ej. el tour de onboarding) el grupo queda colapsado y
+  // sus sub-links no son visibles ni se pueden resaltar/clicar. Se ajusta el estado
+  // durante el render (patrón recomendado por React), no en un efecto.
+  const [grupoRutaPrev, setGrupoRutaPrev] = useState<string | null>(activeGroupId)
+  if (activeGroupId && activeGroupId !== grupoRutaPrev) {
+    setGrupoRutaPrev(activeGroupId)
+    setOpenGroupId(activeGroupId)
+  }
+
+  // Onboarding: la primera vez que un usuario entra a su taller, abre solo el
+  // Centro de Ayuda para que vea las guías interactivas y no dependa de soporte.
+  // Se recuerda por usuario en localStorage para no repetirlo.
+  useEffect(() => {
+    const uid = session?.user?.id
+    if (!uid || !empresaId) return
+    const key = `pixit_tour_seen_${uid}`
+    if (localStorage.getItem(key)) return
+    const t = setTimeout(() => { setHelpMenuOpen(true); localStorage.setItem(key, '1') }, 900)
+    return () => clearTimeout(t)
+  }, [session?.user?.id, empresaId, setHelpMenuOpen])
 
   // El item single activo: mejor coincidencia entre todos los que comparten pathname
   // (ej. /config, /config?tab=accesos y /config?tab=cargos), para no resaltar varios a la vez.

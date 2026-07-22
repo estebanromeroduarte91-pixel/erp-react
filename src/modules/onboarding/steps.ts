@@ -97,7 +97,7 @@ export const onboardingTours: Record<TourId, TourStep[]> = {
     {
       targetId: 'tour-inventario-btn-importar-excel',
       title: '¿Para qué sirve la columna "Enlace"?',
-      content: '<strong>IMPORTANTE:</strong> Sirve para agrupar productos para el módulo de <strong>Kits / Equipos para Desarme</strong> (cuando compras un equipo usado/dañado para usarlo para repuestos). Al asociar las piezas bajo un mismo enlace, el sistema cargará automáticamente todas las partes y componentes de ese modelo para que no tengas que ingresarlos uno por uno.',
+      content: 'La plantilla de Excel que descargas aquí incluye una columna <strong>Enlace</strong>. Sirve para agrupar productos para el módulo de <strong>Kits / Equipos para Desarme</strong> (cuando compras un equipo usado o dañado para usarlo como repuestos). Al asociar las piezas bajo un mismo enlace, el sistema cargará automáticamente todas las partes de ese modelo sin que las ingreses una por una.',
       position: 'bottom',
       route: '/inventario'
     },
@@ -166,7 +166,7 @@ export const onboardingTours: Record<TourId, TourStep[]> = {
       title: 'Control de Gastos',
       content: 'Y en Gastos registrarás los desembolsos operativos (arriendos, servicios, etc.) para mantener cuadradas tus utilidades reales.',
       position: 'bottom',
-      route: '/compras'
+      route: '/contabilidad'
     }
   ]
 };
