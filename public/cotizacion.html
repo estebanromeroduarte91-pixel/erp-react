@@ -5,12 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Cotización</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;background:#eef0f5;min-height:100vh;padding:24px 14px 60px;color:#14181f}
 .wrap{max-width:640px;margin:0 auto}
 .doc{background:#fff;border:1px solid #e3e6ee;border-radius:18px;box-shadow:0 1px 2px rgba(20,24,31,.04),0 12px 28px -12px rgba(20,24,31,.14);overflow:hidden}
-.doc-head{background:#3656e6;padding:28px 26px;text-align:center}
+.doc-head{background:#3656e6;padding:22px 26px;text-align:center;display:flex;justify-content:center;align-items:center;min-height:90px}
+.doc-head img{max-height:64px;max-width:260px;object-fit:contain}
 .doc-head h1{color:#fff;font-size:20px;font-weight:800;letter-spacing:-.02em}
 .doc-num{padding:16px 26px;border-bottom:1px solid #e3e6ee;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
 .doc-num .num{font-size:13px;font-weight:700;color:#3656e6;background:#ecf0ff;padding:5px 12px;border-radius:999px}
@@ -52,7 +54,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;ba
     <p id="error-msg" style="font-size:14px"></p>
   </div>
   <div id="doc" class="doc" style="display:none">
-    <div class="doc-head"><h1 id="marca">Pixit</h1></div>
+    <div class="doc-head" id="logo-container"><h1 id="marca">Pixit</h1></div>
     <div class="doc-num">
       <span class="num" id="numero">COT-0000</span>
       <span class="fecha" id="fechas">—</span>
@@ -84,13 +86,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;ba
       </div>
     </div>
     <div class="doc-note" id="nota-block" style="display:none"><strong>Nota —</strong> <span id="c-notas"></span></div>
-    <div class="doc-actions">
-      <button class="btn" onclick="window.print()">
+    <div class="doc-actions" data-html2canvas-ignore="true">
+      <button class="btn" onclick="descargarPDF()" id="btn-pdf">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="m7 10 5 5 5-5"/><path d="M20 21H4"/></svg>
-        Guardar como PDF
+        Descargar PDF
       </button>
       <button class="btn" id="btn-share">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a3 3 0 1 0-2.83-4H15a3 3 0 0 0 0 6 3 3 0 0 0 2.83-2Zm0 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM6 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm.08-2.8 7.87-4.4M6.08 12.8l7.87 4.4"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a3 3 0 1 0-2.83-4H15a3 3 0 0 0 0 6 3 3 0 0 0 2.83-2ZM0 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM6 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM6.08-2.8 7.87-4.4M6.08 12.8l7.87 4.4"/></svg>
         Compartir
       </button>
     </div>
@@ -117,6 +119,21 @@ async function load(){
   const {data,error}=await sb.from('cotizaciones').select('*').eq('token',token).maybeSingle();
   if(error){ showError('No se pudo cargar la cotización: '+error.message); return; }
   if(!data){ showError('Esta cotización no existe o el enlace ya no es válido.'); return; }
+
+  // Cargar logo y nombre de la empresa de forma pública y segura
+  try {
+    const { data: info } = await sb.rpc('get_public_empresa_info', { p_empresa_id: data.empresa_id });
+    if (info) {
+      const container = document.getElementById('logo-container');
+      if (info.logo_url) {
+        container.innerHTML = `<img src="${esc(info.logo_url)}" alt="${esc(info.nombre)}">`;
+      } else {
+        document.getElementById('marca').textContent = info.nombre;
+      }
+    }
+  } catch (e) {
+    console.warn("No se pudo cargar el logo de la empresa:", e);
+  }
 
   document.getElementById('numero').textContent='COT-'+String(data.numero).padStart(4,'0');
   document.getElementById('fechas').textContent='Emitida '+fmtFecha(data.fecha_emision)+(data.fecha_vencimiento?' · Válida hasta '+fmtFecha(data.fecha_vencimiento):'');
@@ -155,6 +172,31 @@ async function load(){
 }
 
 function esc(s){ const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+
+function descargarPDF() {
+  const btn = document.getElementById('btn-pdf');
+  const originalText = btn.innerHTML;
+  btn.disabled = true;
+  btn.textContent = 'Generando PDF...';
+
+  const element = document.getElementById('doc');
+  const opt = {
+    margin:       [10, 10, 10, 10],
+    filename:     `${document.getElementById('numero').textContent}.pdf`,
+    image:        { type: 'jpeg', quality: 0.98 },
+    html2canvas:  { scale: 2.5, useCORS: true, logging: false },
+    jsPDF:        { unit: 'mm', format: 'letter', orientation: 'portrait' }
+  };
+
+  html2pdf().set(opt).from(element).toPdf().get('pdf').then(function (pdf) {
+    btn.disabled = false;
+    btn.innerHTML = originalText;
+  }).save().catch(err => {
+    console.error('Error al generar PDF:', err);
+    btn.disabled = false;
+    btn.innerHTML = originalText;
+  });
+}
 
 load();
 </script>
