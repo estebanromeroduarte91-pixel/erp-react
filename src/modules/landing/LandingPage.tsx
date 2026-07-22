@@ -167,6 +167,225 @@ export function LandingPage() {
 
           </div>
         </section>
+
+        {/* Pricing Section */}
+        <section id="pricing" className="mt-40 max-w-6xl mx-auto px-4 sm:px-6">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-extrabold text-slate-900 mb-4">Planes Simples y Transparentes</h2>
+            <p className="text-lg text-slate-600">Prueba Pixit gratis por 14 días sin compromisos. Cancela cuando quieras.</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch">
+            
+            {/* Starter */}
+            <div className="bg-white/70 backdrop-blur-sm border border-slate-200 rounded-3xl p-8 hover:shadow-xl transition duration-300 flex flex-col justify-between relative group">
+              <div>
+                <div className="flex justify-between items-start">
+                  <h3 className="text-xl font-bold text-slate-900">Starter</h3>
+                  <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded bg-slate-100 text-slate-700">
+                    Básico
+                  </span>
+                </div>
+                
+                <div className="mt-4 flex items-baseline">
+                  <span className="text-4xl font-extrabold text-slate-900">0,5 UF</span>
+                  <span className="text-xs text-slate-500 font-medium ml-1.5">+ IVA / mes</span>
+                </div>
+                <p className="text-xs text-slate-400 mt-2 min-h-[32px]">Ideal para talleres que inician y quieren digitalizar sus órdenes de trabajo.</p>
+
+                <div className="border-t border-slate-100 my-6"></div>
+
+                <ul className="space-y-3.5">
+                  <li className="flex items-start gap-2.5 text-xs text-slate-600">
+                    <svg className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"></path></svg>
+                    <span><strong>1 Sucursal / Bodega</strong></span>
+                  </li>
+                  <li className="flex items-start gap-2.5 text-xs text-slate-600">
+                    <svg className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"></path></svg>
+                    <span>Usuarios ilimitados</span>
+                  </li>
+                  <li className="flex items-start gap-2.5 text-xs text-slate-600">
+                    <svg className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"></path></svg>
+                    <span>Módulo Taller (Órdenes)</span>
+                  </li>
+                  <li className="flex items-start gap-2.5 text-xs text-slate-600">
+                    <svg className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"></path></svg>
+                    <span>Gestión de Inventario</span>
+                  </li>
+                  <li className="flex items-start gap-2.5 text-xs text-slate-600">
+                    <svg className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"></path></svg>
+                    <span>Correos automáticos a clientes</span>
+                  </li>
+                  <li className="flex items-start gap-2.5 text-xs text-slate-600">
+                    <svg className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"></path></svg>
+                    <span>Estadísticas de taller</span>
+                  </li>
+                  <li className="flex items-start gap-2.5 text-xs text-slate-600">
+                    <svg className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"></path></svg>
+                    <span>Seguimiento Post-Venta</span>
+                  </li>
+                  <li className="flex items-start gap-2.5 text-xs text-slate-600">
+                    <svg className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"></path></svg>
+                    <span>Gestión de permisos y roles</span>
+                  </li>
+                </ul>
+              </div>
+              
+              <div className="mt-8">
+                <Link to="/login" className="w-full block text-center py-3 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-sm rounded-2xl transition">
+                  Probar Gratis
+                </Link>
+              </div>
+            </div>
+
+            {/* Pro */}
+            <div className="bg-white border-2 border-blue-600 shadow-xl rounded-3xl p-8 hover:shadow-2xl transition duration-300 flex flex-col justify-between relative transform md:-translate-y-4 md:scale-105">
+              <span className="absolute -top-3.5 left-8 px-4 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[10px] font-extrabold tracking-widest uppercase rounded-full shadow-md">
+                Recomendado
+              </span>
+              
+              <div>
+                <div className="flex justify-between items-start">
+                  <h3 className="text-xl font-bold text-slate-900">PRO</h3>
+                  <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded bg-blue-50 text-blue-800">
+                    Popular
+                  </span>
+                </div>
+                
+                <div className="mt-4 flex items-baseline">
+                  <span className="text-4xl font-extrabold text-slate-900">1,2 UF</span>
+                  <span className="text-xs text-slate-500 font-medium ml-1.5">+ IVA / mes</span>
+                </div>
+                <p className="text-xs text-slate-400 mt-2 min-h-[32px]">El motor completo para expandir tu negocio, vender en sucursal y compras.</p>
+
+                <div className="border-t border-slate-100 my-6"></div>
+
+                <ul className="space-y-3.5">
+                  <li className="flex items-start gap-2.5 text-xs text-slate-600">
+                    <svg className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"></path></svg>
+                    <span><strong>2 Sucursales / Bodegas</strong></span>
+                  </li>
+                  <li className="flex items-start gap-2.5 text-xs text-slate-600">
+                    <svg className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"></path></svg>
+                    <span>Usuarios ilimitados</span>
+                  </li>
+                  <li className="flex items-start gap-2.5 text-xs text-slate-600">
+                    <svg className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"></path></svg>
+                    <span>Módulo Taller (Órdenes)</span>
+                  </li>
+                  <li className="flex items-start gap-2.5 text-xs text-slate-600">
+                    <svg className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"></path></svg>
+                    <span><strong>Punto de Venta (POS) / Caja</strong></span>
+                  </li>
+                  <li className="flex items-start gap-2.5 text-xs text-slate-600">
+                    <svg className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"></path></svg>
+                    <span>Gestión de Inventario</span>
+                  </li>
+                  <li className="flex items-start gap-2.5 text-xs text-slate-600">
+                    <svg className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"></path></svg>
+                    <span><strong>Módulo Gastos</strong></span>
+                  </li>
+                  <li className="flex items-start gap-2.5 text-xs text-slate-600">
+                    <svg className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"></path></svg>
+                    <span><strong>Módulo Compras (OC)</strong></span>
+                  </li>
+                  <li className="flex items-start gap-2.5 text-xs text-slate-600">
+                    <svg className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"></path></svg>
+                    <span>Correos automáticos a clientes</span>
+                  </li>
+                  <li className="flex items-start gap-2.5 text-xs text-slate-600">
+                    <svg className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"></path></svg>
+                    <span>Estadísticas de taller y ventas</span>
+                  </li>
+                  <li className="flex items-start gap-2.5 text-xs text-slate-600">
+                    <svg className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"></path></svg>
+                    <span>Seguimiento Post-Venta</span>
+                  </li>
+                  <li className="flex items-start gap-2.5 text-xs text-slate-600">
+                    <svg className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"></path></svg>
+                    <span>Gestión de permisos y roles</span>
+                  </li>
+                </ul>
+              </div>
+              
+              <div className="mt-8">
+                <Link to="/login" className="w-full block text-center py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-2xl transition shadow-lg shadow-blue-600/20 transform hover:-translate-y-0.5">
+                  Probar Gratis
+                </Link>
+              </div>
+            </div>
+
+            {/* Scale */}
+            <div className="bg-white/70 backdrop-blur-sm border border-slate-200 rounded-3xl p-8 hover:shadow-xl transition duration-300 flex flex-col justify-between relative group">
+              <div>
+                <div className="flex justify-between items-start">
+                  <h3 className="text-xl font-bold text-slate-900">Scale</h3>
+                  <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded bg-purple-50 text-purple-800">
+                    Corporativo
+                  </span>
+                </div>
+                
+                <div className="mt-4 flex items-baseline">
+                  <span className="text-4xl font-extrabold text-slate-900">2,5 UF</span>
+                  <span className="text-xs text-slate-500 font-medium ml-1.5">+ IVA / mes</span>
+                </div>
+                <p className="text-xs text-slate-400 mt-2 min-h-[32px]">El plan ilimitado diseñado para franquicias, cadenas y negocios en gran escala.</p>
+
+                <div className="border-t border-slate-100 my-6"></div>
+
+                <ul className="space-y-3.5">
+                  <li className="flex items-start gap-2.5 text-xs text-slate-600">
+                    <svg className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"></path></svg>
+                    <span><strong>Sucursales / Bodegas ilimitadas</strong></span>
+                  </li>
+                  <li className="flex items-start gap-2.5 text-xs text-slate-600">
+                    <svg className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"></path></svg>
+                    <span>Usuarios ilimitados</span>
+                  </li>
+                  <li className="flex items-start gap-2.5 text-xs text-slate-600">
+                    <svg className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"></path></svg>
+                    <span>Módulo Taller (Órdenes)</span>
+                  </li>
+                  <li className="flex items-start gap-2.5 text-xs text-slate-600">
+                    <svg className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"></path></svg>
+                    <span>Punto de Venta (POS) / Caja</span>
+                  </li>
+                  <li className="flex items-start gap-2.5 text-xs text-slate-600">
+                    <svg className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"></path></svg>
+                    <span>Gestión de Inventario completo</span>
+                  </li>
+                  <li className="flex items-start gap-2.5 text-xs text-slate-600">
+                    <svg className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"></path></svg>
+                    <span>Módulo Gastos y Compras</span>
+                  </li>
+                  <li className="flex items-start gap-2.5 text-xs text-slate-600">
+                    <svg className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"></path></svg>
+                    <span>Correos automáticos a clientes</span>
+                  </li>
+                  <li className="flex items-start gap-2.5 text-xs text-slate-600">
+                    <svg className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"></path></svg>
+                    <span>Estadísticas de taller y ventas</span>
+                  </li>
+                  <li className="flex items-start gap-2.5 text-xs text-slate-600">
+                    <svg className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"></path></svg>
+                    <span>Seguimiento Post-Venta</span>
+                  </li>
+                  <li className="flex items-start gap-2.5 text-xs text-slate-600">
+                    <svg className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"></path></svg>
+                    <span>Gestión de permisos y roles</span>
+                  </li>
+                </ul>
+              </div>
+              
+              <div className="mt-8">
+                <a href="https://wa.me/56900000000?text=Hola,%20me%20gustaria%20saber%20mas%20sobre%20el%20plan%20SCALE%20de%20Pixit" target="_blank" className="w-full block text-center py-3 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-sm rounded-2xl transition">
+                  Contactar Ventas
+                </a>
+              </div>
+            </div>
+
+          </div>
+        </section>
       </main>
 
       {/* Footer sencillo */}
