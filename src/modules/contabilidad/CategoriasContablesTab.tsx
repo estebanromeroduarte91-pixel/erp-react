@@ -83,17 +83,19 @@ export function CategoriasContablesTab() {
 
       <div className="divide-y divide-gray-50">
         {(cats ?? []).map(cat => (
-          <div key={cat.id} className="flex items-center gap-3 px-4 py-3 group">
-            <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: cat.color }} />
-            <span className="min-w-[130px] text-sm font-medium text-gray-800 truncate">{cat.nombre}</span>
-            <svg className="w-4 h-4 text-gray-300 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+          <div key={cat.id} className="flex flex-col md:flex-row md:items-center gap-2 md:gap-3 px-4 py-3 group">
+            <div className="flex items-center gap-3 min-w-0">
+              <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: cat.color }} />
+              <span className="md:min-w-[130px] text-sm font-medium text-gray-800 truncate">{cat.nombre}</span>
+              <svg className="hidden md:block w-4 h-4 text-gray-300 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+            </div>
             <select
               value={catCuentaMap?.[cat.nombre] ?? 'pc-595'}
               onChange={e => setCuenta(cat.nombre, e.target.value)}
-              className="flex-1 min-w-0 border border-gray-200 rounded-lg px-3 py-1.5 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
+              className="w-full md:flex-1 md:min-w-0 border border-gray-200 rounded-lg px-3 py-1.5 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
               {cuentasGasto.map(c => <option key={c.id} value={c.id}>{c.codigo} — {c.nombre}</option>)}
             </select>
-            <div className="flex items-center gap-3 opacity-0 group-hover:opacity-100 transition flex-shrink-0">
+            <div className="flex items-center gap-3 md:opacity-0 md:group-hover:opacity-100 transition flex-shrink-0">
               <button onClick={() => { setEditando(cat); setModalOpen(true) }} className="text-xs font-medium text-blue-600 hover:underline">Editar</button>
               <button onClick={() => eliminarCategoria(cat)} className="text-xs font-medium text-red-500 hover:underline">Eliminar</button>
             </div>
