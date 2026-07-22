@@ -12,15 +12,17 @@ export interface PlanLimits {
 
 export const DEFAULT_PLAN_LIMITS: PlanLimits = {
   tier: 'starter',
-  max_usuarios: 1,
+  max_usuarios: 999,
   max_sucursales: 1
 }
 
 // Límites de cada tier — única fuente de verdad usada tanto al activar un plan
 // pagado (Panel Pixit) como al asignar el plan del trial (Login.tsx, Scale).
+// Usuarios ilimitados en los tres planes — solo cambian sucursales/bodegas
+// (mismo concepto, ver combinarCategorias/BodegasTab). 999 = "ilimitado".
 export const TIER_LIMITS: Record<PlanTier, { max_usuarios: number; max_sucursales: number }> = {
-  starter: { max_usuarios: 1, max_sucursales: 1 },
-  pro: { max_usuarios: 5, max_sucursales: 3 },
+  starter: { max_usuarios: 999, max_sucursales: 1 },
+  pro: { max_usuarios: 999, max_sucursales: 2 },
   scale: { max_usuarios: 999, max_sucursales: 999 },
 }
 
@@ -37,12 +39,14 @@ export const MODULO_LABELS: Record<string, string> = {
   compras: 'Compras (órdenes de compra)',
 }
 
-// Módulos habilitados por tier. 'pro' y 'scale' heredan todo lo de abajo —
-// hoy no hay diferencia de módulos entre pro y scale (Scale solo escala los
-// límites de cantidad); "traslados" y "seguimiento_postventa" no están en esta
-// lista porque esas funciones todavía no están implementadas en el producto.
+// Módulos habilitados por tier. Starter no incluye POS ni Gastos/Compras;
+// Pro y Scale tienen los mismos módulos (Scale solo escala los límites de
+// sucursales/bodegas). "Traslado entre sucursales" y "Seguimiento postventa"
+// no están en esta lista porque esas funciones todavía no están implementadas
+// en el producto — "Gestión inventario" tampoco está acá porque el módulo
+// Inventario no está gateado por plan (disponible siempre).
 export const PLAN_MODULES: Record<PlanTier, string[]> = {
-  starter: ['taller', 'pos', 'estadisticas', 'mensajes'],
+  starter: ['taller', 'estadisticas', 'mensajes', 'accesos'],
   pro:     ['taller', 'pos', 'estadisticas', 'mensajes', 'accesos', 'gastos', 'compras'],
   scale:   ['taller', 'pos', 'estadisticas', 'mensajes', 'accesos', 'gastos', 'compras'],
 }
