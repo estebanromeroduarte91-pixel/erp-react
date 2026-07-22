@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 
 function HeroMockup() {
   return (
-    <div className="mt-20 w-full max-w-5xl mx-auto relative group px-4 sm:px-6">
+    <div id="demo" className="mt-20 w-full max-w-5xl mx-auto relative group px-4 sm:px-6">
       {/* Glow detrás de la imagen (Desactivado/reducido en móviles para rendimiento) */}
       <div className="absolute -inset-1 bg-gradient-to-r from-blue-600/30 to-purple-600/30 rounded-[2rem] blur-md md:blur-xl md:group-hover:blur-2xl transition duration-1000 transform-gpu"></div>
       
@@ -77,15 +77,6 @@ export function LandingPage() {
           <p className="text-lg md:text-xl text-slate-600 mb-10 max-w-2xl mx-auto leading-relaxed">
             Pixit es el ERP y Punto de Venta todo-en-uno diseñado específicamente para talleres de servicio técnico. Controla reparaciones, inventario y facturación en un solo lugar.
           </p>
-          
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <Link to="/login" className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-4 rounded-full text-base font-bold transition shadow-xl shadow-blue-600/20 transform hover:-translate-y-0.5 w-full sm:w-auto">
-              Comenzar Prueba Gratis
-            </Link>
-            <a href="#demo" className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-8 py-4 rounded-full text-base font-bold transition shadow-sm w-full sm:w-auto">
-              Ver Demo
-            </a>
-          </div>
         </div>
 
         <HeroMockup />
@@ -384,6 +375,15 @@ export function LandingPage() {
               </div>
             </div>
 
+          </div>
+
+          <div className="mt-16 flex flex-col sm:flex-row gap-4 justify-center items-center">
+            <Link to="/login" className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-4 rounded-full text-base font-bold transition shadow-xl shadow-blue-600/20 transform hover:-translate-y-0.5 w-full sm:w-auto">
+              Comenzar Prueba Gratis
+            </Link>
+            <a href="#demo" className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-8 py-4 rounded-full text-base font-bold transition shadow-sm w-full sm:w-auto">
+              Ver Demo
+            </a>
           </div>
         </section>
       </main>

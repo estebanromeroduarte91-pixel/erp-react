@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { usePuedeUsarModulo } from '@/lib/queries'
 import { Login } from '@/modules/auth/Login'
@@ -9,6 +9,7 @@ import { LandingPage } from '@/modules/landing/LandingPage'
 import { Shell } from '@/components/layout/Shell'
 import { Spinner } from '@/components/shared/Spinner'
 import { ModuloBloqueado } from '@/components/shared/ModuloBloqueado'
+import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 
 // Carga perezosa (Lazy Loading) de todos los módulos pesados del ERP
 const TallerPage = lazy(() => import('@/modules/taller/TallerPage').then(m => ({ default: m.TallerPage })))
@@ -24,6 +25,7 @@ const BuscarPage = lazy(() => import('@/modules/buscar/BuscarPage').then(m => ({
 const PixitAdminPage = lazy(() => import('@/modules/pixitadmin/PixitAdminPage').then(m => ({ default: m.PixitAdminPage })))
 
 function AppRoutes() {
+  const location = useLocation()
   const { session, cargando, recoveryMode, trialExpirado, cuentaSuspendida, esPlatformAdmin, empresaId } = useAuth()
   // Un platform admin sin empresa propia (solo entra a administrar la plataforma,
   // no opera ningún taller) cae directo al panel — el resto de las rutas requieren empresa.
@@ -59,6 +61,7 @@ function AppRoutes() {
 
   return (
     <Shell>
+      <ErrorBoundary key={location.pathname + location.search}>
       <Suspense fallback={
         <div className="flex min-h-screen items-center justify-center">
           <Spinner className="w-8 h-8" />
@@ -83,14 +86,17 @@ function AppRoutes() {
           <Route path="*"              element={<Navigate to={soloPlatformAdmin ? '/pixit-admin' : '/taller'} replace />} />
         </Routes>
       </Suspense>
+      </ErrorBoundary>
     </Shell>
   )
 }
 
 export default function App() {
   return (
-    <HashRouter>
-      <AppRoutes />
-    </HashRouter>
+    <ErrorBoundary>
+      <HashRouter>
+        <AppRoutes />
+      </HashRouter>
+    </ErrorBoundary>
   )
 }
