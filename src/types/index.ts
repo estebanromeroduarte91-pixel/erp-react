@@ -328,12 +328,11 @@ export interface Asiento {
 
 // ── Config Seguimiento (correos + logo) ──────────────────────
 export interface SeguimientoConfig {
-  nombreTaller?: string
-  emailContacto?: string
-  telefono?: string
+  // Horario del taller: respaldo para los correos automáticos cuando la orden
+  // no tiene una sucursal asignada con horario propio (Inventario > Bodegas).
+  // El nombre del taller usa directamente empresaNombre (AuthContext) — ya no
+  // hace falta tipearlo dos veces en esta config.
   horario?: string
-  ubicacion?: string
-  especialidad?: string
   dias?: number
   asunto?: string
   msgApertura?: string

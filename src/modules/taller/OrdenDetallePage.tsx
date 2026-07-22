@@ -34,7 +34,7 @@ function rellenarTemplate(tpl: string, vars: Record<string, string>) {
 export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onClose?: () => void } = {}) {
   const { num: numParam } = useParams<{ num: string }>()
   const num = numProp ?? numParam
-  const { empresaId } = useAuth()
+  const { empresaId, empresaNombre } = useAuth()
   const qc = useQueryClient()
   const { data: ordenes, isLoading } = useOrdenes()
   const actualizarOrden = useActualizarOrden()
@@ -188,7 +188,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
     const branch = bodegas.find(b => b.id === orden.branchId)
     return {
       nombre: orden.nombre ?? '', modelo: orden.modelo ?? '', orden: orden.num,
-      sucursal: branch?.nombre ?? branch?.name ?? segCfg?.nombreTaller ?? '',
+      sucursal: branch?.nombre ?? branch?.name ?? empresaNombre ?? '',
       horario: formatHorario(branch?.horario) || formatHorario(segCfg?.horario) || '',
       direccion: branch?.direccion ?? '', telefono: branch?.tel ?? '', email: branch?.email ?? '',
       presupuesto: String(orden.presup ?? ''), trabajo: orden.trabajo ?? '',
@@ -199,11 +199,11 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
   async function buildListoHtml(msgTexto: string) {
     const branch = bodegas.find(b => b.id === orden.branchId)
     return buildEmailListo({
-      tallerNombre: segCfg?.nombreTaller ?? 'tu taller',
+      tallerNombre: empresaNombre || 'tu taller',
       logoUrl: segCfg?.logoUrl,
       msgTexto,
       orden: { num: orden.num, modelo: orden.modelo ?? '', nombre: orden.nombre ?? '' },
-      branchNombre: branch?.nombre ?? branch?.name ?? segCfg?.nombreTaller ?? '',
+      branchNombre: branch?.nombre ?? branch?.name ?? empresaNombre ?? '',
       horario: formatHorario(branch?.horario) || formatHorario(segCfg?.horario) || '',
       puedeResponder: empresaId ? await puedeResponderCorreo(empresaId) : false,
     })
@@ -259,8 +259,8 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
     try {
       const vars = buildVars()
       const branch = bodegas.find(b => b.id === orden.branchId)
-      const branchNombre = branch?.nombre ?? branch?.name ?? segCfg?.nombreTaller ?? ''
-      const tallerNombre = segCfg?.nombreTaller ?? 'tu taller'
+      const branchNombre = branch?.nombre ?? branch?.name ?? empresaNombre ?? ''
+      const tallerNombre = empresaNombre || 'tu taller'
       const status = orden.status as EstadoOrden
 
       let asunto: string
@@ -322,7 +322,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
   function printLabel() {
     if (!o) return
     const branch = bodegas.find(b => b.id === o.branchId)
-    const tallerNom = segCfg?.nombreTaller ?? 'tu taller'
+    const tallerNom = empresaNombre || 'tu taller'
     const sucNom = branch?.nombre ?? branch?.name ?? ''
     const footer = [tallerNom, sucNom].filter(Boolean).join(' — ')
     const otUrl = `${window.location.origin}${window.location.pathname}?orden=${encodeURIComponent(o.id)}`
@@ -416,7 +416,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
         const rawTpl = msgTemplates?.inspeccion_email ?? `Hola {{nombre}}, al abrir tu {{modelo}} para la reparación detectamos algunos detalles que queremos informarte antes de continuar.`
         const msgTexto = rawTpl.split(/\n\n/)[0].replace(/\{\{(\w+)\}\}/g, (_, k: string) => tplVars[k] ?? '')
         const html = buildEmailInspeccion({
-          tallerNombre: segCfg?.nombreTaller ?? 'tu taller',
+          tallerNombre: empresaNombre || 'tu taller',
           logoUrl: segCfg?.logoUrl,
           msgTexto,
           orden: { num: orden.num ?? '', modelo: orden.modelo ?? '', nombre: orden.nombre ?? '', serie: orden.serie },
@@ -521,7 +521,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
           v: 2,
           items: (aprobOrden.repuestos ?? []).map(r => ({ name: r.name, qty: r.qty, precio: r.precio ?? 0 })),
           trabajo: aprobOrden.trabajo ?? '',
-          taller: segCfg?.nombreTaller ?? 'tu taller',
+          taller: empresaNombre || 'tu taller',
           sucursal: aprobBranch?.nombre ?? aprobBranch?.name ?? '',
           horario: aprobHorario,
           tel: aprobBranch?.tel ?? '',
@@ -569,7 +569,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
       // Solo el primer párrafo como intro (las líneas Trabajo/Presupuesto/Orden ya van en las tarjetas)
       const introTexto = rawTpl.split(/\n\n/)[0].replace(/\{\{(\w+)\}\}/g, (_, k: string) => tplVars[k] ?? '')
       const html = buildEmailAprobacion({
-        tallerNombre: segCfg?.nombreTaller ?? 'tu taller',
+        tallerNombre: empresaNombre || 'tu taller',
         logoUrl: segCfg?.logoUrl,
         introTexto,
         orden: { num: aprobOrden.num ?? '', modelo: aprobOrden.modelo ?? '', nombre: aprobOrden.nombre ?? '', trabajo: aprobOrden.trabajo },

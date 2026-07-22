@@ -55,7 +55,7 @@ function rellenarTemplate(tpl: string, vars: Record<string, string>): string {
 }
 
 export function OrdenDetalle({ orden: o, onClose, onEditar }: Props) {
-  const { empresaId } = useAuth()
+  const { empresaId, empresaNombre } = useAuth()
   const actualizarOrden = useActualizarOrden()
   const { data: msgTemplates } = useMsgTemplates()
   const { data: segCfg } = useSeguimientoConfig()
@@ -128,7 +128,7 @@ export function OrdenDetalle({ orden: o, onClose, onEditar }: Props) {
   }, [o.aprobacion_estado, o.aprobacion_token, o.id, empresaId, actualizarOrden])
 
   const branch = bodegas.find(b => b.id === o.branchId)
-  const branchNombre = branch?.nombre ?? branch?.name ?? segCfg?.nombreTaller ?? ''
+  const branchNombre = branch?.nombre ?? branch?.name ?? empresaNombre ?? ''
   const branchHorario = formatHorario(branch?.horario) || formatHorario(segCfg?.horario) || ''
   const branchDir = branch?.direccion ?? ''
   const branchTel = branch?.tel ?? ''
@@ -160,7 +160,7 @@ export function OrdenDetalle({ orden: o, onClose, onEditar }: Props) {
     // Envío automático de email al poner Listo
     if (esListo && emailMsg && o.email && empresaId) {
       const html = buildEmailListo({
-        tallerNombre: segCfg?.nombreTaller ?? 'tu taller',
+        tallerNombre: empresaNombre || 'tu taller',
         logoUrl: segCfg?.logoUrl,
         msgTexto: emailMsg,
         orden: { num: o.num, modelo: o.modelo ?? '', nombre: o.nombre ?? '' },
@@ -188,7 +188,7 @@ export function OrdenDetalle({ orden: o, onClose, onEditar }: Props) {
     if (!notifEstado?.emailMsg || !o.email || !empresaId) return
     setEnviandoEmail(true)
     const html = buildEmailListo({
-      tallerNombre: segCfg?.nombreTaller ?? 'tu taller',
+      tallerNombre: empresaNombre || 'tu taller',
       logoUrl: segCfg?.logoUrl,
       msgTexto: notifEstado.emailMsg,
       orden: { num: o.num, modelo: o.modelo ?? '', nombre: o.nombre ?? '' },
@@ -238,7 +238,7 @@ export function OrdenDetalle({ orden: o, onClose, onEditar }: Props) {
         v: 2,
         items: (o.repuestos ?? []).map(r => ({ name: r.name, qty: r.qty, precio: r.precio ?? 0 })),
         trabajo: o.trabajo ?? '',
-        taller: segCfg?.nombreTaller ?? 'tu taller',
+        taller: empresaNombre || 'tu taller',
         sucursal: branchNombre,
         horario: branchHorario,
         tel: branchTel,
@@ -277,7 +277,7 @@ export function OrdenDetalle({ orden: o, onClose, onEditar }: Props) {
       const introTexto = aprobMsgEmail.split(/\n\n/)[0] ?? aprobMsgEmail
       const items = o.repuestos ?? []
       const html = buildEmailAprobacion({
-        tallerNombre: segCfg?.nombreTaller ?? 'tu taller',
+        tallerNombre: empresaNombre || 'tu taller',
         logoUrl: segCfg?.logoUrl,
         introTexto,
         orden: { num: o.num, modelo: o.modelo ?? '', nombre: o.nombre ?? '', trabajo: o.trabajo },
@@ -314,7 +314,7 @@ export function OrdenDetalle({ orden: o, onClose, onEditar }: Props) {
       const vars = buildVars(o.num)
       const msgTexto = tpl ? rellenarTemplate(tpl, { ...vars, diagnostico: inspecNotas }) : inspecNotas
       const html = buildEmailInspeccion({
-        tallerNombre: segCfg?.nombreTaller ?? 'tu taller',
+        tallerNombre: empresaNombre || 'tu taller',
         logoUrl: segCfg?.logoUrl,
         msgTexto,
         orden: { num: o.num, modelo: o.modelo ?? '', nombre: o.nombre ?? '', serie: o.serie },

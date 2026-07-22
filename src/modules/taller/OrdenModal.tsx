@@ -51,7 +51,7 @@ function rellenarTemplate(tpl: string, vars: Record<string, string>): string {
 }
 
 export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) {
-  const { empresaId, branchId: userBranchId } = useAuth()
+  const { empresaId, empresaNombre, branchId: userBranchId } = useAuth()
   const crearOrden = useCrearOrden()
   const actualizarOrden = useActualizarOrden()
   const { data: clientes } = useClientes()
@@ -464,7 +464,7 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
       if (tpl) {
         const num = ordenGuardada.num ?? ''
         const branch = bodegas.find(b => b.id === ordenGuardada.branchId)
-        const branchNombre = branch?.nombre ?? branch?.name ?? segCfg?.nombreTaller ?? ''
+        const branchNombre = branch?.nombre ?? branch?.name ?? empresaNombre ?? ''
         const vars = {
           nombre: form.nombre,
           modelo: form.modelo,
@@ -475,7 +475,7 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
         }
         const msgTexto = rellenarTemplate(tpl, vars)
         const html = buildEmailIngreso({
-          tallerNombre: segCfg?.nombreTaller ?? 'tu taller',
+          tallerNombre: empresaNombre || 'tu taller',
           logoUrl: segCfg?.logoUrl,
           msgTexto,
           orden: {

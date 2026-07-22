@@ -51,31 +51,6 @@ export function SeguimientoTab() {
 
   return (
     <div className="max-w-2xl space-y-6">
-      {/* Info del taller */}
-      <div className="bg-white rounded-xl border border-gray-200 p-5">
-        <h3 className="text-sm font-bold text-gray-700 mb-4">Información del taller</h3>
-        <div className="grid grid-cols-2 gap-4">
-          {[
-            { key: 'nombreTaller', label: 'Nombre del taller *', placeholder: 'Mi Taller', span2: true },
-            { key: 'emailContacto', label: 'Email de contacto', placeholder: 'contacto@taller.cl' },
-            { key: 'telefono', label: 'Teléfono', placeholder: '+56 9 XXXX XXXX' },
-            { key: 'horario', label: 'Horario', placeholder: 'Lun–Vie 10:00–19:00' },
-            { key: 'ubicacion', label: 'Dirección / Ubicación', placeholder: 'Av. Ejemplo 123, Santiago', span2: true },
-            { key: 'especialidad', label: 'Especialidad', placeholder: 'Reparación de iPhone y Samsung', span2: true },
-          ].map(f => (
-            <div key={f.key} className={f.span2 ? 'col-span-2' : ''}>
-              <label className="text-xs font-medium text-gray-600 block mb-1">{f.label}</label>
-              <input
-                type="text"
-                value={(form[f.key as keyof SeguimientoConfig] as string) ?? ''}
-                onChange={e => set(f.key as keyof SeguimientoConfig, e.target.value)}
-                placeholder={f.placeholder}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400"
-              />
-            </div>
-          ))}
-        </div>
-      </div>
 
       {/* Correo de seguimiento */}
       <div className="bg-white rounded-xl border border-gray-200 p-5">
