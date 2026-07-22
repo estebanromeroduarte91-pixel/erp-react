@@ -5,7 +5,7 @@ import { dbGet, dbSet } from './db'
 import { MSG_DEFAULTS } from './msgTemplatesDefaults'
 import { reconciliarLotes } from './lotes'
 import { useAuth } from '@/context/AuthContext'
-import type { Orden, Cliente, Producto, Bodega, Movimiento, Proveedor, Venta, VentaItem, MetodoPago, Caja, CajaSesion, Gasto, GastoCat, CuentaContable, Asiento, SeguimientoConfig, SmtpConfig, MsgTemplates, Cargo, UserProfile, UserConfig, PendingInvite, EmailDomain, OC, OCLogEntry, Categoria, Kit, Traslado, TecnicoExterno, Equipo, FichaUsuario, LoteInventario, ConteoInventario, Cotizacion } from '@/types'
+import type { Orden, Repuesto, Cliente, Producto, Bodega, Movimiento, Proveedor, Venta, VentaItem, MetodoPago, Caja, CajaSesion, Gasto, GastoCat, CuentaContable, Asiento, SeguimientoConfig, SmtpConfig, MsgTemplates, Cargo, UserProfile, UserConfig, PendingInvite, EmailDomain, OC, OCLogEntry, Categoria, Kit, Traslado, TecnicoExterno, Equipo, FichaUsuario, LoteInventario, ConteoInventario, Cotizacion } from '@/types'
 
 // ── Órdenes de Taller ─────────────────────────────────────────
 // Tabla relacional `ordenes` (migrada desde el blob erp_data/tp_orders).
@@ -2334,6 +2334,52 @@ export function useActualizarEmpresaAdmin() {
   })
 }
 // ── Cotizaciones (solo lectura para el cliente, sin flujo de aprobación) ──
+
+// Órdenes ABIERTAS en versión liviana, solo para el selector "Vincular a orden"
+// de Cotizaciones. A diferencia de useOrdenes() (que hace select('*') y arrastra
+// fotos base64, checklists e inspección de TODAS las órdenes), acá se piden solo
+// las columnas necesarias para autocompletar y solo las órdenes no entregadas /
+// no borrador. Sin Realtime — es una lectura puntual al abrir el modal.
+export interface OrdenLite {
+  id: string
+  num: string
+  nombre: string
+  apellido?: string
+  tel?: string
+  email?: string
+  rut?: string
+  modelo?: string
+  repuestos: Repuesto[]
+}
+
+export function useOrdenesAbiertasLite() {
+  const { empresaId } = useAuth()
+  return useQuery({
+    queryKey: ['ordenes-abiertas-lite', empresaId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('ordenes')
+        .select('id, num, nombre, apellido, tel, email, rut, modelo, repuestos')
+        .eq('empresa_id', empresaId!)
+        .eq('is_draft', false)
+        .neq('status', 'Entregado')
+        .order('fecha', { ascending: false })
+      if (error) throw error
+      return (data ?? []).map((r) => ({
+        id: r.id as string,
+        num: r.num as string,
+        nombre: (r.nombre as string) ?? '',
+        apellido: r.apellido as string | undefined,
+        tel: r.tel as string | undefined,
+        email: r.email as string | undefined,
+        rut: r.rut as string | undefined,
+        modelo: r.modelo as string | undefined,
+        repuestos: (r.repuestos as Repuesto[]) ?? [],
+      })) as OrdenLite[]
+    },
+    enabled: !!empresaId,
+  })
+}
 
 export function useCotizaciones() {
   const { empresaId } = useAuth()

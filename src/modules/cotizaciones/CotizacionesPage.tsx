@@ -1,6 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
-import { useCotizaciones, useCrearCotizacion, useEliminarCotizacion, useSeguimientoConfig, useClientes, useBuscarClientes, useCrearCliente, useOrdenes, type NuevaCotizacion } from '@/lib/queries'
+import { useCotizaciones, useCrearCotizacion, useEliminarCotizacion, useSeguimientoConfig, useBuscarClientes, useCrearCliente, useOrdenesAbiertasLite, type NuevaCotizacion } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
+import { supabase } from '@/lib/supabase'
 import { sendEmail, buildEmailCotizacion, urlCotizacion } from '@/lib/email'
 import { Spinner } from '@/components/shared/Spinner'
 import { formatRut } from '@/lib/rut'
@@ -23,9 +24,7 @@ function vigencia(c: Cotizacion): { label: string; color: string } {
 function ModalNuevaCotizacion({ onClose }: { onClose: () => void }) {
   const { empresaId, empresaNombre } = useAuth()
   const { data: segCfg } = useSeguimientoConfig()
-  const { data: clientes = [] } = useClientes()
-  const { data: ordenes = [] } = useOrdenes()
-  const ordenesAbiertas = useMemo(() => ordenes.filter(o => o.status !== 'Entregado'), [ordenes])
+  const { data: ordenesAbiertas = [], isLoading: ordenesLoading } = useOrdenesAbiertasLite()
   const crear = useCrearCotizacion()
   const crearCliente = useCrearCliente()
 
@@ -46,8 +45,9 @@ function ModalNuevaCotizacion({ onClose }: { onClose: () => void }) {
   const [clienteAbierto, setClienteAbierto] = useState(false)
   const clienteRef = useRef<HTMLDivElement>(null)
   const { ref: clienteAnchorRef, rect: clienteRect } = useAnchorRect<HTMLInputElement>(clienteAbierto)
+  // Búsqueda server-side: NO se carga el directorio completo de clientes (puede
+  // ser de miles). El dropdown solo muestra resultados cuando hay texto escrito.
   const { data: clientesBuscados = [] } = useBuscarClientes(busquedaCliente)
-  const clientesFiltrados = busquedaCliente.trim() ? clientesBuscados : clientes.slice(0, 6)
 
   const [showNuevoCliente, setShowNuevoCliente] = useState(false)
   const [nuevoCliente, setNuevoCliente] = useState({ nombre: '', apellido: '', tel: '', email: '', rut: '' })
@@ -96,9 +96,15 @@ function ModalNuevaCotizacion({ onClose }: { onClose: () => void }) {
     setErrorNuevoCliente('')
     setClienteDuplicado(null)
 
-    if (nuevoCliente.rut.trim()) {
-      const rutNorm = nuevoCliente.rut.trim().toLowerCase().replace(/\s/g, '')
-      const existe = clientes.find(c => c.rut && c.rut.toLowerCase().replace(/\s/g, '') === rutNorm)
+    // Chequeo de RUT duplicado con query puntual (no se carga todo el directorio).
+    if (nuevoCliente.rut.trim() && empresaId) {
+      const { data: existentes } = await supabase
+        .from('clientes')
+        .select('id, nombre, apellido, rut, email, tel')
+        .eq('empresa_id', empresaId)
+        .eq('rut', nuevoCliente.rut.trim())
+        .limit(1)
+      const existe = existentes?.[0] as Cliente | undefined
       if (existe) {
         setClienteDuplicado(existe)
         setErrorNuevoCliente(`El RUT ya está registrado a nombre de ${existe.nombre} ${existe.apellido ?? ''}.`)
@@ -201,12 +207,12 @@ function ModalNuevaCotizacion({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-          {ordenesAbiertas.length > 0 && (
+          {(ordenesLoading || ordenesAbiertas.length > 0) && (
             <div>
               <label className="text-xs font-medium text-gray-600 block mb-1">Vincular a una orden existente (opcional)</label>
-              <select onChange={e => elegirOrden(e.target.value)} defaultValue=""
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:border-blue-400">
-                <option value="">Seleccionar…</option>
+              <select onChange={e => elegirOrden(e.target.value)} defaultValue="" disabled={ordenesLoading}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:border-blue-400 disabled:opacity-60">
+                <option value="">{ordenesLoading ? 'Cargando órdenes…' : 'Seleccionar…'}</option>
                 {ordenesAbiertas.map(o => (
                   <option key={o.id} value={o.id}>
                     #{o.num} — {[o.nombre, o.apellido].filter(Boolean).join(' ')}{o.modelo ? ` (${o.modelo})` : ''}
@@ -234,10 +240,12 @@ function ModalNuevaCotizacion({ onClose }: { onClose: () => void }) {
                   className="w-full border border-gray-200 rounded-lg pl-9 pr-3 py-2 text-sm bg-white focus:outline-none focus:border-blue-400" />
                 {clienteAbierto && (
                   <div style={fixedDropdownStyle(clienteRect)} className="bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
-                    {clientesFiltrados.length === 0 ? (
+                    {!busquedaCliente.trim() ? (
+                      <p className="text-xs text-gray-400 text-center py-4">Escribe para buscar un cliente</p>
+                    ) : clientesBuscados.length === 0 ? (
                       <p className="text-xs text-gray-400 text-center py-4">Sin resultados</p>
                     ) : (
-                      clientesFiltrados.map(c => (
+                      clientesBuscados.map(c => (
                         <button key={c.id} type="button" onMouseDown={() => elegirCliente(c)}
                           className="w-full text-left px-4 py-2.5 text-sm hover:bg-blue-50 transition-colors flex items-center justify-between">
                           <span className="font-medium text-gray-800">{c.nombre} {c.apellido}</span>
