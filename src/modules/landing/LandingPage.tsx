@@ -172,7 +172,7 @@ export function LandingPage() {
         <section id="pricing" className="mt-40 max-w-6xl mx-auto px-4 sm:px-6">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-extrabold text-slate-900 mb-4">Planes Simples y Transparentes</h2>
-            <p className="text-lg text-slate-600">Prueba Pixit gratis por 14 días sin compromisos. Cancela cuando quieras.</p>
+            <p className="text-lg text-slate-600">Comienza tu prueba gratuita de 30 días hoy mismo. Cancela cuando quieras.</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch">
@@ -233,7 +233,7 @@ export function LandingPage() {
               
               <div className="mt-8">
                 <Link to="/login" className="w-full block text-center py-3 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-sm rounded-2xl transition">
-                  Probar Gratis
+                  Contratar Starter
                 </Link>
               </div>
             </div>
@@ -310,7 +310,7 @@ export function LandingPage() {
               
               <div className="mt-8">
                 <Link to="/login" className="w-full block text-center py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-2xl transition shadow-lg shadow-blue-600/20 transform hover:-translate-y-0.5">
-                  Probar Gratis
+                  Contratar PRO
                 </Link>
               </div>
             </div>
