@@ -102,7 +102,7 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
   useEffect(() => {
     if (!draftId || !empresaId) return
     const channel = supabase
-      .channel(`draft-fotos-${draftId}`)
+      .channel(`draft-fotos-${draftId}-${Math.random().toString(36).slice(2, 8)}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'ordenes',
         filter: `id=eq.${draftId}` },
         async () => {

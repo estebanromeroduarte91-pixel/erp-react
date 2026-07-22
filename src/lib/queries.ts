@@ -101,7 +101,7 @@ export function useOrdenes() {
   useEffect(() => {
     if (!empresaId) return
     const channel = supabase
-      .channel(`rt-ordenes-${empresaId}-${instanceId}`)
+      .channel(`rt-ordenes-${empresaId}-${instanceId}-${Math.random().toString(36).slice(2, 8)}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'ordenes', filter: `empresa_id=eq.${empresaId}` },
@@ -356,7 +356,7 @@ export function useProductos() {
         })
     }
     const channel = supabase
-      .channel(`rt-productos-${empresaId}-${instanceId}`)
+      .channel(`rt-productos-${empresaId}-${instanceId}-${Math.random().toString(36).slice(2, 8)}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'productos', filter: `empresa_id=eq.${empresaId}` },
@@ -782,7 +782,7 @@ export function useClientes() {
   useEffect(() => {
     if (!empresaId) return
     const channel = supabase
-      .channel(`rt-clientes-${empresaId}-${instanceId}`)
+      .channel(`rt-clientes-${empresaId}-${instanceId}-${Math.random().toString(36).slice(2, 8)}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'clientes', filter: `empresa_id=eq.${empresaId}` },
@@ -1048,7 +1048,7 @@ export function useVentas() {
   useEffect(() => {
     if (!empresaId) return
     const channel = supabase
-      .channel(`rt-ventas-${empresaId}-${instanceId}`)
+      .channel(`rt-ventas-${empresaId}-${instanceId}-${Math.random().toString(36).slice(2, 8)}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'ventas', filter: `empresa_id=eq.${empresaId}` },
@@ -1334,7 +1334,7 @@ export function useGastos() {
   useEffect(() => {
     if (!empresaId) return
     const channel = supabase
-      .channel(`rt-gastos-${empresaId}-${instanceId}`)
+      .channel(`rt-gastos-${empresaId}-${instanceId}-${Math.random().toString(36).slice(2, 8)}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'gastos', filter: `empresa_id=eq.${empresaId}` },
@@ -1853,7 +1853,7 @@ export function useOCs() {
   useEffect(() => {
     if (!empresaId) return
     const channel = supabase
-      .channel(`rt-ocs-${empresaId}-${instanceId}`)
+      .channel(`rt-ocs-${empresaId}-${instanceId}-${Math.random().toString(36).slice(2, 8)}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'ocs', filter: `empresa_id=eq.${empresaId}` },
