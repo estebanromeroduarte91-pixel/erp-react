@@ -135,13 +135,17 @@ function msgToHtml(texto: string): string {
   return texto.replace(/\*([^*]+)\*/g, '<b>$1</b>').replace(/\n/g, '<br>')
 }
 
+// Sin logo propio configurado, el banner muestra la marca de Pixit en vez del
+// nombre del taller — evita exponer un nombre de empresa de prueba/demo en el
+// correo (y en la vista previa del cliente de mail, que toma este texto como
+// primera línea visible) y sirve como promoción del software.
 function emailHeader(tallerNombre: string, logoUrl?: string): string {
   return logoUrl
     ? `<tr><td style="background:#ffffff;border-bottom:1px solid #e5e7eb;border-radius:16px 16px 0 0;padding:32px 40px;text-align:center">
         <img src="${logoUrl}" style="max-width:200px;max-height:72px;object-fit:contain;display:block;margin:0 auto" alt="${tallerNombre}">
       </td></tr>`
     : `<tr><td style="background:#3656e6;border-radius:16px 16px 0 0;padding:32px 40px;text-align:center">
-        <h2 style="color:#ffffff;font-size:22px;font-weight:700;margin:0;letter-spacing:-.3px">${tallerNombre}</h2>
+        <h2 style="color:#ffffff;font-size:22px;font-weight:700;margin:0;letter-spacing:-.3px">Pixit</h2>
       </td></tr>`
 }
 
