@@ -413,12 +413,14 @@ export function useBuscarProductos(query: string) {
   return useQuery({
     queryKey: ['productos', empresaId, 'buscar', safe],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('productos')
-        .select(PRODUCTO_COLS)
-        .eq('empresa_id', empresaId!)
-        .or(`nombre.ilike.%${safe}%,sku.ilike.%${safe}%`)
-        .limit(20)
+      // Match por palabras sueltas: cada término debe aparecer en nombre o sku
+      // (encadenar .or() los combina con AND). Así "iphone 11 pantalla" encuentra
+      // "Pantalla iPhone 11" aunque el orden de las palabras sea distinto —antes
+      // se exigía la frase completa como substring contiguo y no calzaba.
+      const palabras = safe.split(/\s+/).filter(Boolean)
+      let q = supabase.from('productos').select(PRODUCTO_COLS).eq('empresa_id', empresaId!)
+      for (const p of palabras) q = q.or(`nombre.ilike.%${p}%,sku.ilike.%${p}%`)
+      const { data, error } = await q.limit(20)
       if (error) throw error
       return (data ?? []).map(hidratarProducto)
     },
