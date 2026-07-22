@@ -23,6 +23,7 @@ function ModalNuevaCotizacion({ onClose }: { onClose: () => void }) {
   const { data: segCfg } = useSeguimientoConfig()
   const { data: clientes = [] } = useClientes()
   const { data: ordenes = [] } = useOrdenes()
+  const ordenesAbiertas = useMemo(() => ordenes.filter(o => o.status !== 'Entregado'), [ordenes])
   const crear = useCrearCotizacion()
 
   const [clienteNombre, setClienteNombre] = useState('')
@@ -54,7 +55,7 @@ function ModalNuevaCotizacion({ onClose }: { onClose: () => void }) {
   }
 
   function elegirOrden(id: string) {
-    const o = ordenes.find(x => x.id === id)
+    const o = ordenesAbiertas.find(x => x.id === id)
     if (!o) return
     setClienteNombre([o.nombre, o.apellido].filter(Boolean).join(' '))
     setClienteRut(o.rut ?? '')
@@ -133,13 +134,13 @@ function ModalNuevaCotizacion({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-          {ordenes.length > 0 && (
+          {ordenesAbiertas.length > 0 && (
             <div>
               <label className="text-xs font-medium text-gray-600 block mb-1">Vincular a una orden existente (opcional)</label>
               <select onChange={e => elegirOrden(e.target.value)} defaultValue=""
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:border-blue-400">
                 <option value="">Seleccionar…</option>
-                {ordenes.map(o => (
+                {ordenesAbiertas.map(o => (
                   <option key={o.id} value={o.id}>
                     #{o.num} — {[o.nombre, o.apellido].filter(Boolean).join(' ')}{o.modelo ? ` (${o.modelo})` : ''}
                   </option>
