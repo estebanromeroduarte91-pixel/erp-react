@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useId } from 'react'
 import { supabase } from './supabase'
 import { dbGet, dbSet } from './db'
+import { MSG_DEFAULTS } from './msgTemplatesDefaults'
 import { reconciliarLotes } from './lotes'
 import { useAuth } from '@/context/AuthContext'
 import type { Orden, Cliente, Producto, Bodega, Movimiento, Proveedor, Venta, VentaItem, MetodoPago, Caja, CajaSesion, Gasto, GastoCat, CuentaContable, Asiento, SeguimientoConfig, SmtpConfig, MsgTemplates, Cargo, UserProfile, UserConfig, PendingInvite, EmailDomain, OC, OCLogEntry, Categoria, Kit, Traslado, TecnicoExterno, Equipo, FichaUsuario, LoteInventario, ConteoInventario } from '@/types'
@@ -1630,7 +1631,10 @@ export function useMsgTemplates() {
     queryKey: ['tp_msg_templates', empresaId],
     queryFn: () => dbGet<MsgTemplates>(empresaId!, 'tp_msg_templates'),
     enabled: !!empresaId,
-    select: (data) => (data ?? {}) as MsgTemplates,
+    // Se mezclan con los mensajes por defecto para que el envío de correos/WA
+    // funcione desde el primer día, sin depender de que alguien entre a
+    // Configuración > Mensajes y guarde manualmente al menos una vez.
+    select: (data) => ({ ...MSG_DEFAULTS, ...(data ?? {}) }) as MsgTemplates,
   })
 }
 
