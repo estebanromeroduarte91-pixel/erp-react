@@ -73,7 +73,7 @@ function ageLabel(age: number): string {
 }
 
 export function TallerPage() {
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   // Derivado directo de la URL para que el resaltado no se desincronice del contenido.
   const tallerTab = resolveTallerTab(searchParams.get('tab'))
 
@@ -94,6 +94,17 @@ export function TallerPage() {
   const [eliminando, setEliminando] = useState(false)
   const [ordenAReabrir, setOrdenAReabrir] = useState<Orden | null>(null)
   const [reabriendo, setReabriendo] = useState(false)
+
+  // Deep-link desde Buscar: ?abrir=<num de orden> abre el detalle directo.
+  const [abrirSynced, setAbrirSynced] = useState(false)
+  const abrirParam = searchParams.get('abrir')
+  if (!abrirSynced && abrirParam) {
+    setAbrirSynced(true)
+    setDetalleNum(abrirParam)
+    const next = new URLSearchParams(searchParams)
+    next.delete('abrir')
+    setSearchParams(next, { replace: true })
+  }
 
   // IDs de órdenes con traslados activos (no retornados)
   const derivadoIds = useMemo(

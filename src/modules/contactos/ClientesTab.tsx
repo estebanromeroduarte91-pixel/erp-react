@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import * as XLSX from 'xlsx'
 import { useClientes, useCrearCliente, useActualizarCliente, useEliminarCliente, useImportarClientes, useOrdenes, useVentas } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
@@ -110,6 +111,18 @@ export function ClientesTab() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editando, setEditando] = useState<Cliente | null>(null)
 
+  // Deep-link desde Buscar: ?abrir=<id de cliente> lo selecciona directo.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [abrirSynced, setAbrirSynced] = useState(false)
+  const abrirParam = searchParams.get('abrir')
+  if (!abrirSynced && abrirParam) {
+    setAbrirSynced(true)
+    setSeleccionadoId(abrirParam)
+    const next = new URLSearchParams(searchParams)
+    next.delete('abrir')
+    setSearchParams(next, { replace: true })
+  }
+
   const [importModal, setImportModal] = useState(false)
   const [importRows, setImportRows] = useState<ImportRowCliente[]>([])
   const [importError, setImportError] = useState('')
@@ -181,7 +194,8 @@ export function ClientesTab() {
 
   // Ajuste de estado durante el render en vez de useEffect — auto-selecciona
   // el primer cliente en desktop; el guard (!seleccionadoId) evita el loop.
-  if (!seleccionadoId && lista.length > 0 && !isMobile) setSeleccionadoId(lista[0].id)
+  // `!abrirParam` evita que esto pise la selección que llega por deep-link (arriba).
+  if (!seleccionadoId && !abrirParam && lista.length > 0 && !isMobile) setSeleccionadoId(lista[0].id)
 
   const stats = useMemo(() => {
     if (!seleccionado) return null

@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useVentas, useAnularVenta, useMetodosPago, useProductos } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { Spinner } from '@/components/shared/Spinner'
@@ -60,6 +61,19 @@ export function VentasListTab() {
   const [detalle, setDetalle] = useState<Venta | null>(null)
   const desdeRef = useRef<HTMLInputElement>(null)
   const hastaRef = useRef<HTMLInputElement>(null)
+
+  // Deep-link desde Buscar: ?abrir=<id de venta> abre el detalle directo.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [abrirSynced, setAbrirSynced] = useState(false)
+  const abrirParam = searchParams.get('abrir')
+  if (!abrirSynced && abrirParam && ventas) {
+    setAbrirSynced(true)
+    const v = ventas.find(x => x.id === abrirParam)
+    if (v) setDetalle(v)
+    const next = new URLSearchParams(searchParams)
+    next.delete('abrir')
+    setSearchParams(next, { replace: true })
+  }
 
   const mpMap = useMemo(() => {
     const m: Record<string, string> = {}

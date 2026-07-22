@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import * as XLSX from 'xlsx'
 import { useProductos, useBodegas, useEliminarProducto, useEliminarTodosProductos, useImportarProductos, useFijarStock, useLotes, useCrearLotes } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
@@ -167,6 +168,19 @@ export function ProductosTab() {
 
   function abrirNuevo()         { setEditando(null);  setModalOpen(true) }
   function abrirEditar(p: Producto) { setEditando(p); setModalOpen(true) }
+
+  // Deep-link desde Buscar: ?abrir=<id de producto> abre su edición directo.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [abrirSynced, setAbrirSynced] = useState(false)
+  const abrirParam = searchParams.get('abrir')
+  if (!abrirSynced && abrirParam && productos) {
+    setAbrirSynced(true)
+    const p = productos.find(x => x.id === abrirParam)
+    if (p) abrirEditar(p)
+    const next = new URLSearchParams(searchParams)
+    next.delete('abrir')
+    setSearchParams(next, { replace: true })
+  }
 
   async function eliminar(p: Producto) {
     if (!esAdmin) return

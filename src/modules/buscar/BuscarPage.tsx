@@ -71,7 +71,7 @@ export function BuscarPage() {
       o.tel?.toLowerCase().includes(q)
     ).slice(0, 5).forEach(o => {
       out.push({
-        type: 'ot', id: o.id,
+        type: 'ot', id: o.num ?? o.id,
         title: `#${o.num} — ${o.nombre}`,
         sub: o.modelo ?? o.trabajo ?? '',
         badge: o.status,
@@ -119,10 +119,11 @@ export function BuscarPage() {
   }, [query, ventas, ordenes, productosBuscados, clientes])
 
   function handleResult(r: Result) {
-    if (r.type === 'ot') navigate('/taller')
-    else if (r.type === 'venta') navigate('/ventas')
-    else if (r.type === 'cliente') navigate('/contactos')
-    else if (r.type === 'producto') navigate('/inventario')
+    const abrir = encodeURIComponent(r.id)
+    if (r.type === 'ot') navigate(`/taller?abrir=${abrir}`)
+    else if (r.type === 'venta') navigate(`/ventas?abrir=${abrir}`)
+    else if (r.type === 'cliente') navigate(`/contactos?abrir=${abrir}`)
+    else if (r.type === 'producto') navigate(`/inventario?abrir=${abrir}`)
   }
 
   return (
