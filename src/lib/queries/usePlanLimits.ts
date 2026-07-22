@@ -41,10 +41,11 @@ export const MODULO_LABELS: Record<string, string> = {
 
 // Módulos habilitados por tier. Starter no incluye POS ni Gastos/Compras;
 // Pro y Scale tienen los mismos módulos (Scale solo escala los límites de
-// sucursales/bodegas). "Traslado entre sucursales" y "Seguimiento postventa"
-// no están en esta lista porque esas funciones todavía no están implementadas
-// en el producto — "Gestión inventario" tampoco está acá porque el módulo
-// Inventario no está gateado por plan (disponible siempre).
+// sucursales/bodegas). "Gestión inventario" y "Traslado entre sucursales"
+// (Inventario > Movimientos) no están en esta lista porque el módulo
+// Inventario no está gateado por plan — disponible en los tres planes por
+// igual. "Seguimiento postventa" tampoco está acá porque esa función todavía
+// no está implementada en el producto (solo existe el formulario de config).
 export const PLAN_MODULES: Record<PlanTier, string[]> = {
   starter: ['taller', 'estadisticas', 'mensajes', 'accesos'],
   pro:     ['taller', 'pos', 'estadisticas', 'mensajes', 'accesos', 'gastos', 'compras'],

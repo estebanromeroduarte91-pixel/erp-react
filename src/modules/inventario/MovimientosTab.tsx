@@ -1,7 +1,199 @@
 import { useState, useMemo, useEffect } from 'react'
-import { useMovimientos, useGuardarMovimientos } from '@/lib/queries'
+import { useMovimientos, useGuardarMovimientos, useProductos, useBodegas, useAjustarStock } from '@/lib/queries'
+import { useAuth } from '@/context/AuthContext'
 import { Spinner } from '@/components/shared/Spinner'
-import type { Movimiento } from '@/types'
+import type { Movimiento, MovProducto } from '@/types'
+
+function uid() { return Math.random().toString(36).slice(2) + Date.now().toString(36) }
+
+type LineaTraslado = { producto_id: string; cantidad: number }
+
+function ModalTraslado({ onClose }: { onClose: () => void }) {
+  const { data: productos = [] } = useProductos()
+  const { data: bodegas = [] } = useBodegas()
+  const guardarMovimientos = useGuardarMovimientos()
+  const { data: movimientos } = useMovimientos()
+  const ajustarStock = useAjustarStock()
+  const { nombre: usuarioNombre } = useAuth()
+
+  const bodegasActivas = useMemo(() => bodegas.filter(b => b.activo !== false), [bodegas])
+  const [origenId, setOrigenId] = useState(bodegasActivas[0]?.id ?? '')
+  const [destinoId, setDestinoId] = useState(bodegasActivas[1]?.id ?? bodegasActivas[0]?.id ?? '')
+  const [lineas, setLineas] = useState<LineaTraslado[]>([{ producto_id: '', cantidad: 1 }])
+  const [notas, setNotas] = useState('')
+  const [error, setError] = useState('')
+  const [guardando, setGuardando] = useState(false)
+
+  const productosConStock = useMemo(
+    () => productos.filter(p => p.tipo !== 'servicio'),
+    [productos],
+  )
+
+  function nombreBodega(id: string) {
+    const b = bodegas.find(x => x.id === id)
+    return b?.nombre ?? b?.name ?? '?'
+  }
+
+  function stockOrigen(productoId: string): number {
+    const p = productos.find(x => x.id === productoId)
+    return Number(p?.stock_sucursales?.[origenId]) || 0
+  }
+
+  function setLinea(i: number, patch: Partial<LineaTraslado>) {
+    setLineas(ls => ls.map((l, idx) => idx === i ? { ...l, ...patch } : l))
+  }
+
+  function quitarLinea(i: number) {
+    setLineas(ls => ls.filter((_, idx) => idx !== i))
+  }
+
+  const resumen = useMemo(() => {
+    const validas = lineas.filter(l => l.producto_id && l.cantidad > 0)
+    return { nProds: validas.length, total: validas.reduce((s, l) => s + l.cantidad, 0) }
+  }, [lineas])
+
+  async function confirmar() {
+    setError('')
+    const validas = lineas.filter(l => l.producto_id && l.cantidad > 0)
+    if (!validas.length) { setError('Agrega al menos un producto válido'); return }
+    if (!origenId || !destinoId) { setError('Selecciona origen y destino'); return }
+    if (origenId === destinoId) { setError('El origen y destino no pueden ser iguales'); return }
+    for (const l of validas) {
+      if (l.cantidad > stockOrigen(l.producto_id)) {
+        const p = productos.find(x => x.id === l.producto_id)
+        setError(`No hay stock suficiente de "${p?.nombre ?? '?'}" en ${nombreBodega(origenId)}`)
+        return
+      }
+    }
+
+    setGuardando(true)
+    try {
+      const ajustes = validas.flatMap(l => [
+        { producto_id: l.producto_id, bodega_id: origenId, delta: -l.cantidad },
+        { producto_id: l.producto_id, bodega_id: destinoId, delta: l.cantidad },
+      ])
+      await ajustarStock.mutateAsync(ajustes)
+
+      const movProductos: MovProducto[] = validas.map(l => ({
+        producto_id: l.producto_id,
+        producto_nombre: productos.find(p => p.id === l.producto_id)?.nombre ?? '',
+        cantidad: l.cantidad,
+      }))
+      const nuevoMov: Movimiento = {
+        id: uid(),
+        fecha: new Date().toISOString().split('T')[0],
+        hora: new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }),
+        tipo: 'traslado',
+        productos: movProductos,
+        bodega_origen: nombreBodega(origenId),
+        bodega_destino: nombreBodega(destinoId),
+        notas: notas || `Traslado ${nombreBodega(origenId)} → ${nombreBodega(destinoId)}`,
+        usuario: usuarioNombre,
+      }
+      await guardarMovimientos.mutateAsync([...(movimientos ?? []), nuevoMov])
+      onClose()
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 sticky top-0 bg-white z-10">
+          <h3 className="text-[15px] font-bold text-gray-900 flex items-center gap-2">
+            <svg className="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+            </svg>
+            Traslado entre sucursales
+          </h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">×</button>
+        </div>
+
+        <div className="px-5 py-4 border-b border-gray-100">
+          <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-2">Ruta del traslado</p>
+          <div className="grid grid-cols-[1fr_32px_1fr] gap-2 items-end">
+            <div>
+              <label className="text-xs font-medium text-gray-600 block mb-1">Sucursal origen</label>
+              <select value={origenId} onChange={e => setOrigenId(e.target.value)}
+                className="w-full border border-gray-200 rounded-lg px-2.5 py-2 text-sm bg-white focus:outline-none focus:border-blue-400">
+                {bodegasActivas.map(b => <option key={b.id} value={b.id}>{b.nombre ?? b.name}</option>)}
+              </select>
+            </div>
+            <div className="flex items-center justify-center text-gray-400 pb-2">→</div>
+            <div>
+              <label className="text-xs font-medium text-gray-600 block mb-1">Sucursal destino</label>
+              <select value={destinoId} onChange={e => setDestinoId(e.target.value)}
+                className="w-full border border-gray-200 rounded-lg px-2.5 py-2 text-sm bg-white focus:outline-none focus:border-blue-400">
+                {bodegasActivas.map(b => <option key={b.id} value={b.id}>{b.nombre ?? b.name}</option>)}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div className="px-5 py-4 border-b border-gray-100">
+          <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-2">Productos a trasladar</p>
+          <div className="space-y-2">
+            {lineas.map((l, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <select value={l.producto_id} onChange={e => setLinea(i, { producto_id: e.target.value })}
+                  className="flex-1 min-w-0 border border-gray-200 rounded-lg px-2.5 py-2 text-sm bg-white focus:outline-none focus:border-blue-400">
+                  <option value="">Selecciona un producto…</option>
+                  {productosConStock.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+                </select>
+                <span className="text-[11px] text-gray-400 w-20 flex-shrink-0 text-right">
+                  {l.producto_id ? `Stock: ${stockOrigen(l.producto_id)}` : ''}
+                </span>
+                <input type="number" min={1} value={l.cantidad}
+                  onChange={e => setLinea(i, { cantidad: Math.max(1, +e.target.value) })}
+                  className="w-20 flex-shrink-0 border border-gray-200 rounded-lg px-2.5 py-2 text-sm text-center bg-white focus:outline-none focus:border-blue-400" />
+                <button onClick={() => quitarLinea(i)} className="text-gray-300 hover:text-red-500 flex-shrink-0" aria-label="Quitar">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            ))}
+          </div>
+          <button onClick={() => setLineas(ls => [...ls, { producto_id: '', cantidad: 1 }])}
+            className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-gray-300 text-gray-500 text-xs font-medium hover:bg-gray-50 transition">
+            + Agregar producto
+          </button>
+        </div>
+
+        <div className="px-5 py-3 bg-gray-50 border-b border-gray-100 text-xs text-gray-500">
+          {resumen.nProds
+            ? <><strong>{resumen.nProds}</strong> producto{resumen.nProds !== 1 ? 's' : ''} · <strong>{resumen.total}</strong> unidades · {nombreBodega(origenId)} → {nombreBodega(destinoId)}</>
+            : 'Selecciona productos para ver el resumen'}
+        </div>
+
+        <div className="px-5 py-4 border-b border-gray-100">
+          <label className="text-xs font-medium text-gray-600 block mb-1">Motivo / Notas (opcional)</label>
+          <textarea value={notas} onChange={e => setNotas(e.target.value)} rows={2}
+            placeholder="Ej: Reposición por quiebre de stock…"
+            className="w-full border border-gray-200 rounded-lg px-2.5 py-2 text-sm bg-white focus:outline-none focus:border-blue-400 resize-none" />
+        </div>
+
+        {error && <p className="px-5 pt-3 text-sm text-red-600">{error}</p>}
+
+        <div className="px-5 py-4 flex items-center justify-between">
+          <span className="text-xs text-gray-400">El stock se actualiza automáticamente</span>
+          <div className="flex gap-2">
+            <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
+              Cancelar
+            </button>
+            <button onClick={confirmar} disabled={guardando}
+              className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition disabled:opacity-60">
+              {guardando ? 'Guardando…' : 'Confirmar traslado'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 const TIPO_LABEL: Record<string, string> = {
   entrada: 'Entrada', salida: 'Salida', ajuste: 'Ajuste', traslado: 'Traslado',
@@ -138,6 +330,7 @@ export function MovimientosTab() {
   const guardarMovimientos = useGuardarMovimientos()
   const [filtroTipo, setFiltroTipo] = useState('')
   const [busqueda, setBusqueda] = useState('')
+  const [modalTraslado, setModalTraslado] = useState(false)
 
   // Corrige automáticamente referencias históricas con prefijo duplicado (OC-OC- → OC-)
   useEffect(() => {
@@ -187,7 +380,16 @@ export function MovimientosTab() {
           <option value="">Todos los tipos</option>
           {Object.entries(TIPO_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
+        <button onClick={() => setModalTraslado(true)}
+          className="inline-flex items-center gap-2 bg-blue-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 transition">
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+          </svg>
+          Nuevo traslado
+        </button>
       </div>
+
+      {modalTraslado && <ModalTraslado onClose={() => setModalTraslado(false)} />}
 
       {lista.length === 0 && (
         <div className="bg-white rounded-xl border border-gray-100">
