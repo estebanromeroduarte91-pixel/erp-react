@@ -49,7 +49,10 @@ export function LandingPage() {
       </div>
 
       {/* Navegación */}
-      <header className="relative z-10 w-full max-w-7xl mx-auto px-6 py-6 flex justify-between items-center">
+      <header
+        className="relative z-10 w-full max-w-7xl mx-auto px-6 pb-6 flex justify-between items-center"
+        style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 24px)' }}
+      >
         <div className="flex items-center gap-2">
           <img src="/logo-pixit.png" alt="Pixit Logo" className="h-8 md:h-10 object-contain" />
         </div>
@@ -108,7 +111,7 @@ export function LandingPage() {
               </div>
               <h3 className="text-xl font-bold text-slate-900 mb-3">Órdenes de Trabajo</h3>
               <p className="text-slate-600 leading-relaxed text-sm">
-                Crea órdenes de reparación súper detalladas, sigue el estado de cada equipo y notifica a tus clientes por WhatsApp 100% en piloto automático.
+                Crea órdenes de reparación súper detalladas, sigue el estado de cada equipo y notifica a tus clientes por WhatsApp y correo electrónico 100% en piloto automático.
               </p>
             </div>
             
