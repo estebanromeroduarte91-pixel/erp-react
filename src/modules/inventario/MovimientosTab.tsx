@@ -78,8 +78,8 @@ function ModalTraslado({ onClose }: { onClose: () => void }) {
   const { nombre: usuarioNombre } = useAuth()
 
   const bodegasActivas = useMemo(() => bodegas.filter(b => b.activo !== false), [bodegas])
-  const [origenId, setOrigenId] = useState(bodegasActivas[0]?.id ?? '')
-  const [destinoId, setDestinoId] = useState(bodegasActivas[1]?.id ?? bodegasActivas[0]?.id ?? '')
+  const [origenId, setOrigenId] = useState('')
+  const [destinoId, setDestinoId] = useState('')
   const [lineas, setLineas] = useState<LineaTraslado[]>([{ producto_id: '', cantidad: 1 }])
   const [notas, setNotas] = useState('')
   const [error, setError] = useState('')
@@ -177,6 +177,7 @@ function ModalTraslado({ onClose }: { onClose: () => void }) {
               <label className="text-xs font-medium text-gray-600 block mb-1">Sucursal origen</label>
               <select value={origenId} onChange={e => setOrigenId(e.target.value)}
                 className="w-full border border-gray-200 rounded-lg px-2.5 py-2 text-sm bg-white focus:outline-none focus:border-blue-400">
+                <option value="">Selecciona sucursal…</option>
                 {bodegasActivas.map(b => <option key={b.id} value={b.id}>{b.nombre ?? b.name}</option>)}
               </select>
             </div>
@@ -185,6 +186,7 @@ function ModalTraslado({ onClose }: { onClose: () => void }) {
               <label className="text-xs font-medium text-gray-600 block mb-1">Sucursal destino</label>
               <select value={destinoId} onChange={e => setDestinoId(e.target.value)}
                 className="w-full border border-gray-200 rounded-lg px-2.5 py-2 text-sm bg-white focus:outline-none focus:border-blue-400">
+                <option value="">Selecciona sucursal…</option>
                 {bodegasActivas.map(b => <option key={b.id} value={b.id}>{b.nombre ?? b.name}</option>)}
               </select>
             </div>
