@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
-import { useCotizaciones, useCrearCotizacion, useEliminarCotizacion, useSeguimientoConfig, useBuscarClientes, useCrearCliente, useOrdenesAbiertasLite, type NuevaCotizacion } from '@/lib/queries'
+import { useCotizaciones, useCrearCotizacion, useEliminarCotizacion, useSeguimientoConfig, useBuscarClientes, useCrearCliente, useBuscarProductos, useOrdenesAbiertasLite, type NuevaCotizacion } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { sendEmail, buildEmailCotizacion, urlCotizacion } from '@/lib/email'
@@ -7,13 +7,12 @@ import { Spinner } from '@/components/shared/Spinner'
 import { formatRut } from '@/lib/rut'
 import { capWords } from '@/lib/formatters'
 import { useAnchorRect, fixedDropdownStyle } from '@/lib/useAnchorRect'
-import type { Cotizacion, CotizacionItem, Cliente } from '@/types'
+import type { Cotizacion, CotizacionItem, Cliente, Producto } from '@/types'
 
 function uid() { return Math.random().toString(36).slice(2) + Date.now().toString(36) }
 const fmt = (n: number) => '$' + Math.round(n).toLocaleString('es-CL')
 
-type LineaForm = { id: string; nombre: string; descripcion: string; cantidad: number; precio_unitario: number }
-const lineaVacia = (): LineaForm => ({ id: uid(), nombre: '', descripcion: '', cantidad: 1, precio_unitario: 0 })
+type LineaForm = { id: string; nombre: string; cantidad: number; precio_unitario: number }
 
 function vigencia(c: Cotizacion): { label: string; color: string } {
   if (!c.fecha_vencimiento) return { label: 'Sin vencimiento', color: 'bg-gray-100 text-gray-500' }
@@ -35,10 +34,18 @@ function ModalNuevaCotizacion({ onClose }: { onClose: () => void }) {
   const [equipo, setEquipo] = useState('')
   const [notas, setNotas] = useState('')
   const [vence, setVence] = useState('')
-  const [lineas, setLineas] = useState<LineaForm[]>([lineaVacia()])
+  const [lineas, setLineas] = useState<LineaForm[]>([])
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState('')
   const [enviarEmail, setEnviarEmail] = useState(true)
+
+  // Buscador de productos para los servicios a cotizar (mismo patrón que
+  // "Agregar repuesto" en Nueva orden): trae el precio_venta del inventario.
+  const [prodBusqueda, setProdBusqueda] = useState('')
+  const [prodAbierto, setProdAbierto] = useState(false)
+  const prodRef = useRef<HTMLDivElement>(null)
+  const { ref: prodAnchorRef, rect: prodRect } = useAnchorRect<HTMLButtonElement>(prodAbierto)
+  const { data: productosBuscados = [] } = useBuscarProductos(prodBusqueda)
 
   // Buscador de cliente (mismo patrón que en Nueva orden)
   const [busquedaCliente, setBusquedaCliente] = useState('')
@@ -57,6 +64,7 @@ function ModalNuevaCotizacion({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     function onClick(e: MouseEvent) {
       if (clienteRef.current && !clienteRef.current.contains(e.target as Node)) setClienteAbierto(false)
+      if (prodRef.current && !prodRef.current.contains(e.target as Node)) setProdAbierto(false)
     }
     document.addEventListener('mousedown', onClick)
     return () => document.removeEventListener('mousedown', onClick)
@@ -68,6 +76,21 @@ function ModalNuevaCotizacion({ onClose }: { onClose: () => void }) {
   function quitarLinea(i: number) {
     setLineas(ls => ls.filter((_, idx) => idx !== i))
   }
+
+  function agregarProducto(p: Producto) {
+    setLineas(ls => [...ls, { id: uid(), nombre: p.nombre, cantidad: 1, precio_unitario: p.precio_venta ?? 0 }])
+    setProdBusqueda('')
+    setProdAbierto(false)
+  }
+  function agregarManual() {
+    const nombre = prodBusqueda.trim()
+    if (!nombre) return
+    setLineas(ls => [...ls, { id: uid(), nombre, cantidad: 1, precio_unitario: 0 }])
+    setProdBusqueda('')
+    setProdAbierto(false)
+  }
+
+  const totalLineas = lineas.reduce((s, l) => s + l.precio_unitario * (l.cantidad || 1), 0)
 
   function elegirCliente(c: Cliente) {
     setClienteNombre([c.nombre, c.apellido].filter(Boolean).join(' '))
@@ -157,7 +180,7 @@ function ModalNuevaCotizacion({ onClose }: { onClose: () => void }) {
     setGuardando(true)
     try {
       const items: CotizacionItem[] = validas.map(l => ({
-        id: l.id, nombre: l.nombre.trim(), descripcion: l.descripcion.trim() || undefined,
+        id: l.id, nombre: l.nombre.trim(),
         cantidad: l.cantidad, precio_unitario: l.precio_unitario,
       }))
       const payload: NuevaCotizacion = {
@@ -299,44 +322,76 @@ function ModalNuevaCotizacion({ onClose }: { onClose: () => void }) {
           </div>
 
           <div>
-            <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Servicios a cotizar</p>
-            <div className="space-y-2">
-              {lineas.map((l, i) => (
-                <div key={l.id} className="border border-gray-200 rounded-lg p-3 bg-gray-50 space-y-2">
-                  <div className="flex gap-2">
-                    <input value={l.nombre} onChange={e => setLinea(i, { nombre: e.target.value })}
-                      placeholder="Nombre del servicio"
-                      className="flex-1 min-w-0 border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:border-blue-400" />
-                    {lineas.length > 1 && (
-                      <button onClick={() => quitarLinea(i)} className="text-gray-300 hover:text-red-500 flex-shrink-0">
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                      </button>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Servicios a cotizar</p>
+              <div className="relative" ref={prodRef}>
+                <button ref={prodAnchorRef} type="button" onClick={() => setProdAbierto(o => !o)}
+                  className="text-xs font-semibold text-blue-600 border border-blue-200 rounded-lg px-3 py-1.5 hover:bg-blue-50 transition">
+                  + Agregar producto
+                </button>
+                {prodAbierto && (
+                  <div style={fixedDropdownStyle(prodRect, { align: 'right', width: 288 })} className="bg-white border border-gray-200 rounded-xl shadow-xl">
+                    <div className="p-2 border-b border-gray-100">
+                      <input autoFocus value={prodBusqueda} onChange={e => setProdBusqueda(e.target.value)}
+                        placeholder="Buscar producto…"
+                        className="w-full text-sm px-3 py-1.5 border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:border-blue-400" />
+                    </div>
+                    <div className="max-h-48 overflow-y-auto">
+                      {productosBuscados.length === 0 ? (
+                        <p className="text-xs text-gray-400 text-center py-4">{prodBusqueda ? 'Sin resultados' : 'Escribe para buscar'}</p>
+                      ) : (
+                        productosBuscados.map(p => (
+                          <button key={p.id} type="button" onMouseDown={() => agregarProducto(p)}
+                            className="w-full text-left px-4 py-2.5 text-sm hover:bg-blue-50 transition flex items-center justify-between gap-2">
+                            <span className="font-medium text-gray-800 truncate">{p.nombre}</span>
+                            <span className="text-xs text-gray-500 flex-shrink-0">{fmt(p.precio_venta ?? 0)}</span>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                    {prodBusqueda.trim() && productosBuscados.length === 0 && (
+                      <div className="p-2 border-t border-gray-100">
+                        <button type="button" onMouseDown={agregarManual}
+                          className="w-full text-left px-3 py-2 text-xs text-blue-600 font-medium hover:bg-blue-50 rounded-lg">
+                          Agregar "{prodBusqueda.trim()}" manualmente
+                        </button>
+                      </div>
                     )}
                   </div>
-                  <input value={l.descripcion} onChange={e => setLinea(i, { descripcion: e.target.value })}
-                    placeholder="Descripción (opcional)"
-                    className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:border-blue-400" />
-                  <div className="flex gap-2 items-center">
-                    <div className="flex items-center gap-1.5">
+                )}
+              </div>
+            </div>
+
+            {lineas.length === 0 ? (
+              <p className="text-xs text-gray-400 text-center py-4 bg-gray-50 rounded-xl">Sin servicios agregados</p>
+            ) : (
+              <div className="border border-gray-100 rounded-xl overflow-hidden">
+                {lineas.map((l, i) => (
+                  <div key={l.id} className="flex items-center gap-2 px-3 py-2 border-b border-gray-50 last:border-0">
+                    <span className="flex-1 min-w-0 text-sm text-gray-700 truncate">{l.nombre}</span>
+                    <div className="flex items-center gap-1">
                       <span className="text-xs text-gray-400">Cant.</span>
                       <input type="number" min={1} value={l.cantidad}
                         onChange={e => setLinea(i, { cantidad: Math.max(1, +e.target.value) })}
-                        className="w-16 border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-center bg-white focus:outline-none focus:border-blue-400" />
+                        className="w-14 text-center text-sm border border-gray-200 rounded-lg px-1 py-0.5 focus:outline-none focus:border-blue-400" />
                     </div>
-                    <div className="flex items-center gap-1.5 flex-1">
-                      <span className="text-xs text-gray-400">Precio (IVA incl.)</span>
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs text-gray-400">$</span>
                       <input type="number" min={0} value={l.precio_unitario}
                         onChange={e => setLinea(i, { precio_unitario: Math.max(0, +e.target.value) })}
-                        className="flex-1 min-w-0 border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-none focus:border-blue-400" />
+                        className="w-24 text-sm border border-gray-200 rounded-lg px-2 py-0.5 focus:outline-none focus:border-blue-400" />
                     </div>
+                    <button onClick={() => quitarLinea(i)} className="text-red-400 hover:text-red-600 p-1 flex-shrink-0">
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
                   </div>
+                ))}
+                <div className="flex items-center justify-between px-3 py-2 bg-gray-50 text-sm font-semibold">
+                  <span className="text-gray-600">Total servicios (IVA incl.)</span>
+                  <span>{fmt(totalLineas)}</span>
                 </div>
-              ))}
-            </div>
-            <button onClick={() => setLineas(ls => [...ls, lineaVacia()])}
-              className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-gray-300 text-gray-500 text-xs font-medium hover:bg-gray-50 transition">
-              + Agregar servicio
-            </button>
+              </div>
+            )}
           </div>
 
           <div>

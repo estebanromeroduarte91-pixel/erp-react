@@ -8,14 +8,14 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 async function run() {
   const { data, error } = await supabase
-    .from('clientes')
+    .from('cotizaciones')
     .select('*')
-    .ilike('apellido', '%gaete%')
+    .limit(5)
   
   if (error) {
-    console.error('Error fetching:', error)
+    console.error('Error fetching cotizaciones:', error)
   } else {
-    console.log('Results for gaete in clientes:')
+    console.log('Results from cotizaciones table:')
     console.log(JSON.stringify(data, null, 2))
   }
 }
