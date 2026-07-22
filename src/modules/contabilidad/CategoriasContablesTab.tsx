@@ -81,7 +81,7 @@ export function CategoriasContablesTab() {
         </button>
       </div>
 
-      <div className="divide-y divide-gray-50">
+      <div className="divide-y divide-gray-200">
         {(cats ?? []).map(cat => (
           <div key={cat.id} className="flex flex-col md:flex-row md:items-center gap-2 md:gap-3 px-4 py-3 group">
             <div className="flex items-center gap-3 min-w-0">
