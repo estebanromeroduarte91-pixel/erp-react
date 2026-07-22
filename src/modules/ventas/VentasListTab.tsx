@@ -356,7 +356,8 @@ export function VentasListTab() {
         <div className="fixed inset-0 z-[110] flex">
           <div className="flex-1 bg-black/30" onClick={() => setDetalle(null)} />
           <div className="bg-white w-full max-w-md shadow-2xl flex flex-col overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+            <div className="flex items-center justify-between px-6 pb-4 border-b border-gray-100"
+              style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 16px)' }}>
               <div>
                 <h3 className="font-bold text-gray-900">{detalle.numero}</h3>
                 <p className="text-xs text-gray-400">{detalle.fecha} · {detalle.cliente}</p>
