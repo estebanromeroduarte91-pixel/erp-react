@@ -179,6 +179,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       else { setEstado({ ...ESTADO_INICIAL, cargando: false }); setEsPlatformAdmin(false) }
     })
     return () => sub.subscription.unsubscribe()
+    // Efecto de montaje único: suscribe el listener de auth una sola vez.
+    // cargarPerfil se recrea cada render, incluirlo re-suscribiría en loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   async function login(email: string, password: string): Promise<string | null> {

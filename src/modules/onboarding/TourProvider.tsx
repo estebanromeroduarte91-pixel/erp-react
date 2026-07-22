@@ -17,15 +17,27 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
   // Recalcular la posición del Spotlight para el elemento DOM seleccionado
   const recalcularSpotlight = useCallback(() => {
     if (!activeStep) {
-      setTargetRect(null)
+      setTargetRect(prev => prev ? null : null)
       return
     }
 
     const el = document.getElementById(activeStep.targetId)
     if (el) {
-      setTargetRect(el.getBoundingClientRect())
+      const newRect = el.getBoundingClientRect()
+      setTargetRect(prev => {
+        if (
+          prev &&
+          prev.top === newRect.top &&
+          prev.left === newRect.left &&
+          prev.width === newRect.width &&
+          prev.height === newRect.height
+        ) {
+          return prev // Evita re-renders si la posición no ha cambiado realmente
+        }
+        return newRect
+      })
     } else {
-      setTargetRect(null)
+      setTargetRect(prev => prev ? null : null)
     }
   }, [activeStep])
 
@@ -99,12 +111,19 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!activeStep) return
     
+    let frameId: number | null = null
     const observer = new MutationObserver(() => {
-      recalcularSpotlight()
+      if (frameId !== null) cancelAnimationFrame(frameId)
+      frameId = requestAnimationFrame(() => {
+        recalcularSpotlight()
+      })
     })
     
     observer.observe(document.body, { childList: true, subtree: true })
-    return () => observer.disconnect()
+    return () => {
+      observer.disconnect()
+      if (frameId !== null) cancelAnimationFrame(frameId)
+    }
   }, [activeStep, recalcularSpotlight])
 
   return (
