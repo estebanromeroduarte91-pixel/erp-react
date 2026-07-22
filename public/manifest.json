@@ -1,6 +1,6 @@
 {
-  "name": "ERP",
-  "short_name": "ERP",
+  "name": "Pixit",
+  "short_name": "Pixit",
   "description": "Gestión empresarial",
   "start_url": "/#/dashboard",
   "display": "standalone",
