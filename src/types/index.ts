@@ -512,6 +512,35 @@ export interface OCRecepcion {
   items: OCRecepcionItem[]
 }
 
+// ── Cotizaciones (solo lectura para el cliente, sin flujo de aprobación —
+// eso ya lo cubre "aprobación de presupuesto" en Órdenes) ──────
+export interface CotizacionItem {
+  id: string
+  nombre: string
+  descripcion?: string
+  cantidad: number
+  precio_unitario: number
+}
+
+export interface Cotizacion {
+  id: string
+  numero: number
+  token: string
+  cliente_nombre: string
+  cliente_rut?: string
+  cliente_email?: string
+  cliente_tel?: string
+  equipo?: string
+  notas?: string
+  items: CotizacionItem[]
+  subtotal: number
+  iva: number
+  total: number
+  fecha_emision: string
+  fecha_vencimiento?: string
+  creado_en: string
+}
+
 export interface OC {
   id: string
   numero: string

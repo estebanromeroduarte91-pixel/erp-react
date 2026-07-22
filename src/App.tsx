@@ -26,6 +26,7 @@ const EstadisticasPage = lazyWithReload(() => import('@/modules/estadisticas/Est
 const ConfigPage = lazyWithReload(() => import('@/modules/config/ConfigPage').then(m => ({ default: m.ConfigPage })))
 const ComprasPage = lazyWithReload(() => import('@/modules/compras/ComprasPage').then(m => ({ default: m.ComprasPage })))
 const BuscarPage = lazyWithReload(() => import('@/modules/buscar/BuscarPage').then(m => ({ default: m.BuscarPage })))
+const CotizacionesPage = lazyWithReload(() => import('@/modules/cotizaciones/CotizacionesPage').then(m => ({ default: m.CotizacionesPage })))
 const PixitAdminPage = lazyWithReload(() => import('@/modules/pixitadmin/PixitAdminPage').then(m => ({ default: m.PixitAdminPage })))
 
 function AppRoutes() {
@@ -76,6 +77,7 @@ function AppRoutes() {
           <Route path="/login" element={<Navigate to={soloPlatformAdmin ? '/pixit-admin' : '/dashboard'} replace />} />
           {!soloPlatformAdmin && <>
             <Route path="/taller" element={<TallerPage />} />
+            <Route path="/cotizaciones" element={<CotizacionesPage />} />
             <Route path="/dashboard"     element={<DashboardPage />} />
             <Route path="/inventario"    element={<InventarioPage />} />
             <Route path="/ventas"        element={<VentasPage />} />

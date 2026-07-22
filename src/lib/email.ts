@@ -448,6 +448,60 @@ export function buildEmailAprobacion(d: AprobacionEmailData): string {
   return emailShell(d.tallerNombre, d.logoUrl, body)
 }
 
+// ── Email: Cotización (solo lectura — sin flujo de aprobación) ─────────────────
+interface CotizacionEmailData {
+  tallerNombre: string
+  logoUrl?: string
+  clienteNombre: string
+  equipo?: string
+  numero: number
+  total: number
+  fechaVencimiento?: string
+  link: string
+}
+
+export function buildEmailCotizacion(d: CotizacionEmailData): string {
+  const body = `
+    <p style="font-size:14px;color:#374151;line-height:1.7;margin:0 0 28px">Hola <strong>${d.clienteNombre}</strong>, preparamos la cotización que solicitaste${d.equipo ? ` para tu <strong>${d.equipo}</strong>` : ''}. Puedes revisarla o guardarla como PDF desde el botón de abajo.</p>
+
+    <div style="background:#f8fafc;border-radius:12px;padding:18px 20px;margin-bottom:24px;border:1px solid #eef0f5">
+      ${secIcon('Cotización')}
+      <table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse">
+        <tr>
+          <td style="width:50%;padding:0 12px 12px 0;vertical-align:top">
+            <p style="font-size:10px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;margin:0 0 3px">N° cotización</p>
+            <p style="font-size:14px;font-weight:700;color:#111827;margin:0">COT-${String(d.numero).padStart(4, '0')}</p>
+          </td>
+          <td style="width:50%;padding:0 0 12px 0;vertical-align:top">
+            <p style="font-size:10px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;margin:0 0 3px">Válida hasta</p>
+            <p style="font-size:14px;font-weight:700;color:#111827;margin:0">${d.fechaVencimiento ? new Date(d.fechaVencimiento).toLocaleDateString('es-CL') : '—'}</p>
+          </td>
+        </tr>
+        <tr>
+          <td colspan="2">
+            <p style="font-size:10px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;margin:0 0 3px">Total</p>
+            <p style="font-size:22px;font-weight:800;color:#3656e6;margin:0">$${d.total.toLocaleString('es-CL')}</p>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <table cellpadding="0" cellspacing="0" style="width:100%;margin-bottom:16px">
+      <tr><td style="background:#3656e6;border-radius:10px;padding:15px 32px;text-align:center">
+        <a href="${d.link}" style="color:#ffffff;font-size:15px;font-weight:700;text-decoration:none">Ver cotización</a>
+      </td></tr>
+    </table>
+    <p style="color:#9ca3af;font-size:12px;margin:0">Si el botón no funciona, copia este enlace:<br><span style="color:#6b7280;word-break:break-all">${d.link}</span></p>`
+
+  return emailShell(d.tallerNombre, d.logoUrl, body)
+}
+
+// URL de la página pública de una cotización (public/cotizacion.html, mismo
+// origin que el resto del ERP). Solo requiere el token — no hace falta sesión.
+export function urlCotizacion(token: string): string {
+  return `${window.location.origin}/cotizacion.html?t=${token}`
+}
+
 // URL de la página que sube fotos desde el iPhone. Ahora vive en el mismo deploy
 // (public/foto-orden.html), así que usamos el origin actual y el QR queda en el
 // dominio propio (pixit.cl) automáticamente. La página escribe las fotos directo

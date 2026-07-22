@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cotización</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;background:#eef0f5;min-height:100vh;padding:24px 14px 60px;color:#14181f}
+.wrap{max-width:640px;margin:0 auto}
+.doc{background:#fff;border:1px solid #e3e6ee;border-radius:18px;box-shadow:0 1px 2px rgba(20,24,31,.04),0 12px 28px -12px rgba(20,24,31,.14);overflow:hidden}
+.doc-head{background:#3656e6;padding:28px 26px;text-align:center}
+.doc-head h1{color:#fff;font-size:20px;font-weight:800;letter-spacing:-.02em}
+.doc-num{padding:16px 26px;border-bottom:1px solid #e3e6ee;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+.doc-num .num{font-size:13px;font-weight:700;color:#3656e6;background:#ecf0ff;padding:5px 12px;border-radius:999px}
+.doc-num .fecha{font-size:12px;color:#676f7f}
+.doc-parties{display:grid;grid-template-columns:1fr;gap:18px;padding:22px 26px;border-bottom:1px solid #e3e6ee}
+@media(min-width:480px){.doc-parties{grid-template-columns:1fr 1fr}}
+.party-label{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9aa1b0;margin-bottom:8px}
+.party-fields{display:flex;flex-direction:column;gap:6px}
+.party-field{display:flex;gap:8px;font-size:12.5px}
+.party-field .fk{color:#9aa1b0;min-width:70px;flex-shrink:0}
+.party-field .fv{color:#14181f;font-weight:600}
+.doc-items{padding:22px 26px 6px}
+.items-head{display:flex;justify-content:space-between;padding-bottom:8px;border-bottom:1.5px solid #14181f;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#9aa1b0}
+.item-row{display:flex;justify-content:space-between;gap:12px;padding:14px 0;border-bottom:1px solid #e3e6ee}
+.item-name{font-size:13.5px;font-weight:600}
+.item-desc{font-size:12px;color:#676f7f;margin-top:3px}
+.item-meta{font-size:11.5px;color:#9aa1b0;margin-top:4px}
+.item-sub{font-size:13.5px;font-weight:700;white-space:nowrap;flex-shrink:0}
+.doc-totals{padding:18px 26px 26px;display:flex;justify-content:flex-end}
+.totals-box{width:220px}
+.totals-row{display:flex;justify-content:space-between;font-size:13px;padding:5px 0;color:#676f7f}
+.totals-row.grand{border-top:1.5px solid #14181f;margin-top:6px;padding-top:10px;font-size:17px;font-weight:800;color:#14181f}
+.totals-row.grand .v{color:#3656e6}
+.doc-note{margin:0 26px 24px;background:#ecf0ff;border-radius:12px;padding:13px 15px;font-size:12px;line-height:1.6}
+.doc-actions{display:flex;gap:10px;padding:20px 26px 26px;border-top:1px solid #e3e6ee;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:#14181f;background:#fff;border:1px solid #e3e6ee;padding:10px 16px;border-radius:10px;cursor:pointer;font-family:inherit}
+.btn svg{width:15px;height:15px}
+.doc-footer{padding:14px 26px;background:#f6f7fb;border-top:1px solid #e3e6ee;font-size:11px;color:#9aa1b0;text-align:center}
+#loading,#error-screen{text-align:center;padding:70px 20px;color:#676f7f}
+.spinner{width:28px;height:28px;border:3px solid #e3e6ee;border-top-color:#3656e6;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 14px}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media print{ body{background:#fff;padding:0} .doc{box-shadow:none;border:none;border-radius:0} .doc-actions{display:none} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div id="loading"><div class="spinner"></div><p>Cargando cotización…</p></div>
+  <div id="error-screen" style="display:none">
+    <p id="error-msg" style="font-size:14px"></p>
+  </div>
+  <div id="doc" class="doc" style="display:none">
+    <div class="doc-head"><h1 id="marca">Pixit</h1></div>
+    <div class="doc-num">
+      <span class="num" id="numero">COT-0000</span>
+      <span class="fecha" id="fechas">—</span>
+    </div>
+    <div class="doc-parties">
+      <div>
+        <div class="party-label">Cotizado a</div>
+        <div class="party-fields">
+          <div class="party-field"><span class="fk">Nombre</span><span class="fv" id="c-nombre">—</span></div>
+          <div class="party-field"><span class="fk">RUT</span><span class="fv" id="c-rut">—</span></div>
+          <div class="party-field"><span class="fk">Correo</span><span class="fv" id="c-email">—</span></div>
+          <div class="party-field"><span class="fk">Teléfono</span><span class="fv" id="c-tel">—</span></div>
+        </div>
+      </div>
+      <div id="equipo-block">
+        <div class="party-label">Equipo</div>
+        <div class="party-fields"><div class="party-field"><span class="fv" id="c-equipo">—</span></div></div>
+      </div>
+    </div>
+    <div class="doc-items">
+      <div class="items-head"><span>Servicio</span><span>Subtotal</span></div>
+      <div id="items-list"></div>
+    </div>
+    <div class="doc-totals">
+      <div class="totals-box">
+        <div class="totals-row"><span>Subtotal</span><span id="t-subtotal">$0</span></div>
+        <div class="totals-row"><span>IVA (19%)</span><span id="t-iva">$0</span></div>
+        <div class="totals-row grand"><span>Total</span><span class="v" id="t-total">$0</span></div>
+      </div>
+    </div>
+    <div class="doc-note" id="nota-block" style="display:none"><strong>Nota —</strong> <span id="c-notas"></span></div>
+    <div class="doc-actions">
+      <button class="btn" onclick="window.print()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="m7 10 5 5 5-5"/><path d="M20 21H4"/></svg>
+        Guardar como PDF
+      </button>
+      <button class="btn" id="btn-share">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a3 3 0 1 0-2.83-4H15a3 3 0 0 0 0 6 3 3 0 0 0 2.83-2Zm0 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM6 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm.08-2.8 7.87-4.4M6.08 12.8l7.87 4.4"/></svg>
+        Compartir
+      </button>
+    </div>
+    <div class="doc-footer">Documento informativo, sin validez de aprobación · Generado por Pixit</div>
+  </div>
+</div>
+<script>
+const _SB_URL='https://nfcdqdbhrsjhbnbtqewl.supabase.co';
+const _SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5mY2RxZGJocnNqaGJuYnRxZXdsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4MjU0NDksImV4cCI6MjA5NTQwMTQ0OX0.crMaV1oIodW1fTa2oTmYr2rk8hVLJbQPqUFHe6oFAV8';
+const sb=supabase.createClient(_SB_URL,_SB_KEY);
+const token=new URLSearchParams(window.location.search).get('t');
+
+function fmt(n){ return '$'+Math.round(n||0).toLocaleString('es-CL'); }
+function fmtFecha(iso){ if(!iso) return '—'; try{ return new Date(iso+'T00:00:00').toLocaleDateString('es-CL',{day:'2-digit',month:'short',year:'numeric'}); }catch(e){ return iso; } }
+
+function showError(msg){
+  document.getElementById('loading').style.display='none';
+  document.getElementById('error-screen').style.display='block';
+  document.getElementById('error-msg').textContent=msg;
+}
+
+async function load(){
+  if(!token){ showError('Enlace inválido — falta el código de la cotización.'); return; }
+  const {data,error}=await sb.from('cotizaciones').select('*').eq('token',token).maybeSingle();
+  if(error){ showError('No se pudo cargar la cotización: '+error.message); return; }
+  if(!data){ showError('Esta cotización no existe o el enlace ya no es válido.'); return; }
+
+  document.getElementById('numero').textContent='COT-'+String(data.numero).padStart(4,'0');
+  document.getElementById('fechas').textContent='Emitida '+fmtFecha(data.fecha_emision)+(data.fecha_vencimiento?' · Válida hasta '+fmtFecha(data.fecha_vencimiento):'');
+  document.getElementById('c-nombre').textContent=data.cliente_nombre||'—';
+  document.getElementById('c-rut').textContent=data.cliente_rut||'—';
+  document.getElementById('c-email').textContent=data.cliente_email||'—';
+  document.getElementById('c-tel').textContent=data.cliente_tel||'—';
+
+  if(data.equipo){ document.getElementById('c-equipo').textContent=data.equipo; }
+  else { document.getElementById('equipo-block').style.display='none'; }
+
+  const items=Array.isArray(data.items)?data.items:[];
+  document.getElementById('items-list').innerHTML=items.map(it=>{
+    const sub=(it.cantidad||1)*(it.precio_unitario||0);
+    return '<div class="item-row"><div><div class="item-name">'+esc(it.nombre||'—')+'</div>'
+      +(it.descripcion?'<div class="item-desc">'+esc(it.descripcion)+'</div>':'')
+      +'<div class="item-meta">Cant. '+(it.cantidad||1)+' × '+fmt(it.precio_unitario||0)+'</div></div>'
+      +'<div class="item-sub">'+fmt(sub)+'</div></div>';
+  }).join('') || '<p style="font-size:13px;color:#676f7f;padding:12px 0">Sin ítems.</p>';
+
+  document.getElementById('t-subtotal').textContent=fmt(data.subtotal);
+  document.getElementById('t-iva').textContent=fmt(data.iva);
+  document.getElementById('t-total').textContent=fmt(data.total);
+
+  if(data.notas){ document.getElementById('nota-block').style.display='block'; document.getElementById('c-notas').textContent=data.notas; }
+
+  document.getElementById('loading').style.display='none';
+  document.getElementById('doc').style.display='block';
+
+  const shareBtn=document.getElementById('btn-share');
+  if(navigator.share){
+    shareBtn.onclick=()=>navigator.share({title:'Cotización COT-'+String(data.numero).padStart(4,'0'),url:window.location.href}).catch(()=>{});
+  } else {
+    shareBtn.onclick=()=>{ navigator.clipboard.writeText(window.location.href); shareBtn.textContent='Link copiado ✓'; setTimeout(()=>{shareBtn.textContent='Compartir';},2000); };
+  }
+}
+
+function esc(s){ const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+
+load();
+</script>
+</body>
+</html>

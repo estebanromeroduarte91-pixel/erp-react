@@ -5,7 +5,7 @@ import { dbGet, dbSet } from './db'
 import { MSG_DEFAULTS } from './msgTemplatesDefaults'
 import { reconciliarLotes } from './lotes'
 import { useAuth } from '@/context/AuthContext'
-import type { Orden, Cliente, Producto, Bodega, Movimiento, Proveedor, Venta, VentaItem, MetodoPago, Caja, CajaSesion, Gasto, GastoCat, CuentaContable, Asiento, SeguimientoConfig, SmtpConfig, MsgTemplates, Cargo, UserProfile, UserConfig, PendingInvite, EmailDomain, OC, OCLogEntry, Categoria, Kit, Traslado, TecnicoExterno, Equipo, FichaUsuario, LoteInventario, ConteoInventario } from '@/types'
+import type { Orden, Cliente, Producto, Bodega, Movimiento, Proveedor, Venta, VentaItem, MetodoPago, Caja, CajaSesion, Gasto, GastoCat, CuentaContable, Asiento, SeguimientoConfig, SmtpConfig, MsgTemplates, Cargo, UserProfile, UserConfig, PendingInvite, EmailDomain, OC, OCLogEntry, Categoria, Kit, Traslado, TecnicoExterno, Equipo, FichaUsuario, LoteInventario, ConteoInventario, Cotizacion } from '@/types'
 
 // ── Órdenes de Taller ─────────────────────────────────────────
 // Tabla relacional `ordenes` (migrada desde el blob erp_data/tp_orders).
@@ -2333,4 +2333,61 @@ export function useActualizarEmpresaAdmin() {
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['pixit_admin_empresas'] }),
   })
 }
+// ── Cotizaciones (solo lectura para el cliente, sin flujo de aprobación) ──
+
+export function useCotizaciones() {
+  const { empresaId } = useAuth()
+  return useQuery({
+    queryKey: ['cotizaciones', empresaId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('cotizaciones')
+        .select('*')
+        .eq('empresa_id', empresaId!)
+        .order('creado_en', { ascending: false })
+      if (error) throw error
+      return (data ?? []) as Cotizacion[]
+    },
+    enabled: !!empresaId,
+  })
+}
+
+// Payload de creación: todo excepto lo que genera la base de datos (id, token, numero, creado_en).
+export type NuevaCotizacion = Omit<Cotizacion, 'id' | 'token' | 'numero' | 'creado_en'>
+
+export function useCrearCotizacion() {
+  const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (c: NuevaCotizacion) => {
+      const actuales = qc.getQueryData<Cotizacion[]>(['cotizaciones', empresaId]) ?? []
+      const numero = (actuales.reduce((max, x) => Math.max(max, x.numero), 0)) + 1
+      const { data, error } = await supabase
+        .from('cotizaciones')
+        .insert({ empresa_id: empresaId!, numero, ...c })
+        .select('*')
+        .single()
+      if (error) throw error
+      return data as Cotizacion
+    },
+    onSuccess: (nueva) => {
+      qc.setQueryData<Cotizacion[]>(['cotizaciones', empresaId], (old = []) => [nueva, ...old])
+    },
+  })
+}
+
+export function useEliminarCotizacion() {
+  const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('cotizaciones').delete().eq('id', id).eq('empresa_id', empresaId!)
+      if (error) throw error
+    },
+    onSuccess: (_d, id) => {
+      qc.setQueryData<Cotizacion[]>(['cotizaciones', empresaId], (old = []) => old.filter(c => c.id !== id))
+    },
+  })
+}
+
 export * from './queries/usePlanLimits'
