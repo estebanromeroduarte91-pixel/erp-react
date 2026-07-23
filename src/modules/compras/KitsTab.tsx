@@ -10,17 +10,23 @@ const today = () => new Date().toISOString().slice(0, 10)
 // Color words sorted longest-first to avoid partial matches
 const COLOR_WORDS = [
   'titanio negro', 'titanio blanco', 'titanio natural', 'titanio desierto', 'titanio azul',
-  'verde noche', 'azul pacífico', 'azul pacifico', 'azul sierra', 'verde alpino', 'morado profundo',
+  'verde noche', 'azul pacífico', 'azul pacifico', 'azul sierra', 'verde alpino', 'morado profundo', 'verde agua',
   'rose gold', 'space gray', 'space black', 'sky blue',
   'silver', 'gold', 'midnight', 'starlight', 'amarillo', 'azul',
   'rosado', 'plata', 'verde', 'morado', 'blanco', 'negro',
   'blanca', 'negra', 'dorado', 'rojo', 'roja', 'coral',
+  'amarilla', 'morada', 'rosada', 'dorada', 'plateada', 'celeste', 'red',
   'grafito', 'titanio', 'natural', 'desierto', 'black',
 ]
 
-// Variantes de género que representan el mismo color — se muestran unificadas bajo una sola forma.
+// Variantes de género (o idioma) que representan el mismo color — se muestran unificadas
+// bajo una sola forma. (ej. "Tapa Trasera Amarilla" y "Chasis Amarillo" deben contar como el
+// mismo color "Amarillo"; antes solo blanca/negra/roja estaban cubiertas y el resto de las
+// formas femeninas o en inglés se colaban como componentes "genéricos" — se agregaban
+// siempre, sin importar el color elegido).
 const COLOR_CANON: Record<string, string> = {
-  blanca: 'blanco', negra: 'negro', roja: 'rojo',
+  blanca: 'blanco', negra: 'negro', roja: 'rojo', red: 'rojo',
+  amarilla: 'amarillo', morada: 'morado', rosada: 'rosado', dorada: 'dorado', plateada: 'plata',
 }
 
 function canonColor(color: string): string {
