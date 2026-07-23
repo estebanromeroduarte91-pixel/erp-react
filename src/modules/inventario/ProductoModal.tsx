@@ -32,6 +32,7 @@ export function ProductoModal({ producto, productos, bodegas, onClose }: Props) 
   const [stockSucs, setStockSucs] = useState<Record<string, number>>(producto?.stock_sucursales ?? {})
   const [categoria, setCategoria] = useState(producto?.categoria ?? '')
   const [subcategoria, setSubcategoria] = useState(producto?.subcategoria ?? '')
+  const [enlace, setEnlace] = useState(producto?.enlace ?? '')
   const [descripcion, setDescripcion] = useState(producto?.descripcion ?? '')
   const [error, setError] = useState('')
   const [guardando, setGuardando] = useState(false)
@@ -50,6 +51,13 @@ export function ProductoModal({ producto, productos, bodegas, onClose }: Props) 
     const deCuradas = new Set(categoriasCuradas.map((c) => c.nombre))
     return [...new Set([...deCuradas, ...deProductos])].sort()
   }, [productos, categoriasCuradas])
+
+  // Enlaces existentes (ej. "iPhone 11") para sugerir con datalist — el mismo
+  // valor que agrupa variantes de color en Kits/Equipos y en la columna
+  // "Enlace" de la planilla de importación masiva.
+  const enlaces = useMemo(() => {
+    return [...new Set(productos.map((p) => p.enlace).filter(Boolean) as string[])].sort()
+  }, [productos])
 
   // Subcategorías sugeridas: las de la categoría curada que coincide con lo
   // escrito (si existe), si no, las que ya usan otros productos de esa categoría.
@@ -84,6 +92,7 @@ export function ProductoModal({ producto, productos, bodegas, onClose }: Props) 
       stock_sucursales: esServicio ? undefined : (tieneSucs ? stockSucs : undefined),
       categoria: categoria.trim() || undefined,
       subcategoria: subcategoria.trim() || undefined,
+      enlace: enlace.trim() || undefined,
       descripcion: descripcion.trim() || undefined,
       tipo,
     }
@@ -172,6 +181,20 @@ export function ProductoModal({ producto, productos, bodegas, onClose }: Props) 
                 <datalist id="subcats-list">
                   {subcats.map((s) => <option key={s} value={s} />)}
                 </datalist>
+              </div>
+              <div className="col-span-2">
+                <label className="text-xs font-medium text-gray-600 mb-1 block">Enlace (opcional)</label>
+                <input value={enlace} onChange={(e) => setEnlace(e.target.value)}
+                  list="enlaces-list" placeholder="Ej: iPhone 11"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+                <datalist id="enlaces-list">
+                  {enlaces.map((e) => <option key={e} value={e} />)}
+                </datalist>
+                <p className="text-[11px] text-gray-400 mt-1">
+                  Agrupa este producto con otros del mismo modelo (misma columna "Enlace" de la planilla Excel).
+                  Se usa en <strong>Kits / Equipos</strong> para armar automáticamente las variantes de color.
+                  Déjalo vacío para desenlazarlo.
+                </p>
               </div>
               <div className="col-span-2">
                 <label className="text-xs font-medium text-gray-600 mb-1 block">Descripción</label>
