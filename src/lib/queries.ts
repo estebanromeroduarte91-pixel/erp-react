@@ -1764,6 +1764,21 @@ export function useGuardarEmailDomain() {
   })
 }
 
+// Autoservicio: el dueño de la empresa corrige el nombre que puso al registrarse
+// (antes solo se podía cambiar a mano desde el Panel Pixit). Requiere la policy
+// de supabase/09_owner_update_empresa_nombre.sql. El nombre queda cacheado en el
+// AuthContext (no en React Query) — hay que recargar para que se refleje en el
+// sidebar/topbar tras guardar.
+export function useActualizarNombreEmpresa() {
+  const { empresaId } = useAuth()
+  return useMutation({
+    mutationFn: async (nombre: string) => {
+      const { error } = await supabase.from('empresas').update({ nombre }).eq('id', empresaId!)
+      if (error) throw error
+    },
+  })
+}
+
 // ── Kits de Equipos ───────────────────────────────────────────
 
 export function useKits() {

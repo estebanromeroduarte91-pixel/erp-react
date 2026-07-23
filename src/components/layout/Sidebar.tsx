@@ -246,14 +246,17 @@ function SingleLink({ item, active }: { item: NavSingle; active: boolean }) {
 
 // ── Sidebar ────────────────────────────────────────────────────
 export function Sidebar() {
-  const { nombre, rol, cargoId, esPlatformAdmin, empresaId, session } = useAuth()
+  const { nombre, empresaNombre, rol, cargoId, esPlatformAdmin, empresaId, session } = useAuth()
   const { isHelpMenuOpen, setHelpMenuOpen } = useTour()
   const location = useLocation()
-  const initials = nombre.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?'
-  const rolLabel = esPlatformAdmin && !empresaId ? 'Pixit Admin' : rol === 'admin' ? 'Administrador' : rol === 'encargado' ? 'Encargado' : rol === 'tecnico' ? 'Técnico' : rol === 'vendedor' ? 'Vendedor' : rol
   // Platform admin sin empresa propia: solo administra la plataforma, no opera
   // ningún taller — el menú de operación/administración de empresa no aplica.
   const soloPlatformAdmin = esPlatformAdmin && !empresaId
+  // El footer muestra la empresa, no la persona — el nombre propio queda como
+  // respaldo solo para el caso sin empresa (platform admin puro).
+  const displayName = soloPlatformAdmin ? nombre : (empresaNombre || nombre)
+  const initials = displayName.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?'
+  const rolLabel = esPlatformAdmin && !empresaId ? 'Pixit Admin' : rol === 'admin' ? 'Administrador' : rol === 'encargado' ? 'Encargado' : rol === 'tecnico' ? 'Técnico' : rol === 'vendedor' ? 'Vendedor' : rol
 
   // Cargos desde la única fuente de verdad (con fallback a CARGOS_DEFAULT incluido en useCargos)
   const { data: cargos = [] } = useCargos()
@@ -456,7 +459,7 @@ export function Sidebar() {
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--gray-800)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {nombre}
+            {displayName}
           </div>
           <div style={{ fontSize: 11, color: 'var(--gray-400)', fontWeight: 500 }}>{rolLabel}</div>
         </div>

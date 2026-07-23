@@ -11,34 +11,27 @@ export type TourId = 'config' | 'inventory' | 'operation' | 'finance';
 
 export const onboardingTours: Record<TourId, TourStep[]> = {
   config: [
-    // 1. Logo y Postventa (en Taller Settings)
+    // 1. Datos de la empresa y Logo (en Configuración > General)
     {
-      targetId: 'tour-sidebar-taller',
-      title: 'Configura tu Taller',
-      content: 'Primero, entraremos al módulo de Taller para configurar la identidad visual y los mensajes automáticos de postventa.',
+      targetId: 'tour-sidebar-config',
+      title: 'Configura tu empresa',
+      content: 'Primero, entraremos a Configuración para definir el nombre de tu empresa y tu logotipo.',
       position: 'right',
       route: '/dashboard'
     },
     {
-      targetId: 'tour-taller-tab-settings',
-      title: 'Ajustes del Taller',
-      content: 'Haz clic en la pestaña de Ajustes de Taller para ingresar al panel de configuraciones.',
+      targetId: 'tour-config-tab-general',
+      title: 'Pestaña General',
+      content: 'Haz clic en la pestaña **General** para editar los datos básicos de tu empresa.',
       position: 'bottom',
-      route: '/taller'
-    },
-    {
-      targetId: 'tour-taller-settings-tab-seguimiento',
-      title: 'Configurar Logotipo',
-      content: 'Haz clic en la sección de **Seguimiento** para cargar la imagen corporativa de tu taller.',
-      position: 'bottom',
-      route: '/taller?tab=settings'
+      route: '/config'
     },
     {
       targetId: 'tour-logo-upload',
       title: 'Cargar Logotipo del Taller',
-      content: 'Arrastra el logotipo de tu negocio aquí. Este logo se usará automáticamente en las cabeceras de tus cotizaciones y en las notificaciones por correo de ingreso, listo y entrega.',
+      content: 'Sube el logotipo de tu negocio aquí. Este logo se usará automáticamente en las cabeceras de tus cotizaciones y en las notificaciones por correo de ingreso, listo y entrega.',
       position: 'top',
-      route: '/taller?tab=settings'
+      route: '/config'
     },
     // 2. Sucursales (en Inventario Bodegas)
     {
@@ -46,7 +39,7 @@ export const onboardingTours: Record<TourId, TourStep[]> = {
       title: 'Sucursales y Bodegas',
       content: 'Ahora configuraremos tus puntos de venta y bodegas físicas. Dirígete a la sección de Inventario.',
       position: 'right',
-      route: '/taller?tab=settings'
+      route: '/config'
     },
     {
       targetId: 'tour-inventario-tab-bodegas',

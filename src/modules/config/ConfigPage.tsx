@@ -2,6 +2,7 @@ import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { usePuedeUsarModulo } from '@/lib/queries'
 import { ModuloBloqueado } from '@/components/shared/ModuloBloqueado'
+import { GeneralTab } from './GeneralTab'
 import { SmtpTab } from './SmtpTab'
 import { DominioTab } from './DominioTab'
 import { CargosTab } from './CargosTab'
@@ -9,21 +10,23 @@ import { AccesosTab } from './AccesosTab'
 import { NotificacionesTab } from './NotificacionesTab'
 import { SuscripcionTab } from './SuscripcionTab'
 
-type Tab = 'dominio' | 'smtp' | 'cargos' | 'accesos' | 'notificaciones' | 'suscripcion'
+type Tab = 'general' | 'dominio' | 'smtp' | 'cargos' | 'accesos' | 'notificaciones' | 'suscripcion'
 
-const TABS_VALIDOS: Tab[] = ['dominio', 'smtp', 'cargos', 'accesos', 'notificaciones', 'suscripcion']
+const TABS_VALIDOS: Tab[] = ['general', 'dominio', 'smtp', 'cargos', 'accesos', 'notificaciones', 'suscripcion']
 function resolveConfigTab(param: string | null): Tab {
-  return TABS_VALIDOS.includes(param as Tab) ? (param as Tab) : 'dominio'
+  return TABS_VALIDOS.includes(param as Tab) ? (param as Tab) : 'general'
 }
 
 export function ConfigPage() {
   const { esAdmin } = useAuth()
   const puedeAccesos = usePuedeUsarModulo('accesos')
   const [searchParams, setSearchParams] = useSearchParams()
-  const tab = resolveConfigTab(searchParams.get('tab'))
-  const setTab = (key: Tab) => setSearchParams(key === 'dominio' ? {} : { tab: key }, { replace: true })
+  const tabParam = resolveConfigTab(searchParams.get('tab'))
+  const tab = tabParam === 'general' && !esAdmin ? 'dominio' : tabParam
+  const setTab = (key: Tab) => setSearchParams(key === 'general' ? {} : { tab: key }, { replace: true })
 
   const allTabs: { key: Tab; label: string; adminOnly?: boolean; requierePlan?: boolean }[] = [
+    { key: 'general', label: 'General', adminOnly: true },
     { key: 'dominio', label: 'Dominio' },
     { key: 'smtp',    label: 'SMTP' },
     { key: 'cargos',  label: 'Cargos',  adminOnly: true, requierePlan: true },
@@ -52,6 +55,7 @@ export function ConfigPage() {
         ))}
       </div>
 
+      {tab === 'general' && esAdmin  && <GeneralTab />}
       {tab === 'dominio'             && <DominioTab />}
       {tab === 'smtp'                && <SmtpTab />}
       {tab === 'cargos'  && esAdmin  && (puedeAccesos ? <CargosTab /> : <ModuloBloqueado nombre="Gestión de permisos" />)}
