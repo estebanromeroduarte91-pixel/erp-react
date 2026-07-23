@@ -33,6 +33,7 @@ export function ProductoModal({ producto, productos, bodegas, onClose }: Props) 
   const [categoria, setCategoria] = useState(producto?.categoria ?? '')
   const [subcategoria, setSubcategoria] = useState(producto?.subcategoria ?? '')
   const [enlace, setEnlace] = useState(producto?.enlace ?? '')
+  const [enlaceOpen, setEnlaceOpen] = useState(false)
   const [descripcion, setDescripcion] = useState(producto?.descripcion ?? '')
   const [error, setError] = useState('')
   const [guardando, setGuardando] = useState(false)
@@ -52,12 +53,21 @@ export function ProductoModal({ producto, productos, bodegas, onClose }: Props) 
     return [...new Set([...deCuradas, ...deProductos])].sort()
   }, [productos, categoriasCuradas])
 
-  // Enlaces existentes (ej. "iPhone 11") para sugerir con datalist — el mismo
-  // valor que agrupa variantes de color en Kits/Equipos y en la columna
-  // "Enlace" de la planilla de importación masiva.
+  // Enlaces existentes (ej. "iPhone 11") para sugerir — el mismo valor que
+  // agrupa variantes de color en Kits/Equipos y en la columna "Enlace" de la
+  // planilla de importación masiva.
   const enlaces = useMemo(() => {
     return [...new Set(productos.map((p) => p.enlace).filter(Boolean) as string[])].sort()
   }, [productos])
+
+  // Desplegable propio (no <datalist> nativo, que no se puede estilizar y con
+  // ~130 enlaces se veía como una lista gigante sin estética): filtra por lo
+  // tipeado y muestra las primeras coincidencias.
+  const enlacesFiltrados = useMemo(() => {
+    const q = enlace.trim().toLowerCase()
+    const base = q ? enlaces.filter((e) => e.toLowerCase().includes(q)) : enlaces
+    return base.slice(0, 8)
+  }, [enlaces, enlace])
 
   // Subcategorías sugeridas: las de la categoría curada que coincide con lo
   // escrito (si existe), si no, las que ya usan otros productos de esa categoría.
@@ -182,14 +192,25 @@ export function ProductoModal({ producto, productos, bodegas, onClose }: Props) 
                   {subcats.map((s) => <option key={s} value={s} />)}
                 </datalist>
               </div>
-              <div className="col-span-2">
+              <div className="col-span-2 relative">
                 <label className="text-xs font-medium text-gray-600 mb-1 block">Enlace (opcional)</label>
-                <input value={enlace} onChange={(e) => setEnlace(e.target.value)}
-                  list="enlaces-list" placeholder="Ej: iPhone 11"
+                <input value={enlace}
+                  onChange={(e) => setEnlace(e.target.value)}
+                  onFocus={() => setEnlaceOpen(true)}
+                  onBlur={() => setTimeout(() => setEnlaceOpen(false), 150)}
+                  placeholder="Ej: iPhone 11"
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
-                <datalist id="enlaces-list">
-                  {enlaces.map((e) => <option key={e} value={e} />)}
-                </datalist>
+                {enlaceOpen && enlacesFiltrados.length > 0 && (
+                  <div className="absolute left-0 right-0 z-20 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-52 overflow-y-auto">
+                    {enlacesFiltrados.map((e) => (
+                      <button key={e} type="button"
+                        onMouseDown={() => { setEnlace(e); setEnlaceOpen(false) }}
+                        className="w-full text-left px-3.5 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition">
+                        {e}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 <p className="text-[11px] text-gray-400 mt-1">
                   Agrupa este producto con otros del mismo modelo (misma columna "Enlace" de la planilla Excel).
                   Se usa en <strong>Kits / Equipos</strong> para armar automáticamente las variantes de color.
