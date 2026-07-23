@@ -47,12 +47,14 @@ function parseExcel(file: File, bodegas: Bodega[]): Promise<ImportRow[]> {
           const tipo = tipoRaw
             ? (tipoRaw === 'servicio' || tipoRaw === 'service' ? 'servicio' as const : 'producto' as const)
             : null
-          // Stock por sucursal: busca una columna llamada como cada bodega (ej. "La Dehesa").
+          // Stock por sucursal: busca una columna "Stock <bodega>" (formato actual de la
+          // plantilla, ej. "Stock La Dehesa"); si no está, cae a solo el nombre de la bodega
+          // (formato de plantillas descargadas antes de este cambio, para no romperlas).
           const stockPorBodega: Record<string, number> = {}
           for (const b of bodegas) {
             const nom = b.nombre ?? b.name ?? ''
             if (!nom) continue
-            const v = findOpt(row, nom)
+            const v = findOpt(row, `stock ${nom}`) ?? findOpt(row, nom)
             if (v !== null) stockPorBodega[b.id] = Number(v) || 0
           }
           return {
@@ -77,13 +79,16 @@ function parseExcel(file: File, bodegas: Bodega[]): Promise<ImportRow[]> {
 
 function descargarPlantilla(bodegas: Bodega[]) {
   const headers = ['SKU', 'Producto', 'Costo Neto', 'Precio Venta', 'Categoría', 'Subcategoría', 'Enlace', 'Tipo']
+  // "Stock <nombre>" en vez de solo el nombre de la bodega: deja explícito que esa
+  // columna es para cargar el stock (antes se confundía con una columna informativa).
   const nombresBodegas = bodegas.map(b => b.nombre ?? b.name ?? '').filter(Boolean)
-  const cols = [...headers, ...nombresBodegas]
+  const colsStock = nombresBodegas.map(n => `Stock ${n}`)
+  const cols = [...headers, ...colsStock]
   const ejemplo: Record<string, string | number> = {
     SKU: '1000', Producto: 'Ejemplo: Pantalla iPhone 13', 'Costo Neto': 15000, 'Precio Venta': 35000,
     Categoría: 'Pantallas', Subcategoría: 'iPhone', Enlace: '', Tipo: 'producto',
   }
-  nombresBodegas.forEach(n => { ejemplo[n] = 5 })
+  colsStock.forEach(n => { ejemplo[n] = 5 })
   const ws = XLSX.utils.json_to_sheet([ejemplo], { header: cols })
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, 'Productos')
@@ -628,7 +633,7 @@ export function ProductosTab() {
                   <p className="text-xs text-gray-400 mt-0.5">
                     {importRows.length > 0
                       ? `${importRows.length} productos listos — revisa los avisos antes de continuar`
-                      : `Columnas: SKU, Producto, Costo Neto, Precio Venta, Categoría, Subcategoría, Enlace${(bodegas ?? []).length ? ' — y una por sucursal para el stock: ' + (bodegas ?? []).map(b => b.nombre ?? b.name).join(', ') : ''}`}
+                      : `Columnas: SKU, Producto, Costo Neto, Precio Venta, Categoría, Subcategoría, Enlace${(bodegas ?? []).length ? ' — y una columna de stock por sucursal: ' + (bodegas ?? []).map(b => `Stock ${b.nombre ?? b.name}`).join(', ') : ''}`}
                   </p>
                   {importRows.length === 0 && (
                     <button onClick={() => descargarPlantilla(bodegas ?? [])}
@@ -683,7 +688,7 @@ export function ProductosTab() {
                   {conStock === 0 && (bodegas ?? []).length > 0 && (
                     <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
                       La planilla no trae stock. Para cargarlo, agrega una columna por sucursal
-                      con su nombre exacto: <strong>{(bodegas ?? []).map(b => b.nombre ?? b.name).join('</strong>, <strong>')}</strong>.
+                      con este nombre exacto: <strong>{(bodegas ?? []).map(b => `Stock ${b.nombre ?? b.name}`).join('</strong>, <strong>')}</strong>.
                     </p>
                   )}
 
