@@ -5,6 +5,7 @@ import { dbGet, dbSet } from './db'
 import { MSG_DEFAULTS } from './msgTemplatesDefaults'
 import { reconciliarLotes } from './lotes'
 import { soloRutDigits } from './rut'
+import { DEFAULT_PLAN_LIMITS, type PlanTier } from './queries/usePlanLimits'
 import { useAuth } from '@/context/AuthContext'
 import type { Orden, Repuesto, Cliente, Producto, Bodega, Movimiento, Proveedor, Venta, VentaItem, MetodoPago, Caja, CajaSesion, Gasto, GastoCat, CuentaContable, Asiento, SeguimientoConfig, SmtpConfig, MsgTemplates, Cargo, UserProfile, UserConfig, PendingInvite, EmailDomain, OC, OCLogEntry, Categoria, Kit, Traslado, TecnicoExterno, Equipo, FichaUsuario, LoteInventario, ConteoInventario, Cotizacion } from '@/types'
 
@@ -2307,6 +2308,7 @@ export interface EmpresaAdmin {
   trial_termina: string | null
   creado_en: string | null
   usuarios: number
+  tier: PlanTier
 }
 
 export function usePlatformEmpresas() {
@@ -2314,18 +2316,30 @@ export function usePlatformEmpresas() {
   return useQuery({
     queryKey: ['pixit_admin_empresas'],
     queryFn: async () => {
-      const [{ data: empresas, error: e1 }, { data: perfiles, error: e2 }] = await Promise.all([
+      const [{ data: empresas, error: e1 }, { data: perfiles, error: e2 }, { data: limitsRows, error: e3 }] = await Promise.all([
         supabase.from('empresas').select('id,nombre,owner_id,plan_estado,trial_termina,creado_en').order('creado_en', { ascending: false }),
         supabase.from('user_profiles').select('empresa_id,activo'),
+        // El tier activo/pagado vive en erp_data (misma clave que usePlanLimits) — sin esto
+        // el selector de plan del panel no tiene forma de saber qué está realmente activado
+        // hoy y siempre "olvida" la selección al recargar (quedaba en Starter por defecto).
+        supabase.from('erp_data').select('empresa_id,datos').eq('clave', 'plan_limits'),
       ])
       if (e1) throw e1
       if (e2) throw e2
+      if (e3) throw e3
       const conteo = new Map<string, number>()
       for (const p of perfiles ?? []) {
         if (!p.activo) continue
         conteo.set(p.empresa_id, (conteo.get(p.empresa_id) ?? 0) + 1)
       }
-      return (empresas ?? []).map((e): EmpresaAdmin => ({ ...e, usuarios: conteo.get(e.id) ?? 0 }))
+      const tiers = new Map<string, PlanTier>()
+      for (const r of limitsRows ?? []) {
+        const tier = (r.datos as { tier?: PlanTier } | null)?.tier
+        if (tier) tiers.set(r.empresa_id, tier)
+      }
+      return (empresas ?? []).map((e): EmpresaAdmin => ({
+        ...e, usuarios: conteo.get(e.id) ?? 0, tier: tiers.get(e.id) ?? DEFAULT_PLAN_LIMITS.tier,
+      }))
     },
     enabled: esPlatformAdmin,
   })

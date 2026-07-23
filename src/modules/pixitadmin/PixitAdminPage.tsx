@@ -71,10 +71,13 @@ export function PixitAdminPage() {
   }
 
   async function activarPlan(e: EmpresaAdmin) {
-    const tier = tierPorActivar[e.id] ?? 'starter'
+    const tier = tierPorActivar[e.id] ?? e.tier
     if (!confirm(`¿Activar el plan ${TIER_NOMBRE[tier]} para "${e.nombre}"? Debes haber confirmado el pago antes de hacer esto.`)) return
     await actualizarLimits.mutateAsync({ empresaId: e.id, limits: { tier, ...TIER_LIMITS[tier] } })
     await actualizar.mutateAsync({ id: e.id, plan_estado: 'activo' })
+    // El selector queda igual al tier recién activado — antes se resetía a "Starter"
+    // en el próximo refetch porque no tenía de dónde leer el tier real guardado.
+    setTierPorActivar(t => ({ ...t, [e.id]: tier }))
   }
 
   if (isLoading) return <div className="flex justify-center py-16"><Spinner className="w-8 h-8" /></div>
@@ -137,6 +140,7 @@ export function PixitAdminPage() {
             <tr className="border-b border-gray-100 text-left text-xs text-gray-400 uppercase tracking-wide">
               <th className="px-4 py-3 font-semibold">Empresa</th>
               <th className="px-4 py-3 font-semibold">Estado</th>
+              <th className="px-4 py-3 font-semibold">Plan</th>
               <th className="px-4 py-3 font-semibold">Usuarios</th>
               <th className="px-4 py-3 font-semibold">Creada</th>
               <th className="px-4 py-3 font-semibold text-right">Acción</th>
@@ -144,18 +148,23 @@ export function PixitAdminPage() {
           </thead>
           <tbody>
             {lista.length === 0 && (
-              <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-gray-400">Sin resultados</td></tr>
+              <tr><td colSpan={6} className="px-4 py-10 text-center text-sm text-gray-400">Sin resultados</td></tr>
             )}
             {lista.map(e => (
               <tr key={e.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/60 group">
                 <td className="px-4 py-3 font-medium text-gray-800">{e.nombre}</td>
                 <td className="px-4 py-3"><EstadoPill e={e} /></td>
+                <td className="px-4 py-3">
+                  <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700">
+                    {TIER_NOMBRE[e.tier]}
+                  </span>
+                </td>
                 <td className="px-4 py-3 text-gray-600">{e.usuarios}</td>
                 <td className="px-4 py-3 text-gray-500">{fmtFecha(e.creado_en)}</td>
                 <td className="px-4 py-3 text-right">
                   <div className="flex items-center justify-end gap-2">
                     <select
-                      value={tierPorActivar[e.id] ?? 'starter'}
+                      value={tierPorActivar[e.id] ?? e.tier}
                       onChange={ev => setTierPorActivar(t => ({ ...t, [e.id]: ev.target.value as PlanTier }))}
                       className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white text-gray-600 opacity-0 group-hover:opacity-100"
                     >
