@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useVentas, useOrdenes, useBuscarProductos, useClientes } from '@/lib/queries'
 import { Spinner } from '@/components/shared/Spinner'
+import { soloRutDigits } from '@/lib/rut'
 
 type ResultType = 'ot' | 'venta' | 'cliente' | 'producto'
 interface Result { type: ResultType; id: string; title: string; sub: string; badge?: string; badgeColor?: string }
@@ -61,6 +62,7 @@ export function BuscarPage() {
   const results: Result[] = useMemo(() => {
     const q = query.trim().toLowerCase()
     if (q.length < 2) return []
+    const qRut = soloRutDigits(query)
     const out: Result[] = []
 
     // OTs
@@ -96,7 +98,8 @@ export function BuscarPage() {
       c.nombre?.toLowerCase().includes(q) ||
       c.apellido?.toLowerCase().includes(q) ||
       c.rut?.toLowerCase().includes(q) ||
-      c.tel?.toLowerCase().includes(q)
+      c.tel?.toLowerCase().includes(q) ||
+      (qRut.length > 0 && soloRutDigits(c.rut ?? '').includes(qRut))
     ).slice(0, 5).forEach(c => {
       out.push({
         type: 'cliente', id: c.id,

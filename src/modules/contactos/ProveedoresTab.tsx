@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { useProveedores, useGuardarProveedores } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { Spinner } from '@/components/shared/Spinner'
+import { soloRutDigits } from '@/lib/rut'
 import { ContactoModal } from './ClientesTab'
 import type { Proveedor } from '@/types'
 
@@ -29,11 +30,13 @@ export function ProveedoresTab() {
   const lista = useMemo(() => {
     if (!busqueda.trim()) return proveedores ?? []
     const q = busqueda.toLowerCase()
+    const qRut = soloRutDigits(busqueda)
     return (proveedores ?? []).filter(p =>
       p.nombre.toLowerCase().includes(q) ||
       (p.rut ?? '').includes(q) ||
       (p.email ?? '').toLowerCase().includes(q) ||
-      (p.contacto ?? '').toLowerCase().includes(q)
+      (p.contacto ?? '').toLowerCase().includes(q) ||
+      (qRut.length > 0 && soloRutDigits(p.rut ?? '').includes(qRut))
     )
   }, [proveedores, busqueda])
 

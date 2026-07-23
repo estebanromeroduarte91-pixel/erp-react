@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useOrdenes, useTraslados, useActualizarOrden, useEliminarOrden, useBodegas } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
+import { soloRutDigits } from '@/lib/rut'
 import { useIsMobile } from '@/lib/useIsMobile'
 import { EstadoBadge } from '@/components/shared/Badge'
 import { Money } from '@/components/shared/Money'
@@ -118,13 +119,15 @@ export function TallerPage() {
 
     if (busqueda.trim()) {
       const q = busqueda.toLowerCase()
+      const qRut = soloRutDigits(busqueda)
       r = r.filter(
         (o) =>
           `${o.nombre ?? ''} ${o.apellido ?? ''}`.toLowerCase().includes(q) ||
           String(o.num).includes(q) ||
           o.modelo?.toLowerCase().includes(q) ||
           o.tel?.includes(q) ||
-          o.rut?.toLowerCase().includes(q),
+          o.rut?.toLowerCase().includes(q) ||
+          (qRut.length > 0 && soloRutDigits(o.rut ?? '').includes(qRut)),
       )
     } else {
       if (filtroEstado === 'todos') {

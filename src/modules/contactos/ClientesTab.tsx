@@ -5,7 +5,7 @@ import { useClientes, useCrearCliente, useActualizarCliente, useEliminarCliente,
 import { useAuth } from '@/context/AuthContext'
 import { useIsMobile } from '@/lib/useIsMobile'
 import { Spinner } from '@/components/shared/Spinner'
-import { formatRut } from '@/lib/rut'
+import { formatRut, soloRutDigits } from '@/lib/rut'
 import { capWords, capFirst } from '@/lib/formatters'
 import { OrdenDetallePage } from '@/modules/taller/OrdenDetallePage'
 import type { Cliente } from '@/types'
@@ -177,10 +177,14 @@ export function ClientesTab() {
   const lista = useMemo(() => {
     if (!busqueda.trim()) return clientes ?? []
     const q = busqueda.toLowerCase()
+    // RUT guardado con puntos ("19.078.135-K"): comparar dígitos contra dígitos
+    // (sin puntos) para que buscar "1907813" sí encuentre el RUT con puntos.
+    const qRut = soloRutDigits(busqueda)
     return (clientes ?? []).filter(c =>
       `${c.nombre} ${c.apellido ?? ''}`.toLowerCase().includes(q) ||
       (c.rut ?? '').includes(q) || (c.email ?? '').toLowerCase().includes(q) ||
-      (c.tel ?? '').includes(q)
+      (c.tel ?? '').includes(q) ||
+      (qRut.length > 0 && soloRutDigits(c.rut ?? '').includes(qRut))
     )
   }, [clientes, busqueda])
 

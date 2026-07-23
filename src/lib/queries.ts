@@ -4,6 +4,7 @@ import { supabase } from './supabase'
 import { dbGet, dbSet } from './db'
 import { MSG_DEFAULTS } from './msgTemplatesDefaults'
 import { reconciliarLotes } from './lotes'
+import { soloRutDigits } from './rut'
 import { useAuth } from '@/context/AuthContext'
 import type { Orden, Repuesto, Cliente, Producto, Bodega, Movimiento, Proveedor, Venta, VentaItem, MetodoPago, Caja, CajaSesion, Gasto, GastoCat, CuentaContable, Asiento, SeguimientoConfig, SmtpConfig, MsgTemplates, Cargo, UserProfile, UserConfig, PendingInvite, EmailDomain, OC, OCLogEntry, Categoria, Kit, Traslado, TecnicoExterno, Equipo, FichaUsuario, LoteInventario, ConteoInventario, Cotizacion } from '@/types'
 
@@ -838,6 +839,12 @@ export function useClientes() {
 export function useBuscarClientes(query: string) {
   const { empresaId } = useAuth()
   const safe = query.replace(/[%,()]/g, ' ').trim()
+  // El RUT se guarda formateado con puntos ("19.078.135-K"): un ilike literal
+  // de lo tipeado ("1907813", sin puntos) nunca calza porque los puntos cortan
+  // la secuencia de dígitos. Se arma además un patrón "suelto" (un % entre cada
+  // carácter) que matchea los mismos dígitos sin importar dónde caigan los puntos.
+  const rutDigits = soloRutDigits(safe)
+  const rutClause = rutDigits ? `,rut.ilike.%${rutDigits.split('').join('%')}%` : ''
   return useQuery({
     queryKey: ['clientes', empresaId, 'buscar', safe],
     queryFn: async () => {
@@ -845,7 +852,7 @@ export function useBuscarClientes(query: string) {
         .from('clientes')
         .select('*')
         .eq('empresa_id', empresaId!)
-        .or(`nombre.ilike.%${safe}%,apellido.ilike.%${safe}%,rut.ilike.%${safe}%,tel.ilike.%${safe}%`)
+        .or(`nombre.ilike.%${safe}%,apellido.ilike.%${safe}%,rut.ilike.%${safe}%${rutClause},tel.ilike.%${safe}%`)
         .limit(8)
       if (error) throw error
       return (data ?? []).map(hidratarCliente)
