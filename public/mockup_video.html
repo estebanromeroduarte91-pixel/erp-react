@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pixit Promo Reel Storyboard</title>
+  <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #0f172a;
+    }
+    
+    /* Lock resolution to 9:16 aspect ratio typical for Instagram Reels (e.g. 360x640 for preview) */
+    .video-viewport {
+      width: 360px;
+      height: 640px;
+      overflow: hidden;
+      position: relative;
+      background-color: #ffffff;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+      border: 8px solid #1e293b;
+      border-radius: 36px;
+    }
+
+    /* Keyframe Animations matching the high-energy transitions */
+    @keyframes slide-in-up {
+      0% { transform: translateY(50px); opacity: 0; }
+      100% { transform: translateY(0); opacity: 1; }
+    }
+    @keyframes pulse-glow {
+      0%, 100% { opacity: 0.15; }
+      50% { opacity: 0.35; }
+    }
+    @keyframes check-step {
+      0% { transform: scale(0.8); opacity: 0; }
+      50% { transform: scale(1.2); }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    
+    .animate-slide-up {
+      animation: slide-in-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    /* Custom CSS transitions for sequential scenes */
+    .scene {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.4s ease-in-out, transform 0.4s ease-in-out;
+      transform: scale(0.95);
+    }
+    .scene.active {
+      opacity: 1;
+      pointer-events: auto;
+      transform: scale(1);
+    }
+
+    /* Progress bar styling */
+    .timeline-bar {
+      height: 4px;
+      background-color: rgba(255, 255, 255, 0.3);
+      border-radius: 2px;
+      flex-grow: 1;
+      overflow: hidden;
+    }
+    .timeline-progress {
+      height: 100%;
+      background-color: #3b82f6;
+      width: 0%;
+    }
+    .timeline-progress.active {
+      transition: width linear;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center py-8">
+
+  <div class="text-center mb-6 max-w-md px-4">
+    <h1 class="text-2xl font-bold text-white mb-2">Generador de Video Pixit</h1>
+    <p class="text-slate-400 text-xs">
+      Abre esta página, haz clic en **"Iniciar Grabación"** para reproducir y usa el grabador de pantalla de tu Mac (`Cmd + Shift + 5`) enfocado en el marco del teléfono para obtener tu Reel listo en alta resolución.
+    </p>
+  </div>
+
+  <!-- Contenedor del Teléfono / Video -->
+  <div class="video-viewport relative">
+    
+    <!-- Barra superior de historias/segmentos -->
+    <div class="absolute top-4 left-4 right-4 z-50 flex gap-1">
+      <div class="timeline-bar"><div class="timeline-progress" id="progress-0"></div></div>
+      <div class="timeline-bar"><div class="timeline-progress" id="progress-1"></div></div>
+      <div class="timeline-bar"><div class="timeline-progress" id="progress-2"></div></div>
+      <div class="timeline-bar"><div class="timeline-progress" id="progress-3"></div></div>
+      <div class="timeline-bar"><div class="timeline-progress" id="progress-4"></div></div>
+      <div class="timeline-bar"><div class="timeline-progress" id="progress-5"></div></div>
+      <div class="timeline-bar"><div class="timeline-progress" id="progress-6"></div></div>
+    </div>
+
+    <!-- ────────────────────────────────────────── -->
+    <!-- SCENE 0: INTRO - BRANDING (0s - 3s) -->
+    <!-- ────────────────────────────────────────── -->
+    <div class="scene bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 flex flex-col items-center justify-center text-white text-center p-6" id="scene-0">
+      <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.1),transparent)] animate-pulse"></div>
+      <div class="z-10 animate-slide-up">
+        <!-- Logo animado -->
+        <div class="w-20 h-20 bg-white rounded-3xl flex items-center justify-center shadow-2xl mx-auto mb-6">
+          <img src="https://pixit.cl/logo-pixit.png" alt="Pixit" class="h-10 object-contain">
+        </div>
+        <h2 class="text-3xl font-extrabold tracking-tight mb-2">Meet Pixit</h2>
+        <p class="text-indigo-100 text-sm font-medium tracking-wide">El ERP definitivo para tu taller</p>
+      </div>
+    </div>
+
+    <!-- ────────────────────────────────────────── -->
+    <!-- SCENE 1: ORDENES / SEGUIMIENTO (3s - 6s) -->
+    <!-- ────────────────────────────────────────── -->
+    <div class="scene bg-slate-50 flex flex-col justify-between p-6" id="scene-1">
+      <div class="mt-8 text-center">
+        <span class="text-[10px] font-extrabold uppercase tracking-widest text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full">Flujo de Taller</span>
+        <h3 class="text-xl font-extrabold text-slate-800 mt-2">Órdenes de Trabajo</h3>
+      </div>
+
+      <!-- Card Central: Estado de Orden -->
+      <div class="bg-white rounded-2xl border border-slate-200/60 p-4 shadow-xl shadow-slate-100/50 space-y-4">
+        <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+          <div>
+            <p class="text-[10px] font-semibold text-slate-400">Orden de Servicio</p>
+            <p class="font-bold text-slate-800 text-sm">OT #3702</p>
+          </div>
+          <span class="text-xs font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded">Steve Docs</span>
+        </div>
+
+        <!-- Estados en secuencia -->
+        <div class="space-y-3">
+          <div class="flex items-center gap-3">
+            <div class="w-6 h-6 rounded-full bg-blue-100 border border-blue-400 flex items-center justify-center text-blue-600 text-xs font-bold" id="step-dot-1">✓</div>
+            <p class="text-xs font-semibold text-slate-800">1. Equipo Ingresado</p>
+          </div>
+          <div class="flex items-center gap-3 opacity-40 transition-all duration-500" id="step-row-2">
+            <div class="w-6 h-6 rounded-full bg-slate-100 border border-slate-300 flex items-center justify-center text-slate-500 text-xs font-bold" id="step-dot-2">2</div>
+            <p class="text-xs font-semibold text-slate-800">2. En Reparación</p>
+          </div>
+          <div class="flex items-center gap-3 opacity-40 transition-all duration-500" id="step-row-3">
+            <div class="w-6 h-6 rounded-full bg-slate-100 border border-slate-300 flex items-center justify-center text-slate-500 text-xs font-bold" id="step-dot-3">3</div>
+            <p class="text-xs font-semibold text-slate-800">3. Listo para Retiro</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Notificación automática flotante -->
+      <div class="bg-slate-900 text-white rounded-xl p-3 flex items-center gap-3 shadow-lg transform translate-y-4 opacity-0 transition-all duration-500" id="noti-bubble">
+        <div class="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center text-lg">✉</div>
+        <div class="flex-1 min-w-0">
+          <p class="text-[10px] font-bold text-green-400 uppercase">Notificación Enviada</p>
+          <p class="text-xs text-slate-200 truncate">"Tu equipo está listo para entrega..."</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ────────────────────────────────────────── -->
+    <!-- SCENE 2: INVENTARIO / ENLACE (6s - 9s) -->
+    <!-- ────────────────────────────────────────── -->
+    <div class="scene bg-slate-900 flex flex-col justify-between p-6 text-white" id="scene-2">
+      <div class="mt-8 text-center">
+        <span class="text-[10px] font-extrabold uppercase tracking-widest text-purple-400 bg-purple-950/60 px-2.5 py-1 rounded-full border border-purple-500/20">Carga Inteligente</span>
+        <h3 class="text-xl font-extrabold text-white mt-2">Kits de Desarme</h3>
+      </div>
+
+      <!-- Tabla mock con columna "Enlace" destacada -->
+      <div class="bg-slate-800/80 border border-slate-700/50 rounded-2xl p-4 shadow-2xl space-y-3">
+        <p class="text-[11px] font-bold text-slate-400">Importación Masiva de Repuestos</p>
+        <div class="space-y-2 text-[10px]">
+          <div class="grid grid-cols-4 font-bold text-slate-500 border-b border-slate-700 pb-1.5">
+            <div>SKU</div>
+            <div>Producto</div>
+            <div>Stock</div>
+            <div class="text-purple-400 text-right">Enlace</div>
+          </div>
+          <div class="grid grid-cols-4 text-slate-300">
+            <div>IP13-LCD</div>
+            <div class="truncate">Pantalla IP13</div>
+            <div>5</div>
+            <div class="text-purple-400 font-bold text-right">KIT-DES-01</div>
+          </div>
+          <div class="grid grid-cols-4 text-slate-300">
+            <div>IP13-BAT</div>
+            <div class="truncate">Batería IP13</div>
+            <div>5</div>
+            <div class="text-purple-400 font-bold text-right">KIT-DES-01</div>
+          </div>
+          <div class="grid grid-cols-4 text-slate-300">
+            <div>IP13-CHG</div>
+            <div class="truncate">Pin Carga IP13</div>
+            <div>5</div>
+            <div class="text-purple-400 font-bold text-right">KIT-DES-01</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mensaje explicativo del Enlace -->
+      <div class="bg-purple-950/30 border border-purple-500/20 rounded-xl p-3 text-center">
+        <p class="text-xs font-semibold text-purple-300">Vincula componentes en un solo clic</p>
+        <p class="text-[10px] text-purple-200/70 mt-1">Trae todas las piezas de repuesto al comprar un equipo usado.</p>
+      </div>
+    </div>
+
+    <!-- ────────────────────────────────────────── -->
+    <!-- SCENE 3: ESTADISTICAS Y METRICAS (9s - 12s) -->
+    <!-- ────────────────────────────────────────── -->
+    <div class="scene bg-slate-50 flex flex-col justify-between p-6" id="scene-3">
+      <div class="mt-8 text-center">
+        <span class="text-[10px] font-extrabold uppercase tracking-widest text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full">Reportabilidad</span>
+        <h3 class="text-xl font-extrabold text-slate-800 mt-2">Métricas en Tiempo Real</h3>
+      </div>
+
+      <!-- Panel de Métricas -->
+      <div class="space-y-3">
+        <div class="bg-white rounded-xl border border-slate-200/60 p-4 shadow-lg shadow-slate-100/50">
+          <div class="flex justify-between items-center mb-1">
+            <span class="text-xs text-slate-400 font-medium">Ventas Netas del Mes</span>
+            <span class="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">+32%</span>
+          </div>
+          <p class="text-2xl font-extrabold text-slate-900">$4.580.200</p>
+        </div>
+
+        <div class="bg-white rounded-xl border border-slate-200/60 p-4 shadow-lg shadow-slate-100/50">
+          <div class="flex justify-between items-center mb-1">
+            <span class="text-xs text-slate-400 font-medium">Reparaciones Listas</span>
+            <span class="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">Eficiencia</span>
+          </div>
+          <p class="text-2xl font-extrabold text-slate-900">142 órdenes</p>
+        </div>
+      </div>
+
+      <!-- Mini gráfico de barras animado -->
+      <div class="bg-white rounded-xl border border-slate-200/60 p-4 shadow-lg flex items-end justify-between h-24 gap-3">
+        <div class="bg-slate-200 w-full rounded-t-lg transition-all duration-700" style="height: 0%" id="bar-1"></div>
+        <div class="bg-slate-200 w-full rounded-t-lg transition-all duration-700" style="height: 0%" id="bar-2"></div>
+        <div class="bg-emerald-500 w-full rounded-t-lg transition-all duration-700" style="height: 0%" id="bar-3"></div>
+      </div>
+    </div>
+
+    <!-- ────────────────────────────────────────── -->
+    <!-- SCENE 4: POS / PUNTO DE VENTA (12s - 15s) -->
+    <!-- ────────────────────────────────────────── -->
+    <div class="scene bg-slate-50 flex flex-col justify-between p-6" id="scene-4">
+      <div class="mt-8 text-center">
+        <span class="text-[10px] font-extrabold uppercase tracking-widest text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full">Punto de Venta</span>
+        <h3 class="text-xl font-extrabold text-slate-800 mt-2">Ventas de Mostrador (POS)</h3>
+      </div>
+
+      <!-- Carrito de Compras -->
+      <div class="bg-white rounded-2xl border border-slate-200/60 p-4 shadow-xl space-y-3">
+        <p class="text-[11px] font-bold text-slate-500 border-b border-slate-100 pb-2">Carrito</p>
+        <div class="flex justify-between text-xs text-slate-700">
+          <span>1x Pantalla iPhone 13 Pro</span>
+          <span class="font-bold">$129.990</span>
+        </div>
+        <div class="flex justify-between text-xs text-slate-700">
+          <span>1x Vidrio Templado 9D</span>
+          <span class="font-bold">$9.990</span>
+        </div>
+        
+        <div class="border-t border-slate-100 pt-2 space-y-1">
+          <div class="flex justify-between text-[10px] text-slate-400">
+            <span>Subtotal</span>
+            <span>$117.630</span>
+          </div>
+          <div class="flex justify-between text-[10px] text-slate-400">
+            <span>IVA (19%)</span>
+            <span>$22.350</span>
+          </div>
+          <div class="flex justify-between text-sm font-extrabold text-slate-900 pt-1">
+            <span>Total a Pagar</span>
+            <span class="text-blue-600">$139.980</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Botón de Pago que se ilumina -->
+      <button class="w-full bg-blue-600 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-blue-500/20 text-sm transition-all duration-300" id="pos-btn-pay">
+        Cobrar y Generar Boleta
+      </button>
+    </div>
+
+    <!-- ────────────────────────────────────────── -->
+    <!-- SCENE 5: VISTA GLOBAL IPAD (15s - 18s) -->
+    <!-- ────────────────────────────────────────── -->
+    <div class="scene bg-slate-900 flex flex-col justify-center items-center p-6 text-white text-center" id="scene-5">
+      <span class="text-[10px] font-extrabold uppercase tracking-widest text-blue-400 bg-blue-950/60 px-2.5 py-1 rounded-full border border-blue-500/20 mb-4">Todo en Uno</span>
+      <h3 class="text-xl font-extrabold text-white mb-2">Control Absoluto</h3>
+      <p class="text-xs text-slate-400 max-w-[240px] mb-8">Administra tus talleres, finanzas e inventario desde cualquier dispositivo.</p>
+
+      <!-- Mockup de Pantalla iPad Simplificado -->
+      <div class="w-64 aspect-[4/3] bg-slate-950 border-4 border-slate-700 rounded-xl p-1.5 shadow-2xl relative">
+        <div class="flex h-full w-full bg-slate-800 rounded-md overflow-hidden text-[6px]">
+          <!-- Sidebar Mock -->
+          <div class="w-12 bg-slate-900 p-1 space-y-1 text-slate-500 flex flex-col border-r border-slate-700">
+            <div class="w-full h-1.5 bg-blue-500 rounded"></div>
+            <div class="w-full h-1 bg-slate-750 rounded"></div>
+            <div class="w-full h-1 bg-slate-750 rounded"></div>
+            <div class="w-full h-1 bg-slate-750 rounded"></div>
+          </div>
+          <!-- Content Mock -->
+          <div class="flex-1 p-1.5 space-y-1.5">
+            <div class="flex justify-between items-center">
+              <div class="w-12 h-1 bg-slate-600 rounded"></div>
+              <div class="w-4 h-1.5 bg-green-500 rounded"></div>
+            </div>
+            <div class="grid grid-cols-3 gap-1">
+              <div class="h-6 bg-slate-750 border border-slate-700 rounded"></div>
+              <div class="h-6 bg-slate-750 border border-slate-700 rounded"></div>
+              <div class="h-6 bg-slate-750 border border-slate-700 rounded"></div>
+            </div>
+            <div class="h-10 bg-slate-750 border border-slate-700 rounded"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ────────────────────────────────────────── -->
+    <!-- SCENE 6: OUTRO - CALL TO ACTION (18s - 21s) -->
+    <!-- ────────────────────────────────────────── -->
+    <div class="scene bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 flex flex-col items-center justify-center text-white text-center p-6" id="scene-6">
+      <div class="z-10 animate-slide-up space-y-6">
+        <div class="w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-2xl mx-auto">
+          <img src="https://pixit.cl/logo-pixit.png" alt="Pixit" class="h-8 object-contain">
+        </div>
+        
+        <div>
+          <h2 class="text-2xl font-black tracking-tight leading-tight">Simplifica tu Taller,<br><span class="text-yellow-300">Multiplica tus Ventas.</span></h2>
+          <p class="text-indigo-100 text-xs mt-3">Comienza hoy gratis por 30 días</p>
+        </div>
+
+        <div class="bg-white/10 backdrop-blur-md border border-white/20 rounded-full py-2 px-6 inline-block">
+          <span class="text-sm font-extrabold tracking-wide">www.pixit.cl</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Controles externos para la grabación -->
+  <div class="mt-6 flex gap-3">
+    <button id="btn-play" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs px-5 py-2.5 rounded-full transition shadow-lg shadow-blue-600/30">
+      Iniciar Grabación
+    </button>
+    <button id="btn-reset" class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs px-5 py-2.5 rounded-full transition">
+      Reiniciar
+    </button>
+  </div>
+
+  <script>
+    const sceneDuration = 3000; // 3 segundos por escena
+    const totalScenes = 7;
+    let activeScene = 0;
+    let timer = null;
+    let startTime = 0;
+
+    const btnPlay = document.getElementById('btn-play');
+    const btnReset = document.getElementById('btn-reset');
+
+    function setActiveScene(idx) {
+      // Ocultar todas las escenas
+      for (let i = 0; i < totalScenes; i++) {
+        const sc = document.getElementById(`scene-${i}`);
+        sc.classList.remove('active');
+        const prog = document.getElementById(`progress-${i}`);
+        prog.classList.remove('active');
+        
+        // Reset progress widths
+        if (i < idx) {
+          prog.style.width = '100%';
+        } else {
+          prog.style.width = '0%';
+        }
+      }
+
+      // Activar la actual
+      const activeSc = document.getElementById(`scene-${idx}`);
+      activeSc.classList.add('active');
+      
+      const activeProg = document.getElementById(`progress-${idx}`);
+      activeProg.classList.add('active');
+      activeProg.style.transitionDuration = `${sceneDuration}ms`;
+      // Forzar reflow para reiniciar la animación de la barra
+      activeProg.offsetHeight; 
+      activeProg.style.width = '100%';
+
+      // Micro animaciones internas por escena
+      triggerSceneMicroAnimations(idx);
+    }
+
+    function triggerSceneMicroAnimations(idx) {
+      if (idx === 1) {
+        // Flujo Taller (ingreso -> listo -> notificación)
+        const dot2 = document.getElementById('step-dot-2');
+        const row2 = document.getElementById('step-row-2');
+        const dot3 = document.getElementById('step-dot-3');
+        const row3 = document.getElementById('step-row-3');
+        const bubble = document.getElementById('noti-bubble');
+
+        // Reset
+        row2.style.opacity = '0.4';
+        row3.style.opacity = '0.4';
+        dot2.innerText = '2';
+        dot2.style.background = '#f1f5f9';
+        dot2.style.borderColor = '#cbd5e1';
+        dot3.innerText = '3';
+        dot3.style.background = '#f1f5f9';
+        dot3.style.borderColor = '#cbd5e1';
+        bubble.style.opacity = '0';
+        bubble.style.transform = 'translateY(16px)';
+
+        // Timeline
+        setTimeout(() => {
+          row2.style.opacity = '1';
+          dot2.innerText = '✓';
+          dot2.style.background = '#dbeafe';
+          dot2.style.borderColor = '#60a5fa';
+          dot2.style.color = '#2563eb';
+        }, 800);
+
+        setTimeout(() => {
+          row3.style.opacity = '1';
+          dot3.innerText = '✓';
+          dot3.style.background = '#dbeafe';
+          dot3.style.borderColor = '#60a5fa';
+          dot3.style.color = '#2563eb';
+        }, 1600);
+
+        setTimeout(() => {
+          bubble.style.opacity = '1';
+          bubble.style.transform = 'translateY(0)';
+        }, 2200);
+      }
+
+      if (idx === 3) {
+        // Reset e iluminar barras en escena de métricas
+        const b1 = document.getElementById('bar-1');
+        const b2 = document.getElementById('bar-2');
+        const b3 = document.getElementById('bar-3');
+
+        b1.style.height = '0%';
+        b2.style.height = '0%';
+        b3.style.height = '0%';
+
+        setTimeout(() => {
+          b1.style.height = '45%';
+          b2.style.height = '65%';
+          b3.style.height = '90%';
+        }, 100);
+      }
+
+      if (idx === 4) {
+        // POS botón pago
+        const btn = document.getElementById('pos-btn-pay');
+        btn.style.transform = 'scale(1)';
+        btn.style.background = '#2563eb';
+        btn.innerText = 'Cobrar y Generar Boleta';
+
+        setTimeout(() => {
+          btn.style.transform = 'scale(1.05)';
+          btn.style.background = '#059669'; // Cambia a verde en confirmación de pago
+          btn.innerText = '¡Pago Exitoso! Boleta #241';
+        }, 1500);
+      }
+    }
+
+    function startReel() {
+      if (timer) clearInterval(timer);
+      activeScene = 0;
+      setActiveScene(activeScene);
+
+      timer = setInterval(() => {
+        activeScene++;
+        if (activeScene >= totalScenes) {
+          clearInterval(timer);
+          timer = null;
+          // Dejar la barra del último cargada y mantener escena outro
+          return;
+        }
+        setActiveScene(activeScene);
+      }, sceneDuration);
+    }
+
+    btnPlay.addEventListener('click', () => {
+      startReel();
+      btnPlay.innerText = 'Grabando...';
+    });
+
+    btnReset.addEventListener('click', () => {
+      if (timer) clearInterval(timer);
+      activeScene = 0;
+      setActiveScene(activeScene);
+      btnPlay.innerText = 'Iniciar Grabación';
+    });
+
+    // Iniciar con la primera pantalla
+    setActiveScene(0);
+  </script>
+</body>
+</html>
