@@ -556,7 +556,10 @@ function GastoModal({ cats, bodegas, gasto, subcatsPorCat, onClose, onGuardar }:
           </div>
 
           {/* Fila 2: Descripción + Método + Fecha */}
-          <div className="grid grid-cols-2 gap-4">
+          {/* En mobile se apila (Descripción en su fila, Método+Fecha en la
+              suya) — con grid-cols-2 fijo, Método+Fecha quedaban anidados
+              dentro de una columna ya angosta y se cortaban (ej. "Efect..."). */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider block mb-1.5">Descripción</label>
               <input type="text" value={descripcion}
