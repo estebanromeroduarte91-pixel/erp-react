@@ -15,6 +15,43 @@ function normalizar(s: string) {
   return s.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ')
 }
 
+// ¿"a" y "b" (ya normalizados) son la misma variante? Igual, o una es prefijo
+// de la otra respetando límite de palabra — así "enrique" unifica con
+// "enrique caramaro" pero "ana" no unifica con "anastasia".
+function esVariante(a: string, b: string) {
+  return a === b || a.startsWith(b + ' ') || b.startsWith(a + ' ')
+}
+
+// Agrupa subcategorías crudas tratando variantes (mayúsculas/tildes/nombre
+// incompleto) como una sola — se muestra la forma más larga/completa vista
+// como nombre canónico. Devuelve un Map(forma normalizada más larga -> display).
+function unificarSubcategorias(raws: string[]): Map<string, string> {
+  const grupos: { norm: string; display: string }[] = []
+  for (const raw of raws) {
+    const n = normalizar(raw)
+    if (!n) continue
+    const grupo = grupos.find(g => esVariante(g.norm, n))
+    if (!grupo) grupos.push({ norm: n, display: raw })
+    else if (n.length > grupo.norm.length) { grupo.norm = n; grupo.display = raw }
+  }
+  const map = new Map<string, string>()
+  grupos.forEach(g => map.set(g.norm, g.display))
+  return map
+}
+
+// Busca a qué grupo canónico corresponde un texto escrito (aunque sea una
+// variante parcial no vista exactamente antes, ej. "Enrique C" con el grupo
+// canónico ya siendo "Enrique Caramaro").
+function buscarCanonico(grupos: Map<string, string> | undefined, texto: string): string | undefined {
+  if (!grupos) return undefined
+  const n = normalizar(texto)
+  if (!n) return undefined
+  for (const [gn, display] of grupos) {
+    if (esVariante(gn, n)) return n.length > gn.length ? texto.trim() : display
+  }
+  return undefined
+}
+
 function fmtFecha(f: string) {
   if (!f) return '—'
   const [y, m, d] = f.split('-')
@@ -85,17 +122,18 @@ export function GastosTab() {
   }, [cats])
 
   // Subcategorías canónicas por categoría (forma normalizada -> nombre a mostrar),
-  // derivadas de los gastos existentes. Sirve para autocompletar y unificar duplicados.
+  // derivadas de los gastos existentes. Sirve para autocompletar y unificar duplicados
+  // (incluyendo variantes por nombre incompleto, ej. "Enrique" / "Enrique Caramaro").
   const subcatsPorCat = useMemo(() => {
-    const m: Record<string, Map<string, string>> = {}
+    const crudasPorCat: Record<string, string[]> = {}
     ;(gastos ?? []).forEach(g => {
       const sub = (g.subcategoria ?? '').trim()
       if (!sub) return
       const cat = g.categoria ?? ''
-      ;(m[cat] ??= new Map())
-      const n = normalizar(sub)
-      if (!m[cat].has(n)) m[cat].set(n, sub)
+      ;(crudasPorCat[cat] ??= []).push(sub)
     })
+    const m: Record<string, Map<string, string>> = {}
+    for (const cat in crudasPorCat) m[cat] = unificarSubcategorias(crudasPorCat[cat])
     return m
   }, [gastos])
 
@@ -142,14 +180,15 @@ export function GastosTab() {
       ;(byCat[cat] ??= { total: 0, subs: {} })
       byCat[cat].total += monto
       const raw = (g.subcategoria ?? '').trim()
-      const key = raw ? normalizar(raw) : '__none__'
-      const nombre = raw || 'Sin subcategoría'
+      const canon = raw ? (buscarCanonico(subcatsPorCat[g.categoria ?? ''], raw) ?? raw) : undefined
+      const key = canon ? normalizar(canon) : '__none__'
+      const nombre = canon || 'Sin subcategoría'
       ;(byCat[cat].subs[key] ??= { nombre, monto: 0 }).monto += monto
     })
     return Object.entries(byCat)
       .map(([cat, d]) => ({ cat, total: d.total, subs: Object.values(d.subs).sort((a, b) => b.monto - a.monto) }))
       .sort((a, b) => b.total - a.total)
-  }, [gastos, busqueda])
+  }, [gastos, busqueda, subcatsPorCat])
 
   async function eliminar(g: Gasto) {
     if (!confirm(`¿Eliminar "${g.descripcion}"?`)) return
@@ -370,9 +409,10 @@ function GastoModal({ cats, bodegas, gasto, subcatsPorCat, onClose, onGuardar }:
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState('')
 
-  // Nombre canónico si coincide con una subcategoría existente (unifica variantes).
+  // Nombre canónico si coincide con una subcategoría existente (unifica variantes,
+  // incluyendo nombre incompleto: "Enrique" se unifica con "Enrique Caramaro").
   const canonMap = subcatsPorCat[categoria]
-  const subCanonica = subcategoria.trim() ? (canonMap?.get(normalizar(subcategoria)) ?? subcategoria.trim()) : undefined
+  const subCanonica = subcategoria.trim() ? (buscarCanonico(canonMap, subcategoria) ?? subcategoria.trim()) : undefined
   const seUnifica = !!subcategoria.trim() && !!subCanonica && subCanonica !== subcategoria.trim()
   const subSugerencias = useMemo(() => {
     const todas = canonMap ? [...canonMap.values()] : []
@@ -424,7 +464,7 @@ function GastoModal({ cats, bodegas, gasto, subcatsPorCat, onClose, onGuardar }:
 
         <div className="px-6 py-5 overflow-y-auto space-y-4">
 
-          {/* Fila 1: Monto + Descripción */}
+          {/* Fila 1: Monto + A quién se paga (subcategoría) */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider block mb-1.5">Monto</label>
@@ -440,52 +480,8 @@ function GastoModal({ cats, bodegas, gasto, subcatsPorCat, onClose, onGuardar }:
               </div>
             </div>
             <div>
-              <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider block mb-1.5">Descripción</label>
-              <input type="text" value={descripcion}
-                onChange={e => setDescripcion(e.target.value)}
-                onBlur={e => setDescripcion(capFirst(e.target.value))}
-                placeholder="Ej: Agua y luz de octubre"
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400 transition" />
-            </div>
-          </div>
-
-          {/* Categorías */}
-          <div>
-            <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider block mb-2">Categoría</label>
-            <div className="flex flex-wrap gap-1.5">
-              {cats.map(c => {
-                const sel = categoria === c.nombre
-                return (
-                  <button key={c.id} type="button" onClick={() => setCategoria(c.nombre)}
-                    className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition border"
-                    style={sel
-                      ? { borderColor: c.color, background: c.color, color: '#fff' }
-                      : { borderColor: '#e5e7eb', background: '#f9fafb', color: '#6b7280' }}>
-                    <span className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                      style={{ background: sel ? 'rgba(255,255,255,0.7)' : c.color }} />
-                    {c.nombre}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* Sucursal (obligatorio, para separar utilidad por sucursal) */}
-          <div>
-            <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider block mb-1.5">Sucursal</label>
-            <select value={bodegaId} onChange={e => setBodegaId(e.target.value)}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400 transition">
-              <option value="">-- Elegir sucursal --</option>
-              {bodegas.map(b => <option key={b.id} value={b.id}>{b.nombre ?? b.name}</option>)}
-              <option value={GASTO_GENERAL_ID}>General / Compartido (se reparte entre sucursales)</option>
-            </select>
-          </div>
-
-          {/* Fila 2: Subcategoría + Método + Fecha */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
               <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider block mb-1.5">
-                Subcategoría <span className="normal-case font-normal text-gray-300">(opcional)</span>
+                A quién se paga <span className="normal-case font-normal text-gray-300">(opcional)</span>
               </label>
               <div className="relative">
                 <input ref={subInputRef} type="text" value={subcategoria}
@@ -524,6 +520,50 @@ function GastoModal({ cats, bodegas, gasto, subcatsPorCat, onClose, onGuardar }:
                   Se unificará con "{subCanonica}"
                 </p>
               )}
+            </div>
+          </div>
+
+          {/* Categorías */}
+          <div>
+            <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider block mb-2">Categoría</label>
+            <div className="flex flex-wrap gap-1.5">
+              {cats.map(c => {
+                const sel = categoria === c.nombre
+                return (
+                  <button key={c.id} type="button" onClick={() => setCategoria(c.nombre)}
+                    className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition border"
+                    style={sel
+                      ? { borderColor: c.color, background: c.color, color: '#fff' }
+                      : { borderColor: '#e5e7eb', background: '#f9fafb', color: '#6b7280' }}>
+                    <span className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                      style={{ background: sel ? 'rgba(255,255,255,0.7)' : c.color }} />
+                    {c.nombre}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Sucursal (obligatorio, para separar utilidad por sucursal) */}
+          <div>
+            <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider block mb-1.5">Sucursal</label>
+            <select value={bodegaId} onChange={e => setBodegaId(e.target.value)}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400 transition">
+              <option value="">-- Elegir sucursal --</option>
+              {bodegas.map(b => <option key={b.id} value={b.id}>{b.nombre ?? b.name}</option>)}
+              <option value={GASTO_GENERAL_ID}>General / Compartido (se reparte entre sucursales)</option>
+            </select>
+          </div>
+
+          {/* Fila 2: Descripción + Método + Fecha */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider block mb-1.5">Descripción</label>
+              <input type="text" value={descripcion}
+                onChange={e => setDescripcion(e.target.value)}
+                onBlur={e => setDescripcion(capFirst(e.target.value))}
+                placeholder="Ej: Agua y luz de octubre"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400 transition" />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
