@@ -1552,11 +1552,19 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
       <>
         {createPortal(
           <div
-            className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-2 md:p-4"
+            className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 px-2 md:px-4"
+            style={{
+              paddingTop: 'max(env(safe-area-inset-top), 0.5rem)',
+              paddingBottom: 'max(env(safe-area-inset-bottom), 0.5rem)',
+            }}
             onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
           >
+            {/* 90dvh (no vh): en mobile Safari con la barra de dirección visible,
+                vh se calcula sobre el viewport "grande" (barra oculta) y la tarjeta
+                queda más alta que el área visible real, perdiendo el margen/redondeo
+                contra el status bar. */}
             <div className="bg-white rounded-2xl w-full max-w-6xl shadow-2xl flex flex-col overflow-hidden"
-              style={{ height: '90vh' }}>
+              style={{ height: '90dvh' }}>
               {content}
             </div>
           </div>,
