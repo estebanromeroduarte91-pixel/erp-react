@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { useGastos, useCrearGasto, useActualizarGasto, useEliminarGasto, useGastoCats, useGuardarGastoCats, usePlanCuentas, useCatCuentaMap, useAsientos, useGuardarAsientos, useBodegas } from '@/lib/queries'
 import { asientoDeGasto, asientoIdDeGasto, nextNumeroAsiento } from '@/lib/contabilidad'
 import { GASTO_GENERAL_ID } from '@/lib/gastos'
@@ -363,6 +363,7 @@ function GastoModal({ cats, bodegas, gasto, subcatsPorCat, onClose, onGuardar }:
   const [categoria, setCategoria] = useState(gasto?.categoria ?? (cats[0]?.nombre ?? ''))
   const [subcategoria, setSubcategoria] = useState(gasto?.subcategoria ?? '')
   const [subOpen, setSubOpen] = useState(false)
+  const subInputRef = useRef<HTMLInputElement>(null)
   const [metodo, setMetodo] = useState(gasto?.metodo ?? 'Efectivo')
   const [bodegaId, setBodegaId] = useState(gasto?.bodega_id ?? '')
   const [fecha, setFecha] = useState(gasto?.fecha ?? today())
@@ -487,9 +488,15 @@ function GastoModal({ cats, bodegas, gasto, subcatsPorCat, onClose, onGuardar }:
                 Subcategoría <span className="normal-case font-normal text-gray-300">(opcional)</span>
               </label>
               <div className="relative">
-                <input type="text" value={subcategoria}
+                <input ref={subInputRef} type="text" value={subcategoria}
                   onChange={e => { const v = e.target.value; setSubcategoria(v.charAt(0).toUpperCase() + v.slice(1)); setSubOpen(true) }}
-                  onFocus={() => setSubOpen(true)}
+                  onFocus={() => {
+                    setSubOpen(true)
+                    // El teclado mobile tarda en animarse; sin el delay, scrollIntoView
+                    // calcula el espacio disponible ANTES de que el viewport visual se
+                    // achique, y el desplegable de sugerencias queda tapado por el teclado.
+                    setTimeout(() => subInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 300)
+                  }}
                   onBlur={() => setTimeout(() => setSubOpen(false), 180)}
                   placeholder="Ej: Candela, Sucursal Centro…"
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400 transition" />
