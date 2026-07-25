@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pixit - Creador de Gráficas para Instagram</title>
+  <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #0f172a;
+    }
+  </style>
+</head>
+<body class="min-h-screen text-slate-100 flex flex-col items-center justify-start p-4 md:p-8">
+
+  <header class="w-full max-w-6xl mx-auto mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <div>
+      <h1 class="text-3xl font-extrabold tracking-tight text-white flex items-center gap-2">
+        <span class="bg-blue-600 px-2.5 py-1 rounded-xl text-xl font-black">P</span> Pixit Post Studio
+      </h1>
+      <p class="text-slate-400 text-sm mt-1">Crea gráficas de 1080x1080 para tu Instagram con capturas reales de tu software.</p>
+    </div>
+    <div class="text-slate-400 text-xs bg-slate-800/80 border border-slate-700/60 rounded-xl px-4 py-2">
+      📍 URL Local: <a href="http://localhost:5173/instagram_graphics.html" target="_blank" class="text-blue-400 hover:underline">http://localhost:5173/instagram_graphics.html</a>
+    </div>
+  </header>
+
+  <main class="w-full max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+    
+    <!-- PANEL DE CONTROL (IZQUIERDA) - 5 Cols -->
+    <div class="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-6">
+      <div>
+        <h2 class="text-lg font-bold text-white mb-2">1. Seleccionar un Preset</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2" id="presets-container">
+          <!-- Presets are loaded dynamically by JS -->
+        </div>
+      </div>
+
+      <hr class="border-slate-800">
+
+      <div class="space-y-4">
+        <h2 class="text-lg font-bold text-white">2. Personalizar Textos</h2>
+        
+        <div>
+          <label class="text-xs font-semibold text-slate-400 block mb-1">Título Principal (Máx. 40 car.)</label>
+          <input type="text" id="input-title" value="Simplifica tu Taller" 
+            class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
+        </div>
+
+        <div>
+          <label class="text-xs font-semibold text-slate-400 block mb-1">Subtítulo secundario</label>
+          <input type="text" id="input-subtitle" value="El ERP definitivo para tu servicio técnico" 
+            class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
+        </div>
+      </div>
+
+      <hr class="border-slate-800">
+
+      <div class="space-y-4">
+        <h2 class="text-lg font-bold text-white">3. Cargar Captura Real</h2>
+        
+        <div class="border-2 border-dashed border-slate-700 hover:border-slate-500 rounded-2xl p-6 text-center cursor-pointer relative transition">
+          <input type="file" id="input-image" accept="image/*" class="absolute inset-0 opacity-0 cursor-pointer">
+          <div class="space-y-2">
+            <svg class="w-8 h-8 text-slate-400 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+            </svg>
+            <p class="text-xs text-slate-300 font-semibold" id="upload-status">Haz clic para cargar captura</p>
+            <p class="text-[10px] text-slate-500">Formato JPG, PNG (se ajustará automáticamente)</p>
+          </div>
+        </div>
+      </div>
+
+      <button id="btn-download" 
+        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-2xl shadow-lg shadow-blue-500/20 text-sm transition-all flex items-center justify-center gap-2">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+        Descargar Gráfica 1080x1080
+      </button>
+    </div>
+
+    <!-- PREVISUALIZADOR DE GRÁFICA (DERECHA) - 7 Cols -->
+    <div class="lg:col-span-7 flex flex-col items-center justify-center bg-slate-950/40 border border-slate-800/80 rounded-3xl p-6 relative">
+      <p class="text-xs text-slate-400 mb-3 font-semibold uppercase tracking-wider">Vista Previa del Post (1080x1080)</p>
+
+      <!-- Instagram Square Canvas Container (1:1 Ratio) -->
+      <div class="relative w-full max-w-[480px] aspect-square bg-white rounded-3xl overflow-hidden border border-slate-800/50 shadow-2xl flex flex-col justify-between p-8 text-slate-800" id="instagram-square">
+        
+        <!-- Gradient Blobs -->
+        <div class="absolute -bottom-24 -left-24 w-72 h-72 rounded-full bg-blue-500/20 blur-3xl pointer-events-none"></div>
+        <div class="absolute -top-24 -right-24 w-72 h-72 rounded-full bg-purple-500/20 blur-3xl pointer-events-none"></div>
+
+        <!-- Header Texts -->
+        <div class="text-center relative z-10 space-y-2 mt-4">
+          <div class="flex items-center justify-center gap-1.5 mb-3">
+            <img src="https://pixit.cl/logo-pixit.png" alt="Pixit" class="h-6 object-contain">
+          </div>
+          <h3 id="prev-title" class="text-2xl md:text-3xl font-black text-slate-900 leading-tight">
+            Simplifica tu Taller
+          </h3>
+          <p id="prev-subtitle" class="text-xs md:text-sm text-slate-500 font-medium max-w-sm mx-auto">
+            El ERP definitivo para tu servicio técnico
+          </p>
+        </div>
+
+        <!-- Rounded Glassmorphism Card for Screenshot -->
+        <div class="relative z-10 flex-grow flex items-center justify-center mt-6 mb-4">
+          <div class="w-[90%] aspect-[16/10] bg-slate-900/5 backdrop-blur-md rounded-2xl border border-slate-900/10 shadow-[0_20px_50px_rgba(0,0,0,0.12)] p-1.5 overflow-hidden flex items-center justify-center">
+            <div class="w-full h-full bg-slate-100 rounded-[10px] overflow-hidden flex items-center justify-center relative">
+              <img id="prev-screenshot" src="instagram/Dashboard.png" alt="Screenshot" 
+                class="w-full h-full object-cover">
+              
+              <!-- Placeholder mask when no image uploaded -->
+              <div id="prev-placeholder" class="absolute inset-0 bg-slate-100 flex flex-col items-center justify-center border-2 border-dashed border-slate-300 rounded-[10px] hidden">
+                <svg class="w-8 h-8 text-slate-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                <p class="text-slate-400 text-[10px] font-semibold">Sube una captura de pantalla</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Hidden canvas for generating high-res download -->
+      <canvas id="export-canvas" width="1080" height="1080" class="hidden"></canvas>
+    </div>
+
+  </main>
+
+  <script>
+    const presets = [
+      {
+        title: "Simplifica tu Taller",
+        subtitle: "Controla reparaciones, stock y facturación en un solo lugar.",
+        tag: "Branding"
+      },
+      {
+        title: "¿Sigues controlando con Excel?",
+        subtitle: "Da el salto al orden automático y olvídate de las planillas.",
+        tag: "Excel Dolor"
+      },
+      {
+        title: "Kits y Desarme en un Clic",
+        subtitle: "Usa la columna Enlace para cargar todos tus repuestos en lote.",
+        tag: "Inventario"
+      },
+      {
+        title: "Notifica a tu Cliente al Instante",
+        subtitle: "Correos automáticos de Ingresado, En Reparación y Listo.",
+        tag: "Taller"
+      },
+      {
+        title: "Métricas y Utilidades Reales",
+        subtitle: "Toma decisiones basadas en datos de tu servicio técnico.",
+        tag: "Métricas"
+      },
+      {
+        title: "Punto de Venta Integrado",
+        subtitle: "Vende accesorios y repuestos por mesón en segundos.",
+        tag: "POS"
+      }
+    ];
+
+    const presetsContainer = document.getElementById('presets-container');
+    const inputTitle = document.getElementById('input-title');
+    const inputSubtitle = document.getElementById('input-subtitle');
+    const inputImage = document.getElementById('input-image');
+    
+    const prevTitle = document.getElementById('prev-title');
+    const prevSubtitle = document.getElementById('prev-subtitle');
+    const prevScreenshot = document.getElementById('prev-screenshot');
+    const prevPlaceholder = document.getElementById('prev-placeholder');
+    const uploadStatus = document.getElementById('upload-status');
+    const btnDownload = document.getElementById('btn-download');
+
+    let uploadedImageBase64 = null;
+
+    // Load presets in control panel
+    presets.forEach((p, idx) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'bg-slate-800 hover:bg-slate-750 border border-slate-750 hover:border-slate-600 rounded-xl p-3 text-left transition flex flex-col justify-between h-20';
+      btn.innerHTML = `
+        <span class="text-[9px] font-extrabold uppercase tracking-widest text-blue-400">${p.tag}</span>
+        <span class="text-xs font-bold text-white truncate w-full mt-1">${p.title}</span>
+      `;
+      btn.addEventListener('click', () => {
+        inputTitle.value = p.title;
+        inputSubtitle.value = p.subtitle;
+        updatePreview();
+      });
+      presetsContainer.appendChild(btn);
+    });
+
+    // Handle real-time input updates
+    inputTitle.addEventListener('input', updatePreview);
+    inputSubtitle.addEventListener('input', updatePreview);
+
+    function updatePreview() {
+      prevTitle.innerText = inputTitle.value;
+      prevSubtitle.innerText = inputSubtitle.value;
+    }
+
+    // Handle image upload and display as Base64 in preview
+    inputImage.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      uploadStatus.innerText = "Cargando...";
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        uploadedImageBase64 = event.target.result;
+        prevScreenshot.src = uploadedImageBase64;
+        prevScreenshot.classList.remove('hidden');
+        prevPlaceholder.classList.add('hidden');
+        uploadStatus.innerText = "¡Captura cargada!";
+      };
+      reader.readAsDataURL(file);
+    });
+
+    // Helper: Draw rounded corners rectangle path in Canvas
+    function roundRect(ctx, x, y, width, height, radius) {
+      ctx.beginPath();
+      ctx.moveTo(x + radius, y);
+      ctx.lineTo(x + width - radius, y);
+      ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+      ctx.lineTo(x + width, y + height - radius);
+      ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+      ctx.lineTo(x + radius, y + height);
+      ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+      ctx.lineTo(x, y + radius);
+      ctx.quadraticCurveTo(x, y, x + radius, y);
+      ctx.closePath();
+    }
+
+    // High-Resolution 1080x1080 PNG Canvas Compilation and Download
+    btnDownload.addEventListener('click', () => {
+      const canvas = document.getElementById('export-canvas');
+      const ctx = canvas.getContext('2d');
+
+      // 1. Draw solid white background
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, 1080, 1080);
+
+      // 2. Draw gradient blobs
+      // Blue radial gradient blob (bottom-left)
+      const blueGrad = ctx.createRadialGradient(-100, 1180, 0, -100, 1180, 600);
+      blueGrad.addColorStop(0, 'rgba(37, 99, 235, 0.18)');
+      blueGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+      ctx.fillStyle = blueGrad;
+      ctx.fillRect(0, 0, 1080, 1080);
+
+      // Purple radial gradient blob (top-right)
+      const purpleGrad = ctx.createRadialGradient(1180, -100, 0, 1180, -100, 600);
+      purpleGrad.addColorStop(0, 'rgba(147, 51, 234, 0.18)');
+      purpleGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+      ctx.fillStyle = purpleGrad;
+      ctx.fillRect(0, 0, 1080, 1080);
+
+      // 3. Draw Brand logo (Pixit)
+      const logoImg = new Image();
+      logoImg.crossOrigin = "anonymous";
+      logoImg.src = "https://pixit.cl/logo-pixit.png";
+      
+      logoImg.onload = () => {
+        // Draw Logo at top centered
+        const logoH = 46;
+        const logoW = (logoImg.width / logoImg.height) * logoH;
+        const logoX = (1080 - logoW) / 2;
+        ctx.drawImage(logoImg, logoX, 100, logoW, logoH);
+
+        // 4. Draw Typography (Helvetica fallback)
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+
+        // Title
+        ctx.font = '900 54px "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif';
+        ctx.fillStyle = '#0f172a';
+        ctx.fillText(inputTitle.value, 540, 200);
+
+        // Subtitle
+        ctx.font = '500 28px "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif';
+        ctx.fillStyle = '#64748b';
+        // Simple manual line wrapping if subtitle is long
+        const subtitle = inputSubtitle.value;
+        if (subtitle.length > 55) {
+          ctx.fillText(subtitle.substring(0, 55) + '...', 540, 280);
+        } else {
+          ctx.fillText(subtitle, 540, 280);
+        }
+
+        // 5. Draw Drop Shadow & Glassmorphism card for screenshot
+        const cardW = 860;
+        const cardH = 538;
+        const cardX = (1080 - cardW) / 2;
+        const cardY = 400;
+        const radius = 24;
+
+        // Shadow path
+        ctx.save();
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.12)';
+        ctx.shadowBlur = 45;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 25;
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+        roundRect(ctx, cardX, cardY, cardW, cardH, radius);
+        ctx.fill();
+        ctx.restore();
+
+        // 6. Draw Screenshot Image
+        const screenshotImg = new Image();
+        screenshotImg.crossOrigin = "anonymous";
+        screenshotImg.src = uploadedImageBase64 || "instagram/Dashboard.png";
+
+        screenshotImg.onload = () => {
+          ctx.save();
+          // Clip screenshot image to rounded corners card path
+          roundRect(ctx, cardX + 4, cardY + 4, cardW - 8, cardH - 8, radius - 4);
+          ctx.clip();
+          
+          // Draw image to fill card
+          ctx.drawImage(screenshotImg, cardX + 4, cardY + 4, cardW - 8, cardH - 8);
+          ctx.restore();
+
+          // 7. Draw card outer border outline
+          ctx.strokeStyle = 'rgba(15, 23, 42, 0.1)';
+          ctx.lineWidth = 3;
+          roundRect(ctx, cardX, cardY, cardW, cardH, radius);
+          ctx.stroke();
+
+          // 8. Download compiled canvas as image file
+          const link = document.createElement('a');
+          link.download = `pixit_post_${inputTitle.value.toLowerCase().replace(/\s+/g, '_')}.png`;
+          link.href = canvas.toDataURL("image/png");
+          link.click();
+        };
+      };
+    });
+  </script>
+</body>
+</html>
