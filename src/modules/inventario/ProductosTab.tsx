@@ -2,6 +2,7 @@ import { useState, useMemo, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useProductos, useBodegas, useEliminarProducto, useEliminarTodosProductos, useImportarProductos, useFijarStock, useLotes, useCrearLotes } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
+import { useIsMobile } from '@/lib/useIsMobile'
 import { Money } from '@/components/shared/Money'
 import { Spinner } from '@/components/shared/Spinner'
 import { ProductoModal } from './ProductoModal'
@@ -115,6 +116,7 @@ export function ProductosTab() {
   const { data: lotes = [] } = useLotes()
   const crearLotes = useCrearLotes()
   const { esAdmin } = useAuth()
+  const isMobile = useIsMobile()
 
   const [busqueda, setBusqueda]     = useState('')
   const [filtroBodega, setFiltroBodega] = useState('')
@@ -122,6 +124,8 @@ export function ProductosTab() {
   const [filtroSub, setFiltroSub]   = useState('')
   const [filtroTipo, setFiltroTipo] = useState<'producto' | 'servicio' | ''>('')
   const [bajosStock, setBajosStock] = useState(false)
+  const [filtrosSheetOpen, setFiltrosSheetOpen] = useState(false)
+  const [accionesMenuOpen, setAccionesMenuOpen] = useState(false)
   const [modalOpen, setModalOpen]       = useState(false)
   const [editando, setEditando]         = useState<Producto | null>(null)
   const [importModal, setImportModal]     = useState(false)
@@ -171,6 +175,16 @@ export function ProductosTab() {
     setFiltroCat(cat)
     setFiltroSub('')  // reset subcat cuando cambia la cat
   }
+
+  // Chips de filtros activos (mobile) — no incluye la búsqueda: esa ya se ve
+  // escrita en el buscador, no hace falta repetirla como chip.
+  const chipsFiltros = [
+    filtroBodega && { key: 'bodega', label: (bodegas ?? []).find(b => b.id === filtroBodega)?.nombre ?? (bodegas ?? []).find(b => b.id === filtroBodega)?.name ?? 'Sucursal', onClear: () => setFiltroBodega('') },
+    filtroCat && { key: 'cat', label: filtroCat, onClear: () => cambiarCat('') },
+    filtroSub && { key: 'sub', label: filtroSub, onClear: () => setFiltroSub('') },
+    filtroTipo && { key: 'tipo', label: filtroTipo === 'servicio' ? 'Servicios' : 'Productos', onClear: () => setFiltroTipo('') },
+    bajosStock && { key: 'stock', label: 'Bajo stock', onClear: () => setBajosStock(false) },
+  ].filter((c): c is { key: string; label: string; onClear: () => void } => !!c)
 
   function abrirNuevo()         { setEditando(null);  setModalOpen(true) }
   function abrirEditar(p: Producto) { setEditando(p); setModalOpen(true) }
@@ -309,139 +323,239 @@ export function ProductosTab() {
 
   const bdList = bodegas ?? []
 
+  // Los 4 selects de filtro — se reutilizan tal cual en desktop (siempre
+  // visibles) y dentro de la hoja de filtros de mobile (colapsados).
+  const filtrosSelects = (
+    <>
+      {bdList.length > 0 && (
+        <select value={filtroBodega} onChange={e => setFiltroBodega(e.target.value)}
+          className={[
+            'text-base md:text-sm border rounded-lg px-3 py-1.5 focus:outline-none focus:border-blue-400',
+            filtroBodega ? 'border-blue-400 bg-blue-50 text-blue-700 font-semibold' : 'border-gray-200 bg-gray-50',
+          ].join(' ')}>
+          <option value="">Todas las sucursales</option>
+          {bdList.map(b => <option key={b.id} value={b.id}>{b.nombre ?? b.name}</option>)}
+        </select>
+      )}
+
+      <select value={filtroCat} onChange={e => cambiarCat(e.target.value)}
+        className={[
+          'text-base md:text-sm border rounded-lg px-3 py-1.5 focus:outline-none focus:border-blue-400',
+          filtroCat ? 'border-blue-400 bg-blue-50 text-blue-700 font-semibold' : 'border-gray-200 bg-gray-50',
+        ].join(' ')}>
+        <option value="">Todas las categorías</option>
+        {categorias.map(c => <option key={c} value={c}>{c}</option>)}
+      </select>
+
+      {subcategorias.length > 0 && (
+        <select value={filtroSub} onChange={e => setFiltroSub(e.target.value)}
+          className={[
+            'text-base md:text-sm border rounded-lg px-3 py-1.5 focus:outline-none focus:border-blue-400',
+            filtroSub ? 'border-blue-400 bg-blue-50 text-blue-700 font-semibold' : 'border-gray-200 bg-gray-50',
+          ].join(' ')}>
+          <option value="">Todas las subcategorías</option>
+          {subcategorias.map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
+      )}
+
+      <select value={filtroTipo} onChange={e => setFiltroTipo(e.target.value as 'producto' | 'servicio' | '')}
+        className={[
+          'text-base md:text-sm border rounded-lg px-3 py-1.5 focus:outline-none focus:border-blue-400',
+          filtroTipo === 'servicio' ? 'border-violet-400 bg-violet-50 text-violet-700 font-semibold' : 'border-gray-200 bg-gray-50',
+        ].join(' ')}>
+        <option value="">Todos los tipos</option>
+        <option value="producto">Productos</option>
+        <option value="servicio">Servicios</option>
+      </select>
+
+      <button onClick={() => setBajosStock(v => !v)}
+        className={[
+          'inline-flex items-center gap-1.5 text-sm border rounded-lg px-3 py-1.5 font-medium transition',
+          bajosStock
+            ? 'border-red-400 bg-red-50 text-red-700'
+            : 'border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100',
+        ].join(' ')}>
+        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+        </svg>
+        Bajo stock
+      </button>
+    </>
+  )
+
+  // Los 3 botones de acciones secundarias (solo admin) — en mobile viven
+  // adentro del menú "···" para no ocupar toda la fila de arriba.
+  const accionesSecundarias = (
+    <>
+      <button
+        id="tour-inventario-btn-importar-excel"
+        onClick={() => { setImportRows([]); setImportError(''); setImportModal(true); setAccionesMenuOpen(false) }}
+        className="flex items-center gap-2 text-sm font-semibold px-3 py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition">
+        <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+        </svg>
+        Importar Excel
+      </button>
+      <button onClick={() => { eliminarTodo(); setAccionesMenuOpen(false) }}
+        className="flex items-center gap-2 text-sm font-semibold px-3 py-2 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 transition">
+        <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+        </svg>
+        Eliminar todo
+      </button>
+      <button onClick={() => { generarLotesApertura(); setAccionesMenuOpen(false) }} title="Costeo FIFO: crea lotes de apertura para el stock actual"
+        className="flex items-center gap-2 text-sm font-semibold px-3 py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition">
+        <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+        </svg>
+        Lotes de apertura
+      </button>
+    </>
+  )
+
   return (
     <div>
       {/* Toolbar */}
       <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4">
-        {/* Fila 1: búsqueda + botón */}
-        <div className="flex flex-wrap gap-3 items-center mb-3">
-          <div className="relative flex-1 min-w-48">
-            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
-              fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            <input type="text" value={busqueda} onChange={e => setBusqueda(e.target.value)}
-              placeholder="Buscar producto o SKU..."
-              className="w-full pl-9 pr-3 py-2 text-base md:text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:border-blue-400" />
-          </div>
-          <div className="flex items-center gap-2">
-            {esAdmin && (
-              <button 
-                id="tour-inventario-btn-importar-excel"
-                onClick={() => { setImportRows([]); setImportError(''); setImportModal(true) }}
-                className="flex items-center gap-2 text-sm font-semibold px-3 py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition">
-                <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+        {isMobile ? (
+          <>
+            {/* Fila 1: búsqueda + más acciones */}
+            <div className="flex gap-2 items-center mb-2">
+              <div className="relative flex-1">
+                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
+                  fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
-                <span className="hidden sm:inline">Importar Excel</span>
-              </button>
-            )}
-            {esAdmin && (
-              <button onClick={eliminarTodo}
-                className="flex items-center gap-2 text-sm font-semibold px-3 py-2 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 transition">
+                <input type="text" value={busqueda} onChange={e => setBusqueda(e.target.value)}
+                  placeholder="Buscar producto o SKU..."
+                  className="w-full pl-9 pr-3 py-2 text-base border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:border-blue-400" />
+              </div>
+              {esAdmin && (
+                <button aria-label="Más acciones" onClick={() => setAccionesMenuOpen(v => !v)}
+                  className="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 transition">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6h.01M12 12h.01M12 18h.01" />
+                  </svg>
+                </button>
+              )}
+            </div>
+
+            {/* Fila 2: filtros + nuevo producto */}
+            <div className="flex gap-2 items-center mb-2">
+              <button onClick={() => setFiltrosSheetOpen(v => !v)}
+                className="flex-1 flex items-center justify-center gap-1.5 text-sm font-semibold px-3 py-2 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 transition">
                 <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M7 12h10M10 18h4" />
                 </svg>
-                <span className="hidden sm:inline">Eliminar todo</span>
+                Filtros
+                {chipsFiltros.length > 0 && (
+                  <span className="bg-blue-600 text-white text-xs font-semibold rounded-full px-1.5 leading-5 min-w-5 text-center">
+                    {chipsFiltros.length}
+                  </span>
+                )}
               </button>
-            )}
-            {esAdmin && (
-              <button onClick={generarLotesApertura} title="Costeo FIFO: crea lotes de apertura para el stock actual"
-                className="flex items-center gap-2 text-sm font-semibold px-3 py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition">
-                <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+              <button
+                id="tour-inventario-btn-nuevo-producto"
+                aria-label="Nuevo producto"
+                onClick={abrirNuevo}
+                className="w-9 h-9 flex-shrink-0 flex items-center justify-center bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
                 </svg>
-                <span className="hidden sm:inline">Lotes de apertura</span>
               </button>
+            </div>
+
+            {/* Menú de acciones secundarias (solo admin) */}
+            {accionesMenuOpen && (
+              <div className="flex flex-col gap-1.5 bg-gray-50 border border-gray-200 rounded-lg p-2 mb-2">
+                {accionesSecundarias}
+              </div>
             )}
-            <button 
-              id="tour-inventario-btn-nuevo-producto"
-              onClick={abrirNuevo}
-              className="flex items-center gap-2 bg-blue-600 text-white text-sm font-semibold px-3 py-2 rounded-lg hover:bg-blue-700 transition">
-              <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-              </svg>
-              <span className="hidden sm:inline">Nuevo producto</span>
-            </button>
-          </div>
-        </div>
 
-        {/* Fila 2: filtros */}
-        <div className="flex flex-wrap gap-2 items-center">
-          {/* Sucursal */}
-          {bdList.length > 0 && (
-            <select value={filtroBodega} onChange={e => setFiltroBodega(e.target.value)}
-              className={[
-                'text-base md:text-sm border rounded-lg px-3 py-1.5 focus:outline-none focus:border-blue-400',
-                filtroBodega ? 'border-blue-400 bg-blue-50 text-blue-700 font-semibold' : 'border-gray-200 bg-gray-50',
-              ].join(' ')}>
-              <option value="">Todas las sucursales</option>
-              {bdList.map(b => <option key={b.id} value={b.id}>{b.nombre ?? b.name}</option>)}
-            </select>
-          )}
+            {/* Chips de filtros activos */}
+            {chipsFiltros.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {chipsFiltros.map(c => (
+                  <span key={c.key} className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 text-xs font-medium rounded-full pl-2.5 pr-1.5 py-1">
+                    {c.label}
+                    <button onClick={c.onClear} aria-label={`Quitar filtro ${c.label}`} className="w-3.5 h-3.5 flex items-center justify-center">
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
 
-          {/* Categoría */}
-          <select value={filtroCat} onChange={e => cambiarCat(e.target.value)}
-            className={[
-              'text-base md:text-sm border rounded-lg px-3 py-1.5 focus:outline-none focus:border-blue-400',
-              filtroCat ? 'border-blue-400 bg-blue-50 text-blue-700 font-semibold' : 'border-gray-200 bg-gray-50',
-            ].join(' ')}>
-            <option value="">Todas las categorías</option>
-            {categorias.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
+            {/* Hoja de filtros colapsable */}
+            {filtrosSheetOpen && (
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 mb-2 space-y-2">
+                <div className="flex flex-col gap-2">{filtrosSelects}</div>
+                <div className="flex gap-2 pt-1">
+                  {hayFiltros && (
+                    <button onClick={limpiarFiltros}
+                      className="flex-1 text-sm text-gray-500 border border-gray-200 rounded-lg py-1.5 hover:bg-gray-100 transition">
+                      Limpiar
+                    </button>
+                  )}
+                  <button onClick={() => setFiltrosSheetOpen(false)}
+                    className="flex-1 text-sm font-semibold text-white bg-blue-600 rounded-lg py-1.5 hover:bg-blue-700 transition">
+                    Aplicar
+                  </button>
+                </div>
+              </div>
+            )}
 
-          {/* Subcategoría — solo visible si hay subcats disponibles */}
-          {subcategorias.length > 0 && (
-            <select value={filtroSub} onChange={e => setFiltroSub(e.target.value)}
-              className={[
-                'text-base md:text-sm border rounded-lg px-3 py-1.5 focus:outline-none focus:border-blue-400',
-                filtroSub ? 'border-blue-400 bg-blue-50 text-blue-700 font-semibold' : 'border-gray-200 bg-gray-50',
-              ].join(' ')}>
-              <option value="">Todas las subcategorías</option>
-              {subcategorias.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
-          )}
+            <p className="text-xs text-gray-400">{lista.length} de {(productos ?? []).length} productos</p>
+          </>
+        ) : (
+          <>
+            {/* Fila 1: búsqueda + botón */}
+            <div className="flex flex-wrap gap-3 items-center mb-3">
+              <div className="relative flex-1 min-w-48">
+                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
+                  fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input type="text" value={busqueda} onChange={e => setBusqueda(e.target.value)}
+                  placeholder="Buscar producto o SKU..."
+                  className="w-full pl-9 pr-3 py-2 text-base md:text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:border-blue-400" />
+              </div>
+              <div className="flex items-center gap-2">
+                {esAdmin && accionesSecundarias}
+                <button
+                  id="tour-inventario-btn-nuevo-producto"
+                  onClick={abrirNuevo}
+                  className="flex items-center gap-2 bg-blue-600 text-white text-sm font-semibold px-3 py-2 rounded-lg hover:bg-blue-700 transition">
+                  <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                  </svg>
+                  <span className="hidden sm:inline">Nuevo producto</span>
+                </button>
+              </div>
+            </div>
 
-          {/* Tipo */}
-          <select value={filtroTipo} onChange={e => setFiltroTipo(e.target.value as 'producto' | 'servicio' | '')}
-            className={[
-              'text-base md:text-sm border rounded-lg px-3 py-1.5 focus:outline-none focus:border-blue-400',
-              filtroTipo === 'servicio' ? 'border-violet-400 bg-violet-50 text-violet-700 font-semibold' : 'border-gray-200 bg-gray-50',
-            ].join(' ')}>
-            <option value="">Todos los tipos</option>
-            <option value="producto">Productos</option>
-            <option value="servicio">Servicios</option>
-          </select>
+            {/* Fila 2: filtros */}
+            <div className="flex flex-wrap gap-2 items-center">
+              {filtrosSelects}
 
-          {/* Bajo stock */}
-          <button onClick={() => setBajosStock(v => !v)}
-            className={[
-              'inline-flex items-center gap-1.5 text-sm border rounded-lg px-3 py-1.5 font-medium transition',
-              bajosStock
-                ? 'border-red-400 bg-red-50 text-red-700'
-                : 'border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100',
-            ].join(' ')}>
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-            </svg>
-            Bajo stock
-          </button>
+              {hayFiltros && (
+                <button onClick={limpiarFiltros}
+                  className="inline-flex items-center gap-1 text-sm text-gray-400 hover:text-gray-600 transition px-2 py-1.5">
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                  Limpiar filtros
+                </button>
+              )}
 
-          {/* Limpiar */}
-          {hayFiltros && (
-            <button onClick={limpiarFiltros}
-              className="inline-flex items-center gap-1 text-sm text-gray-400 hover:text-gray-600 transition px-2 py-1.5">
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-              Limpiar filtros
-            </button>
-          )}
-
-          <span className="ml-auto text-xs text-gray-400">
-            {lista.length} de {(productos ?? []).length} productos
-          </span>
-        </div>
+              <span className="ml-auto text-xs text-gray-400">
+                {lista.length} de {(productos ?? []).length} productos
+              </span>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Lista — empty state */}
