@@ -1,7 +1,6 @@
 import { useState, useMemo, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import * as XLSX from 'xlsx'
-import { useClientes, useCrearCliente, useActualizarCliente, useEliminarCliente, useImportarClientes, useOrdenes, useVentas } from '@/lib/queries'
+import { useClientes, useCrearCliente, useActualizarCliente, useEliminarCliente, useImportarClientes, useOrdenesLite, useVentas } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { useIsMobile } from '@/lib/useIsMobile'
 import { Spinner } from '@/components/shared/Spinner'
@@ -25,8 +24,9 @@ type ImportRowCliente = {
 function parseExcelClientes(file: File): Promise<ImportRowCliente[]> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
-    reader.onload = e => {
+    reader.onload = async e => {
       try {
+        const XLSX = await import('xlsx')
         const wb = XLSX.read(e.target!.result, { type: 'array' })
         const ws = wb.Sheets[wb.SheetNames[0]]
         const raw: Record<string, string>[] = XLSX.utils.sheet_to_json(ws, { defval: '' })
@@ -54,7 +54,8 @@ function parseExcelClientes(file: File): Promise<ImportRowCliente[]> {
   })
 }
 
-function descargarPlantillaClientes() {
+async function descargarPlantillaClientes() {
+  const XLSX = await import('xlsx')
   const headers = ['Nombre', 'Apellido', 'RUT', 'Teléfono', 'Email']
   const ejemplo = {
     Nombre: 'Juan', Apellido: 'Pérez', RUT: '12.345.678-9',
@@ -97,7 +98,7 @@ const STATUS_BADGE: Record<string, { bg: string; color: string }> = {
 
 export function ClientesTab() {
   const { data: clientes, isLoading } = useClientes()
-  const { data: ordenes } = useOrdenes()
+  const { data: ordenes } = useOrdenesLite()
   const { data: ventas } = useVentas()
   const crearCliente = useCrearCliente()
   const actualizarCliente = useActualizarCliente()
@@ -351,7 +352,7 @@ export function ClientesTab() {
                     : 'Columnas: Nombre, Apellido, RUT, Teléfono, Email'}
                 </p>
                 {importRows.length === 0 && (
-                  <button onClick={descargarPlantillaClientes}
+                  <button onClick={() => void descargarPlantillaClientes()}
                     className="text-xs font-semibold text-blue-600 hover:underline mt-1.5 flex items-center gap-1">
                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-8-4v-9m0 9l-3-3m3 3l3-3" />
@@ -429,7 +430,7 @@ export function ClientesTab() {
 // ── Panel de detalle ───────────────────────────────────────────
 
 type StatsType = {
-  ots: NonNullable<ReturnType<typeof useOrdenes>['data']>
+  ots: NonNullable<ReturnType<typeof useOrdenesLite>['data']>
   boletas: NonNullable<ReturnType<typeof useVentas>['data']>
   totalVentas: number
 } | null

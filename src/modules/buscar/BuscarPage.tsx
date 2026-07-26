@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useVentas, useOrdenes, useBuscarProductos, useClientes } from '@/lib/queries'
+import { useVentas, useOrdenesLite, useBuscarProductos, useClientes } from '@/lib/queries'
 import { Spinner } from '@/components/shared/Spinner'
 import { soloRutDigits } from '@/lib/rut'
 
@@ -53,7 +53,7 @@ export function BuscarPage() {
   const navigate = useNavigate()
 
   const { data: ventas, isLoading: loadV } = useVentas()
-  const { data: ordenes, isLoading: loadO } = useOrdenes()
+  const { data: ordenes, isLoading: loadO } = useOrdenesLite()
   const { data: clientes, isLoading: loadC } = useClientes()
   const { data: productosBuscados } = useBuscarProductos(query)   // búsqueda server-side
 

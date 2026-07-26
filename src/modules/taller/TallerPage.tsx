@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { useOrdenes, useTraslados, useActualizarOrden, useEliminarOrden, useBodegas } from '@/lib/queries'
+import { useOrdenesLite, useTraslados, useActualizarOrden, useEliminarOrden, useBodegas, fetchOrdenCompletaPorId, type OrdenLista } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { soloRutDigits } from '@/lib/rut'
 import { useIsMobile } from '@/lib/useIsMobile'
@@ -60,7 +60,7 @@ function fmtFecha(iso: string) {
 }
 
 // Días que la orden lleva en el taller
-function ordenAge(o: Orden): number {
+function ordenAge(o: { fecha: string }): number {
   if (!o.fecha) return 0
   const d = new Date(o.fecha)
   if (isNaN(d.getTime())) return 0
@@ -78,22 +78,23 @@ export function TallerPage() {
   // Derivado directo de la URL para que el resaltado no se desincronice del contenido.
   const tallerTab = resolveTallerTab(searchParams.get('tab'))
 
-  const { data: ordenes, isLoading, error } = useOrdenes()
+  const { data: ordenes, isLoading, error } = useOrdenesLite()
   const { data: traslados } = useTraslados()
   const { data: bodegas = [] } = useBodegas()
   const actualizarOrden = useActualizarOrden()
   const eliminarOrden = useEliminarOrden()
-  const { esAdmin } = useAuth()
+  const { esAdmin, empresaId } = useAuth()
   const [configTab, setConfigTab] = useState<TallerConfigTab>('seguimiento')
   const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null)
   const [filtroEstado, setFiltroEstado] = useState<EstadoOrden | 'todos' | 'Derivado'>('Chequeo')
   const [busqueda, setBusqueda] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [editando, setEditando] = useState<Orden | null>(null)
+  const [cargandoEditar, setCargandoEditar] = useState(false)
   const [detalleNum, setDetalleNum] = useState<string | null>(null)
-  const [ordenAEliminar, setOrdenAEliminar] = useState<Orden | null>(null)
+  const [ordenAEliminar, setOrdenAEliminar] = useState<OrdenLista | null>(null)
   const [eliminando, setEliminando] = useState(false)
-  const [ordenAReabrir, setOrdenAReabrir] = useState<Orden | null>(null)
+  const [ordenAReabrir, setOrdenAReabrir] = useState<OrdenLista | null>(null)
   const [reabriendo, setReabriendo] = useState(false)
 
   // Deep-link desde Buscar: ?abrir=<num de orden> abre el detalle directo.
@@ -161,9 +162,20 @@ export function TallerPage() {
     setModalOpen(true)
   }
 
-  function abrirEditar(o: Orden) {
-    setEditando(o)
-    setModalOpen(true)
+  async function abrirEditar(o: OrdenLista) {
+    // La lista es liviana (sin fotos/checklists/inspección) — se trae la orden
+    // completa antes de editar para no pisar esos campos al guardar (OrdenModal
+    // arma el guardado con spread sobre esta base).
+    if (!empresaId) return
+    setCargandoEditar(true)
+    try {
+      const completa = await fetchOrdenCompletaPorId(empresaId, o.id)
+      if (!completa) return
+      setEditando(completa)
+      setModalOpen(true)
+    } finally {
+      setCargandoEditar(false)
+    }
   }
 
   async function confirmarEliminar() {
@@ -604,8 +616,9 @@ export function TallerPage() {
                               </button>
                             )}
                             <button
-                              onClick={(e) => { e.stopPropagation(); abrirEditar(o) }}
-                              className="text-xs text-blue-600 hover:underline font-medium"
+                              onClick={(e) => { e.stopPropagation(); void abrirEditar(o) }}
+                              disabled={cargandoEditar}
+                              className="text-xs text-blue-600 hover:underline font-medium disabled:opacity-50"
                             >
                               Editar
                             </button>

@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import * as XLSX from 'xlsx'
 import { useCatEquipo, useGuardarCatEquipo, useMarcasEquipo, useGuardarMarcasEquipo, useEquipos, useGuardarEquipos } from '@/lib/queries'
 import { Spinner } from '@/components/shared/Spinner'
 import type { Equipo } from '@/types'
@@ -146,8 +145,9 @@ function ExcelImportSection() {
     setEstado('idle')
 
     const reader = new FileReader()
-    reader.onload = ev => {
+    reader.onload = async ev => {
       try {
+        const XLSX = await import('xlsx')
         const data = new Uint8Array(ev.target!.result as ArrayBuffer)
         const wb = XLSX.read(data, { type: 'array' })
         const resultados: Equipo[] = []

@@ -1,6 +1,5 @@
 import { useRef, useState } from 'react'
-import * as XLSX from 'xlsx'
-import { useOrdenes, useImportarOrdenes, useBodegas, useClientes, useImportarClientes, useActualizarCliente } from '@/lib/queries'
+import { useOrdenesLite, useImportarOrdenes, useBodegas, useClientes, useImportarClientes, useActualizarCliente } from '@/lib/queries'
 import type { Cliente, Orden } from '@/types'
 
 function uid() { return Math.random().toString(36).slice(2) + Date.now().toString(36) }
@@ -59,7 +58,10 @@ function toAppleCase(s: string): string {
   return r
 }
 
-function descargarPlantillaHistorial() {
+// xlsx (~400KB) se carga solo al usarla (descargar plantilla / importar), no
+// de entrada al abrir la pestaña — antes venía pegada al bundle de Taller.
+async function descargarPlantillaHistorial() {
+  const XLSX = await import('xlsx')
   const headers = ['Orden N°', 'Cliente', 'CI', 'Teléfono', 'Correo', 'Sucursal', 'Marca', 'Modelo', 'Trabajo', 'Ingreso', 'Entrega', 'Total']
   const ejemplo = {
     'Orden N°': 1001, Cliente: 'Juan Pérez', CI: '12.345.678-9',
@@ -92,7 +94,7 @@ type PreviewRow = {
 }
 
 export function HistorialImportTab() {
-  const { data: ordenes } = useOrdenes()
+  const { data: ordenes } = useOrdenesLite()
   const { data: bodegas = [] } = useBodegas()
   const { data: clientes } = useClientes()
   const importarOrdenes = useImportarOrdenes()
@@ -117,8 +119,9 @@ export function HistorialImportTab() {
     setEstado('idle')
 
     const reader = new FileReader()
-    reader.onload = (ev) => {
+    reader.onload = async (ev) => {
       try {
+        const XLSX = await import('xlsx')
         const data = new Uint8Array(ev.target!.result as ArrayBuffer)
         const wb = XLSX.read(data, { type: 'array', cellDates: true })
         const ws = wb.Sheets[wb.SheetNames[0]]
@@ -249,7 +252,7 @@ export function HistorialImportTab() {
       {/* Zona de carga */}
       {estado === 'idle' && (
         <>
-          <button onClick={descargarPlantillaHistorial}
+          <button onClick={() => void descargarPlantillaHistorial()}
             className="text-xs font-semibold text-blue-600 hover:underline mb-3 flex items-center gap-1">
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-8-4v-9m0 9l-3-3m3 3l3-3" />

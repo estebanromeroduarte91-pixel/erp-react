@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { useOrdenes, useActualizarOrden, useMsgTemplates, useSeguimientoConfig, useChecklist, useBuscarProductos, useAjustarStock, useBodegas, useTraslados } from '@/lib/queries'
+import { useOrdenesLite, useOrdenPorNum, useActualizarOrden, useMsgTemplates, useSeguimientoConfig, useChecklist, useBuscarProductos, useAjustarStock, useBodegas, useTraslados } from '@/lib/queries'
 import { DerivarModal } from './DerivarModal'
 import { useAuth } from '@/context/AuthContext'
 import { sendEmail, buildEmailIngreso, buildEmailAprobacion, buildEmailInspeccion, buildEmailListo, puedeResponderCorreo } from '@/lib/email'
@@ -36,7 +36,12 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
   const num = numProp ?? numParam
   const { empresaId, empresaNombre } = useAuth()
   const qc = useQueryClient()
-  const { data: ordenes, isLoading } = useOrdenes()
+  // Órdenes livianas (misma caché que TallerPage, sin fotos/checklists) — solo
+  // se usan para el número siguiente/lookup por id que necesita OrdenModal.
+  // La orden que se muestra en ESTA pantalla se pide completa aparte, una sola
+  // fila, en vez de descargar las ~2800 órdenes de la empresa para encontrarla.
+  const { data: ordenes } = useOrdenesLite()
+  const { data: o, isLoading } = useOrdenPorNum(num)
   const actualizarOrden = useActualizarOrden()
   const { data: msgTemplates } = useMsgTemplates()
   const { data: segCfg } = useSeguimientoConfig()
@@ -97,8 +102,6 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
   // Búsqueda server-side (ilike + índice) en vez de filtrar el catálogo
   // completo en el navegador.
   const { data: repResultados = [] } = useBuscarProductos(repSearch)
-
-  const o = ordenes?.find(x => x.num === num)
 
   // Sync inspección local con la orden cuando cambia. Se usa useState (no un ref)
   // para trackear el último id sincronizado, siguiendo el patrón oficial de React
@@ -452,7 +455,8 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
     files.forEach(f => {
       const reader = new FileReader()
       reader.onload = async ev => {
-        const nuevas = [...(ordenes?.find(x => x.id === orden.id)?.photosIngreso ?? []), ev.target?.result as string]
+        const fresca = qc.getQueryData<typeof orden | null>(['orden-por-num', empresaId, num])
+        const nuevas = [...(fresca?.photosIngreso ?? []), ev.target?.result as string]
         await actualizarOrden.mutateAsync({ id: orden.id, photosIngreso: nuevas })
       }
       reader.readAsDataURL(f)

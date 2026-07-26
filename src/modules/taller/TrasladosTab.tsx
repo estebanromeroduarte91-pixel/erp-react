@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { useTraslados, useGuardarTraslados, useTecnicosExternos, useGuardarTecnicosExternos, useOrdenes, useActualizarOrden, useCrearGasto, usePlanCuentas, useCatCuentaMap, useAsientos, useGuardarAsientos } from '@/lib/queries'
+import { useTraslados, useGuardarTraslados, useTecnicosExternos, useGuardarTecnicosExternos, useOrdenesLite, useActualizarOrden, useCrearGasto, usePlanCuentas, useCatCuentaMap, useAsientos, useGuardarAsientos } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { asientoDeGasto, nextNumeroAsiento } from '@/lib/contabilidad'
 import { Spinner } from '@/components/shared/Spinner'
@@ -76,7 +76,7 @@ export function TrasladosTab() {
   const guardar = useGuardarTraslados()
   const { data: tecnicos } = useTecnicosExternos()
   const guardarTecnicos = useGuardarTecnicosExternos()
-  const { data: ordenes } = useOrdenes()
+  const { data: ordenes } = useOrdenesLite()
   const actualizarOrden = useActualizarOrden()
   const crearGasto = useCrearGasto()
   const { data: planCuentas } = usePlanCuentas()

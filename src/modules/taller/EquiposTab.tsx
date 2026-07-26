@@ -1,5 +1,4 @@
 import { useState, useMemo, useRef } from 'react'
-import * as XLSX from 'xlsx'
 import { useEquipos, useGuardarEquipos, useCatEquipo, useMarcasEquipo, useGuardarMarcasEquipo } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { Spinner } from '@/components/shared/Spinner'
@@ -192,8 +191,9 @@ export function EquiposTab() {
   function procesarExcel(file: File) {
     setImportError('')
     const reader = new FileReader()
-    reader.onload = (ev) => {
+    reader.onload = async (ev) => {
       try {
+        const XLSX = await import('xlsx')
         const wb = XLSX.read(ev.target!.result as ArrayBuffer, { type: 'array' })
         const ws = wb.Sheets[wb.SheetNames[0]]
         const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: '' })
@@ -281,7 +281,8 @@ export function EquiposTab() {
     setImportDups([])
   }
 
-  function descargarPlantilla() {
+  async function descargarPlantilla() {
+    const XLSX = await import('xlsx')
     const wb = XLSX.utils.book_new()
     const data = [
       ['marca', 'modelo', 'categoria', 'descripcion'],
@@ -521,7 +522,7 @@ export function EquiposTab() {
                       onChange={e => { if (e.target.files?.[0]) procesarExcel(e.target.files[0]); e.target.value = '' }} />
                   </div>
                   {importError && <p className="text-xs text-red-600">{importError}</p>}
-                  <button onClick={descargarPlantilla} className="text-xs text-blue-600 hover:underline">⬇ Descargar plantilla de ejemplo</button>
+                  <button onClick={() => void descargarPlantilla()} className="text-xs text-blue-600 hover:underline">⬇ Descargar plantilla de ejemplo</button>
                 </>
               ) : (
                 <>

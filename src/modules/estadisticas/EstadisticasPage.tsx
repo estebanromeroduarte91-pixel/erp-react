@@ -1,5 +1,5 @@
 import { useMemo, useState, useRef } from 'react'
-import { useVentas, useGastos, useOrdenes, useBodegas, useOCs, useProductos } from '@/lib/queries'
+import { useVentas, useGastos, useOrdenesLite, useBodegas, useOCs, useProductos } from '@/lib/queries'
 import { gastosPorSucursal } from '@/lib/gastos'
 import { Spinner } from '@/components/shared/Spinner'
 import { useIsMobile } from '@/lib/useIsMobile'
@@ -105,7 +105,7 @@ const CS: React.CSSProperties = { fontSize: 11, color: '#9ca3af', marginBottom: 
 export function EstadisticasPage() {
   const { data: ventas, isLoading: loadV } = useVentas()
   const { data: gastos, isLoading: loadG } = useGastos()
-  const { data: ordenes, isLoading: loadO } = useOrdenes()
+  const { data: ordenes, isLoading: loadO } = useOrdenesLite()
   const { data: ocs, isLoading: loadOC } = useOCs()
   const { data: bodegas = [] } = useBodegas()
   const { data: productos = [] } = useProductos()

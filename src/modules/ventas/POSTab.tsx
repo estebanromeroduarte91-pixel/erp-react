@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
-import { useProductos, useBuscarProductos, useAjustarStock, useVentas, useGuardarVenta, useMetodosPago, useCajaSesiones, useCajas, useGuardarCajaSesiones, useIncrementarContadorVenta, useOrdenes, useActualizarOrden, useMovimientos, useGuardarMovimientos, useUserProfiles, useUserCargoMap, useCargos, useLotes, useActualizarLotes, useClientes, useBuscarClientes, useCrearCliente, CARGOS_DEFAULT } from '@/lib/queries'
+import { useProductos, useBuscarProductos, useAjustarStock, useVentas, useGuardarVenta, useMetodosPago, useCajaSesiones, useCajas, useGuardarCajaSesiones, useIncrementarContadorVenta, useOrdenesLite, useActualizarOrden, useMovimientos, useGuardarMovimientos, useUserProfiles, useUserCargoMap, useCargos, useLotes, useActualizarLotes, useClientes, useBuscarClientes, useCrearCliente, CARGOS_DEFAULT } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 
 import { useAnchorRect, fixedDropdownStyle } from '@/lib/useAnchorRect'
@@ -44,7 +44,7 @@ export function POSTab() {
   const { data: productos } = useProductos()
   const ajustarStock = useAjustarStock()
   const { data: ventas } = useVentas()
-  const { data: ordenes } = useOrdenes()
+  const { data: ordenes } = useOrdenesLite()
   const { data: metodos } = useMetodosPago()
   const { data: sesiones } = useCajaSesiones()
   const { data: cajas } = useCajas()

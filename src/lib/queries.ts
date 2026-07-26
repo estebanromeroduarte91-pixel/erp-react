@@ -89,21 +89,80 @@ function filaOrdenParcial(o: Partial<Orden>): Record<string, unknown> {
   return row
 }
 
-export function useOrdenes() {
+// Columnas livianas para renderizar la LISTA de Taller (búsqueda, filtros,
+// contadores) — sin fotos/checklists/inspección. Importante: el objeto que
+// devuelve NO tiene esas claves como propiedades (ni siquiera `undefined`),
+// para que si alguna vez se usa como base de un guardado parcial (spread),
+// `filaOrdenParcial` no las detecte con `in` y no pise/borre esas columnas.
+const ORDEN_LITE_COLS = 'id, num, fecha, status, nombre, apellido, tel, rut, modelo, trabajo, branch_id, subestado, venta_id, numero_boleta, costo, presup, repuestos'
+
+export interface OrdenLista {
+  id: string
+  num: string
+  fecha: string
+  status: Orden['status']
+  nombre: string
+  apellido?: string
+  tel?: string
+  rut?: string
+  modelo?: string
+  trabajo?: string
+  branchId?: string
+  subestado?: string
+  venta_id?: string
+  numero_boleta?: string
+  costo?: string
+  presup?: string
+  repuestos: Repuesto[]
+}
+
+function hidratarOrdenLite(row: Record<string, unknown>): OrdenLista {
+  return {
+    id: row.id as string,
+    num: row.num as string,
+    fecha: row.fecha as string,
+    status: row.status as Orden['status'],
+    nombre: (row.nombre as string) ?? '',
+    apellido: row.apellido as string | undefined,
+    tel: row.tel as string | undefined,
+    rut: row.rut as string | undefined,
+    modelo: row.modelo as string | undefined,
+    trabajo: row.trabajo as string | undefined,
+    branchId: row.branch_id as string | undefined,
+    subestado: row.subestado as string | undefined,
+    venta_id: row.venta_id as string | undefined,
+    numero_boleta: row.numero_boleta as string | undefined,
+    costo: row.costo as string | undefined,
+    presup: row.presup as string | undefined,
+    repuestos: (row.repuestos as Repuesto[]) ?? [],
+  }
+}
+
+// Recorta una Orden (o una parcial con los campos mínimos) a la forma liviana,
+// para los updates optimistas de las mutaciones sobre ['ordenes-lite', ...].
+function aOrdenLista(o: Partial<Orden> & { id: string; num: string; fecha: string; status: Orden['status']; nombre: string }): OrdenLista {
+  return {
+    ...o,
+    repuestos: o.repuestos ?? [],
+    costo: o.costo != null ? String(o.costo) : undefined,
+    presup: o.presup != null ? String(o.presup) : undefined,
+  }
+}
+
+// Trae las órdenes para pantallas que solo listan/filtran (Taller, POS,
+// Traslados, Clientes, Estadísticas, Buscar...). Antes esas pantallas cargaban
+// fotos base64 + checklists + inspección de las ~2800 órdenes de la empresa
+// solo para pintar una lista — esto pide 13
+// columnas en vez de todas. Para ver/editar UNA orden completa, usar useOrdenPorNum().
+export function useOrdenesLite() {
   const { empresaId } = useAuth()
   const qc = useQueryClient()
   const instanceId = useId()
 
-  // Realtime: inyecta el cambio directo en la caché en vez de invalidar y
-  // volver a descargar la tabla completa (cara con miles de órdenes, y se
-  // dispara para TODOS los usuarios conectados por cada INSERT/UPDATE/DELETE
-  // de cualquiera). El nombre del canal incluye un id único por instancia del
-  // hook para que dos componentes que usen useOrdenes a la vez (ej. lista +
-  // modal de detalle) no choquen suscribiéndose al mismo canal de Supabase.
   useEffect(() => {
     if (!empresaId) return
     const channel = supabase
-      .channel(`rt-ordenes-${empresaId}-${instanceId}-${Math.random().toString(36).slice(2, 8)}`)
+      .channel(`rt-ordenes-lite-${empresaId}-${instanceId}-${Math.random().toString(36).slice(2, 8)}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'ordenes', filter: `empresa_id=eq.${empresaId}` },
@@ -111,18 +170,16 @@ export function useOrdenes() {
           if (payload.eventType === 'DELETE') {
             const oldId = (payload.old as { id?: string }).id
             if (!oldId) return
-            qc.setQueryData<Orden[]>(['ordenes', empresaId], (old = []) => old.filter((o) => o.id !== oldId))
+            qc.setQueryData<OrdenLista[]>(['ordenes-lite', empresaId], (old = []) => old.filter((o) => o.id !== oldId))
             return
           }
           const row = payload.new as Record<string, unknown>
-          // Los borradores del QR no viven en esta lista: si llega uno, o si una
-          // orden pasó a ser borrador, asegurarse de sacarla de la caché.
           if (row.is_draft) {
-            qc.setQueryData<Orden[]>(['ordenes', empresaId], (old = []) => old.filter((o) => o.id !== row.id))
+            qc.setQueryData<OrdenLista[]>(['ordenes-lite', empresaId], (old = []) => old.filter((o) => o.id !== row.id))
             return
           }
-          const orden = hidratarOrden(row)
-          qc.setQueryData<Orden[]>(['ordenes', empresaId], (old = []) => {
+          const orden = hidratarOrdenLite(row)
+          qc.setQueryData<OrdenLista[]>(['ordenes-lite', empresaId], (old = []) => {
             const idx = old.findIndex((o) => o.id === orden.id)
             if (idx >= 0) {
               const copy = [...old]
@@ -138,14 +195,14 @@ export function useOrdenes() {
   }, [empresaId, qc, instanceId])
 
   return useQuery({
-    queryKey: ['ordenes', empresaId],
+    queryKey: ['ordenes-lite', empresaId],
     queryFn: async () => {
       const PAGE = 1000
       const filas: Record<string, unknown>[] = []
       for (let from = 0; ; from += PAGE) {
         const { data, error } = await supabase
           .from('ordenes')
-          .select('*')
+          .select(ORDEN_LITE_COLS)
           .eq('empresa_id', empresaId!)
           .eq('is_draft', false)
           .range(from, from + PAGE - 1)
@@ -153,10 +210,44 @@ export function useOrdenes() {
         filas.push(...(data ?? []))
         if (!data || data.length < PAGE) break
       }
-      return filas.map(hidratarOrden)
+      return filas.map(hidratarOrdenLite)
     },
     enabled: !!empresaId,
   })
+}
+
+// Una orden COMPLETA por número (para abrir el detalle o editar) — reemplaza
+// el patrón de descargar las ~2800 órdenes de la empresa solo para encontrar
+// una por num. Sin Realtime propio: se abre puntualmente al ver/editar.
+export function useOrdenPorNum(num: string | undefined) {
+  const { empresaId } = useAuth()
+  return useQuery({
+    queryKey: ['orden-por-num', empresaId, num],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('ordenes')
+        .select('*')
+        .eq('empresa_id', empresaId!)
+        .eq('num', num!)
+        .maybeSingle()
+      if (error) throw error
+      return data ? hidratarOrden(data) : null
+    },
+    enabled: !!empresaId && !!num,
+  })
+}
+
+// Igual que arriba, pero imperativa (para usar desde un onClick, ej. el botón
+// "Editar" de una fila en la lista liviana de Taller) en vez de un hook.
+export async function fetchOrdenCompletaPorId(empresaId: string, id: string): Promise<Orden | null> {
+  const { data, error } = await supabase
+    .from('ordenes')
+    .select('*')
+    .eq('empresa_id', empresaId)
+    .eq('id', id)
+    .maybeSingle()
+  if (error) throw error
+  return data ? hidratarOrden(data) : null
 }
 
 // Crea UNA orden nueva (insert de una fila). Reemplaza el patrón anterior de
@@ -170,20 +261,21 @@ export function useCrearOrden() {
       const { error } = await supabase.from('ordenes').insert(row).select()
       if (error) throw error
     },
-    // Update optimista: la orden aparece al instante en la lista sin esperar el
-    // refetch paginado (que recorre miles de filas). Los borradores del QR no van
-    // a la lista, así que no se agregan a la caché.
+    // Update optimista: la orden aparece al instante en la lista liviana (la
+    // que de verdad se renderiza) sin esperar la vuelta del Realtime. Los
+    // borradores del QR no van a la lista, así que no se agregan a la caché.
     onMutate: async (o: Orden) => {
       if (o._draft) return { prev: undefined }
-      await qc.cancelQueries({ queryKey: ['ordenes', empresaId] })
-      const prev = qc.getQueryData<Orden[]>(['ordenes', empresaId])
-      qc.setQueryData<Orden[]>(['ordenes', empresaId], (old = []) => [o, ...old])
+      await qc.cancelQueries({ queryKey: ['ordenes-lite', empresaId] })
+      const prev = qc.getQueryData<OrdenLista[]>(['ordenes-lite', empresaId])
+      qc.setQueryData<OrdenLista[]>(['ordenes-lite', empresaId], (old = []) => [aOrdenLista(o), ...old])
       return { prev }
     },
-    // Sin onSettled: el insert real dispara el evento Realtime (arriba), que ya
-    // actualiza la caché con la fila confirmada del servidor. Invalidar aquí
-    // además volvería a descargar toda la tabla por cada orden creada.
-    onError: (_e, _o, ctx) => { if (ctx?.prev) qc.setQueryData(['ordenes', empresaId], ctx.prev) },
+    // Sin onSettled para la lista: el insert real dispara el evento Realtime
+    // (arriba), que ya actualiza la caché con la fila confirmada del servidor.
+    // La caché de "una orden" (useOrdenPorNum) sí se invalida — es liviana (una fila).
+    onSettled: () => void qc.invalidateQueries({ queryKey: ['orden-por-num', empresaId] }),
+    onError: (_e, _o, ctx) => { if (ctx?.prev) qc.setQueryData(['ordenes-lite', empresaId], ctx.prev) },
   })
 }
 
@@ -197,26 +289,34 @@ export function useActualizarOrden() {
       const { error } = await supabase.from('ordenes').update(filaOrdenParcial(rest)).eq('id', id).eq('empresa_id', empresaId!).select()
       if (error) throw error
     },
-    // Update optimista: refleja el cambio al instante. Si la orden no está en la
-    // caché pero deja de ser borrador (se finalizó desde el QR), se agrega.
+    // Update optimista: refleja el cambio al instante en la lista liviana. Si la
+    // orden no está en la caché pero deja de ser borrador (se finalizó desde el
+    // QR), se agrega.
     onMutate: async (o: Partial<Orden> & { id: string }) => {
-      await qc.cancelQueries({ queryKey: ['ordenes', empresaId] })
-      const prev = qc.getQueryData<Orden[]>(['ordenes', empresaId])
-      qc.setQueryData<Orden[]>(['ordenes', empresaId], (old = []) => {
+      await qc.cancelQueries({ queryKey: ['ordenes-lite', empresaId] })
+      const prev = qc.getQueryData<OrdenLista[]>(['ordenes-lite', empresaId])
+      qc.setQueryData<OrdenLista[]>(['ordenes-lite', empresaId], (old = []) => {
         const idx = old.findIndex((x) => x.id === o.id)
         if (idx >= 0) {
           const copy = [...old]
-          copy[idx] = { ...copy[idx], ...o }
+          copy[idx] = {
+            ...copy[idx], ...o,
+            costo: o.costo != null ? String(o.costo) : copy[idx].costo,
+            presup: o.presup != null ? String(o.presup) : copy[idx].presup,
+          }
           return copy
         }
-        if (o._draft === false) return [{ ...(o as Orden) }, ...old]
+        if (o._draft === false) return [aOrdenLista(o as Orden), ...old]
         return old
       })
       return { prev }
     },
-    // Sin invalidate: el update real dispara el evento Realtime (arriba), que
-    // ya reconcilia la caché con la fila confirmada del servidor.
-    onError: (_e, _o, ctx) => { if (ctx?.prev) qc.setQueryData(['ordenes', empresaId], ctx.prev) },
+    // Sin invalidate para la lista: el update real dispara el evento Realtime
+    // (arriba), que ya reconcilia la caché con la fila confirmada del servidor.
+    // La caché de "una orden" (useOrdenPorNum, sin Realtime propio) sí se
+    // invalida acá para que el detalle abierto muestre lo recién guardado.
+    onSettled: () => void qc.invalidateQueries({ queryKey: ['orden-por-num', empresaId] }),
+    onError: (_e, _o, ctx) => { if (ctx?.prev) qc.setQueryData(['ordenes-lite', empresaId], ctx.prev) },
   })
 }
 
@@ -229,12 +329,12 @@ export function useEliminarOrden() {
       if (error) throw error
     },
     onMutate: async (id: string) => {
-      await qc.cancelQueries({ queryKey: ['ordenes', empresaId] })
-      const prev = qc.getQueryData<Orden[]>(['ordenes', empresaId])
-      qc.setQueryData<Orden[]>(['ordenes', empresaId], (old = []) => old.filter((o) => o.id !== id))
+      await qc.cancelQueries({ queryKey: ['ordenes-lite', empresaId] })
+      const prev = qc.getQueryData<OrdenLista[]>(['ordenes-lite', empresaId])
+      qc.setQueryData<OrdenLista[]>(['ordenes-lite', empresaId], (old = []) => old.filter((o) => o.id !== id))
       return { prev }
     },
-    onError: (_e, _id, ctx) => { if (ctx?.prev) qc.setQueryData(['ordenes', empresaId], ctx.prev) },
+    onError: (_e, _id, ctx) => { if (ctx?.prev) qc.setQueryData(['ordenes-lite', empresaId], ctx.prev) },
     // Sin invalidate en éxito: el DELETE real dispara el evento Realtime
     // (arriba), que ya confirma/mantiene la fila fuera de la caché.
   })
@@ -252,7 +352,7 @@ export function useImportarOrdenes() {
         if (error) throw error
       }
     },
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ['ordenes', empresaId] }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['ordenes-lite', empresaId] }),
   })
 }
 
@@ -2415,10 +2515,10 @@ export function useActualizarLead() {
 // ── Cotizaciones (solo lectura para el cliente, sin flujo de aprobación) ──
 
 // Órdenes ABIERTAS en versión liviana, solo para el selector "Vincular a orden"
-// de Cotizaciones. A diferencia de useOrdenes() (que hace select('*') y arrastra
-// fotos base64, checklists e inspección de TODAS las órdenes), acá se piden solo
-// las columnas necesarias para autocompletar y solo las órdenes no entregadas /
-// no borrador. Sin Realtime — es una lectura puntual al abrir el modal.
+// de Cotizaciones. A diferencia de traer la orden completa (select('*'), con
+// fotos base64/checklists/inspección), acá se piden solo las columnas
+// necesarias para autocompletar y solo las órdenes no entregadas / no
+// borrador. Sin Realtime — es una lectura puntual al abrir el modal.
 export interface OrdenLite {
   id: string
   num: string
