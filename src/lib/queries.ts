@@ -386,7 +386,7 @@ export function useChecklist() {
     select: (data) => {
       let parsed = data
       if (typeof parsed === 'string') {
-        try { parsed = JSON.parse(parsed) as Record<string, string[]> | string[] } catch { parsed = undefined }
+        try { parsed = JSON.parse(parsed) as Record<string, string[]> | string[] } catch { parsed = null }
       }
       if (!parsed) return DEFAULT_CHECKLISTS
       // Formato anterior a la versión por categoría: una sola lista global —
