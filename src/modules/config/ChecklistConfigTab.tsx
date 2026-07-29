@@ -28,6 +28,9 @@ function ChecklistEditor({ titulo, items, onSave, saving }: {
     setNuevo('')
   }
 
+  function editar(i: number, valor: string) {
+    setLista(prev => prev.map((it, j) => j === i ? valor : it))
+  }
   function eliminar(i: number) { setLista(prev => prev.filter((_, j) => j !== i)) }
   function mover(i: number, dir: -1 | 1) {
     const arr = [...lista]
@@ -51,7 +54,8 @@ function ChecklistEditor({ titulo, items, onSave, saving }: {
         {lista.map((item, i) => (
           <li key={i} className="flex items-center gap-2 group">
             <span className="text-gray-300 cursor-default select-none text-sm w-4 text-center">{i + 1}</span>
-            <span className="flex-1 text-sm text-gray-800 bg-gray-50 rounded-lg px-3 py-1.5 border border-gray-100">{item}</span>
+            <input value={item} onChange={e => editar(i, e.target.value)}
+              className="flex-1 text-sm text-gray-800 bg-gray-50 rounded-lg px-3 py-1.5 border border-gray-100 focus:outline-none focus:border-blue-400" />
             <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
               <button onClick={() => mover(i, -1)} disabled={i === 0}
                 className="w-6 h-6 rounded text-gray-400 hover:text-gray-700 disabled:opacity-20 flex items-center justify-center">
