@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useChecklist, useGuardarChecklistIngreso, useChecklistSalida, useGuardarChecklistSalida, useCatEquipo } from '@/lib/queries'
+import { useChecklist, useGuardarChecklistIngreso, useCatEquipo } from '@/lib/queries'
 import { Spinner } from '@/components/shared/Spinner'
 
 function ChecklistEditor({ titulo, items, onSave, saving }: {
@@ -102,21 +102,22 @@ function ChecklistEditor({ titulo, items, onSave, saving }: {
 
 export function ChecklistConfigTab() {
   const { data: clIngreso, isLoading: loadI } = useChecklist()
-  const { data: clSalida, isLoading: loadS } = useChecklistSalida()
   const { data: categorias = [] } = useCatEquipo()
   const guardarIngreso = useGuardarChecklistIngreso()
-  const guardarSalida = useGuardarChecklistSalida()
 
   const [catActiva, setCatActiva] = useState(categorias[0] ?? 'Teléfono')
 
-  if (loadI || loadS) return <div className="flex justify-center py-16"><Spinner className="w-8 h-8" /></div>
+  if (loadI) return <div className="flex justify-center py-16"><Spinner className="w-8 h-8" /></div>
+
+  const itemsCatActiva = clIngreso?.[catActiva] ?? []
 
   return (
     <div className="max-w-2xl space-y-4">
       <div>
-        <h3 className="text-sm font-bold text-gray-700 mb-1">Checklist de ingreso</h3>
+        <h3 className="text-sm font-bold text-gray-700 mb-1">Checklist de ingreso y salida</h3>
         <p className="text-xs text-gray-400 mb-3">
           Un iPhone y un notebook no comparten componentes — cada categoría de equipo tiene su propia lista.
+          Lo que agregues acá se revisa al ingreso y se vuelve a revisar al entregar el equipo, con los mismos ítems.
         </p>
         <div className="flex flex-wrap gap-1.5 mb-3">
           {categorias.map(cat => (
@@ -133,17 +134,11 @@ export function ChecklistConfigTab() {
         <ChecklistEditor
           key={catActiva}
           titulo={`Componentes — ${catActiva}`}
-          items={clIngreso?.[catActiva] ?? []}
+          items={itemsCatActiva}
           onSave={items => guardarIngreso.mutateAsync({ ...clIngreso, [catActiva]: items })}
           saving={guardarIngreso.isPending}
         />
       </div>
-      <ChecklistEditor
-        titulo="Checklist de salida"
-        items={clSalida ?? []}
-        onSave={items => guardarSalida.mutateAsync(items)}
-        saving={guardarSalida.isPending}
-      />
     </div>
   )
 }

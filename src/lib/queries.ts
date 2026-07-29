@@ -1797,16 +1797,6 @@ export function useGuardarTerminos() {
   })
 }
 
-export function useChecklistSalida() {
-  const { empresaId } = useAuth()
-  return useQuery({
-    queryKey: ['tp_cl_salida', empresaId],
-    queryFn: () => dbGet<string[] | string>(empresaId!, 'tp_cl_salida'),
-    enabled: !!empresaId,
-    select: (data) => parseArr<string>(data as string[] | string | null),
-  })
-}
-
 export function useGuardarChecklistIngreso() {
   const { empresaId } = useAuth()
   const qc = useQueryClient()
@@ -1816,14 +1806,6 @@ export function useGuardarChecklistIngreso() {
   })
 }
 
-export function useGuardarChecklistSalida() {
-  const { empresaId } = useAuth()
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (items: string[]) => dbSet(empresaId!, 'tp_cl_salida', items),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ['tp_cl_salida', empresaId] }),
-  })
-}
 
 // ── Cargos ────────────────────────────────────────────────────
 
