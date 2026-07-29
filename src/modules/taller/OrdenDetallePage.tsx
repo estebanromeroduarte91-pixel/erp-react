@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { useOrdenesLite, useOrdenPorNum, useActualizarOrden, useMsgTemplates, useSeguimientoConfig, useChecklist, useBuscarProductos, useAjustarStock, useBodegas, useTraslados } from '@/lib/queries'
+import { useOrdenesLite, useOrdenPorNum, useActualizarOrden, useMsgTemplates, useSeguimientoConfig, useChecklist, useEquipos, useBuscarProductos, useAjustarStock, useBodegas, useTraslados } from '@/lib/queries'
 import { DerivarModal } from './DerivarModal'
 import { useAuth } from '@/context/AuthContext'
 import { sendEmail, buildEmailIngreso, buildEmailAprobacion, buildEmailInspeccion, buildEmailListo, puedeResponderCorreo } from '@/lib/email'
@@ -11,7 +11,7 @@ import { EstadoBadge } from '@/components/shared/Badge'
 import { Money } from '@/components/shared/Money'
 import { QrFotosModal } from './QrFotosModal'
 import { OrdenModal } from './OrdenModal'
-import { formatHorario } from './utils'
+import { formatHorario, resolverCategoriaEquipo } from './utils'
 import { Spinner } from '@/components/shared/Spinner'
 import type { EstadoOrden, Inspeccion, CheckItem, Producto } from '@/types'
 
@@ -46,7 +46,8 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
   const { data: msgTemplates } = useMsgTemplates()
   const { data: segCfg } = useSeguimientoConfig()
 
-  const { data: checklistTemplate = [] } = useChecklist()
+  const { data: checklistPorCategoria } = useChecklist()
+  const { data: equipos = [] } = useEquipos()
   const ajustarStock = useAjustarStock()
   const { data: bodegas = [] } = useBodegas()
   const { data: traslados = [] } = useTraslados()
@@ -113,7 +114,10 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
     setInspecSyncedId(o.id)
     setInspecNotas(o.inspeccion?.notas ?? '')
     setInspecFotos(o.inspeccion?.fotos ?? [])
-    // Merge template con estado guardado en la orden
+    // Merge template (según la categoría del equipo de ESTA orden) con el
+    // estado ya guardado en la orden.
+    const categoriaEquipo = resolverCategoriaEquipo(o.modelo, equipos)
+    const checklistTemplate = checklistPorCategoria?.[categoriaEquipo] ?? []
     const saved = o.checkIngreso ?? []
     const merged: CheckItem[] = checklistTemplate.map(label => {
       const s = saved.find(s => s.label === label)

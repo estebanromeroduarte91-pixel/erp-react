@@ -1,4 +1,20 @@
-import type { Orden } from '@/types'
+import type { Orden, Equipo } from '@/types'
+
+// El equipo se guarda en la orden como texto libre ("iPhone 13 [Apple]"), sin
+// vínculo con el catálogo — para saber qué checklist mostrar (distinto por
+// categoría de equipo) hay que resolverlo buscando ese modelo/marca en el
+// catálogo de Equipos. Sin match (modelo tipeado a mano, orden histórica), cae
+// a 'Teléfono' — la categoría más común — en vez de dejar el checklist vacío.
+export function resolverCategoriaEquipo(modeloTexto: string | undefined, equipos: Equipo[]): string {
+  if (!modeloTexto) return 'Teléfono'
+  const m = modeloTexto.match(/^(.*?)\s*\[(.+)\]$/)
+  const modelo = (m ? m[1] : modeloTexto).trim().toLowerCase()
+  const marca = m ? m[2].trim().toLowerCase() : null
+  const match =
+    equipos.find(e => (e.modelo ?? '').trim().toLowerCase() === modelo && (!marca || (e.marca ?? '').trim().toLowerCase() === marca)) ??
+    equipos.find(e => (e.modelo ?? '').trim().toLowerCase() === modelo)
+  return match?.categoria || 'Teléfono'
+}
 
 export function totalOrden(o: Pick<Orden, 'costo' | 'presup' | 'repuestos'>): number {
   const manual = Number(o.costo) || Number(o.presup) || 0

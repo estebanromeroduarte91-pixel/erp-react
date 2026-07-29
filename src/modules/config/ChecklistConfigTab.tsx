@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useChecklist, useGuardarChecklistIngreso, useChecklistSalida, useGuardarChecklistSalida } from '@/lib/queries'
+import { useChecklist, useGuardarChecklistIngreso, useChecklistSalida, useGuardarChecklistSalida, useCatEquipo } from '@/lib/queries'
 import { Spinner } from '@/components/shared/Spinner'
 
 function ChecklistEditor({ titulo, items, onSave, saving }: {
@@ -103,19 +103,41 @@ function ChecklistEditor({ titulo, items, onSave, saving }: {
 export function ChecklistConfigTab() {
   const { data: clIngreso, isLoading: loadI } = useChecklist()
   const { data: clSalida, isLoading: loadS } = useChecklistSalida()
+  const { data: categorias = [] } = useCatEquipo()
   const guardarIngreso = useGuardarChecklistIngreso()
   const guardarSalida = useGuardarChecklistSalida()
+
+  const [catActiva, setCatActiva] = useState(categorias[0] ?? 'Teléfono')
 
   if (loadI || loadS) return <div className="flex justify-center py-16"><Spinner className="w-8 h-8" /></div>
 
   return (
     <div className="max-w-2xl space-y-4">
-      <ChecklistEditor
-        titulo="Checklist de ingreso"
-        items={clIngreso ?? []}
-        onSave={items => guardarIngreso.mutateAsync(items)}
-        saving={guardarIngreso.isPending}
-      />
+      <div>
+        <h3 className="text-sm font-bold text-gray-700 mb-1">Checklist de ingreso</h3>
+        <p className="text-xs text-gray-400 mb-3">
+          Un iPhone y un notebook no comparten componentes — cada categoría de equipo tiene su propia lista.
+        </p>
+        <div className="flex flex-wrap gap-1.5 mb-3">
+          {categorias.map(cat => (
+            <button key={cat} onClick={() => setCatActiva(cat)}
+              className="px-3 py-1 rounded-full text-xs font-medium transition"
+              style={cat === catActiva
+                ? { background: '#3656e6', color: '#fff' }
+                : { background: '#f2f2f7', color: '#6b7280' }}>
+              {cat}
+              <span className="ml-1 opacity-70">({(clIngreso?.[cat] ?? []).length})</span>
+            </button>
+          ))}
+        </div>
+        <ChecklistEditor
+          key={catActiva}
+          titulo={`Componentes — ${catActiva}`}
+          items={clIngreso?.[catActiva] ?? []}
+          onSave={items => guardarIngreso.mutateAsync({ ...clIngreso, [catActiva]: items })}
+          saving={guardarIngreso.isPending}
+        />
+      </div>
       <ChecklistEditor
         titulo="Checklist de salida"
         items={clSalida ?? []}

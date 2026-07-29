@@ -356,26 +356,47 @@ export function useImportarOrdenes() {
   })
 }
 
-// ── Checklist de ingreso (ítems configurables) ───────────────
+// ── Checklist de ingreso (ítems configurables, por categoría de equipo) ──
+// Un iPhone y un MacBook no comparten componentes (cámara trasera vs. teclado),
+// así que el checklist es un mapa categoría -> ítems, no una sola lista global.
 
-const DEFAULT_CHECKS = [
+const DEFAULT_CHECKS_TELEFONO = [
   'Pantalla (táctil y visual)', 'Cámara trasera', 'Cámara frontal',
   'Face ID / Touch ID', 'Conector de carga', 'Altavoz',
   'Auricular (llamadas)', 'Micrófono', 'Botones (volumen, encendido)', 'WiFi / Bluetooth',
 ]
 
+export const DEFAULT_CHECKLISTS: Record<string, string[]> = {
+  'Teléfono':      DEFAULT_CHECKS_TELEFONO,
+  'Tablet':        DEFAULT_CHECKS_TELEFONO,
+  'Notebook':      ['Encendido', 'Batería (ciclos y salud)', 'Teclado', 'Trackpad', 'Pantalla (manchas, líneas)', 'Bisagra', 'Cámara frontal', 'Altavoces', 'Micrófono', 'Puertos USB / HDMI', 'WiFi / Bluetooth', 'Carcasa (golpes, abolladuras)'],
+  'Smartwatch':    ['Encendido', 'Batería', 'Pantalla táctil', 'Corona / botones', 'Correa', 'Sensor cardíaco', 'WiFi / Bluetooth'],
+  'PC escritorio': ['Encendido', 'Pantalla', 'Teclado', 'Mouse', 'Puertos USB / HDMI', 'WiFi / Bluetooth'],
+  'Consola':       ['Encendido', 'Lector de disco', 'Mandos', 'Puertos HDMI / USB', 'WiFi / Bluetooth', 'Ventilación'],
+  'Audífonos':     ['Encendido', 'Batería', 'Sonido izquierdo', 'Sonido derecho', 'Micrófono', 'Estuche de carga', 'Bluetooth'],
+  'Otro':          DEFAULT_CHECKS_TELEFONO,
+}
+
 export function useChecklist() {
   const { empresaId } = useAuth()
   return useQuery({
     queryKey: ['tp_cl_ingreso', empresaId],
-    queryFn: () => dbGet<string[] | string>(empresaId!, 'tp_cl_ingreso'),
+    queryFn: () => dbGet<Record<string, string[]> | string[] | string>(empresaId!, 'tp_cl_ingreso'),
     enabled: !!empresaId,
     select: (data) => {
-      if (!data) return DEFAULT_CHECKS
-      if (typeof data === 'string') {
-        try { return JSON.parse(data) as string[] } catch { return DEFAULT_CHECKS }
+      let parsed = data
+      if (typeof parsed === 'string') {
+        try { parsed = JSON.parse(parsed) as Record<string, string[]> | string[] } catch { parsed = undefined }
       }
-      return (data as string[]).length ? (data as string[]) : DEFAULT_CHECKS
+      if (!parsed) return DEFAULT_CHECKLISTS
+      // Formato anterior a la versión por categoría: una sola lista global —
+      // se aplica como punto de partida a todas las categorías, para no perder
+      // lo que ya tenía configurado; queda editable por categoría desde ahora.
+      if (Array.isArray(parsed)) {
+        if (!parsed.length) return DEFAULT_CHECKLISTS
+        return Object.fromEntries(Object.keys(DEFAULT_CHECKLISTS).map(cat => [cat, parsed as string[]]))
+      }
+      return { ...DEFAULT_CHECKLISTS, ...parsed }
     },
   })
 }
@@ -1790,7 +1811,7 @@ export function useGuardarChecklistIngreso() {
   const { empresaId } = useAuth()
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (items: string[]) => dbSet(empresaId!, 'tp_cl_ingreso', items),
+    mutationFn: (items: Record<string, string[]>) => dbSet(empresaId!, 'tp_cl_ingreso', items),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['tp_cl_ingreso', empresaId] }),
   })
 }

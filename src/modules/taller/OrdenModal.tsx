@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { formatRut } from '@/lib/rut'
-import { useCrearOrden, useActualizarOrden, useClientes, useBuscarClientes, useCrearCliente, useActualizarCliente, useBuscarProductos, useChecklist, useUserProfiles, useMsgTemplates, useSeguimientoConfig, useBodegas } from '@/lib/queries'
+import { useCrearOrden, useActualizarOrden, useClientes, useBuscarClientes, useCrearCliente, useActualizarCliente, useBuscarProductos, useChecklist, useEquipos, useUserProfiles, useMsgTemplates, useSeguimientoConfig, useBodegas } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { capFirst, capWords } from '@/lib/formatters'
@@ -11,7 +11,7 @@ import { EquipoSelector } from './EquipoSelector'
 import { useAnchorRect, fixedDropdownStyle } from '@/lib/useAnchorRect'
 import { PatternLockModal } from './PatternLockModal'
 import { QrFotosModal } from './QrFotosModal'
-import { formatHorario } from './utils'
+import { formatHorario, resolverCategoriaEquipo } from './utils'
 import type { Orden, EstadoOrden, Repuesto, Producto, CheckItem } from '@/types'
 
 const ESTADOS_OT: EstadoOrden[] = ['Chequeo', 'Reparación', 'Listo', 'Entregado', 'No reparable']
@@ -57,7 +57,8 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
   const { data: clientes } = useClientes()
   const crearCliente = useCrearCliente()
   const actualizarCliente = useActualizarCliente()
-  const { data: checklistLabels } = useChecklist()
+  const { data: checklistPorCategoria } = useChecklist()
+  const { data: equipos = [] } = useEquipos()
   const { data: usuarios = [] } = useUserProfiles()
   const { data: msgTemplates } = useMsgTemplates()
   const { data: segCfg } = useSeguimientoConfig()
@@ -173,15 +174,17 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
     ? clientesBuscados
     : (clientes ?? []).slice(0, 6)
 
-  // Inicializa checklist cuando cargan los labels del servidor (una sola vez).
-  // Ajuste de estado durante el render en vez de en un efecto — evita el
-  // render en cascada que genera un setState síncrono dentro de useEffect.
-  const [checklistInited, setChecklistInited] = useState(false)
-  if (!checklistInited && checklistLabels?.length) {
-    setChecklistInited(true)
-    if (checkIngreso.length === 0) {  // ya tiene datos (edición) -> no pisar
-      setCheckIngreso(checklistLabels.map((label) => ({ label, checked: false })))
-    }
+  // El checklist depende de la categoría del equipo elegido (iPhone y MacBook
+  // no comparten componentes). Se recalcula cada vez que cambia el equipo —
+  // solo en órdenes NUEVAS, nunca en edición (no pisar respuestas ya guardadas).
+  // Ajuste de estado durante el render en vez de useEffect (mismo patrón usado
+  // en todo el archivo) para evitar el render en cascada de un setState en efecto.
+  const categoriaEquipo = resolverCategoriaEquipo(form.modelo, equipos)
+  const checklistLabels = checklistPorCategoria?.[categoriaEquipo] ?? []
+  const [checklistCatSynced, setChecklistCatSynced] = useState<string | null>(null)
+  if (!orden && checklistLabels.length && checklistCatSynced !== categoriaEquipo) {
+    setChecklistCatSynced(categoriaEquipo)
+    setCheckIngreso(checklistLabels.map((label) => ({ label, checked: false })))
   }
 
   // Fotos: lee archivos como base64
