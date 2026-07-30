@@ -147,15 +147,19 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
     if (nuevas.length) setInspecFotos(prev => [...new Set([...prev, ...nuevas])])
   }, [inspecDbFotos])
 
-  // Mientras un modal QR esté abierto, refrescar las órdenes cada 3s para que
+  // Mientras un modal QR esté abierto, refrescar la orden cada 3s para que
   // las fotos subidas desde el iPhone aparezcan aunque el realtime no dispare.
+  // OJO: la clave de caché era 'tp_orders' (del blob viejo, previo a la
+  // migración a tabla relacional) — no correspondía a ninguna query activa, así
+  // que este refresco nunca hacía nada. La orden individual vive en
+  // ['orden-por-num', empresaId, num] (useOrdenPorNum).
   useEffect(() => {
     if (!showQrInspec && !showQrIngreso) return
     const id = setInterval(() => {
-      void qc.invalidateQueries({ queryKey: ['tp_orders', empresaId] })
+      void qc.invalidateQueries({ queryKey: ['orden-por-num', empresaId, num] })
     }, 3000)
     return () => clearInterval(id)
-  }, [showQrInspec, showQrIngreso, qc, empresaId])
+  }, [showQrInspec, showQrIngreso, qc, empresaId, num])
 
   const pollAprobacion = useCallback(async () => {
     if (!o?.aprobacion_token || o.aprobacion_estado !== 'pendiente') return
