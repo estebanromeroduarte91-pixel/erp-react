@@ -46,11 +46,19 @@ function calcUtilidad(lista: Venta[], prodsMap: Map<string, number>) {
 }
 
 export function VentasListTab() {
-  const { data: ventas, isLoading } = useVentas()
+  const { data: ventasSinFiltrar, isLoading } = useVentas()
   const { data: metodos } = useMetodosPago()
   const { data: productos } = useProductos()
   const anularVenta = useAnularVenta()
-  const { esAdmin } = useAuth()
+  const { esAdmin, branchId: userBranchId } = useAuth()
+
+  // El staff sin sucursal global (encargado/vendedor con sucursal asignada)
+  // solo ve las ventas de la suya — antes esta pantalla mostraba las ventas
+  // de TODAS las sucursales a cualquiera, sin importar el rol.
+  const ventas = useMemo(() => {
+    if (esAdmin || !userBranchId) return ventasSinFiltrar
+    return (ventasSinFiltrar ?? []).filter(v => v.branchId === userBranchId)
+  }, [ventasSinFiltrar, esAdmin, userBranchId])
 
   const [busqueda, setBusqueda] = useState('')
   const [filtroEstado, setFiltroEstado] = useState<'todas' | 'pagada' | 'anulada' | 'pendiente'>('todas')
