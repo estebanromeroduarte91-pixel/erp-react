@@ -83,7 +83,7 @@ export function TallerPage() {
   const { data: bodegas = [] } = useBodegas()
   const actualizarOrden = useActualizarOrden()
   const eliminarOrden = useEliminarOrden()
-  const { esAdmin, empresaId } = useAuth()
+  const { esAdmin, empresaId, branchId: userBranchId } = useAuth()
   const [configTab, setConfigTab] = useState<TallerConfigTab>('seguimiento')
   const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null)
   const [filtroEstado, setFiltroEstado] = useState<EstadoOrden | 'todos' | 'Derivado'>('Chequeo')
@@ -116,7 +116,15 @@ export function TallerPage() {
 
   const lista = useMemo(() => {
     let r = ordenes ?? []
-    if (esAdmin && selectedBranchId) r = r.filter((o) => o.branchId === selectedBranchId)
+    // El admin puede elegir cualquier sucursal (o ninguna, para ver todas). El
+    // resto del staff queda fijo a su propia sucursal asignada — antes esto
+    // solo se aplicaba al selector de admin, así que un encargado veía las
+    // órdenes de TODAS las sucursales, no solo la suya.
+    if (esAdmin) {
+      if (selectedBranchId) r = r.filter((o) => o.branchId === selectedBranchId)
+    } else if (userBranchId) {
+      r = r.filter((o) => o.branchId === userBranchId)
+    }
 
     if (busqueda.trim()) {
       const q = busqueda.toLowerCase()
@@ -140,11 +148,14 @@ export function TallerPage() {
       }
     }
     return [...r].sort((a, b) => (b.fecha ?? '').localeCompare(a.fecha ?? ''))
-  }, [ordenes, filtroEstado, busqueda, derivadoIds, esAdmin, selectedBranchId])
+  }, [ordenes, filtroEstado, busqueda, derivadoIds, esAdmin, selectedBranchId, userBranchId])
 
   // Stats
   const stats = useMemo(() => {
-    const all = (ordenes ?? []).filter((o) => !esAdmin || !selectedBranchId || o.branchId === selectedBranchId)
+    const all = (ordenes ?? []).filter((o) => {
+      if (esAdmin) return !selectedBranchId || o.branchId === selectedBranchId
+      return !userBranchId || o.branchId === userBranchId
+    })
     return {
       abiertas: all.filter((o) => o.status !== 'Entregado').length,
       chequeo: all.filter((o) => o.status === 'Chequeo').length,
@@ -153,7 +164,7 @@ export function TallerPage() {
       entregadas: all.filter((o) => o.status === 'Entregado').length,
       derivadas: all.filter((o) => derivadoIds.has(o.id) && o.status !== 'Entregado').length,
     }
-  }, [ordenes, derivadoIds, esAdmin, selectedBranchId])
+  }, [ordenes, derivadoIds, esAdmin, selectedBranchId, userBranchId])
 
   const isMobile = useIsMobile()
 

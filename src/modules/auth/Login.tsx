@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
-import { dbGet, dbSet } from '@/lib/db'
 
 const INVITE_TOKEN = new URLSearchParams(window.location.search).get('invite')
 
@@ -105,24 +104,20 @@ export function Login() {
     if (password.length < 6) { setError('La contraseña debe tener al menos 6 caracteres'); return }
     setError('')
     setCargando(true)
-    const { data, error: err } = await supabase.auth.signUp({ email: invite.email, password })
-    if (err) { setCargando(false); setError(_tradError(err.message)); return }
-    if (!data.session) { setCargando(false); setConfirmarEmail(true); return }
-
-    const { error: perfilErr } = await supabase.from('user_profiles').insert({
-      id: data.user!.id, empresa_id: invite.empresa_id, role: invite.role, nombre: nombreInvitado.trim(), activo: true,
+    // La cuenta se crea server-side (Edge Function, con service_role) ya
+    // confirmada — el admin ya verificó este correo al invitarlo a mano, así
+    // que no depende de que llegue un segundo correo de confirmación.
+    const { data, error: err } = await supabase.functions.invoke('aceptar-invitacion', {
+      body: { token: invite.token, password, nombre: nombreInvitado.trim() },
     })
-    if (perfilErr) { setCargando(false); setError('Error: ' + perfilErr.message); return }
-    await supabase.from('pending_invites').update({ used: true }).eq('token', invite.token)
-
-    // Aplica el cargo/sucursal que quedaron guardados al crear la invitación
-    const pendingCargoStr = await dbGet<string>(invite.empresa_id, `pending_cargo_${invite.token}`)
-    if (pendingCargoStr) {
-      try {
-        const cfg = JSON.parse(pendingCargoStr)
-        await dbSet(invite.empresa_id, `ucfg_${data.user!.id}`, cfg)
-      } catch { /* config pendiente corrupta, se ignora */ }
+    if (err || !data?.ok) {
+      setCargando(false)
+      setError(data?.error || err?.message || 'No se pudo completar la invitación. Intenta de nuevo.')
+      return
     }
+    const loginErr = await login(invite.email, password)
+    setCargando(false)
+    if (loginErr) { setError(loginErr); return }
     window.location.reload()
   }
 
