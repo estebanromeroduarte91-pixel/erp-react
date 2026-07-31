@@ -21,11 +21,10 @@ export async function sendEmail(
   subject: string,
   bodyHtml: string,
 ): Promise<SendEmailResult> {
-  const [cfg, tpCfg, dom, resendKey] = await Promise.all([
+  const [cfg, tpCfg, dom] = await Promise.all([
     dbGet<SmtpConfig>(empresaId, 'tp_smtp_config'),
     dbGet<TpConfig>(empresaId, 'tp_config'),
     dbGet<EmailDomain>(empresaId, 'tp_email_domain'),
-    dbGet<string>(empresaId, 'resend_key'),
   ])
 
   // Prioridad 1: dominio verificado en Resend → enviar vía Resend
@@ -52,17 +51,10 @@ export async function sendEmail(
   // como si fuera el default de cualquier cliente nuevo de la plataforma.
   const fromName = cfg?.from_name || tpCfg?.nombre || 'Pixit'
   try {
+    // La función ahora resuelve la config SMTP/Resend del lado del servidor a
+    // partir de la empresa del usuario autenticado, así que ya no mandamos
+    // credenciales en el body (antes viajaban en texto plano hasta el Edge Function).
     const body: Record<string, unknown> = { to, subject, html: bodyHtml, from: fromEmail, from_name: fromName }
-    if (cfg?.host && cfg?.user && cfg?.password) {
-      body.smtp = {
-        host: cfg.host,
-        port: Number(cfg.port) || 465,
-        secure: cfg.secure ?? true,
-        user: cfg.user,
-        password: cfg.password,
-      }
-    }
-    if (resendKey) body.resend_api_key = resendKey
     const { data, error } = await supabase.functions.invoke('send-email', { body })
     if (error) return { ok: false, error: error.message }
     return (data as SendEmailResult) ?? { ok: true }
