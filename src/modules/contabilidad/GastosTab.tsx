@@ -77,7 +77,7 @@ export function GastosTab() {
   async function sincronizarAsiento(gasto: Gasto) {
     const lista = asientos ?? []
     const existente = lista.find((a) => a.id === asientoIdDeGasto(gasto.id))
-    const numero = existente?.numero ?? nextNumeroAsiento(lista)
+    const numero = existente?.numero ?? await nextNumeroAsiento()
     const asiento = asientoDeGasto(gasto, planCuentas ?? [], catCuentaMap ?? {}, numero)
     const actualizada = existente
       ? lista.map((a) => (a.id === asiento.id ? asiento : a))

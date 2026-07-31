@@ -1210,7 +1210,7 @@ export function ComprasPage() {
     await actualizarOC.mutateAsync(ocConfirmada)
     const listaAs = asientos ?? []
     const existente = listaAs.find(a => a.id === asientoIdDeOC(ocId))
-    const asiento = asientoDeOC(ocConfirmada, metodoPago, sinFactura, planCuentas ?? [], existente?.numero ?? nextNumeroAsiento(listaAs))
+    const asiento = asientoDeOC(ocConfirmada, metodoPago, sinFactura, planCuentas ?? [], existente?.numero ?? await nextNumeroAsiento())
     await guardarAsientos.mutateAsync(existente ? listaAs.map(a => a.id === asiento.id ? asiento : a) : [...listaAs, asiento])
     setModal({ type: 'none' })
     showToast('OC confirmada')

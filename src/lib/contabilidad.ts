@@ -1,3 +1,4 @@
+import { supabase } from './supabase'
 import type { Gasto, Asiento, AsientoLinea, CuentaContable } from '@/types'
 
 // Método de pago → cuenta de contrapartida (Haber) del asiento de un gasto.
@@ -14,9 +15,14 @@ export function cuentaHaberDeMetodo(metodo?: string): string {
   }
 }
 
-// Siguiente número correlativo para un asiento nuevo.
-export function nextNumeroAsiento(asientos: Asiento[]): number {
-  return asientos.reduce((max, a) => Math.max(max, a.numero ?? 0), 0) + 1
+// Siguiente número correlativo para un asiento nuevo. Atómico en la base
+// (lock de fila vía siguiente_folio) — antes calculaba máx+1 sobre el array
+// de asientos en memoria del cliente, con riesgo de folio duplicado si dos
+// gastos/OCs se confirman casi al mismo tiempo.
+export async function nextNumeroAsiento(): Promise<number> {
+  const { data, error } = await supabase.rpc('siguiente_folio', { p_tipo: 'asiento' })
+  if (error) throw error
+  return data as number
 }
 
 // id determinístico del asiento generado por un gasto (permite editar/eliminar en sincronía).

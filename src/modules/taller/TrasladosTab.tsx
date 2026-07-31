@@ -126,7 +126,7 @@ export function TrasladosTab() {
         metodo: retMetodo,
       }
       await crearGasto.mutateAsync(gasto)
-      const asiento = asientoDeGasto(gasto, planCuentas ?? [], catCuentaMap ?? {}, nextNumeroAsiento(asientos ?? []))
+      const asiento = asientoDeGasto(gasto, planCuentas ?? [], catCuentaMap ?? {}, await nextNumeroAsiento())
       await guardarAsientos.mutateAsync([...(asientos ?? []), asiento])
     }
     setRetGuardando(false)
