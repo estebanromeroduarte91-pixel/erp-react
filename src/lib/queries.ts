@@ -884,6 +884,13 @@ export function useGuardarBodegas() {
 // mov_inventario era un array JSON completo en erp_data que se reemplazaba
 // entero en cada guardado, así que dos ventas/recepciones simultáneas podían
 // perder por completo el movimiento de la otra.
+// Antes no tenía límite alguno — dependía del tope silencioso de 1000 filas
+// de PostgREST, así que en una empresa con mucho historial los movimientos
+// más viejos simplemente desaparecían de la vista sin aviso. Con un límite
+// explícito, al menos queda claro (MOVIMIENTOS_LIMITE, usado por la UI para
+// avisar si hay más historial del que se muestra).
+export const MOVIMIENTOS_LIMITE = 500
+
 export function useMovimientos() {
   const { empresaId } = useAuth()
   return useQuery({
@@ -894,6 +901,7 @@ export function useMovimientos() {
         .select('*')
         .eq('empresa_id', empresaId!)
         .order('creado_en', { ascending: false })
+        .limit(MOVIMIENTOS_LIMITE)
       if (error) throw error
       return (data ?? []).map((r) => ({
         id: r.id as string,

@@ -1,5 +1,5 @@
 import { useState, useMemo, memo } from 'react'
-import { useMovimientos, useCrearMovimiento, useProductos, useBuscarProductos, useBodegas, useAjustarStock } from '@/lib/queries'
+import { useMovimientos, useCrearMovimiento, useProductos, useBuscarProductos, useBodegas, useAjustarStock, MOVIMIENTOS_LIMITE } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { useAnchorRect, fixedDropdownStyle } from '@/lib/useAnchorRect'
 import { Spinner } from '@/components/shared/Spinner'
@@ -423,6 +423,12 @@ export function MovimientosTab() {
       </div>
 
       {modalTraslado && <ModalTraslado onClose={() => setModalTraslado(false)} />}
+
+      {(movimientos?.length ?? 0) >= MOVIMIENTOS_LIMITE && (
+        <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
+          Mostrando los últimos {MOVIMIENTOS_LIMITE} movimientos. Puede haber historial más antiguo no incluido en la búsqueda.
+        </p>
+      )}
 
       {lista.length === 0 && (
         <div className="bg-white rounded-xl border border-gray-100">
