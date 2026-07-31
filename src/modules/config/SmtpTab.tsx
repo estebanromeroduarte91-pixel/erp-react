@@ -9,26 +9,34 @@ export function SmtpTab() {
 
   const [form, setForm] = useState<SmtpConfig>({})
   const [showPw, setShowPw] = useState(false)
+  const [pwEdited, setPwEdited] = useState(false)
   const [guardado, setGuardado] = useState(false)
 
   // Ajuste de estado durante el render en vez de useEffect.
+  // La contraseña guardada nunca se carga al campo (evita mostrarla en
+  // texto plano a cualquiera que abra esta pestaña): el campo arranca
+  // vacío y solo se envía si el usuario escribe una nueva.
   const [cfgSynced, setCfgSynced] = useState(false)
   if (!cfgSynced && cfg) {
     setCfgSynced(true)
-    setForm(cfg)
+    setForm({ ...cfg, password: '' })
   }
 
   function set(k: keyof SmtpConfig, v: string | number | boolean) {
+    if (k === 'password') setPwEdited(true)
     setForm(f => ({ ...f, [k]: v }))
   }
 
   async function handleGuardar() {
-    await guardar.mutateAsync(form)
+    const payload: SmtpConfig = pwEdited ? form : { ...form, password: cfg?.password }
+    await guardar.mutateAsync(payload)
+    setPwEdited(false)
     setGuardado(true)
     setTimeout(() => setGuardado(false), 2500)
   }
 
-  const isConnected = !!(form.host && form.user && form.password)
+  const hasStoredPw = !!cfg?.password
+  const isConnected = !!(form.host && form.user && (hasStoredPw || form.password))
 
   if (isLoading) return <div className="flex justify-center py-16"><Spinner className="w-8 h-8" /></div>
 
@@ -76,7 +84,7 @@ export function SmtpTab() {
             <label className="text-xs font-medium text-gray-600 block mb-1">Contraseña / App password</label>
             <div className="relative">
               <input type={showPw ? 'text' : 'password'} value={form.password ?? ''} onChange={e => set('password', e.target.value)}
-                placeholder="••••••••" autoComplete="new-password" name="smtp-password-no-autofill"
+                placeholder={hasStoredPw ? '•••••••• (sin cambios)' : '••••••••'} autoComplete="new-password" name="smtp-password-no-autofill"
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 pr-9 text-base md:text-sm font-mono bg-gray-50 focus:outline-none focus:border-blue-400" />
               <button type="button" onClick={() => setShowPw(p => !p)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
