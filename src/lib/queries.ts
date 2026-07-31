@@ -1773,7 +1773,12 @@ export function useSmtpConfig() {
   const { empresaId } = useAuth()
   return useQuery({
     queryKey: ['tp_smtp_config', empresaId],
-    queryFn: () => dbGet<SmtpConfig>(empresaId!, 'tp_smtp_config'),
+    // get_smtp_status() nunca devuelve la contraseña real, solo hasPassword.
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_smtp_status')
+      if (error) throw error
+      return (data ?? {}) as SmtpConfig
+    },
     enabled: !!empresaId,
     select: (data) => (data ?? {}) as SmtpConfig,
   })
@@ -1783,7 +1788,12 @@ export function useGuardarSmtpConfig() {
   const { empresaId } = useAuth()
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (cfg: SmtpConfig) => dbSet(empresaId!, 'tp_smtp_config', cfg),
+    // guardar_smtp_config conserva la contraseña guardada si no se manda una
+    // nueva (password vacío/ausente), así el cliente nunca necesita conocerla.
+    mutationFn: async (cfg: SmtpConfig) => {
+      const { error } = await supabase.rpc('guardar_smtp_config', { p_datos: cfg })
+      if (error) throw error
+    },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['tp_smtp_config', empresaId] }),
   })
 }

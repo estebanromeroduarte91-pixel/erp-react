@@ -348,6 +348,9 @@ export interface SmtpConfig {
   from_name?: string
   from_email?: string
   secure?: boolean
+  // Presente solo en la respuesta de get_smtp_status(): indica si hay una
+  // contraseña guardada sin revelar su valor real.
+  hasPassword?: boolean
 }
 
 export interface MsgTemplates {

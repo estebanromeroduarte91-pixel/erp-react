@@ -9,7 +9,6 @@ export function SmtpTab() {
 
   const [form, setForm] = useState<SmtpConfig>({})
   const [showPw, setShowPw] = useState(false)
-  const [pwEdited, setPwEdited] = useState(false)
   const [guardado, setGuardado] = useState(false)
 
   // Ajuste de estado durante el render en vez de useEffect.
@@ -23,19 +22,18 @@ export function SmtpTab() {
   }
 
   function set(k: keyof SmtpConfig, v: string | number | boolean) {
-    if (k === 'password') setPwEdited(true)
     setForm(f => ({ ...f, [k]: v }))
   }
 
   async function handleGuardar() {
-    const payload: SmtpConfig = pwEdited ? form : { ...form, password: cfg?.password }
-    await guardar.mutateAsync(payload)
-    setPwEdited(false)
+    // guardar_smtp_config conserva la contraseña existente si mandamos vacío
+    // (form.password queda '' salvo que el usuario haya escrito una nueva).
+    await guardar.mutateAsync(form)
     setGuardado(true)
     setTimeout(() => setGuardado(false), 2500)
   }
 
-  const hasStoredPw = !!cfg?.password
+  const hasStoredPw = !!cfg?.hasPassword
   const isConnected = !!(form.host && form.user && (hasStoredPw || form.password))
 
   if (isLoading) return <div className="flex justify-center py-16"><Spinner className="w-8 h-8" /></div>
