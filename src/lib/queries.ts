@@ -2633,8 +2633,11 @@ export function useCrearCotizacion() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (c: NuevaCotizacion) => {
-      const actuales = qc.getQueryData<Cotizacion[]>(['cotizaciones', empresaId]) ?? []
-      const numero = (actuales.reduce((max, x) => Math.max(max, x.numero), 0)) + 1
+      // siguiente_folio() es atómico en la base — antes esto calculaba
+      // máx+1 sobre la caché de React Query (ni siquiera un fetch fresco),
+      // el caso más fácil de duplicar de los 5 folios de la app.
+      const { data: numero, error: errNumero } = await supabase.rpc('siguiente_folio', { p_tipo: 'cotizacion' })
+      if (errNumero) throw errNumero
       const { data, error } = await supabase
         .from('cotizaciones')
         .insert({ empresa_id: empresaId!, numero, ...c })
