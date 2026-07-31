@@ -1,5 +1,5 @@
-import { useState, useMemo, useEffect, memo } from 'react'
-import { useMovimientos, useGuardarMovimientos, useProductos, useBuscarProductos, useBodegas, useAjustarStock } from '@/lib/queries'
+import { useState, useMemo, memo } from 'react'
+import { useMovimientos, useCrearMovimiento, useProductos, useBuscarProductos, useBodegas, useAjustarStock } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { useAnchorRect, fixedDropdownStyle } from '@/lib/useAnchorRect'
 import { Spinner } from '@/components/shared/Spinner'
@@ -72,8 +72,7 @@ const LineaTrasladoRow = memo(function LineaTrasladoRow({
 function ModalTraslado({ onClose }: { onClose: () => void }) {
   const { data: productos = [] } = useProductos()
   const { data: bodegas = [] } = useBodegas()
-  const guardarMovimientos = useGuardarMovimientos()
-  const { data: movimientos } = useMovimientos()
+  const crearMovimiento = useCrearMovimiento()
   const ajustarStock = useAjustarStock()
   const { nombre: usuarioNombre } = useAuth()
 
@@ -148,7 +147,7 @@ function ModalTraslado({ onClose }: { onClose: () => void }) {
         notas: notas || `Traslado ${nombreBodega(origenId)} → ${nombreBodega(destinoId)}`,
         usuario: usuarioNombre,
       }
-      await guardarMovimientos.mutateAsync([...(movimientos ?? []), nuevoMov])
+      await crearMovimiento.mutateAsync(nuevoMov)
       onClose()
     } catch (e) {
       setError((e as Error).message)
@@ -376,24 +375,9 @@ function ProductoPills({ productos }: { productos: { producto_nombre?: string; c
 
 export function MovimientosTab() {
   const { data: movimientos, isLoading } = useMovimientos()
-  const guardarMovimientos = useGuardarMovimientos()
   const [filtroTipo, setFiltroTipo] = useState('')
   const [busqueda, setBusqueda] = useState('')
   const [modalTraslado, setModalTraslado] = useState(false)
-
-  // Corrige automáticamente referencias históricas con prefijo duplicado (OC-OC- → OC-)
-  useEffect(() => {
-    if (!movimientos?.length) return
-    const necesitaFix = movimientos.some(m => m.referencia?.startsWith('OC-OC-'))
-    if (!necesitaFix) return
-    const corregidos = movimientos.map(m => ({
-      ...m,
-      referencia: m.referencia?.startsWith('OC-OC-')
-        ? m.referencia.replace('OC-OC-', 'OC-')
-        : m.referencia,
-    }))
-    void guardarMovimientos.mutateAsync(corregidos)
-  }, [movimientos]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const lista = useMemo(() => {
     let r = movimientos ?? []

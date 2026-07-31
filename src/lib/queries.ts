@@ -873,25 +873,61 @@ export function useGuardarBodegas() {
 
 // ── Movimientos de inventario ─────────────────────────────────
 
+// movimientos_inventario es tabla real (una fila por movimiento) — antes
+// mov_inventario era un array JSON completo en erp_data que se reemplazaba
+// entero en cada guardado, así que dos ventas/recepciones simultáneas podían
+// perder por completo el movimiento de la otra.
 export function useMovimientos() {
   const { empresaId } = useAuth()
   return useQuery({
-    queryKey: ['mov_inventario', empresaId],
-    queryFn: () => dbGet<Movimiento[] | string>(empresaId!, 'mov_inventario'),
-    enabled: !!empresaId,
-    select: (data) => {
-      if (typeof data === 'string') { try { return JSON.parse(data) as Movimiento[] } catch { return [] } }
-      return (data as Movimiento[]) ?? []
+    queryKey: ['movimientos_inventario', empresaId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('movimientos_inventario')
+        .select('*')
+        .eq('empresa_id', empresaId!)
+        .order('creado_en', { ascending: false })
+      if (error) throw error
+      return (data ?? []).map((r) => ({
+        id: r.id as string,
+        fecha: r.fecha as string,
+        hora: r.hora as string | undefined,
+        tipo: r.tipo as Movimiento['tipo'],
+        productos: r.productos as Movimiento['productos'],
+        bodega_origen: r.bodega_origen as string | undefined,
+        bodega_destino: r.bodega_destino as string | undefined,
+        referencia: r.referencia as string | undefined,
+        referencia_id: r.referencia_id as string | undefined,
+        notas: r.notas as string | undefined,
+        usuario: r.usuario as string | undefined,
+      })) as Movimiento[]
     },
+    enabled: !!empresaId,
   })
 }
 
-export function useGuardarMovimientos() {
+export function useCrearMovimiento() {
   const { empresaId } = useAuth()
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (movs: Movimiento[]) => dbSet(empresaId!, 'mov_inventario', movs),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ['mov_inventario', empresaId] }),
+    mutationFn: async (mov: Movimiento) => {
+      const { error } = await supabase.from('movimientos_inventario').insert({
+        id: mov.id,
+        empresa_id: empresaId!,
+        fecha: mov.fecha,
+        hora: mov.hora,
+        tipo: mov.tipo,
+        productos: mov.productos,
+        bodega_origen: mov.bodega_origen,
+        bodega_destino: mov.bodega_destino,
+        referencia: mov.referencia,
+        referencia_id: mov.referencia_id,
+        notas: mov.notas,
+        usuario: mov.usuario,
+      })
+      if (error) throw error
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['movimientos_inventario', empresaId] }),
   })
 }
 

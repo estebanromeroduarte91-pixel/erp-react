@@ -7,7 +7,7 @@ import {
   useIncrementarContadorOC, useBuscarProductos, useBodegas,
   useProveedores, useGuardarProveedores, useAjustarStock,
   usePlanCuentas, useAsientos, useGuardarAsientos,
-  useMovimientos, useGuardarMovimientos,
+  useCrearMovimiento,
   useCrearLotes,
 } from '@/lib/queries'
 import { asientoDeOC, asientoIdDeOC, nextNumeroAsiento } from '@/lib/contabilidad'
@@ -1077,8 +1077,7 @@ export function ComprasPage() {
   const { data: asientos } = useAsientos()
   const guardarAsientos = useGuardarAsientos()
   const crearLotes = useCrearLotes()
-  const { data: movimientos = [] } = useMovimientos()
-  const guardarMovimientos = useGuardarMovimientos()
+  const crearMovimiento = useCrearMovimiento()
 
   // Recalculate dynamic estado
   const ocs: OC[] = rawOcs.map(o => {
@@ -1193,7 +1192,7 @@ export function ComprasPage() {
           nuevosMovs.push({ id: uid(), fecha: today(), hora: new Date().toTimeString().slice(0, 5), tipo: 'entrada', bodega_destino: rec.bodega_id, referencia: ocNumero, referencia_id: ocId, notas: rec.notas, productos: movProds })
         }
       }
-      if (nuevosMovs.length > 0) await guardarMovimientos.mutateAsync([...movimientos, ...nuevosMovs])
+      if (nuevosMovs.length > 0) await Promise.all(nuevosMovs.map(m => crearMovimiento.mutateAsync(m)))
       const ocRecibida = updated.find(o => o.id === ocId)
       if (ocRecibida) await actualizarOC.mutateAsync(ocRecibida)
       setModal({ type: 'none' })

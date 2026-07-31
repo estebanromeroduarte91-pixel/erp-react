@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
-import { useProductos, useBuscarProductos, useAjustarStock, useVentas, useGuardarVenta, useMetodosPago, useCajaSesiones, useCajas, useGuardarCajaSesiones, useIncrementarContadorVenta, useOrdenesLite, useActualizarOrden, useMovimientos, useGuardarMovimientos, useUserProfiles, useUserCargoMap, useCargos, useLotes, useActualizarLotes, useClientes, useBuscarClientes, useCrearCliente, CARGOS_DEFAULT } from '@/lib/queries'
+import { useProductos, useBuscarProductos, useAjustarStock, useVentas, useGuardarVenta, useMetodosPago, useCajaSesiones, useCajas, useGuardarCajaSesiones, useIncrementarContadorVenta, useOrdenesLite, useActualizarOrden, useCrearMovimiento, useUserProfiles, useUserCargoMap, useCargos, useLotes, useActualizarLotes, useClientes, useBuscarClientes, useCrearCliente, CARGOS_DEFAULT } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 
 import { useAnchorRect, fixedDropdownStyle } from '@/lib/useAnchorRect'
@@ -48,11 +48,10 @@ export function POSTab() {
   const { data: metodos } = useMetodosPago()
   const { data: sesiones } = useCajaSesiones()
   const { data: cajas } = useCajas()
-  const { data: movimientos } = useMovimientos()
   const guardarVenta = useGuardarVenta()
   const guardarSesiones = useGuardarCajaSesiones()
   const actualizarOrden = useActualizarOrden()
-  const guardarMovimientos = useGuardarMovimientos()
+  const crearMovimiento = useCrearMovimiento()
   const incrementarContador = useIncrementarContadorVenta()
   const { data: userProfiles } = useUserProfiles()
   const { data: userCargoMap } = useUserCargoMap()
@@ -452,7 +451,7 @@ export function POSTab() {
           referencia_id: venta.id,
           notas: 'Venta registrada',
         }
-        await guardarMovimientos.mutateAsync([mov, ...(movimientos ?? [])])
+        await crearMovimiento.mutateAsync(mov)
         // Descontar stock de la bodega de la caja. El ajuste es por delta y atómico
         // (fn_ajustar_stock), así que dos ventas simultáneas del mismo producto no se pisan.
         if (bodegaId) {
