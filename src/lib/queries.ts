@@ -661,7 +661,31 @@ export function useFijarStock() {
       const lotes = (qc.getQueryData<LoteInventario[]>(['lotes_inventario', empresaId]) ?? [])
       const reconciliados = reconciliarLotes(lotes, producto_id, bodega_id, cant, costo)
       if (reconciliados !== lotes) {
-        await dbSet(empresaId!, 'lotes_inventario', reconciliados)
+        // Persistir de verdad en la tabla relacional. Antes esto se "fingía"
+        // escribiendo a una clave de erp_data que ya nadie lee y pisando
+        // directo la caché de React Query — la fila real en lotes_inventario
+        // nunca se tocaba, dejando lotes fantasma (existían en pantalla pero
+        // no en la base de datos) que después reventaban al venderlos.
+        const idsOriginales = new Set(lotes.map(l => l.id))
+        const nuevos = reconciliados.filter(l => !idsOriginales.has(l.id))
+        const modificados = reconciliados.filter(l => {
+          const original = lotes.find(o => o.id === l.id)
+          return original && original.cantidad_restante !== l.cantidad_restante
+        })
+
+        if (nuevos.length) {
+          const rows = nuevos.map(l => ({ id: l.id, empresa_id: empresaId!, ...filaLoteParcial(l) }))
+          const { error: insErr } = await supabase.from('lotes_inventario').insert(rows)
+          if (insErr) throw insErr
+        }
+        for (const l of modificados) {
+          const { error: updErr } = await supabase
+            .from('lotes_inventario')
+            .update({ cantidad_restante: l.cantidad_restante })
+            .eq('id', l.id)
+            .eq('empresa_id', empresaId!)
+          if (updErr) throw updErr
+        }
         qc.setQueryData(['lotes_inventario', empresaId], reconciliados)
       }
     },
