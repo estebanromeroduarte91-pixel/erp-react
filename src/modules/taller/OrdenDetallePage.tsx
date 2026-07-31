@@ -541,7 +541,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
     await actualizarOrden.mutateAsync({ id: orden.id, repuestos: (orden.repuestos ?? []).filter((_, i) => i !== idx) })
   }
 
-  const APROB_BASE_URL = 'https://estebanromeroduarte91-pixel.github.io/modulo-compras/aprobar.html'
+  const APROB_BASE_URL = `${window.location.origin}/aprobar.html`
 
   async function solicitarAprobacion() {
     const aprobOrden = orden

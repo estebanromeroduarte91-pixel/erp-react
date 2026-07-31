@@ -212,7 +212,7 @@ export function OrdenDetalle({ orden: o, onClose, onEditar }: Props) {
   }
 
   // Aprobación de presupuesto
-  const APROB_BASE_URL = 'https://estebanromeroduarte91-pixel.github.io/modulo-compras/aprobar.html'
+  const APROB_BASE_URL = `${window.location.origin}/aprobar.html`
 
   function abrirModalAprobacion() {
     const vars = buildVars(o.num)

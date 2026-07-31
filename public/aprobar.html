@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aprobación de presupuesto</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f4f6f9;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+    .card{background:#fff;border-radius:20px;box-shadow:0 4px 24px rgba(0,0,0,.10);max-width:420px;width:100%;overflow:hidden}
+    .header{background:#ffffff;padding:28px 24px 24px;text-align:center;border-bottom:1px solid #e5e7eb}
+    .header-logo{max-width:180px;max-height:64px;object-fit:contain;display:block;margin:0 auto}
+    .header-label{font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px}
+    .header-title{font-size:22px;font-weight:700;color:#111827;margin-bottom:4px}
+    .header-sub{font-size:13px;color:#6b7280}
+    .body{padding:20px}
+    .info-box{background:#f9fafb;border-radius:12px;overflow:hidden;margin-bottom:16px}
+    .info-row{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid #f3f4f6;font-size:13px}
+    .info-row:last-child{border-bottom:none}
+    .info-label{color:#6b7280}
+    .info-val{font-weight:600;color:#111827;text-align:right;max-width:60%}
+    .section-label{font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px}
+    .items-box{background:#f9fafb;border-radius:12px;overflow:hidden;margin-bottom:4px}
+    .item-row{display:flex;justify-content:space-between;align-items:center;padding:11px 14px;border-bottom:1px solid #f3f4f6}
+    .item-row:last-child{border-bottom:none}
+    .item-name{font-size:13px;font-weight:600;color:#111827}
+    .item-qty{font-size:11px;color:#9ca3af;margin-top:2px}
+    .item-price{font-size:13px;font-weight:600;color:#111827}
+    .total-row{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:#fff;border-top:1px solid #e5e7eb}
+    .total-label{font-size:14px;font-weight:600;color:#111827}
+    .total-val{font-size:20px;font-weight:700;color:#1d4ed8}
+    .ivacopy{font-size:11px;color:#9ca3af;text-align:center;margin:8px 0 20px}
+    .btn{width:100%;padding:14px;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;font-family:inherit;transition:opacity .15s;margin-bottom:10px}
+    .btn:active{opacity:.85}
+    .btn-green{background:#16a34a;color:#fff}
+    .btn-red{background:#fff;color:#dc2626;border:2px solid #dc2626}
+    .btn-disabled{background:#e5e7eb;color:#9ca3af;cursor:default}
+    .footer{border-top:1px solid #f3f4f6;padding:14px 20px;text-align:center}
+    .footer p{font-size:11px;color:#9ca3af;line-height:1.6}
+    .icon{width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:28px}
+    .icon.ok{background:#f0fdf4}
+    .icon.ko{background:#fef2f2}
+    .icon.warn{background:#fefce8}
+    h1{font-size:20px;font-weight:700;text-align:center;color:#111827;margin-bottom:6px}
+    .msg{text-align:center;font-size:14px;color:#6b7280;line-height:1.6;padding:8px 0 20px}
+    .loader{text-align:center;padding:60px 20px;color:#6b7280;font-size:14px}
+  </style>
+</head>
+<body>
+  <div class="card" id="card">
+    <div class="loader">Cargando solicitud...</div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <script>
+    const _SB_URL = 'https://nfcdqdbhrsjhbnbtqewl.supabase.co';
+    const _SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5mY2RxZGJocnNqaGJuYnRxZXdsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4MjU0NDksImV4cCI6MjA5NTQwMTQ0OX0.crMaV1oIodW1fTa2oTmYr2rk8hVLJbQPqUFHe6oFAV8';
+    const sb = supabase.createClient(_SB_URL, _SB_KEY);
+
+    function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('t');
+    let _record = null;
+
+    function fmtMoney(n){ return '$'+Number(n||0).toLocaleString('es-CL'); }
+
+    function parseTrabajo(raw){
+      try{
+        const obj=JSON.parse(raw);
+        if(obj&&obj.v===2) return obj;
+      }catch(e){}
+      return {v:1,items:[],trabajo:raw||'',taller:'',sucursal:'',horario:'',tel:''};
+    }
+
+    async function load(){
+      const card=document.getElementById('card');
+      if(!token){ card.innerHTML=renderError('Link inválido','El enlace no contiene un token de aprobación.'); return; }
+      const {data,error}=await sb.rpc('get_aprobacion_publica',{p_token:token});
+      if(error||!data){ card.innerHTML=renderError('Solicitud no encontrada','Es posible que el link haya expirado o sea incorrecto.'); return; }
+      _record=data;
+      if(data.estado==='aprobado'){ card.innerHTML=renderFinal('aprobado',data); return; }
+      if(data.estado==='rechazado'){ card.innerHTML=renderFinal('rechazado',data); return; }
+      card.innerHTML=renderPending(data);
+    }
+
+    function renderPending(d){
+      const meta=parseTrabajo(d.trabajo);
+      const taller=meta.taller||'TallerPro';
+      const hasItems=meta.items&&meta.items.length>0;
+      const total=hasItems?meta.items.reduce((s,r)=>s+(r.precio||0)*(r.qty||1),0):Number(d.presupuesto||0);
+
+      const itemsHtml=hasItems
+        ?`<p class="section-label">Detalle del presupuesto</p>
+          <div class="items-box">
+            ${meta.items.map(r=>`
+              <div class="item-row">
+                <div>
+                  <div class="item-name">${esc(r.name)}</div>
+                  <div class="item-qty">x${r.qty||1}</div>
+                </div>
+                <div class="item-price">${r.precio?fmtMoney((r.precio)*(r.qty||1)):'—'}</div>
+              </div>`).join('')}
+            <div class="total-row">
+              <span class="total-label">Total</span>
+              <span class="total-val">${fmtMoney(total)}</span>
+            </div>
+          </div>
+          <p class="ivacopy">Precios incluyen IVA</p>`
+        :(d.presupuesto?`<div style="text-align:center;margin-bottom:20px">
+            <p style="font-size:11px;color:#9ca3af;margin-bottom:4px">Presupuesto</p>
+            <p style="font-size:28px;font-weight:700;color:#111">${fmtMoney(d.presupuesto)}</p>
+          </div>`:
+          meta.trabajo?`<div class="info-box" style="margin-bottom:20px">
+            <div class="info-row"><span class="info-label">Trabajo</span><span class="info-val">${esc(meta.trabajo)}</span></div>
+          </div>`:'');
+
+      const contactInfo=[meta.horario,meta.sucursal].filter(Boolean).join(' · ');
+
+      const logoUrl=meta.logoUrl||'';
+      return `
+        <div class="header">
+          ${logoUrl
+            ?`<img src="${esc(logoUrl)}" class="header-logo" alt="${esc(taller)}">`
+            :`<div class="header-label">${esc(taller)}</div>
+             <div class="header-title">Solicitud de aprobación</div>`
+          }
+        </div>
+        <div class="body">
+          <div class="info-box">
+            ${d.cliente?`<div class="info-row"><span class="info-label">Cliente</span><span class="info-val">${esc(d.cliente)}</span></div>`:''}
+            ${d.equipo?`<div class="info-row"><span class="info-label">Equipo</span><span class="info-val">${esc(d.equipo)}</span></div>`:''}
+            ${d.orden_num?`<div class="info-row"><span class="info-label">N° orden</span><span class="info-val">#${esc(d.orden_num)}</span></div>`:''}
+          </div>
+          ${itemsHtml}
+          <button class="btn btn-green" onclick="responder('aprobado')">✅ Aprobar presupuesto</button>
+          <button class="btn btn-red" onclick="responder('rechazado')">✗ No aprobar</button>
+          <p style="font-size:12px;color:#9ca3af;text-align:center;margin-top:4px">Al aprobar, autorizas el inicio del trabajo indicado.</p>
+        </div>
+        ${(contactInfo||meta.tel)?`<div class="footer">
+          <p>${contactInfo||''}</p>
+          ${meta.tel?`<p>${meta.tel}</p>`:''}
+        </div>`:''}`;
+    }
+
+    function renderHeader(meta){
+      const taller=meta.taller||'TallerPro';
+      const logoUrl=meta.logoUrl||'';
+      return `<div class="header">${logoUrl
+        ?`<img src="${esc(logoUrl)}" class="header-logo" alt="${esc(taller)}">`
+        :`<div class="header-label">${esc(taller)}</div>`
+      }</div>`;
+    }
+
+    function renderFinal(estado,d){
+      const meta=parseTrabajo(d.trabajo);
+      if(estado==='aprobado') return `
+        ${renderHeader(meta)}
+        <div class="body" style="text-align:center;padding:32px 24px">
+          <div class="icon ok" style="font-size:0">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <h1>¡Presupuesto aprobado!</h1>
+          <p class="msg">Gracias <strong>${esc(d.cliente||'')}</strong>, hemos recibido tu aprobación.<br>Nos pondremos en contacto pronto.</p>
+        </div>`;
+      return `
+        ${renderHeader(meta)}
+        <div class="body" style="text-align:center;padding:32px 24px">
+          <div class="icon ko" style="font-size:0">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </div>
+          <h1>Presupuesto no aprobado</h1>
+          <p class="msg">Hemos registrado tu respuesta. Si tienes dudas, contáctanos directamente.</p>
+        </div>`;
+    }
+
+    function renderError(titulo,msg){
+      return `<div class="body" style="padding:40px 24px;text-align:center">
+        <div class="icon warn">⚠️</div>
+        <h1>${titulo}</h1>
+        <p class="msg">${msg}</p>
+      </div>`;
+    }
+
+    async function responder(estado){
+      const btns=document.querySelectorAll('.btn');
+      btns.forEach(b=>{b.disabled=true;b.style.opacity='.5';});
+      const {data,error}=await sb.rpc('responder_aprobacion',{p_token:token,p_estado:estado});
+      if(error||!data){
+        btns.forEach(b=>{b.disabled=false;b.style.opacity='1';});
+        alert('Error al enviar tu respuesta. Puede que ya haya sido respondida. Intenta recargar la página.');
+        return;
+      }
+      _record.estado=estado;
+      document.getElementById('card').innerHTML=renderFinal(estado,_record);
+    }
+
+    load();
+  </script>
+</body>
+</html>
