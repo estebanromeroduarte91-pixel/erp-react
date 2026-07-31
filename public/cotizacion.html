@@ -121,9 +121,9 @@ function showError(msg){
 
 async function load(){
   if(!token){ showError('Enlace inválido — falta el código de la cotización.'); return; }
-  const {data,error}=await sb.from('cotizaciones').select('*').eq('token',token).maybeSingle();
+  const {data,error}=await sb.rpc('get_cotizacion_publica',{p_token:token});
   if(error){ showError('No se pudo cargar la cotización: '+error.message); return; }
-  if(!data){ showError('Esta cotización no existe o el enlace ya no es válido.'); return; }
+  if(!data){ showError('Esta cotización no existe, venció o el enlace ya no es válido.'); return; }
 
   // Cargar logo y nombre de la empresa de forma pública y segura
   try {
