@@ -2174,11 +2174,13 @@ export function useIncrementarContadorOC() {
   const { empresaId } = useAuth()
   const qc = useQueryClient()
   return useMutation({
+    // siguiente_folio() es atómico en la base: dos OCs creadas al mismo
+    // tiempo ya no pueden sacar el mismo número, y ya no comparten fila
+    // con el contador de ventas (antes ambos vivían en el mismo blob `cfg`).
     mutationFn: async () => {
-      const cfg = (await dbGet<Record<string, unknown>>(empresaId!, 'cfg')) ?? {}
-      const next = ((cfg.ocCounter as number | undefined) ?? 0) + 1
-      await dbSet(empresaId!, 'cfg', { ...cfg, ocCounter: next })
-      return next
+      const { data, error } = await supabase.rpc('siguiente_folio', { p_tipo: 'oc' })
+      if (error) throw error
+      return data as number
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['cfg', empresaId] }),
   })
