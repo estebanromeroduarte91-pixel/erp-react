@@ -651,12 +651,19 @@ export function useFijarStock() {
   return useMutation({
     mutationFn: async ({ producto_id, bodega_id, cantidad }: { producto_id: string; bodega_id: string; cantidad: number }) => {
       const cant = Math.max(0, Math.round(cantidad))
-      const { error } = await supabase
-        .from('producto_stock')
-        .upsert({ producto_id, bodega_id, cantidad: cant }, { onConflict: 'producto_id,bodega_id' })
-      if (error) throw error
-
       const productos = qc.getQueryData<Producto[]>(['productos', empresaId]) ?? []
+      const antes = productos.find(p => p.id === producto_id)?.stock_sucursales?.[bodega_id] ?? 0
+      // Aplica solo la diferencia observada (delta), vía la misma función
+      // atómica que usan venta/OC/traslados — nunca un SET absoluto. Antes
+      // esto escribía el valor final directo (upsert de `cantidad`), así que
+      // si una venta descontaba stock entre que se abría el conteo y se
+      // guardaba, el conteo pisaba ese descuento y lo borraba en silencio.
+      const delta = cant - antes
+      if (delta !== 0) {
+        const { error } = await supabase.rpc('fn_ajustar_stock', { ajustes: [{ producto_id, bodega_id, delta }] })
+        if (error) throw error
+      }
+
       const costo = productos.find(p => p.id === producto_id)?.precio_compra ?? 0
       const lotes = (qc.getQueryData<LoteInventario[]>(['lotes_inventario', empresaId]) ?? [])
       const reconciliados = reconciliarLotes(lotes, producto_id, bodega_id, cant, costo)
