@@ -800,16 +800,24 @@ export function useCrearLotes() {
 }
 
 // Actualiza solo `cantidad_restante` de los lotes consumidos por FIFO en una venta.
-// Upsert acotado a las filas que realmente cambiaron (nunca el array completo).
+// UPDATE (no upsert): si el lote de ese id no existiera, un upsert intentaría
+// INSERTAR una fila nueva con solo estos 2 campos y reventaría por NOT NULL en
+// producto_id/bodega_id/etc. — esta función solo debe tocar lotes que ya
+// existen, nunca crear uno a medias.
 export function useActualizarLotes() {
   const { empresaId } = useAuth()
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (cambios: { id: string; cantidad_restante: number }[]) => {
       if (!cambios.length) return
-      const rows = cambios.map(c => ({ id: c.id, empresa_id: empresaId!, cantidad_restante: c.cantidad_restante }))
-      const { error } = await supabase.from('lotes_inventario').upsert(rows, { onConflict: 'id' })
-      if (error) throw error
+      for (const c of cambios) {
+        const { error } = await supabase
+          .from('lotes_inventario')
+          .update({ cantidad_restante: c.cantidad_restante })
+          .eq('id', c.id)
+          .eq('empresa_id', empresaId!)
+        if (error) throw error
+      }
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['lotes_inventario', empresaId] }),
   })
