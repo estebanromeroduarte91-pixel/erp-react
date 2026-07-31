@@ -5,10 +5,8 @@ import { useAuth } from '@/context/AuthContext'
 import {
   useOCs, useCrearOC, useActualizarOC, useEliminarOC, useOCLog, useGuardarOCLog,
   useIncrementarContadorOC, useBuscarProductos, useBodegas,
-  useProveedores, useGuardarProveedores, useAjustarStock,
+  useProveedores, useGuardarProveedores, useRecibirOC,
   usePlanCuentas, useAsientos, useGuardarAsientos,
-  useCrearMovimiento,
-  useCrearLotes,
 } from '@/lib/queries'
 import { asientoDeOC, asientoIdDeOC, nextNumeroAsiento } from '@/lib/contabilidad'
 import { formatRut } from '@/lib/rut'
@@ -1072,12 +1070,10 @@ export function ComprasPage() {
   const guardarOCLog = useGuardarOCLog()
   const incrementarContador = useIncrementarContadorOC()
   const guardarProveedores = useGuardarProveedores()
-  const ajustarStock = useAjustarStock()
+  const recibirOC = useRecibirOC()
   const { data: planCuentas } = usePlanCuentas()
   const { data: asientos } = useAsientos()
   const guardarAsientos = useGuardarAsientos()
-  const crearLotes = useCrearLotes()
-  const crearMovimiento = useCrearMovimiento()
 
   // Recalculate dynamic estado
   const ocs: OC[] = rawOcs.map(o => {
@@ -1142,25 +1138,17 @@ export function ComprasPage() {
   }
 
   async function handleRecibir(ocId: string, recepciones: OCRecepcion[]) {
-    const updated = ocs.map(o => {
-      if (o.id !== ocId) return o
-      const recs = [...(o.recepciones ?? []), ...recepciones]
-      const nuevoEstado = calcularEstadoOC({ ...o, recepciones: recs })
-      return {
-        ...o, recepciones: recs, estado: nuevoEstado,
-        fecha_primera_recepcion: o.fecha_primera_recepcion ?? today(),
-        fecha_recepcion: nuevoEstado === 'recibida' ? today() : o.fecha_recepcion,
-      }
-    })
     try {
+      const ocOriginal = ocs.find(o => o.id === ocId)
+      const ocNumero = ocOriginal?.numero
+
       // Sumar stock a la bodega de destino de cada línea recibida (ajuste atómico por delta).
       const ajustes = recepciones.flatMap(rec =>
         rec.items
           .filter(ri => ri.producto_id)
           .map(ri => ({ producto_id: ri.producto_id, bodega_id: rec.bodega_id, delta: ri.cantidad }))
       )
-      await ajustarStock.mutateAsync(ajustes)
-      const ocOriginal = ocs.find(o => o.id === ocId)
+
       const nuevosLotes: LoteInventario[] = []
       for (const rec of recepciones) {
         for (const ri of rec.items) {
@@ -1181,8 +1169,7 @@ export function ComprasPage() {
           })
         }
       }
-      if (nuevosLotes.length > 0) await crearLotes.mutateAsync(nuevosLotes)
-      const ocNumero = updated.find(o => o.id === ocId)?.numero
+
       const nuevosMovs: Movimiento[] = []
       for (const rec of recepciones) {
         const movProds = rec.items
@@ -1192,12 +1179,21 @@ export function ComprasPage() {
           nuevosMovs.push({ id: uid(), fecha: today(), hora: new Date().toTimeString().slice(0, 5), tipo: 'entrada', bodega_destino: rec.bodega_id, referencia: ocNumero, referencia_id: ocId, notas: rec.notas, productos: movProds })
         }
       }
-      if (nuevosMovs.length > 0) await Promise.all(nuevosMovs.map(m => crearMovimiento.mutateAsync(m)))
-      const ocRecibida = updated.find(o => o.id === ocId)
-      if (ocRecibida) await actualizarOC.mutateAsync(ocRecibida)
+
+      // Recepción + lotes + movimiento + ajuste de stock: todo en una sola
+      // transacción atómica (fn_recibir_oc). El estado de la OC lo recalcula
+      // el servidor a partir del array de recepciones ya fusionado, así que
+      // dos recepciones parciales simultáneas no pueden pisarse.
+      await recibirOC.mutateAsync({ ocId, recepciones, lotes: nuevosLotes, movimientos: nuevosMovs, ajustesStock: ajustes })
+
       setModal({ type: 'none' })
-      const oc2 = updated.find(o => o.id === ocId)
-      showToast(oc2?.estado === 'recibida' ? 'OC completamente recibida' : 'Recepción parcial guardada')
+      // Estimación local solo para el texto del toast (el servidor ya
+      // recalculó el estado real de forma atómica); en el peor caso de
+      // concurrencia el texto puede quedar desactualizado, pero eso no
+      // afecta el dato guardado.
+      const recsEstimadas = [...(ocOriginal?.recepciones ?? []), ...recepciones]
+      const estadoEstimado = ocOriginal ? calcularEstadoOC({ ...ocOriginal, recepciones: recsEstimadas }) : null
+      showToast(estadoEstimado === 'recibida' ? 'OC completamente recibida' : 'Recepción parcial guardada')
     } catch (e) {
       showToast('Error al guardar la recepción: ' + (e instanceof Error ? e.message : 'error desconocido'))
     }

@@ -7,7 +7,7 @@ import { reconciliarLotes } from './lotes'
 import { soloRutDigits } from './rut'
 import { DEFAULT_PLAN_LIMITS, type PlanTier } from './queries/usePlanLimits'
 import { useAuth } from '@/context/AuthContext'
-import type { Orden, Repuesto, Cliente, Producto, Bodega, Movimiento, Proveedor, Venta, VentaItem, MetodoPago, Caja, CajaSesion, Gasto, GastoCat, CuentaContable, Asiento, SeguimientoConfig, SmtpConfig, MsgTemplates, Cargo, UserProfile, UserConfig, PendingInvite, EmailDomain, OC, OCLogEntry, Categoria, Kit, Traslado, TecnicoExterno, Equipo, FichaUsuario, LoteInventario, ConteoInventario, Cotizacion } from '@/types'
+import type { Orden, Repuesto, Cliente, Producto, Bodega, Movimiento, Proveedor, Venta, VentaItem, MetodoPago, Caja, CajaSesion, Gasto, GastoCat, CuentaContable, Asiento, SeguimientoConfig, SmtpConfig, MsgTemplates, Cargo, UserProfile, UserConfig, PendingInvite, EmailDomain, OC, OCLogEntry, OCRecepcion, Categoria, Kit, Traslado, TecnicoExterno, Equipo, FichaUsuario, LoteInventario, ConteoInventario, Cotizacion } from '@/types'
 
 // ── Órdenes de Taller ─────────────────────────────────────────
 // Tabla relacional `ordenes` (migrada desde el blob erp_data/tp_orders).
@@ -2194,6 +2194,43 @@ export function useActualizarOC() {
       return { prev }
     },
     onError: (_e, _o, ctx) => { if (ctx?.prev) qc.setQueryData(['ocs', empresaId], ctx.prev) },
+  })
+}
+
+// Registra una recepción (total o parcial) de una OC: une la recepción al
+// array existente + recalcula el estado + inserta lotes/movimiento + ajusta
+// stock, todo en una transacción atómica del servidor (fn_recibir_oc, con
+// lock de fila sobre la OC). Antes esto era un read-modify-write del array
+// completo de recepciones desde el cliente — dos recepciones parciales
+// casi simultáneas de la misma OC podían pisarse y perder una de las dos.
+export interface RecibirOCPayload {
+  ocId: string
+  recepciones: OCRecepcion[]
+  lotes?: LoteInventario[] | null
+  movimientos?: Movimiento[] | null
+  ajustesStock?: AjusteStock[] | null
+}
+
+export function useRecibirOC() {
+  const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (p: RecibirOCPayload) => {
+      const { error } = await supabase.rpc('fn_recibir_oc', {
+        p_oc_id: p.ocId,
+        p_recepciones: p.recepciones,
+        p_lotes: p.lotes?.length ? p.lotes : null,
+        p_movimientos: p.movimientos?.length ? p.movimientos : null,
+        p_ajustes_stock: p.ajustesStock?.length ? p.ajustesStock : null,
+      })
+      if (error) throw error
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['ocs', empresaId] })
+      void qc.invalidateQueries({ queryKey: ['productos', empresaId] })
+      void qc.invalidateQueries({ queryKey: ['lotes_inventario', empresaId] })
+      void qc.invalidateQueries({ queryKey: ['movimientos_inventario', empresaId] })
+    },
   })
 }
 
