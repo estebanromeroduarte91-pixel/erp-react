@@ -22,7 +22,7 @@ export async function sendEmail(
   bodyHtml: string,
 ): Promise<SendEmailResult> {
   const [cfg, tpCfg, dom] = await Promise.all([
-    dbGet<SmtpConfig>(empresaId, 'tp_smtp_config'),
+    getSmtpStatus(),
     dbGet<TpConfig>(empresaId, 'tp_config'),
     dbGet<EmailDomain>(empresaId, 'tp_email_domain'),
   ])
@@ -70,11 +70,23 @@ export async function sendEmail(
 // cliente a "responder este correo" cuando esa respuesta se perdería.
 export async function puedeResponderCorreo(empresaId: string): Promise<boolean> {
   const [cfg, dom] = await Promise.all([
-    dbGet<SmtpConfig>(empresaId, 'tp_smtp_config'),
+    getSmtpStatus(),
     dbGet<EmailDomain>(empresaId, 'tp_email_domain'),
   ])
   if (dom?.status === 'verified' && dom.from_email) return true
-  return !!(cfg?.from_email && cfg?.host && cfg?.user && cfg?.password)
+  return !!(cfg?.from_email && cfg?.host && cfg?.user && cfg?.hasPassword)
+}
+
+// get_smtp_status() nunca devuelve la contraseña real (RPC security definer,
+// ver Fase 2 "Secretos y correo") — solo lo que necesitamos para armar el
+// remitente y decidir si el correo se puede responder.
+async function getSmtpStatus(): Promise<SmtpConfig | null> {
+  const { data, error } = await supabase.rpc('get_smtp_status')
+  if (error) {
+    console.error('getSmtpStatus:', error.message)
+    return null
+  }
+  return data as SmtpConfig | null
 }
 
 // ── Helpers compartidos ────────────────────────────────────────────────────────
