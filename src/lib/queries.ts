@@ -1423,11 +1423,12 @@ export function useIncrementarContadorVenta() {
   const { empresaId } = useAuth()
   const qc = useQueryClient()
   return useMutation({
+    // siguiente_folio() es atómico en la base (lock de fila): dos ventas
+    // confirmadas al mismo tiempo ya no pueden sacar el mismo número VTA-.
     mutationFn: async () => {
-      const cfg = (await dbGet<Record<string, unknown>>(empresaId!, 'cfg')) ?? {}
-      const next = ((cfg.ventaCounter as number | undefined) ?? 0) + 1
-      await dbSet(empresaId!, 'cfg', { ...cfg, ventaCounter: next })
-      return next
+      const { data, error } = await supabase.rpc('siguiente_folio', { p_tipo: 'venta' })
+      if (error) throw error
+      return data as number
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['cfg', empresaId] }),
   })
