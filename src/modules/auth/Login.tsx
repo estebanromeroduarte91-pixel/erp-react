@@ -37,15 +37,11 @@ export function Login() {
   useEffect(() => {
     if (!INVITE_TOKEN) return
     supabase
-      .from('pending_invites')
-      .select('empresa_id,email,nombre,role,token')
-      .eq('token', INVITE_TOKEN)
-      .eq('used', false)
-      .maybeSingle()
+      .rpc('get_invite_publica', { p_token: INVITE_TOKEN })
       .then(({ data, error: err }) => {
         setCargandoInvite(false)
         if (err || !data) { setInviteError('Invitación inválida o ya utilizada.'); return }
-        setInvite(data as Invite)
+        setInvite({ ...(data as Omit<Invite, 'token'>), token: INVITE_TOKEN })
         setEmail(data.email)
       })
   }, [])
