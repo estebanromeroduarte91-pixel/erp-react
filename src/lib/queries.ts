@@ -1354,30 +1354,51 @@ export function useUltimasVentas(limite = 5) {
   })
 }
 
-// Crea UNA venta nueva: un insert a `ventas` + sus líneas a `venta_items`.
-// Reemplaza el patrón anterior de reescribir el array completo en cada venta.
-export function useGuardarVenta() {
+// Confirma una venta completa (venta + items + movimiento de inventario +
+// ajuste de stock + consumo de lotes FIFO + entrega de la OT vinculada) en
+// UNA sola transacción atómica del lado del servidor (fn_confirmar_venta).
+// Antes esto era 5 escrituras de red independientes y seguidas: si la
+// conexión se cortaba a mitad de camino, podía quedar la venta registrada
+// sin descontar stock (o viceversa). Ahora o se aplica todo, o no se aplica
+// nada — igual que ya hacíamos con fn_ajustar_stock para el stock solo.
+export interface ConfirmarVentaPayload {
+  venta: Venta
+  movimiento?: Movimiento | null
+  ajustesStock?: AjusteStock[] | null
+  lotes?: { id: string; cantidad_restante: number }[] | null
+  orden?: { id: string; status: string; venta_id: string; numero_boleta?: string; delivered_at?: string } | null
+}
+
+export function useConfirmarVenta() {
   const { empresaId } = useAuth()
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (v: Venta) => {
-      const { error } = await supabase.from('ventas').insert(filaVenta(v, empresaId!))
+    mutationFn: async (p: ConfirmarVentaPayload) => {
+      const { error } = await supabase.rpc('fn_confirmar_venta', {
+        p_venta: filaVenta(p.venta, empresaId!),
+        p_items: filasVentaItems(p.venta, empresaId!),
+        p_movimiento: p.movimiento ?? null,
+        p_ajustes_stock: p.ajustesStock?.length ? p.ajustesStock : null,
+        p_lotes: p.lotes?.length ? p.lotes : null,
+        p_orden: p.orden ?? null,
+      })
       if (error) throw error
-      const items = filasVentaItems(v, empresaId!)
-      if (items.length) {
-        const { error: e2 } = await supabase.from('venta_items').insert(items)
-        if (e2) throw e2
-      }
     },
     // Update optimista: la venta aparece al instante sin esperar el refetch
     // paginado. El eco de Realtime (arriba) reconcilia con el servidor después.
-    onMutate: async (v: Venta) => {
+    onMutate: async (p: ConfirmarVentaPayload) => {
       await qc.cancelQueries({ queryKey: ['ventas', empresaId] })
       const prev = qc.getQueryData<Venta[]>(['ventas', empresaId])
-      qc.setQueryData<Venta[]>(['ventas', empresaId], (old = []) => [v, ...old])
+      qc.setQueryData<Venta[]>(['ventas', empresaId], (old = []) => [p.venta, ...old])
       return { prev }
     },
-    onError: (_e, _v, ctx) => { if (ctx?.prev) qc.setQueryData(['ventas', empresaId], ctx.prev) },
+    onError: (_e, _p, ctx) => { if (ctx?.prev) qc.setQueryData(['ventas', empresaId], ctx.prev) },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['movimientos_inventario', empresaId] })
+      void qc.invalidateQueries({ queryKey: ['productos', empresaId] })
+      void qc.invalidateQueries({ queryKey: ['lotes_inventario', empresaId] })
+      void qc.invalidateQueries({ queryKey: ['ordenes-lite', empresaId] })
+    },
   })
 }
 

@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
-import { useProductos, useBuscarProductos, useAjustarStock, useVentas, useGuardarVenta, useMetodosPago, useCajaSesiones, useCajas, useGuardarCajaSesiones, useIncrementarContadorVenta, useOrdenesLite, useActualizarOrden, useCrearMovimiento, useUserProfiles, useUserCargoMap, useCargos, useLotes, useActualizarLotes, useClientes, useBuscarClientes, useCrearCliente, CARGOS_DEFAULT } from '@/lib/queries'
+import { useProductos, useBuscarProductos, useVentas, useConfirmarVenta, useMetodosPago, useCajaSesiones, useCajas, useGuardarCajaSesiones, useIncrementarContadorVenta, useOrdenesLite, useUserProfiles, useUserCargoMap, useCargos, useLotes, useClientes, useBuscarClientes, useCrearCliente, CARGOS_DEFAULT } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 
 import { useAnchorRect, fixedDropdownStyle } from '@/lib/useAnchorRect'
@@ -42,22 +42,18 @@ function lineNeto(it: VentaItem) {
 export function POSTab() {
   const { nombre: nombreUsuario, branchId } = useAuth()
   const { data: productos } = useProductos()
-  const ajustarStock = useAjustarStock()
   const { data: ventas } = useVentas()
   const { data: ordenes } = useOrdenesLite()
   const { data: metodos } = useMetodosPago()
   const { data: sesiones } = useCajaSesiones()
   const { data: cajas } = useCajas()
-  const guardarVenta = useGuardarVenta()
   const guardarSesiones = useGuardarCajaSesiones()
-  const actualizarOrden = useActualizarOrden()
-  const crearMovimiento = useCrearMovimiento()
+  const confirmarVentaMutation = useConfirmarVenta()
   const incrementarContador = useIncrementarContadorVenta()
   const { data: userProfiles } = useUserProfiles()
   const { data: userCargoMap } = useUserCargoMap()
   const { data: cargosCustom } = useCargos()
   const { data: lotes } = useLotes()
-  const actualizarLotes = useActualizarLotes()
   const { data: clientesDir } = useClientes()
   const crearCliente = useCrearCliente()
 
@@ -436,48 +432,42 @@ export function POSTab() {
         total_iva: totalIva,
         fecha_creacion: today(),
       }
-      await guardarVenta.mutateAsync(venta)
-
       // Movimiento de inventario: salida por venta
       const prodsSalida = venta.items.filter(it => it.producto_id && it.producto_id !== 'ot-servicio' && !it.producto_id.startsWith('rep-'))
-      if (prodsSalida.length > 0) {
-        const hora = new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })
-        const mov = {
-          id: uid(), fecha: today(), hora,
-          tipo: 'salida' as const,
-          productos: prodsSalida.map(it => ({ producto_id: it.producto_id!, producto_nombre: it.producto_nombre, cantidad: it.cantidad })),
-          bodega_origen: cajaAbierta ? (cajaAbierta.nombre ?? '') : '',
-          referencia: venta.numero,
-          referencia_id: venta.id,
-          notas: 'Venta registrada',
-        }
-        await crearMovimiento.mutateAsync(mov)
-        // Descontar stock de la bodega de la caja. El ajuste es por delta y atómico
-        // (fn_ajustar_stock), así que dos ventas simultáneas del mismo producto no se pisan.
-        if (bodegaId) {
-          const ajustes = prodsSalida
-            .filter(it => (productos ?? []).find(p => p.id === it.producto_id)?.tipo !== 'servicio')
-            .map(it => ({ producto_id: it.producto_id!, bodega_id: bodegaId, delta: -it.cantidad }))
-          await ajustarStock.mutateAsync(ajustes)
-        }
-      }
+      const mov = prodsSalida.length > 0 ? {
+        id: uid(), fecha: today(), hora: new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }),
+        tipo: 'salida' as const,
+        productos: prodsSalida.map(it => ({ producto_id: it.producto_id!, producto_nombre: it.producto_nombre, cantidad: it.cantidad })),
+        bodega_origen: cajaAbierta ? (cajaAbierta.nombre ?? '') : '',
+        referencia: venta.numero,
+        referencia_id: venta.id,
+        notas: 'Venta registrada',
+      } : null
 
-      if (restantePorLote.size > 0) {
-        await actualizarLotes.mutateAsync(
-          [...restantePorLote.entries()].map(([id, cantidad_restante]) => ({ id, cantidad_restante })),
-        )
-      }
+      // Descontar stock de la bodega de la caja (delta, no SET absoluto).
+      const ajustes = bodegaId
+        ? prodsSalida
+          .filter(it => (productos ?? []).find(p => p.id === it.producto_id)?.tipo !== 'servicio')
+          .map(it => ({ producto_id: it.producto_id!, bodega_id: bodegaId, delta: -it.cantidad }))
+        : []
 
-      if (otSeleccionada) {
-        await actualizarOrden.mutateAsync({
-          id: otSeleccionada.id,
-          status: 'Entregado' as const,
-          venta_id: venta.id,
-          numero_boleta: numero,
-          deliveredAt: today(),
-        })
-        setOtSeleccionada(null)
-      }
+      const loteUpdates = [...restantePorLote.entries()].map(([id, cantidad_restante]) => ({ id, cantidad_restante }))
+
+      const orden = otSeleccionada ? {
+        id: otSeleccionada.id,
+        status: 'Entregado',
+        venta_id: venta.id,
+        numero_boleta: numero,
+        delivered_at: today(),
+      } : null
+
+      // Venta + movimiento + ajuste de stock + consumo de lotes + entrega de
+      // la OT: todo en una sola transacción atómica (fn_confirmar_venta). Si
+      // se corta la conexión a mitad de camino, no queda nada aplicado a
+      // medias — o se guarda todo, o no se guarda nada.
+      await confirmarVentaMutation.mutateAsync({ venta, movimiento: mov, ajustesStock: ajustes, lotes: loteUpdates, orden })
+
+      if (otSeleccionada) setOtSeleccionada(null)
       setItems([])
       setCliente('')
       setClienteRut('')
