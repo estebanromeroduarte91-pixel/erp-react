@@ -93,13 +93,13 @@ const _SB_URL='https://nfcdqdbhrsjhbnbtqewl.supabase.co';
 const _SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5mY2RxZGJocnNqaGJuYnRxZXdsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4MjU0NDksImV4cCI6MjA5NTQwMTQ0OX0.crMaV1oIodW1fTa2oTmYr2rk8hVLJbQPqUFHe6oFAV8';
 const sb=supabase.createClient(_SB_URL,_SB_KEY);
 const params=new URLSearchParams(window.location.search);
-const empresaId=params.get('e');
-const ordenId=params.get('o');
-const tipoFotos=params.get('tipo')||'ingreso'; // 'ingreso' o 'inspeccion'
-let currentOrder=null;
+const token=params.get('t');
+let currentOrder=null; // { num, modelo, nombre, status, branch_id, tipo, fotos_actuales }
 
-function getFotos(){ return tipoFotos==='inspeccion'?(currentOrder.inspeccion?.fotos||[]):(currentOrder.photos_ingreso||[]); }
-function setFotos(arr){ if(tipoFotos==='inspeccion'){ if(!currentOrder.inspeccion) currentOrder.inspeccion={}; currentOrder.inspeccion.fotos=arr; } else { currentOrder.photos_ingreso=arr; } }
+// El tipo (ingreso/inspeccion/salida/traslado) viene fijo en el token del servidor,
+// nunca del query param — así no hay forma de que una foto quede en el campo equivocado.
+function getFotos(){ return currentOrder.fotos_actuales||[]; }
+function setFotos(arr){ currentOrder.fotos_actuales=arr; }
 
 function setLoading(msg){ document.getElementById('loading-msg').textContent=msg; }
 function showError(title,msg){ document.getElementById('loading').style.display='none';document.getElementById('app').style.display='none';document.getElementById('error-screen').style.display='block';document.getElementById('error-title').textContent=title;document.getElementById('error-msg').textContent=msg; }
@@ -134,9 +134,10 @@ async function deletePhoto(idx){
 }
 
 async function saveOrder(){
-  const patch = tipoFotos==='inspeccion' ? {inspeccion: currentOrder.inspeccion} : {photos_ingreso: currentOrder.photos_ingreso};
-  const {error}=await sb.from('ordenes').update(patch).eq('id',ordenId).eq('empresa_id',empresaId);
-  return error||null;
+  const {data,error}=await sb.rpc('guardar_fotos_orden_qr',{p_token:token,p_fotos:getFotos()});
+  if(error) return error;
+  if(!data) return {message:'El enlace venció o fue revocado.'};
+  return null;
 }
 
 async function guardarFotos(){
@@ -181,7 +182,7 @@ async function handleFiles(files){
       const isJpeg=blob!==file;
       const ext=isJpeg?'jpg':(file.name.split('.').pop()||'jpg').toLowerCase();
       const contentType=isJpeg?'image/jpeg':(file.type||'image/jpeg');
-      const path=empresaId+'/ordenes/'+ordenId+'/'+Date.now()+'_'+Math.random().toString(36).slice(2)+'.'+ext;
+      const path='qr/'+token+'/'+Date.now()+'_'+Math.random().toString(36).slice(2)+'.'+ext;
       const {error}=await sb.storage.from('erp-assets').upload(path,blob,{upsert:true,contentType});
       if(error){lastErr=error.message||JSON.stringify(error);throw new Error(lastErr);}
       const {data:urlData}=sb.storage.from('erp-assets').getPublicUrl(path);
@@ -207,8 +208,8 @@ async function load(){
   document.getElementById('error-screen').style.display='none';
   document.getElementById('app').style.display='none';
 
-  if(!empresaId||!ordenId){
-    showError('Enlace inválido','Faltan parámetros en el enlace. Verifica que el QR sea correcto.');
+  if(!token){
+    showError('Enlace inválido','Falta el código del enlace. Verifica que el QR sea correcto.');
     return;
   }
 
@@ -223,30 +224,26 @@ async function load(){
 
   try{
     setLoading('Cargando datos...');
-    const {data,error}=await sb.from('ordenes').select('*').eq('empresa_id',empresaId).eq('id',ordenId).maybeSingle();
+    const {data,error}=await sb.rpc('get_orden_publica_qr',{p_token:token});
     clearTimeout(timeoutId);
     if(timedOut)return;
 
-    if(error){showError('Error Supabase',error.message+'  |  code: '+error.code+'  |  e='+empresaId);return;}
+    if(error){showError('Error Supabase',error.message+'  |  code: '+error.code);return;}
 
     currentOrder=data;
 
     if(!currentOrder){
-      document.getElementById('loading').innerHTML=`
-        <div style="font-size:36px;margin-bottom:12px">⏳</div>
-        <p style="font-size:14px;font-weight:600;color:#111827;margin-bottom:6px">Esperando que se guarde la orden...</p>
-        <p style="font-size:13px;color:#6b7280">Guarda la orden en el PC y esta página se actualizará.</p>
-      `;
-      setTimeout(()=>load(),3000);
+      showError('Enlace vencido','Este enlace ya no es válido. Pide un nuevo QR desde la orden en el PC.');
       return;
     }
 
-    if(tipoFotos==='inspeccion') document.getElementById('fotos-label').textContent='Fotos de inspección';
+    if(currentOrder.tipo==='inspeccion') document.getElementById('fotos-label').textContent='Fotos de inspección';
+    else if(currentOrder.tipo==='salida') document.getElementById('fotos-label').textContent='Fotos de salida';
+    else if(currentOrder.tipo==='traslado') document.getElementById('fotos-label').textContent='Fotos de traslado';
     document.getElementById('orden-num').textContent='Orden #OT-'+String(currentOrder.num||'').padStart(4,'0');
     document.getElementById('orden-modelo').textContent=currentOrder.modelo||'—';
     document.getElementById('orden-cliente').textContent=currentOrder.nombre||'—';
     document.getElementById('orden-estado').textContent=currentOrder.status||'—';
-    document.getElementById('orden-sucursal').textContent=currentOrder.branch_nombre||'—';
     renderPhotos();
     document.getElementById('loading').style.display='none';
     document.getElementById('app').style.display='block';

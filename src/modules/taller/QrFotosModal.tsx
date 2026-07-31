@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import QRCode from 'qrcode'
 import { useAuth } from '@/context/AuthContext'
-import { urlFotosQR } from '@/lib/email'
+import { supabase } from '@/lib/supabase'
 
 interface Props {
   ordenId: string
@@ -10,13 +10,31 @@ interface Props {
 }
 
 // Muestra un QR que apunta a la página externa de subida de fotos desde iPhone.
+// El token se genera acá (autenticado) y queda fijo el tipo de foto del lado servidor,
+// para que la página pública no pueda leer/escribir nada fuera de esta orden y este tipo.
 // Las fotos se sincronizan solas porque OrdenModal escucha el realtime de la tabla `ordenes`.
 export function QrFotosModal({ ordenId, tipo = 'ingreso', onClose }: Props) {
   const { empresaId } = useAuth()
   const [dataUrl, setDataUrl] = useState('')
   const [copiado, setCopiado] = useState(false)
+  const [url, setUrl] = useState('')
+  const [error, setError] = useState('')
 
-  const url = empresaId ? urlFotosQR(empresaId, ordenId, tipo) : ''
+  useEffect(() => {
+    if (!empresaId) return
+    let cancelled = false
+    supabase
+      .from('orden_qr_tokens')
+      .insert({ empresa_id: empresaId, orden_id: ordenId, tipo })
+      .select('token')
+      .single()
+      .then(({ data, error: err }) => {
+        if (cancelled) return
+        if (err || !data) { setError('No se pudo generar el enlace.'); return }
+        setUrl(`${window.location.origin}/foto-orden.html?t=${data.token}`)
+      })
+    return () => { cancelled = true }
+  }, [empresaId, ordenId, tipo])
 
   useEffect(() => {
     if (!url) return
@@ -46,9 +64,11 @@ export function QrFotosModal({ ordenId, tipo = 'ingreso', onClose }: Props) {
         </p>
 
         <div className="inline-flex items-center justify-center p-3 border border-gray-200 rounded-xl mb-4 bg-white min-h-[180px] min-w-[180px]">
-          {dataUrl
-            ? <img src={dataUrl} alt="QR para subir fotos" className="w-44 h-44" />
-            : <span className="text-xs text-gray-400">Generando QR…</span>}
+          {error
+            ? <span className="text-xs text-red-500">{error}</span>
+            : dataUrl
+              ? <img src={dataUrl} alt="QR para subir fotos" className="w-44 h-44" />
+              : <span className="text-xs text-gray-400">Generando QR…</span>}
         </div>
 
         <p className="text-[11px] text-gray-400 break-all mb-4">{url}</p>
