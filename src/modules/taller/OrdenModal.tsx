@@ -23,10 +23,13 @@ interface Props {
   defaultBranchId?: string
 }
 
-function nextNum(ordenes: Orden[]): string {
-  if (!ordenes.length) return '0001'
-  const max = Math.max(...ordenes.map((o) => parseInt(o.num) || 0))
-  return String(max + 1).padStart(4, '0')
+// Número atómico en la base (lock de fila vía siguiente_folio): dos OTs
+// creadas al mismo tiempo ya no pueden pisarse el número, a diferencia del
+// máx+1 en memoria del cliente que usaba esto antes.
+async function nextNum(): Promise<string> {
+  const { data, error } = await supabase.rpc('siguiente_folio', { p_tipo: 'orden' })
+  if (error) throw error
+  return String(data as number).padStart(4, '0')
 }
 
 interface FormData {
@@ -123,19 +126,19 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
     if (!form.modelo.trim()) { setError('Ingresa el equipo / modelo antes de pedir el QR'); return null }
     setError('')
     setCreandoBorrador(true)
-    const id = Date.now().toString()
-    const draft: Orden = {
-      id,
-      num: nextNum(ordenes),
-      fecha: new Date().toISOString(),
-      ...form,
-      repuestos,
-      checkIngreso,
-      photosIngreso: fotos,
-      branchId: userBranchId ?? defaultBranchId ?? undefined,
-      _draft: true,
-    }
     try {
+      const id = Date.now().toString()
+      const draft: Orden = {
+        id,
+        num: await nextNum(),
+        fecha: new Date().toISOString(),
+        ...form,
+        repuestos,
+        checkIngreso,
+        photosIngreso: fotos,
+        branchId: userBranchId ?? defaultBranchId ?? undefined,
+        _draft: true,
+      }
       await crearOrden.mutateAsync(draft)
       setDraftId(id)
       return id
@@ -408,7 +411,7 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
       // La fila SIEMPRE ya existe en la BD acá (o es la orden que se edita, o el
       // borrador que ya insertó asegurarBorrador()) — por eso siempre es un update,
       // nunca un insert, aunque `ordenes` (que excluye borradores) no lo contenga.
-      const base = ordenes.find((o) => o.id === draftId) ?? orden ?? ({ id: draftId, num: nextNum(ordenes), fecha: ahora } as Orden)
+      const base = ordenes.find((o) => o.id === draftId) ?? orden ?? ({ id: draftId, num: await nextNum(), fecha: ahora } as Orden)
       const actualizada: Orden = {
         ...base, ...form, repuestos, checkIngreso: checkFinal, photosIngreso: fotos, _draft: false,
         branchId: base.branchId ?? userBranchId ?? defaultBranchId ?? undefined,
@@ -419,7 +422,7 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
     } else {
       const nuevaOrden: Orden = {
         id: Date.now().toString(),
-        num: nextNum(ordenes),
+        num: await nextNum(),
         fecha: ahora,
         ...form,
         repuestos,
