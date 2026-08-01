@@ -11,6 +11,8 @@ export default defineConfig({
     },
   },
   test: {
-    environment: 'node',
+    // jsdom porque algunos módulos importan supabase.ts (usa `window` a nivel
+    // de módulo) de forma transitiva, aunque el test en sí sea lógica pura.
+    environment: 'jsdom',
   },
 })

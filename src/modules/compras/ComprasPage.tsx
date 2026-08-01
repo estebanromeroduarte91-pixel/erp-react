@@ -10,6 +10,7 @@ import {
 } from '@/lib/queries'
 import { asientoDeOC, asientoIdDeOC, nextNumeroAsiento } from '@/lib/contabilidad'
 import { formatRut } from '@/lib/rut'
+import { calcularEstadoOC, getCantRecibida } from './utils'
 import type { OC, OCItem, OCRecepcion, OCLogEntry, EstadoOC, Producto, Bodega, Proveedor, Movimiento, LoteInventario } from '@/types'
 
 // ─── Helpers ──────────────────────────────────────────────────
@@ -26,33 +27,6 @@ const fmtDate = (s?: string) => {
   return `${d}/${m}/${y}`
 }
 const IVA = 0.19
-
-function calcularEstadoOC(o: OC): EstadoOC {
-  if (o.estado === 'cancelada' || o.estado === 'confirmada') return o.estado
-  const items = o.items ?? []
-  if (!items.length) return 'borrador'
-  const recs = o.recepciones ?? []
-  let totalOrd = 0
-  let totalRec = 0
-  for (const it of items) {
-    const rec = recs.reduce((s, r) => {
-      const ri = r.items.find(ri => ri.prod_item_id === it.id)
-      return s + (ri?.cantidad ?? 0)
-    }, 0)
-    totalOrd += it.cantidad
-    totalRec += Math.min(rec, it.cantidad)
-  }
-  if (totalRec === 0) return 'borrador'
-  if (totalRec >= totalOrd) return 'recibida'
-  return 'parcial'
-}
-
-function getCantRecibida(o: OC, itemId: string): number {
-  return (o.recepciones ?? []).reduce((s, r) => {
-    const ri = r.items.find(ri => ri.prod_item_id === itemId)
-    return s + (ri?.cantidad ?? 0)
-  }, 0)
-}
 
 const ESTADO_META: Record<EstadoOC, { label: string; color: string; bg: string }> = {
   borrador:   { label: 'Borrador',   color: '#6b7280', bg: '#f3f4f6' },
