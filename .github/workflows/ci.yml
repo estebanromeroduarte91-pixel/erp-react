@@ -13,7 +13,10 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # jsdom 30 necesita una API interna de Node (webidl.util.markAsUncloneable)
+          # que no existe en Node 20 — con esa versión, "Tests" fallaba con
+          # "TypeError: webidl.util.markAsUncloneable is not a function" al cargar jsdom.
+          node-version: 24
           cache: npm
 
       - run: npm ci
