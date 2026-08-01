@@ -5,7 +5,6 @@ import { usePuedeUsarModulo } from '@/lib/queries'
 import { Login } from '@/modules/auth/Login'
 import { ResetPassword } from '@/modules/auth/ResetPassword'
 import { TrialExpirado } from '@/modules/auth/TrialExpirado'
-import { LandingPage } from '@/modules/landing/LandingPage'
 import { Shell } from '@/components/layout/Shell'
 import { Spinner } from '@/components/shared/Spinner'
 import { ModuloBloqueado } from '@/components/shared/ModuloBloqueado'
@@ -30,6 +29,9 @@ const ComprasPage = lazyWithReload(() => import('@/modules/compras/ComprasPage')
 const BuscarPage = lazyWithReload(() => import('@/modules/buscar/BuscarPage').then(m => ({ default: m.BuscarPage })))
 const CotizacionesPage = lazyWithReload(() => import('@/modules/cotizaciones/CotizacionesPage').then(m => ({ default: m.CotizacionesPage })))
 const PixitAdminPage = lazyWithReload(() => import('@/modules/pixitadmin/PixitAdminPage').then(m => ({ default: m.PixitAdminPage })))
+// La página de marketing solo la ve un visitante sin sesión en "/" — cualquier
+// usuario ya logueado la descargaba igual porque estaba importada estática.
+const LandingPage = lazyWithReload(() => import('@/modules/landing/LandingPage').then(m => ({ default: m.LandingPage })))
 
 function AppRoutes() {
   const location = useLocation()
@@ -53,11 +55,17 @@ function AppRoutes() {
 
   if (!session) {
     return (
-      <Routes>
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <Suspense fallback={
+        <div className="flex min-h-screen items-center justify-center">
+          <Spinner className="w-8 h-8" />
+        </div>
+      }>
+        <Routes>
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
     )
   }
 

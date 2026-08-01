@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, Suspense, lazy } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useOrdenesLite, useTraslados, useActualizarOrden, useEliminarOrden, useBodegas, fetchOrdenCompletaPorId, type OrdenLista } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
@@ -8,7 +8,10 @@ import { EstadoBadge } from '@/components/shared/Badge'
 import { Money } from '@/components/shared/Money'
 import { Spinner } from '@/components/shared/Spinner'
 import { OrdenModal } from './OrdenModal'
-import { OrdenDetallePage } from './OrdenDetallePage'
+// El detalle de una orden (161kB, el chunk más pesado del ERP después de
+// vendor/xlsx) antes se importaba estático acá — se descargaba siempre que
+// se abría Taller, aunque nunca se viera el detalle de ninguna orden.
+const OrdenDetallePage = lazy(() => import('./OrdenDetallePage').then(m => ({ default: m.OrdenDetallePage })))
 import { TrasladosTab } from './TrasladosTab'
 import { EquiposTab } from './EquiposTab'
 import { SeguimientoTab } from '@/modules/config/SeguimientoTab'
@@ -349,10 +352,12 @@ export function TallerPage() {
           />
         )}
         {detalleNum && (
-          <OrdenDetallePage
-            num={detalleNum}
-            onClose={() => setDetalleNum(null)}
-          />
+          <Suspense fallback={<div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/30"><Spinner className="w-8 h-8 text-white" /></div>}>
+            <OrdenDetallePage
+              num={detalleNum}
+              onClose={() => setDetalleNum(null)}
+            />
+          </Suspense>
         )}
       </div>
     )
@@ -668,7 +673,9 @@ export function TallerPage() {
 
         {/* Modal detalle orden */}
         {detalleNum && (
-          <OrdenDetallePage num={detalleNum} onClose={() => setDetalleNum(null)} />
+          <Suspense fallback={<div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/30"><Spinner className="w-8 h-8 text-white" /></div>}>
+            <OrdenDetallePage num={detalleNum} onClose={() => setDetalleNum(null)} />
+          </Suspense>
         )}
 
         {/* Confirmación eliminar orden */}
