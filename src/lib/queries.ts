@@ -814,6 +814,29 @@ export function useLotes() {
   })
 }
 
+// Trae solo los lotes activos (cantidad_restante > 0) de un set puntual de
+// productos en una bodega — para el costeo FIFO al confirmar una venta. A
+// diferencia de useLotes() (que precarga TODA la tabla, hoy 1400+ filas, cada
+// vez que se abre el POS), esto se llama una vez al momento de cobrar y solo
+// trae los productos que están en ese carrito puntual.
+export async function fetchLotesActivosParaVenta(
+  empresaId: string,
+  productoIds: string[],
+  bodegaId: string,
+): Promise<LoteInventario[]> {
+  if (!productoIds.length || !bodegaId) return []
+  const { data, error } = await supabase
+    .from('lotes_inventario')
+    .select('*')
+    .eq('empresa_id', empresaId)
+    .eq('bodega_id', bodegaId)
+    .in('producto_id', productoIds)
+    .gt('cantidad_restante', 0)
+    .order('creado_en', { ascending: true })
+  if (error) throw error
+  return (data ?? []).map(hidratarLote)
+}
+
 // Crea uno o varios lotes nuevos (recepción de OC, apertura de stock). Batch de 200.
 export function useCrearLotes() {
   const { empresaId } = useAuth()

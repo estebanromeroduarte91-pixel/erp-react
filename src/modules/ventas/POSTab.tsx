@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
-import { useProductos, useBuscarProductos, useVentas, useConfirmarVenta, useMetodosPago, useCajaSesiones, useCajas, useGuardarCajaSesiones, useIncrementarContadorVenta, useOrdenesLite, useUserProfiles, useUserCargoMap, useCargos, useLotes, useClientes, useBuscarClientes, useCrearCliente, CARGOS_DEFAULT } from '@/lib/queries'
+import { useProductos, useBuscarProductos, useVentas, useConfirmarVenta, useMetodosPago, useCajaSesiones, useCajas, useGuardarCajaSesiones, useIncrementarContadorVenta, useOrdenesLite, useUserProfiles, useUserCargoMap, useCargos, fetchLotesActivosParaVenta, useClientes, useBuscarClientes, useCrearCliente, CARGOS_DEFAULT } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 
 import { useAnchorRect, fixedDropdownStyle } from '@/lib/useAnchorRect'
@@ -40,7 +40,7 @@ function lineNeto(it: VentaItem) {
 }
 
 export function POSTab() {
-  const { nombre: nombreUsuario, branchId } = useAuth()
+  const { nombre: nombreUsuario, branchId, empresaId } = useAuth()
   const { data: productos } = useProductos()
   const { data: ventas } = useVentas()
   const { data: ordenes } = useOrdenesLite()
@@ -53,7 +53,6 @@ export function POSTab() {
   const { data: userProfiles } = useUserProfiles()
   const { data: userCargoMap } = useUserCargoMap()
   const { data: cargosCustom } = useCargos()
-  const { data: lotes } = useLotes()
   const { data: clientesDir } = useClientes()
   const crearCliente = useCrearCliente()
 
@@ -378,6 +377,19 @@ export function POSTab() {
       // (hueco de datos), usa el precio_compra actual del producto como respaldo.
       // Solo se trackean los lotes que efectivamente cambian (consumo FIFO), no el
       // array completo — así el guardado toca únicamente esas filas.
+      // Los lotes se traen puntuales para los productos de este carrito (no toda
+      // la tabla): antes useLotes() precargaba TODA la tabla (1400+ filas y
+      // creciendo) cada vez que se abría el POS, aunque una venta típica solo
+      // toque un puñado de productos.
+      const productosDelCarrito = [...new Set(
+        items
+          .filter(it => it.producto_id && it.producto_id !== 'ot-servicio' && !it.producto_id.startsWith('rep-'))
+          .map(it => it.producto_id!),
+      )]
+      const lotesRelevantes = empresaId && bodegaId
+        ? await fetchLotesActivosParaVenta(empresaId, productosDelCarrito, bodegaId)
+        : []
+
       const restantePorLote = new Map<string, number>()
       const cantidadRestante = (l: LoteInventario) => restantePorLote.get(l.id) ?? l.cantidad_restante
       const costosPorItem = new Map<string, { costo_unitario: number; costo_total: number }>()
@@ -386,8 +398,8 @@ export function POSTab() {
         const producto = (productos ?? []).find(p => p.id === it.producto_id)
         if (producto?.tipo === 'servicio') continue
         const fallback = producto?.precio_compra ?? 0
-        const candidatos = (lotes ?? [])
-          .filter(l => l.producto_id === it.producto_id && l.bodega_id === bodegaId && cantidadRestante(l) > 0)
+        const candidatos = lotesRelevantes
+          .filter(l => l.producto_id === it.producto_id && cantidadRestante(l) > 0)
           .sort((a, b) => (a.creado_en || a.fecha).localeCompare(b.creado_en || b.fecha))
         let restante = it.cantidad
         let costoTotal = 0
