@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { useVentas, useAnularVenta, useMetodosPago, useProductos } from '@/lib/queries'
+import { useVentasResumen, useVentasPaginadas, useVentaPorId, useAnularVenta, useMetodosPago } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { Spinner } from '@/components/shared/Spinner'
 import type { Venta } from '@/types'
@@ -12,75 +12,90 @@ type Periodo = 'hoy' | 'mes' | 'año' | 'todo' | 'rango'
 
 function today() { return new Date().toISOString().slice(0, 10) }
 
-function filtrarPorFecha(lista: Venta[], periodo: Periodo, desde: string, hasta: string): Venta[] {
+// Convierte el período elegido en un rango [desde, hasta] real (o [null, null]
+// para "todo"), para mandarlo al servidor en vez de filtrar en el cliente.
+function rangoDePeriodo(periodo: Periodo, desde: string, hasta: string): [string | null, string | null] {
   const hoy = today()
-  if (periodo === 'hoy') return lista.filter(v => v.fecha?.startsWith(hoy))
-  if (periodo === 'mes') return lista.filter(v => v.fecha?.startsWith(hoy.slice(0, 7)))
-  if (periodo === 'año') return lista.filter(v => v.fecha?.startsWith(hoy.slice(0, 4)))
-  if (periodo === 'rango') {
-    return lista.filter(v => {
-      if (!v.fecha) return false
-      const d = v.fecha.slice(0, 10)
-      return (!desde || d >= desde) && (!hasta || d <= hasta)
-    })
-  }
-  return lista
+  if (periodo === 'hoy') return [hoy, hoy]
+  if (periodo === 'mes') return [hoy.slice(0, 7) + '-01', hoy]
+  if (periodo === 'año') return [hoy.slice(0, 4) + '-01-01', hoy]
+  if (periodo === 'rango') return [desde || null, hasta || null]
+  return [null, null]
 }
 
 const PERIODO_LABEL: Record<Periodo, string> = {
   hoy: 'Hoy', mes: 'Este mes', año: 'Este año', todo: 'Todo el tiempo', rango: 'Rango',
 }
 
-// Usa el costo FIFO congelado en la venta (costo_total). Para ventas anteriores a esa
-// funcionalidad, que no tienen costo congelado, recae en el precio_compra actual del producto.
-// Función de módulo (no closure) para no depender de react-hooks/exhaustive-deps.
-function calcUtilidad(lista: Venta[], prodsMap: Map<string, number>) {
-  return lista.reduce((sum, v) => {
-    const costo = (v.items ?? []).reduce((cs, it) => {
-      if (it.costo_total != null) return cs + it.costo_total
-      if (!it.producto_id) return cs
-      return cs + it.cantidad * (prodsMap.get(it.producto_id) ?? 0)
-    }, 0)
-    return sum + (v.total ?? 0) - costo
-  }, 0)
-}
-
 export function VentasListTab() {
-  const { data: ventasSinFiltrar, isLoading } = useVentas()
-  const { data: metodos } = useMetodosPago()
-  const { data: productos } = useProductos()
-  const anularVenta = useAnularVenta()
   const { esAdmin, branchId: userBranchId } = useAuth()
+  const { data: metodos } = useMetodosPago()
+  const anularVenta = useAnularVenta()
 
   // El staff sin sucursal global (encargado/vendedor con sucursal asignada)
   // solo ve las ventas de la suya — antes esta pantalla mostraba las ventas
   // de TODAS las sucursales a cualquiera, sin importar el rol.
-  const ventas = useMemo(() => {
-    if (esAdmin || !userBranchId) return ventasSinFiltrar
-    return (ventasSinFiltrar ?? []).filter(v => v.branchId === userBranchId)
-  }, [ventasSinFiltrar, esAdmin, userBranchId])
+  const branchFilter = esAdmin || !userBranchId ? null : userBranchId
 
   const [busqueda, setBusqueda] = useState('')
   const [filtroEstado, setFiltroEstado] = useState<'todas' | 'pagada' | 'anulada' | 'pendiente'>('todas')
   const [periodo, setPeriodo] = useState<Periodo>('mes')
   const [desde, setDesde] = useState('')
   const [hasta, setHasta] = useState('')
-  const [page, setPage] = useState(PAGE_SIZE)
+  const [page, setPage] = useState(0)
   const [detalle, setDetalle] = useState<Venta | null>(null)
   const desdeRef = useRef<HTMLInputElement>(null)
   const hastaRef = useRef<HTMLInputElement>(null)
 
-  // Deep-link desde Buscar: ?abrir=<id de venta> abre el detalle directo.
+  const [rangoDesde, rangoHasta] = useMemo(() => rangoDePeriodo(periodo, desde, hasta), [periodo, desde, hasta])
+
+  const resumen = useVentasResumen(rangoDesde, rangoHasta, branchFilter)
+
+  const { data: paginado, isLoading, isFetching } = useVentasPaginadas({
+    page, pageSize: PAGE_SIZE,
+    estado: filtroEstado === 'todas' ? null : filtroEstado,
+    desde: rangoDesde, hasta: rangoHasta,
+    busqueda, branchId: branchFilter,
+  })
+  const totalFiltrado = paginado?.total ?? 0
+
+  // "Ver más" acumula páginas en vez de reemplazar la lista visible. Un
+  // cambio de filtro resetea page a 0, lo que reemplaza en vez de acumular;
+  // lastSyncedPage evita duplicar filas si React Query refetch la misma
+  // página en segundo plano (ej. al volver a la pestaña). Ajuste de estado
+  // durante el render en vez de useEffect (mismo patrón usado en el resto
+  // del código) — un ref no sirve acá porque no se puede leer/escribir
+  // durante el render.
+  const [lista, setLista] = useState<Venta[]>([])
+  const [lastSyncedPage, setLastSyncedPage] = useState(-1)
+  if (paginado && page !== lastSyncedPage) {
+    setLastSyncedPage(page)
+    if (page === 0) setLista(paginado.ventas)
+    else setLista(prev => [...prev, ...paginado.ventas])
+  }
+
+  // Deep-link desde Buscar: ?abrir=<id de venta> abre el detalle directo —
+  // trae esa venta puntual (ya no está garantizado que esté en la página
+  // actual del listado paginado), ya hidratada vía useVentaPorId.
   const [searchParams, setSearchParams] = useSearchParams()
   const [abrirSynced, setAbrirSynced] = useState(false)
+  const [abrirId, setAbrirId] = useState<string | null>(null)
   const abrirParam = searchParams.get('abrir')
-  if (!abrirSynced && abrirParam && ventas) {
+  if (!abrirSynced && abrirParam) {
     setAbrirSynced(true)
-    const v = ventas.find(x => x.id === abrirParam)
-    if (v) setDetalle(v)
+    setAbrirId(abrirParam)
     const next = new URLSearchParams(searchParams)
     next.delete('abrir')
     setSearchParams(next, { replace: true })
+  }
+  // openedForId evita reabrir el drawer si el usuario ya lo cerró — sin esto,
+  // detalle?.id !== ventaAbrir.data.id volvería a ser true apenas se cierra
+  // (detalle pasa a null) y el drawer se reabriría solo.
+  const [openedForId, setOpenedForId] = useState<string | null>(null)
+  const ventaAbrir = useVentaPorId(abrirId)
+  if (ventaAbrir.data && openedForId !== abrirId) {
+    setOpenedForId(abrirId)
+    setDetalle(ventaAbrir.data)
   }
 
   const mpMap = useMemo(() => {
@@ -89,58 +104,20 @@ export function VentasListTab() {
     return m
   }, [metodos])
 
-  const prodsMap = useMemo(() => {
-    const m = new Map<string, number>()
-    ;(productos ?? []).forEach(p => { if (p.id) m.set(p.id, p.precio_compra ?? 0) })
-    return m
-  }, [productos])
+  const historico = resumen.data?.historico ?? { count: 0, total: 0, utilidad: 0 }
+  const totalVentas = resumen.data?.periodo.total_iva ?? 0
+  const totalNeto = resumen.data?.periodo.total_neto ?? 0
+  const utilidad = resumen.data?.periodo.utilidad ?? 0
+  const cantPeriodo = resumen.data?.periodo.count ?? 0
+  const metodosSorted = resumen.data?.metodos ?? []
 
-  const historico = useMemo(() => {
-    const todas = (ventas ?? []).filter(v => v.estado === 'pagada')
-    return {
-      count: todas.length,
-      total: todas.reduce((s, v) => s + (v.total_iva ?? 0), 0),
-      utilidad: calcUtilidad(todas, prodsMap),
-    }
-  }, [ventas, prodsMap])
-
-  const activas = useMemo(() => (ventas ?? []).filter(v => v.estado !== 'anulada'), [ventas])
-  const periodoFiltrado = useMemo(() => filtrarPorFecha(activas, periodo, desde, hasta), [activas, periodo, desde, hasta])
-
-  const totalVentas = periodoFiltrado.reduce((s, v) => s + (v.total_iva ?? 0), 0)
-  const totalNeto = periodoFiltrado.reduce((s, v) => s + (v.total ?? 0), 0)
-  const utilidad = useMemo(() => calcUtilidad(periodoFiltrado, prodsMap), [periodoFiltrado, prodsMap])
-
-  const metodosSorted = useMemo(() => {
-    const map: Record<string, { total: number; count: number }> = {}
-    periodoFiltrado.forEach(v => {
-      const k = v.metodo_pago || 'otro'
-      if (!map[k]) map[k] = { total: 0, count: 0 }
-      map[k].total += v.total_iva ?? 0
-      map[k].count++
-    })
-    return Object.entries(map).sort((a, b) => b[1].total - a[1].total)
-  }, [periodoFiltrado])
-
-  const lista = useMemo(() => {
-    const arr = [...(ventas ?? [])].sort((a, b) => b.fecha.localeCompare(a.fecha))
-    let filtered = filtroEstado === 'todas'
-      ? filtrarPorFecha(arr, periodo, desde, hasta)
-      : filtrarPorFecha(arr.filter(v => v.estado === filtroEstado), periodo, desde, hasta)
-    if (busqueda.trim()) {
-      const q = busqueda.toLowerCase().replace(/[.-]/g, '')
-      filtered = filtered.filter(v =>
-        v.numero.toLowerCase().includes(busqueda.toLowerCase()) ||
-        v.cliente.toLowerCase().includes(busqueda.toLowerCase()) ||
-        (v.numero.replace(/[.-]/g, '')).includes(q)
-      )
-    }
-    return filtered
-  }, [ventas, filtroEstado, busqueda, periodo, desde, hasta])
+  function cambiarFiltro(fn: () => void) {
+    fn()
+    setPage(0)
+  }
 
   function aplicarRango() {
-    setPeriodo('rango')
-    setPage(PAGE_SIZE)
+    cambiarFiltro(() => setPeriodo('rango'))
   }
 
   async function anular(v: Venta) {
@@ -149,10 +126,12 @@ export function VentasListTab() {
     await anularVenta.mutateAsync(v.id)
   }
 
-  const visible = lista.slice(0, page)
-  const hayMas = lista.length > page
+  const hayMas = lista.length < totalFiltrado
 
-  if (isLoading) return <div className="flex justify-center py-16"><Spinner className="w-8 h-8" /></div>
+  // Spinner de página completa solo en la carga inicial (sin datos todavía).
+  // En cambios de filtro posteriores se prefiere dejar la lista anterior
+  // visible mientras llega la nueva página, en vez de tapar toda la pantalla.
+  if (isLoading && !paginado) return <div className="flex justify-center py-16"><Spinner className="w-8 h-8" /></div>
 
   return (
     <div className="space-y-4">
@@ -162,7 +141,7 @@ export function VentasListTab() {
           {(['hoy', 'mes', 'año', 'todo'] as Periodo[]).map((p, i) => (
             <button
               key={p}
-              onClick={() => { setPeriodo(p); setPage(PAGE_SIZE) }}
+              onClick={() => cambiarFiltro(() => setPeriodo(p))}
               className={['px-3 py-1.5 text-xs font-semibold transition',
                 i > 0 ? 'border-l border-gray-200' : '',
                 periodo === p ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'].join(' ')}
@@ -193,7 +172,7 @@ export function VentasListTab() {
           <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Ventas c/IVA</p>
           <p className="text-xs text-blue-600 font-medium mb-2">{PERIODO_LABEL[periodo]}</p>
           <p className="text-2xl font-extrabold text-emerald-600">{fmt(totalVentas)}</p>
-          <p className="text-xs text-gray-400 mt-1">{periodoFiltrado.length} venta{periodoFiltrado.length !== 1 ? 's' : ''}</p>
+          <p className="text-xs text-gray-400 mt-1">{cantPeriodo} venta{cantPeriodo !== 1 ? 's' : ''}</p>
         </div>
         <div className="bg-white rounded-xl border border-gray-200 p-4 border-t-2 border-t-blue-500">
           <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Neto sin IVA</p>
@@ -217,7 +196,7 @@ export function VentasListTab() {
             <p className="text-xs text-gray-400">Sin ventas en este período</p>
           ) : (
             <div className="space-y-3">
-              {metodosSorted.map(([k, { total, count }]) => {
+              {metodosSorted.map(({ metodo: k, total, count }) => {
                 const pct = totalVentas > 0 ? Math.round(total / totalVentas * 100) : 0
                 return (
                   <div key={k}>
@@ -263,13 +242,13 @@ export function VentasListTab() {
             <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
-            <input value={busqueda} onChange={e => { setBusqueda(e.target.value); setPage(PAGE_SIZE) }}
+            <input value={busqueda} onChange={e => cambiarFiltro(() => setBusqueda(e.target.value))}
               placeholder="Buscar por número o cliente..."
               className="w-full pl-9 pr-3 py-2 text-base md:text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:border-blue-400" />
           </div>
           <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-full md:w-auto">
             {([['todas', 'Todas'], ['pagada', 'Pagadas'], ['pendiente', 'Pendiente'], ['anulada', 'Anuladas']] as const).map(([e, lbl]) => (
-              <button key={e} onClick={() => { setFiltroEstado(e); setPage(PAGE_SIZE) }}
+              <button key={e} onClick={() => cambiarFiltro(() => setFiltroEstado(e))}
                 className={['flex-1 md:flex-none px-2 md:px-3 py-1.5 text-xs md:text-sm font-medium rounded-lg transition text-center',
                   filtroEstado === e ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'].join(' ')}>
                 {lbl}
@@ -278,7 +257,7 @@ export function VentasListTab() {
           </div>
         </div>
 
-        <p className="text-xs text-gray-400 px-4 py-2">{lista.length} ventas</p>
+        <p className="text-xs text-gray-400 px-4 py-2">{totalFiltrado} venta{totalFiltrado !== 1 ? 's' : ''}</p>
 
         {lista.length === 0 ? (
           <div className="py-16 text-center">
@@ -292,7 +271,7 @@ export function VentasListTab() {
           <>
             {/* Cards — mobile */}
             <div className="md:hidden divide-y divide-gray-100">
-              {visible.map(v => (
+              {lista.map(v => (
                 <div key={v.id} className="px-4 py-3 active:bg-gray-50 cursor-pointer" onClick={() => setDetalle(v)}>
                   <div className="flex items-center justify-between mb-1">
                     <span className="font-mono text-xs font-semibold text-blue-600">{v.numero}</span>
@@ -329,7 +308,7 @@ export function VentasListTab() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {visible.map(v => (
+                  {lista.map(v => (
                     <tr key={v.id} className="hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => setDetalle(v)}>
                       <td className="px-4 py-3 font-mono text-xs font-semibold text-blue-600">{v.numero}</td>
                       <td className="px-4 py-3 text-gray-600 text-xs">{v.fecha}</td>
@@ -363,9 +342,9 @@ export function VentasListTab() {
             </div>
             {hayMas && (
               <div className="text-center py-4 border-t border-gray-100">
-                <button onClick={() => setPage(p => p + PAGE_SIZE)}
-                  className="px-5 py-2 bg-gray-100 border border-gray-200 text-gray-700 text-sm font-semibold rounded-lg hover:bg-gray-200 transition">
-                  Ver más ({lista.length - page} restantes)
+                <button onClick={() => setPage(p => p + 1)} disabled={isFetching}
+                  className="px-5 py-2 bg-gray-100 border border-gray-200 text-gray-700 text-sm font-semibold rounded-lg hover:bg-gray-200 transition disabled:opacity-60">
+                  {isFetching ? 'Cargando…' : `Ver más (${totalFiltrado - lista.length} restantes)`}
                 </button>
               </div>
             )}

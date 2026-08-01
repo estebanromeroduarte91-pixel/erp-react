@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { useEffect, useId } from 'react'
 import { supabase } from './supabase'
 import { dbGet, dbSet } from './db'
@@ -1359,6 +1359,95 @@ export function useUltimasVentas(limite = 5) {
       return (data ?? []).map(hidratarVenta)
     },
     enabled: !!empresaId,
+  })
+}
+
+// Trae UNA venta puntual por id, ya hidratada — para el deep-link ?abrir=<id>
+// desde Buscar, que puede apuntar a una venta que no está en la página
+// actual del listado paginado.
+export function useVentaPorId(id: string | null) {
+  const { empresaId } = useAuth()
+  return useQuery({
+    queryKey: ['venta-por-id', empresaId, id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('ventas')
+        .select(VENTA_COLS)
+        .eq('id', id!)
+        .eq('empresa_id', empresaId!)
+        .maybeSingle()
+      if (error) throw error
+      return data ? hidratarVenta(data) : null
+    },
+    enabled: !!empresaId && !!id,
+  })
+}
+
+// Totales agregados (histórico + período + métodos de pago) calculados en el
+// servidor (fn_ventas_resumen) — antes VentasListTab traía la tabla ENTERA de
+// ventas al navegador (miles de filas) solo para sumar estos números en JS.
+export interface VentasResumen {
+  historico: { count: number; total: number; utilidad: number }
+  periodo: { count: number; total_iva: number; total_neto: number; utilidad: number }
+  metodos: { metodo: string; total: number; count: number }[]
+}
+
+export function useVentasResumen(desde: string | null, hasta: string | null, branchId: string | null) {
+  const { empresaId } = useAuth()
+  return useQuery({
+    queryKey: ['ventas-resumen', empresaId, desde, hasta, branchId],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('fn_ventas_resumen', {
+        p_desde: desde, p_hasta: hasta, p_branch_id: branchId,
+      })
+      if (error) throw error
+      return data as VentasResumen
+    },
+    enabled: !!empresaId,
+  })
+}
+
+// Lista de ventas paginada de verdad (range + count del lado del servidor) —
+// antes useVentas() traía TODA la tabla para poder filtrar/paginar en el cliente.
+export interface VentasPaginadasParams {
+  page: number
+  pageSize: number
+  estado?: 'pagada' | 'anulada' | 'pendiente' | null
+  desde?: string | null
+  hasta?: string | null
+  busqueda?: string
+  branchId?: string | null
+}
+
+export function useVentasPaginadas(p: VentasPaginadasParams) {
+  const { empresaId } = useAuth()
+  return useQuery({
+    queryKey: ['ventas-paginadas', empresaId, p.page, p.pageSize, p.estado, p.desde, p.hasta, p.busqueda, p.branchId],
+    queryFn: async () => {
+      const from = p.page * p.pageSize
+      const to = from + p.pageSize - 1
+      let q = supabase
+        .from('ventas')
+        .select(VENTA_COLS, { count: 'exact' })
+        .eq('empresa_id', empresaId!)
+        .order('fecha', { ascending: false })
+        .range(from, to)
+      if (p.estado) q = q.eq('estado', p.estado)
+      if (p.desde) q = q.gte('fecha', p.desde)
+      if (p.hasta) q = q.lte('fecha', p.hasta)
+      if (p.branchId) q = q.eq('branch_id', p.branchId)
+      if (p.busqueda?.trim()) {
+        const term = p.busqueda.trim().replace(/[%,()]/g, '')
+        q = q.or(`numero.ilike.%${term}%,cliente.ilike.%${term}%`)
+      }
+      const { data, error, count } = await q
+      if (error) throw error
+      return { ventas: (data ?? []).map(hidratarVenta), total: count ?? 0 }
+    },
+    enabled: !!empresaId,
+    // Mantiene los datos de la página/filtro anterior visibles mientras llega
+    // la nueva consulta, en vez de mostrar un spinner en cada cambio de filtro.
+    placeholderData: keepPreviousData,
   })
 }
 
