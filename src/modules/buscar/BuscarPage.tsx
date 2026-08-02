@@ -68,13 +68,14 @@ export function BuscarPage() {
     // OTs
     ;(ordenes ?? []).filter(o =>
       o.nombre?.toLowerCase().includes(q) ||
+      o.apellido?.toLowerCase().includes(q) ||
       o.num?.toLowerCase().includes(q) ||
       o.modelo?.toLowerCase().includes(q) ||
       o.tel?.toLowerCase().includes(q)
     ).slice(0, 5).forEach(o => {
       out.push({
         type: 'ot', id: o.num ?? o.id,
-        title: `#${o.num} — ${o.nombre}`,
+        title: `#${o.num} — ${[o.nombre, o.apellido].filter(Boolean).join(' ')}`,
         sub: o.modelo ?? o.trabajo ?? '',
         badge: o.status,
         badgeColor: STATUS_COLOR[o.status] ?? '#6b7280',

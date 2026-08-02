@@ -697,10 +697,10 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">Cliente</p>
             <div className="flex items-start gap-3">
               <div className="w-9 h-9 rounded-lg bg-blue-600 text-white flex items-center justify-center text-sm font-bold flex-shrink-0">
-                {initials(o.nombre)}
+                {initials([o.nombre, o.apellido].filter(Boolean).join(' '))}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-bold text-gray-900 text-sm">{o.nombre || '—'}</p>
+                <p className="font-bold text-gray-900 text-sm">{[o.nombre, o.apellido].filter(Boolean).join(' ') || '—'}</p>
                 {o.rut && <p className="text-xs text-gray-400 mt-0.5">RUT: {o.rut}</p>}
                 {o.tel && <a href={`tel:${o.tel}`} className="text-xs text-blue-600 font-semibold hover:underline block mt-1">{o.tel}</a>}
                 {o.email && <p className="text-xs text-gray-500 mt-0.5 truncate">{o.email}</p>}
