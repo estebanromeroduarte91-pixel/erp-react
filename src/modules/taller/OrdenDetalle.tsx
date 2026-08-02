@@ -375,7 +375,7 @@ export function OrdenDetalle({ orden: o, onClose, onEditar }: Props) {
           <div className="flex-1 overflow-y-auto px-6 py-4 space-y-5">
             {/* Nombre + precio */}
             <div>
-              <h2 className="text-xl font-bold text-gray-900">{o.nombre}</h2>
+              <h2 className="text-xl font-bold text-gray-900">{[o.nombre, o.apellido].filter(Boolean).join(' ')}</h2>
               <div className="flex items-center gap-3 mt-1">
                 <span className="text-sm text-gray-400">{fmtFecha(o.fecha)}</span>
                 {total > 0 && <span className="text-sm font-semibold text-gray-800"><Money value={total} /></span>}
@@ -403,11 +403,11 @@ export function OrdenDetalle({ orden: o, onClose, onEditar }: Props) {
             {/* Cliente */}
             <div className="bg-gray-50 rounded-xl p-4 flex items-start gap-3">
               <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-sm font-bold flex-shrink-0">
-                {initials(o.nombre)}
+                {initials([o.nombre, o.apellido].filter(Boolean).join(' '))}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Cliente</p>
-                <p className="font-semibold text-gray-900">{o.nombre}</p>
+                <p className="font-semibold text-gray-900">{[o.nombre, o.apellido].filter(Boolean).join(' ')}</p>
                 {o.tel && <a href={`tel:${o.tel}`} className="text-sm text-blue-600 hover:underline block mt-0.5">{o.tel}</a>}
                 {o.email && <p className="text-sm text-gray-500">{o.email}</p>}
                 {o.rut && <p className="text-xs text-gray-400 mt-0.5">RUT: {o.rut}</p>}
@@ -729,7 +729,7 @@ export function OrdenDetalle({ orden: o, onClose, onEditar }: Props) {
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
             <div className="px-5 py-4 border-b border-gray-100">
               <h3 className="font-semibold text-gray-900">Solicitar aprobación</h3>
-              <p className="text-xs text-gray-400 mt-0.5">{o.nombre} · {o.modelo} · #{String(o.num).padStart(4, '0')}</p>
+              <p className="text-xs text-gray-400 mt-0.5">{[o.nombre, o.apellido].filter(Boolean).join(' ')} · {o.modelo} · #{String(o.num).padStart(4, '0')}</p>
             </div>
             <div className="px-5 py-4 space-y-3">
               {/* Presupuesto resumen */}
