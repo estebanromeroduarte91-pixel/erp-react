@@ -676,7 +676,7 @@ export function POSTab() {
                 <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.7-3.7a6 6 0 0 1-7.9 7.9l-6.9 6.9a2.1 2.1 0 0 1-3-3l6.9-6.9a6 6 0 0 1 7.9-7.9l-3.7 3.7z"/>
                 </svg>
-                <span className="truncate">OT #{otSeleccionada.num} — {otSeleccionada.nombre}</span>
+                <span className="truncate">OT #{otSeleccionada.num} — {[otSeleccionada.nombre, otSeleccionada.apellido].filter(Boolean).join(' ')}</span>
               </span>
               <button onClick={deseleccionarOT} className="text-gray-400 hover:text-red-500 transition-colors p-1 flex-shrink-0">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
