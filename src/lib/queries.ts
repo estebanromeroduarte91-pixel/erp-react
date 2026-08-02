@@ -1290,6 +1290,12 @@ export function useVentas() {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'ventas', filter: `empresa_id=eq.${empresaId}` },
         (payload) => {
+          // VentasListTab usa useVentasPaginadas (query key 'ventas-paginadas'),
+          // no la lista sin paginar de acá — sin esta invalidación, cambios
+          // como anular una venta no se reflejaban ahí hasta recargar la página.
+          void qc.invalidateQueries({ queryKey: ['ventas-paginadas', empresaId] })
+          void qc.invalidateQueries({ queryKey: ['ventas-resumen', empresaId] })
+
           if (payload.eventType === 'DELETE') {
             const oldId = (payload.old as { id?: string }).id
             if (!oldId) return
