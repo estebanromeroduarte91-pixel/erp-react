@@ -1522,14 +1522,15 @@ export function useConfirmarVenta() {
   })
 }
 
-// Anula una venta existente (solo cambia el estado — igual que el comportamiento
-// anterior, no reversa stock ni lotes FIFO).
+// Anula una venta existente vía RPC: cambia el estado y devuelve al stock
+// disponible la cantidad vendida de cada línea (no revierte lotes_inventario
+// FIFO — ver comentario en supabase/25_fn_anular_venta.sql).
 export function useAnularVenta() {
   const { empresaId } = useAuth()
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('ventas').update({ estado: 'anulada' }).eq('id', id).eq('empresa_id', empresaId!)
+      const { error } = await supabase.rpc('fn_anular_venta', { p_venta_id: id })
       if (error) throw error
     },
     onMutate: async (id: string) => {
@@ -1540,6 +1541,10 @@ export function useAnularVenta() {
       return { prev }
     },
     onError: (_e, _id, ctx) => { if (ctx?.prev) qc.setQueryData(['ventas', empresaId], ctx.prev) },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['productos', empresaId] })
+      void qc.invalidateQueries({ queryKey: ['movimientos_inventario', empresaId] })
+    },
   })
 }
 
