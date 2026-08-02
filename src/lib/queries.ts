@@ -1524,6 +1524,11 @@ export function useConfirmarVenta() {
       void qc.invalidateQueries({ queryKey: ['productos', empresaId] })
       void qc.invalidateQueries({ queryKey: ['lotes_inventario', empresaId] })
       void qc.invalidateQueries({ queryKey: ['ordenes-lite', empresaId] })
+      // Directo, sin depender del canal realtime (que solo está activo si
+      // useVentas() sigue montado en pantalla en ese momento) — la pantalla
+      // Resumen (VentasListTab) usa estas 2 queries, no la lista sin paginar.
+      void qc.invalidateQueries({ queryKey: ['ventas-paginadas', empresaId] })
+      void qc.invalidateQueries({ queryKey: ['ventas-resumen', empresaId] })
     },
   })
 }
@@ -1550,6 +1555,8 @@ export function useAnularVenta() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['productos', empresaId] })
       void qc.invalidateQueries({ queryKey: ['movimientos_inventario', empresaId] })
+      void qc.invalidateQueries({ queryKey: ['ventas-paginadas', empresaId] })
+      void qc.invalidateQueries({ queryKey: ['ventas-resumen', empresaId] })
     },
   })
 }
