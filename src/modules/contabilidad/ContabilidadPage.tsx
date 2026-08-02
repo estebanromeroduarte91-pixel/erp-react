@@ -12,6 +12,7 @@ function resolveTab(param: string | null): Tab {
   if (param === 'libro' || param === 'diario') return 'diario'
   if (param === 'er') return 'er'
   if (param === 'categorias') return 'categorias'
+  if (param === 'plan') return 'plan'
   return 'gastos'
 }
 
