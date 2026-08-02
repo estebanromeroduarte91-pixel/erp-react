@@ -94,7 +94,7 @@ function filaOrdenParcial(o: Partial<Orden>): Record<string, unknown> {
 // devuelve NO tiene esas claves como propiedades (ni siquiera `undefined`),
 // para que si alguna vez se usa como base de un guardado parcial (spread),
 // `filaOrdenParcial` no las detecte con `in` y no pise/borre esas columnas.
-const ORDEN_LITE_COLS = 'id, num, fecha, status, nombre, apellido, tel, rut, modelo, trabajo, branch_id, subestado, venta_id, numero_boleta, costo, presup, repuestos'
+const ORDEN_LITE_COLS = 'id, num, fecha, status, nombre, apellido, tel, email, rut, modelo, trabajo, branch_id, subestado, venta_id, numero_boleta, costo, presup, repuestos'
 
 export interface OrdenLista {
   id: string
@@ -104,6 +104,7 @@ export interface OrdenLista {
   nombre: string
   apellido?: string
   tel?: string
+  email?: string
   rut?: string
   modelo?: string
   trabajo?: string
@@ -125,6 +126,7 @@ function hidratarOrdenLite(row: Record<string, unknown>): OrdenLista {
     nombre: (row.nombre as string) ?? '',
     apellido: row.apellido as string | undefined,
     tel: row.tel as string | undefined,
+    email: row.email as string | undefined,
     rut: row.rut as string | undefined,
     modelo: row.modelo as string | undefined,
     trabajo: row.trabajo as string | undefined,
