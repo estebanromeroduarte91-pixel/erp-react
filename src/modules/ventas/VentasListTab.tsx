@@ -66,10 +66,17 @@ export function VentasListTab() {
   // durante el render en vez de useEffect (mismo patrón usado en el resto
   // del código) — un ref no sirve acá porque no se puede leer/escribir
   // durante el render.
+  //
+  // lastSyncedData además detecta cuando la página 0 se vuelve a traer con
+  // datos distintos aunque el número de página no cambió (ej. invalidateQueries
+  // tras anular una venta) — sin esto, un refetch en segundo plano de la misma
+  // página quedaba ignorado y solo se veía reflejado recargando toda la página.
   const [lista, setLista] = useState<Venta[]>([])
   const [lastSyncedPage, setLastSyncedPage] = useState(-1)
-  if (paginado && page !== lastSyncedPage) {
+  const [lastSyncedData, setLastSyncedData] = useState<typeof paginado>(undefined)
+  if (paginado && (page !== lastSyncedPage || (page === 0 && paginado !== lastSyncedData))) {
     setLastSyncedPage(page)
+    setLastSyncedData(paginado)
     if (page === 0) setLista(paginado.ventas)
     else setLista(prev => [...prev, ...paginado.ventas])
   }
