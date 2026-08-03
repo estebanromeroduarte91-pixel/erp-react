@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { useCajas, useCajaSesiones, useGuardarCajaSesiones, useVentas, useMetodosPago } from '@/lib/queries'
+import { useCajas, useCajaSesiones, useGuardarCajaSesiones, useVentasEnRango, useMetodosPago } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { Spinner } from '@/components/shared/Spinner'
 import type { CajaSesion } from '@/types'
@@ -14,7 +14,8 @@ export function CajaTab() {
   const { nombre: nombreUsuario, branchId } = useAuth()
   const { data: cajas, isLoading: cargandoCajas } = useCajas()
   const { data: sesiones, isLoading: cargandoSes } = useCajaSesiones()
-  const { data: ventas } = useVentas()
+  // Igual que el POS: solo se usan para los totales del día (totalesHoy).
+  const { data: ventas } = useVentasEnRango(today(), today())
   const { data: metodos } = useMetodosPago()
   const guardarSesiones = useGuardarCajaSesiones()
 

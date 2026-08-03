@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
-import { useProductos, useBuscarProductos, useVentas, useConfirmarVenta, useMetodosPago, useCajaSesiones, useCajas, useGuardarCajaSesiones, useIncrementarContadorVenta, useOrdenesLite, useUserProfiles, useUserCargoMap, useCargos, fetchLotesActivosParaVenta, useClientes, useBuscarClientes, useCrearCliente, CARGOS_DEFAULT } from '@/lib/queries'
+import { useProductos, useBuscarProductos, useVentasEnRango, useConfirmarVenta, useMetodosPago, useCajaSesiones, useCajas, useGuardarCajaSesiones, useIncrementarContadorVenta, useOrdenesLite, useUserProfiles, useUserCargoMap, useCargos, fetchLotesActivosParaVenta, useClientes, useBuscarClientes, useCrearCliente, CARGOS_DEFAULT } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 
 import { useAnchorRect, fixedDropdownStyle } from '@/lib/useAnchorRect'
@@ -42,7 +42,10 @@ function lineNeto(it: VentaItem) {
 export function POSTab() {
   const { nombre: nombreUsuario, branchId, empresaId } = useAuth()
   const { data: productos } = useProductos()
-  const { data: ventas } = useVentas()
+  // Solo se usan para los totales del día de la caja abierta (totalesHoy), así
+  // que se piden solo las de hoy: antes useVentas() bajaba la tabla completa de
+  // ventas (con el join de venta_items) cada vez que se abría el POS.
+  const { data: ventas } = useVentasEnRango(today(), today())
   const { data: ordenes } = useOrdenesLite()
   const { data: metodos } = useMetodosPago()
   const { data: sesiones } = useCajaSesiones()

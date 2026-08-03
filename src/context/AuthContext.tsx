@@ -67,9 +67,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function bootstrapEmpresaDesdeMetadata(user: User) {
     const nombre = ((user.user_metadata?.empresa_nombre as string) || '').trim()
     if (!nombre) return null
-    const trialTermina = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+    // `plan_estado` y `trial_termina` ya NO se mandan desde acá: los impone el
+    // trigger trg_proteger_plan_empresa en el servidor (trial + 30 días). Antes
+    // los elegía el cliente, así que un registro hecho a mano contra la API
+    // podía pedir plan_estado='activo' (sin vencimiento) o un trial hasta 2099
+    // — ver supabase/29_proteger_plan_empresa_insert.sql.
     const { data: empData, error } = await supabase.from('empresas').insert({
-      nombre, owner_id: user.id, plan_estado: 'trial', trial_termina: trialTermina,
+      nombre, owner_id: user.id,
     }).select('id,nombre,plan_estado,trial_termina').single()
     if (error || !empData) {
       // Carrera (el índice único por owner_id la rechazó): la empresa ya se creó

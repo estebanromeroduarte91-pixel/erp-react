@@ -1,5 +1,5 @@
 import { useMemo, useState, useRef } from 'react'
-import { useVentas, useGastos, useOrdenesLite, useBodegas, useOCs, useProductos } from '@/lib/queries'
+import { useVentasEnRango, useGastos, useOrdenesLite, useBodegas, useOCs, useProductos } from '@/lib/queries'
 import { gastosPorSucursal } from '@/lib/gastos'
 import { Spinner } from '@/components/shared/Spinner'
 import { useIsMobile } from '@/lib/useIsMobile'
@@ -103,13 +103,6 @@ const CT: React.CSSProperties = { fontSize: 13, fontWeight: 700, color: '#111827
 const CS: React.CSSProperties = { fontSize: 11, color: '#9ca3af', marginBottom: 12, marginTop: 0 }
 
 export function EstadisticasPage() {
-  const { data: ventas, isLoading: loadV } = useVentas()
-  const { data: gastos, isLoading: loadG } = useGastos()
-  const { data: ordenes, isLoading: loadO } = useOrdenesLite()
-  const { data: ocs, isLoading: loadOC } = useOCs()
-  const { data: bodegas = [] } = useBodegas()
-  const { data: productos = [] } = useProductos()
-
   const [tab, setTab] = useState<Tab>('mes')
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
@@ -118,6 +111,20 @@ export function EstadisticasPage() {
 
   const last6 = useMemo(() => getLast6(), [])
   const range = useMemo(() => getRange(tab, from, to), [tab, from, to])
+
+  // Esta pantalla usaba useVentas(), que baja la tabla ENTERA de ventas —
+  // paginando de a 1000 hasta traerlas todas— y encima con el join de
+  // venta_items en cada fila (el payload más pesado de la app). Todo eso para
+  // después descartar en el navegador lo que cae fuera del rango elegido.
+  // Los totales de acá solo miran el rango, así que se pide solo el rango.
+  // getRange() siempre devuelve fechas válidas (cae al mes actual), así que
+  // la query nunca queda deshabilitada.
+  const { data: ventas, isLoading: loadV } = useVentasEnRango(range.from, range.to)
+  const { data: gastos, isLoading: loadG } = useGastos()
+  const { data: ordenes, isLoading: loadO } = useOrdenesLite()
+  const { data: ocs, isLoading: loadOC } = useOCs()
+  const { data: bodegas = [] } = useBodegas()
+  const { data: productos = [] } = useProductos()
 
   const inRange = (f?: string) => !!f && f >= range.from && f <= range.to
 

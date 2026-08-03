@@ -1531,6 +1531,10 @@ export function useConfirmarVenta() {
       // Resumen (VentasListTab) usa estas 2 queries, no la lista sin paginar.
       void qc.invalidateQueries({ queryKey: ['ventas-paginadas', empresaId] })
       void qc.invalidateQueries({ queryKey: ['ventas-resumen', empresaId] })
+      // Prefijo: cubre la lista completa ['ventas', id] y TODAS sus variantes
+      // por rango ['ventas', id, 'rango', desde, hasta] — de esas dependen los
+      // totales del día del POS y de Caja.
+      void qc.invalidateQueries({ queryKey: ['ventas', empresaId] })
     },
   })
 }
@@ -1559,6 +1563,7 @@ export function useAnularVenta() {
       void qc.invalidateQueries({ queryKey: ['movimientos_inventario', empresaId] })
       void qc.invalidateQueries({ queryKey: ['ventas-paginadas', empresaId] })
       void qc.invalidateQueries({ queryKey: ['ventas-resumen', empresaId] })
+      void qc.invalidateQueries({ queryKey: ['ventas', empresaId] })
     },
   })
 }
