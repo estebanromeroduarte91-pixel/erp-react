@@ -288,18 +288,37 @@ export function TallerPage() {
           </div>
           {/* Filtros */}
           <div style={{ display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: 2 }}>
-            {ESTADOS_MAIN.map(e => (
-              <button
-                key={e.value}
-                onClick={() => setFiltroEstado(e.value)}
-                style={{
-                  flexShrink: 0, padding: '5px 12px', borderRadius: 99, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
-                  fontSize: 12, fontWeight: 600,
-                  background: filtroEstado === e.value ? 'var(--primary)' : '#f2f2f7',
-                  color: filtroEstado === e.value ? '#fff' : '#6b7280',
-                }}
-              >{e.label}</button>
-            ))}
+            {ESTADOS_MAIN.map(e => {
+              const count = e.value === 'todos' ? stats.abiertas
+                : e.value === 'Chequeo' ? stats.chequeo
+                  : e.value === 'Reparación' ? stats.reparacion
+                    : e.value === 'Listo' ? stats.listos
+                      : stats.derivadas
+              const active = filtroEstado === e.value
+              return (
+                <button
+                  key={e.value}
+                  onClick={() => setFiltroEstado(e.value)}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 5,
+                    flexShrink: 0, padding: '5px 10px', borderRadius: 99, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+                    fontSize: 12, fontWeight: 600,
+                    background: active ? 'var(--primary)' : '#f2f2f7',
+                    color: active ? '#fff' : '#6b7280',
+                  }}
+                >
+                  {e.label}
+                  <span style={{
+                    minWidth: 17, height: 17, padding: '0 4px', borderRadius: 99,
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    background: active ? 'rgba(255,255,255,.25)' : '#e5e7eb',
+                    color: active ? '#fff' : '#6b7280', fontSize: 10, fontWeight: 700,
+                  }}>
+                    {count}
+                  </span>
+                </button>
+              )
+            })}
           </div>
         </div>
 
@@ -373,6 +392,9 @@ export function TallerPage() {
                         <div style={{ textAlign: 'right', flexShrink: 0 }}>
                           <span style={{ display: 'block', marginBottom: 4 }}><EstadoBadge estado={o.status} subestado={o.subestado} /></span>
                           <span style={{ fontSize: 11, color: '#8e8e93' }}>{fmtFecha(o.fecha)}</span>
+                          <span style={{ display: 'block', marginTop: 3, fontSize: 12, fontWeight: 700, color: '#3656e6' }}>
+                            Total <Money value={totalOrden(o)} />
+                          </span>
                         </div>
                       </button>
                     ))}
