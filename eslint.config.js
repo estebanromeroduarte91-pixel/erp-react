@@ -6,7 +6,11 @@ import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  // `supabase/functions` son Edge Functions de Deno (Deno.serve, imports por
+  // URL, sin el tsconfig ni los globals del navegador). Se versionan en el
+  // repo como respaldo/histórico del código desplegado, pero no son parte del
+  // build del frontend — pasarlas por este ESLint solo genera errores falsos.
+  globalIgnores(['dist', 'supabase/functions']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [

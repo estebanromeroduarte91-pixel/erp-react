@@ -2,7 +2,6 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import type { Session, User } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import { dbGet, dbSet } from '@/lib/db'
-import { TIER_LIMITS } from '@/lib/queries/usePlanLimits'
 import { EQUIPOS_SEED } from '@/lib/seed/equiposSeed'
 
 type Rol = 'admin' | 'encargado' | 'tecnico' | 'vendedor' | string
@@ -76,9 +75,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .select('id,nombre,plan_estado,trial_termina').eq('owner_id', user.id).maybeSingle()
       return existente ?? null
     }
-    // Trial al 100%: se deja el tier en Scale para que al vencer el trial sin
-    // upgrade la empresa quede en el tier más alto, no en Starter.
-    await dbSet(empData.id, 'plan_limits', { tier: 'scale', ...TIER_LIMITS.scale })
+    // El tier del trial (Scale, para dar el 100% del producto durante la
+    // prueba) ya NO se escribe desde acá: lo siembra el trigger
+    // trg_seed_plan_limits al insertar la empresa. `plan_limits` pasó a ser
+    // de solo lectura para el cliente — antes cualquier usuario activo de la
+    // empresa podía auto-subirse de plan editando esa clave por la API REST
+    // (ver supabase/26_plan_limits_solo_pixit.sql).
     await dbSet(empData.id, 'tp_equipos', EQUIPOS_SEED)
     // El lead pasa de 'registrado' a 'confirmado' y queda vinculado a la empresa.
     await supabase.from('leads').update({
