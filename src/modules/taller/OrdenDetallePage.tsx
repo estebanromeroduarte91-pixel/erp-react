@@ -99,6 +99,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
   const [repSelected, setRepSelected] = useState<Producto | null>(null)
   const [repQty, setRepQty] = useState('1')
   const [repPrecio, setRepPrecio] = useState('')
+  const [repPreciosEditando, setRepPreciosEditando] = useState<Record<number, string>>({})
   const [repManualNombre, setRepManualNombre] = useState('')
   const [repManual, setRepManual] = useState(false)
   // Búsqueda server-side (ilike + índice) en vez de filtrar el catálogo
@@ -536,6 +537,22 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
     await actualizarOrden.mutateAsync({ id: orden.id, repuestos: (orden.repuestos ?? []).filter((_, i) => i !== idx) })
   }
 
+  async function guardarPrecioRepuesto(idx: number) {
+    const repuesto = (orden.repuestos ?? [])[idx]
+    if (!repuesto) return
+    const precio = Math.max(0, Number(repPreciosEditando[idx] ?? repuesto.precio) || 0)
+    setRepPreciosEditando(prev => {
+      const siguiente = { ...prev }
+      delete siguiente[idx]
+      return siguiente
+    })
+    if (precio === repuesto.precio) return
+    await actualizarOrden.mutateAsync({
+      id: orden.id,
+      repuestos: (orden.repuestos ?? []).map((r, i) => i === idx ? { ...r, precio } : r),
+    })
+  }
+
   const APROB_BASE_URL = `${window.location.origin}/aprobar.html`
 
   async function solicitarAprobacion() {
@@ -791,7 +808,19 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
                     <div className="flex items-center gap-3 flex-shrink-0">
                       <div className="text-right">
                         <p className="text-sm font-bold text-gray-800"><Money value={r.precio * (r.qty ?? 1)} /></p>
-                        <p className="text-[10px] text-gray-400">{r.qty ?? 1} × <Money value={r.precio} /></p>
+                        <div className="flex items-center justify-end gap-1 mt-1">
+                          <span className="text-[10px] text-gray-400">{r.qty ?? 1} × $</span>
+                          <input
+                            type="number"
+                            min="0"
+                            aria-label={`Precio unitario de ${r.name}`}
+                            value={repPreciosEditando[i] ?? String(r.precio)}
+                            onChange={e => setRepPreciosEditando(prev => ({ ...prev, [i]: e.target.value }))}
+                            onBlur={() => void guardarPrecioRepuesto(i)}
+                            onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur() }}
+                            className="w-24 text-right text-xs border border-gray-200 rounded-md px-1.5 py-1 bg-white focus:outline-none focus:border-blue-400"
+                          />
+                        </div>
                       </div>
                       <button onClick={() => eliminarRepuesto(i)}
                         className="w-6 h-6 rounded-full text-gray-300 hover:text-red-500 hover:bg-red-50 transition opacity-0 group-hover:opacity-100 flex items-center justify-center">

@@ -334,6 +334,15 @@ export function POSTab() {
   function cambiarDescuento(id: string, desc: number) {
     setItems(prev => prev.map(i => i.id === id ? { ...i, descuento: Math.max(0, Math.min(100, desc)) } : i))
   }
+  function cambiarPrecio(id: string, precio: number) {
+    const precioIva = Math.max(0, precio || 0)
+    setItems(prev => prev.map(i => i.id === id ? {
+      ...i,
+      precio_iva: precioIva,
+      precio_neto: Math.round(precioIva / (1 + IVA)),
+      subtotal: Math.round(precioIva / (1 + IVA) * i.cantidad),
+    } : i))
+  }
   function eliminarItem(id: string) {
     setItems(prev => prev.filter(i => i.id !== id))
   }
@@ -846,7 +855,17 @@ export function POSTab() {
                         className="w-16 text-center border border-gray-200 rounded-lg px-2 py-1 text-base md:text-sm focus:outline-none focus:border-blue-400"
                       />
                     </td>
-                    <td className="px-3 py-3 text-right text-gray-700">{fmt(it.precio_iva)}</td>
+                    <td className="px-3 py-3">
+                      <div className="flex items-center justify-end gap-1">
+                        <span className="text-xs text-gray-400">$</span>
+                        <input
+                          type="number" min={0} value={it.precio_iva}
+                          aria-label={`Precio de ${it.producto_nombre}`}
+                          onChange={e => cambiarPrecio(it.id, Number(e.target.value))}
+                          className="w-24 text-right border border-gray-200 rounded-lg px-2 py-1 text-base md:text-sm focus:outline-none focus:border-blue-400"
+                        />
+                      </div>
+                    </td>
                     <td className="px-3 py-3">
                       <input
                         type="number" min={0} max={100} value={it.descuento}
