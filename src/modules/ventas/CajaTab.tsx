@@ -3,8 +3,9 @@ import { useCajas, useCajaSesiones, useGuardarCajaSesiones, useVentasEnRango, us
 import { useAuth } from '@/context/AuthContext'
 import { Spinner } from '@/components/shared/Spinner'
 import type { CajaSesion } from '@/types'
+import { fechaLocal } from '@/lib/fecha'
 
-function today() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` }
+const today = fechaLocal
 function nowTime() {
   return new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })
 }

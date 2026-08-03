@@ -1274,16 +1274,17 @@ function filasVentaItems(v: Venta, empresaId: string) {
   }))
 }
 
-export function useVentas() {
+// Suscripción Realtime a `ventas`. Antes vivía dentro de useVentas() (la
+// descarga de la tabla completa), lo que tenía dos problemas: la lista de
+// Ventas —que es la que se mira en vivo— NO usaba ese hook, así que el
+// Realtime de esa pantalla solo se activaba de casualidad si había otra
+// montada al mismo tiempo; y para tenerlo había que pagar la descarga entera.
+// Ahora es un hook aparte, sin datos, que monta directamente VentasListTab.
+export function useVentasRealtime() {
   const { empresaId } = useAuth()
   const qc = useQueryClient()
   const instanceId = useId()
 
-  // Realtime: los eventos de postgres_changes solo traen la fila de `ventas`,
-  // sin el join a `venta_items` — a diferencia de Órdenes, no alcanza con
-  // hidratar el payload directo. En vez de invalidar y redescargar toda la
-  // tabla (con su join) por cada venta de cualquier usuario, se busca solo
-  // esa fila puntual (con join) y se inyecta en la caché.
   useEffect(() => {
     if (!empresaId) return
     const channel = supabase
@@ -1291,69 +1292,26 @@ export function useVentas() {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'ventas', filter: `empresa_id=eq.${empresaId}` },
-        (payload) => {
-          // VentasListTab usa useVentasPaginadas (query key 'ventas-paginadas'),
-          // no la lista sin paginar de acá — sin esta invalidación, cambios
-          // como anular una venta no se reflejaban ahí hasta recargar la página.
+        () => {
+          // Se invalida en vez de inyectar la fila a mano: ya no existe una
+          // única lista de ventas en caché, sino varias vistas acotadas
+          // (paginada, resumen, por rango, por cliente, búsqueda). El prefijo
+          // ['ventas', empresaId] cubre todas las variantes de una sola vez.
           void qc.invalidateQueries({ queryKey: ['ventas-paginadas', empresaId] })
           void qc.invalidateQueries({ queryKey: ['ventas-resumen', empresaId] })
-
-          if (payload.eventType === 'DELETE') {
-            const oldId = (payload.old as { id?: string }).id
-            if (!oldId) return
-            qc.setQueryData<Venta[]>(['ventas', empresaId], (old = []) => old.filter((v) => v.id !== oldId))
-            return
-          }
-          const id = (payload.new as { id: string }).id
-          void supabase
-            .from('ventas')
-            .select(VENTA_COLS)
-            .eq('id', id)
-            .single()
-            .then(({ data, error }) => {
-              if (error || !data) return
-              const venta = hidratarVenta(data)
-              qc.setQueryData<Venta[]>(['ventas', empresaId], (old = []) => {
-                const idx = old.findIndex((v) => v.id === venta.id)
-                if (idx >= 0) {
-                  const copy = [...old]
-                  copy[idx] = venta
-                  return copy
-                }
-                return [venta, ...old]
-              })
-            })
+          void qc.invalidateQueries({ queryKey: ['ventas', empresaId] })
         },
       )
       .subscribe()
     return () => { void supabase.removeChannel(channel) }
   }, [empresaId, qc, instanceId])
-
-  return useQuery({
-    queryKey: ['ventas', empresaId],
-    queryFn: async () => {
-      const PAGE = 1000
-      const filas: Record<string, unknown>[] = []
-      for (let from = 0; ; from += PAGE) {
-        const { data, error } = await supabase
-          .from('ventas')
-          .select(VENTA_COLS)
-          .eq('empresa_id', empresaId!)
-          .range(from, from + PAGE - 1)
-        if (error) throw error
-        filas.push(...(data ?? []))
-        if (!data || data.length < PAGE) break
-      }
-      return filas.map(hidratarVenta)
-    },
-    enabled: !!empresaId,
-  })
 }
 
-// Ventas acotadas a un rango de fechas — para el Dashboard, que solo necesita
-// el período visible + el anterior (comparación), no el historial completo.
-// A diferencia de useVentas(), no mantiene Realtime propio: el Dashboard no es
-// una lista colaborativa en vivo, y cambiar de período ya vuelve a pedir datos.
+// Ventas acotadas a un rango de fechas. La usan el Dashboard (período visible
+// + anterior, para comparar), Estadísticas (el rango elegido) y el POS/Caja
+// (solo el día de hoy, para los totales de la caja abierta).
+// No mantiene Realtime propio: las mutaciones de venta invalidan el prefijo
+// ['ventas', empresaId], que alcanza a todas estas variantes.
 export function useVentasEnRango(desde: string, hasta: string) {
   const { empresaId } = useAuth()
   return useQuery({
@@ -1574,14 +1532,13 @@ export function useConfirmarVenta() {
       void qc.invalidateQueries({ queryKey: ['productos', empresaId] })
       void qc.invalidateQueries({ queryKey: ['lotes_inventario', empresaId] })
       void qc.invalidateQueries({ queryKey: ['ordenes-lite', empresaId] })
-      // Directo, sin depender del canal realtime (que solo está activo si
-      // useVentas() sigue montado en pantalla en ese momento) — la pantalla
-      // Resumen (VentasListTab) usa estas 2 queries, no la lista sin paginar.
+      // Directo, sin depender del canal Realtime (que solo corre si
+      // VentasListTab está montado) — quien cobra en el POS no lo tiene abierto.
       void qc.invalidateQueries({ queryKey: ['ventas-paginadas', empresaId] })
       void qc.invalidateQueries({ queryKey: ['ventas-resumen', empresaId] })
-      // Prefijo: cubre la lista completa ['ventas', id] y TODAS sus variantes
-      // por rango ['ventas', id, 'rango', desde, hasta] — de esas dependen los
-      // totales del día del POS y de Caja.
+      // Prefijo: cubre TODAS las vistas acotadas de ventas — por rango
+      // ['ventas', id, 'rango', ...], por cliente y búsqueda. De la de rango
+      // dependen los totales del día del POS y de Caja.
       void qc.invalidateQueries({ queryKey: ['ventas', empresaId] })
     },
   })

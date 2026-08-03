@@ -4,6 +4,7 @@ import { useVentasEnRango, useUltimasVentas, useGastosEnRango, useBodegas, useMe
 import { gastosPorSucursal } from '@/lib/gastos'
 import { Spinner } from '@/components/shared/Spinner'
 import { useIsMobile } from '@/lib/useIsMobile'
+import { fechaLocal } from '@/lib/fecha'
 import type { Bodega, Venta } from '@/types'
 
 type Rango = 'hoy' | 'mes' | 'año' | 'rango'
@@ -13,9 +14,9 @@ const SUC_COLORS = ['#378ADD', '#1D9E75', '#7F77DD', '#D85A30', '#BA7517', '#647
 const MP_COLORS  = ['#378ADD', '#7F77DD', '#1D9E75', '#D85A30', '#BA7517', '#64748b']
 
 // ── Date helpers (local time, not UTC) ────────────────────────
-function localDateStr(d = new Date()) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
+// localDateStr vivía duplicado acá; ahora es el helper compartido de
+// src/lib/fecha.ts, que usan también Ventas, Estadísticas, POS y Caja.
+const localDateStr = fechaLocal
 function hoyStr()  { return localDateStr() }
 function mesStr()  { return localDateStr().slice(0, 7) }
 function añoStr()  { return String(new Date().getFullYear()) }
@@ -27,6 +28,11 @@ function periodoDesdeHasta(rango: Rango, customDesde: string, customHasta: strin
   return { desde: customDesde || hoyStr(), hasta: customHasta || hoyStr() }
 }
 
+// OJO con los toISOString() de esta función: NO son el bug de zona horaria que
+// se corrigió en el resto de la app (ver src/lib/fecha.ts). Acá la fecha se
+// parsea desde 'YYYY-MM-DD' —que JS interpreta como medianoche UTC— y se
+// vuelve a formatear en UTC, así que la ida y vuelta es consistente y el
+// cálculo da bien. Cambiarlos a fecha local SÍ los rompería.
 function prevPeriod(rango: Rango, desde: string, hasta: string) {
   if (rango === 'hoy') {
     const d = new Date(hoyStr()); d.setDate(d.getDate() - 1)
@@ -34,8 +40,10 @@ function prevPeriod(rango: Rango, desde: string, hasta: string) {
     return { desde: s, hasta: s }
   }
   if (rango === 'mes') {
+    // `d` es local (new Date() + setMonth), así que el mes también se lee en
+    // local: formatearlo con toISOString() mezclaba las dos referencias.
     const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - 1)
-    const m = d.toISOString().slice(0, 7)
+    const m = localDateStr(d).slice(0, 7)
     return { desde: `${m}-01`, hasta: `${m}-31` }
   }
   if (rango === 'año') {

@@ -1,8 +1,9 @@
 import { useState, useMemo, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { useVentasResumen, useVentasPaginadas, useVentaPorId, useAnularVenta, useMetodosPago } from '@/lib/queries'
+import { useVentasResumen, useVentasPaginadas, useVentaPorId, useAnularVenta, useMetodosPago, useVentasRealtime } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { Spinner } from '@/components/shared/Spinner'
+import { fechaLocal } from '@/lib/fecha'
 import type { Venta } from '@/types'
 
 const fmt = (n: number) => '$' + Math.round(n).toLocaleString('es-CL')
@@ -10,7 +11,9 @@ const PAGE_SIZE = 50
 
 type Periodo = 'hoy' | 'mes' | 'año' | 'todo' | 'rango'
 
-function today() { return new Date().toISOString().slice(0, 10) }
+// Fecha LOCAL: con la fecha UTC, el filtro "Hoy" dejaba de mostrar las ventas
+// del día desde las ~20:00 (pedía las de mañana). Ver src/lib/fecha.ts.
+const today = fechaLocal
 
 // Convierte el período elegido en un rango [desde, hasta] real (o [null, null]
 // para "todo"), para mandarlo al servidor en vez de filtrar en el cliente.
@@ -31,6 +34,8 @@ export function VentasListTab() {
   const { esAdmin, branchId: userBranchId } = useAuth()
   const { data: metodos } = useMetodosPago()
   const anularVenta = useAnularVenta()
+  // Ventas creadas/anuladas desde otro equipo o sucursal aparecen sin recargar.
+  useVentasRealtime()
 
   // El staff sin sucursal global (encargado/vendedor con sucursal asignada)
   // solo ve las ventas de la suya — antes esta pantalla mostraba las ventas

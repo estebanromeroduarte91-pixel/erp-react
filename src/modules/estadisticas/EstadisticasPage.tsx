@@ -3,6 +3,7 @@ import { useVentasEnRango, useGastos, useOrdenesLite, useBodegas, useOCs, usePro
 import { gastosPorSucursal } from '@/lib/gastos'
 import { Spinner } from '@/components/shared/Spinner'
 import { useIsMobile } from '@/lib/useIsMobile'
+import { fechaLocal } from '@/lib/fecha'
 
 const fmt = (n: number) => '$' + Math.round(n).toLocaleString('es-CL')
 const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
@@ -10,20 +11,23 @@ const COLORES = ['#2563eb', '#0f172a', '#10b981', '#f59e0b', '#f97316', '#8b5cf6
 
 type Tab = '7d' | '30d' | 'mes' | 'año' | 'custom'
 
-function today() { return new Date().toISOString().slice(0, 10) }
+const today = fechaLocal
 
 function getRange(tab: Tab, from: string, to: string): { from: string; to: string } {
   const t = today()
   if (tab === 'custom' && from && to) return { from, to }
   if (tab === 'custom' && from) return { from, to: t }
   if (tab === 'custom' && to) return { from: to, to }
+  // Se parte de `new Date()` (ahora, en hora local) y no de `new Date(t)`:
+  // parsear 'YYYY-MM-DD' da medianoche UTC, que en Chile es el día anterior a
+  // las 20:00 — restar días desde ahí corría el rango un día.
   if (tab === '7d') {
-    const d = new Date(t); d.setDate(d.getDate() - 6)
-    return { from: d.toISOString().slice(0, 10), to: t }
+    const d = new Date(); d.setDate(d.getDate() - 6)
+    return { from: fechaLocal(d), to: t }
   }
   if (tab === '30d') {
-    const d = new Date(t); d.setDate(d.getDate() - 29)
-    return { from: d.toISOString().slice(0, 10), to: t }
+    const d = new Date(); d.setDate(d.getDate() - 29)
+    return { from: fechaLocal(d), to: t }
   }
   if (tab === 'año') return { from: t.slice(0, 4) + '-01-01', to: t }
   return { from: t.slice(0, 7) + '-01', to: t }

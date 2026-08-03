@@ -8,6 +8,7 @@ import { formatRut } from '@/lib/rut'
 import { capWords } from '@/lib/formatters'
 import { useAnchorRect, fixedDropdownStyle } from '@/lib/useAnchorRect'
 import type { Cotizacion, CotizacionItem, Cliente, Producto } from '@/types'
+import { fechaLocal } from '@/lib/fecha'
 
 function uid() { return Math.random().toString(36).slice(2) + Date.now().toString(36) }
 const fmt = (n: number) => '$' + Math.round(n).toLocaleString('es-CL')
@@ -194,7 +195,7 @@ function ModalNuevaCotizacion({ onClose }: { onClose: () => void }) {
         subtotal: totales.subtotal,
         iva: totales.iva,
         total: totales.total,
-        fecha_emision: new Date().toISOString().slice(0, 10),
+        fecha_emision: fechaLocal(),
         fecha_vencimiento: vence || undefined,
       }
       const nueva = await crear.mutateAsync(payload)

@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import { useKits, useGuardarKits, useProductos } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import type { Kit, KitComponente, Producto } from '@/types'
+import { fechaLocal } from '@/lib/fecha'
 
 const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36)
-const today = () => new Date().toISOString().slice(0, 10)
+const today = fechaLocal
 
 // Color words sorted longest-first to avoid partial matches
 const COLOR_WORDS = [

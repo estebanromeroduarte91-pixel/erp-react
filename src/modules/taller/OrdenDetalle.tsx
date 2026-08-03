@@ -8,6 +8,7 @@ import { Money } from '@/components/shared/Money'
 import { QrFotosModal } from './QrFotosModal'
 import { totalOrden } from './utils'
 import type { Orden, EstadoOrden, Inspeccion } from '@/types'
+import { fechaLocal } from '@/lib/fecha'
 
 const PIPELINE: EstadoOrden[] = ['Chequeo', 'Reparación', 'Listo', 'Entregado']
 
@@ -261,7 +262,7 @@ export function OrdenDetalle({ orden: o, onClose, onEditar }: Props) {
       if (error) { alert('Error al crear solicitud: ' + error.message); setEnviandoAprob(false); return }
       await actualizarOrden.mutateAsync({
         id: o.id, aprobacion_token: token, aprobacion_estado: 'pendiente' as const,
-        aprobacion_enviado: new Date().toISOString().slice(0, 10),
+        aprobacion_enviado: fechaLocal(),
       })
     }
 
