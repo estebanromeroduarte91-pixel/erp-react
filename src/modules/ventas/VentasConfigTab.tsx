@@ -1,5 +1,5 @@
 import { useState, useId } from 'react'
-import { useCajas, useGuardarCajas, useMetodosPago, useGuardarMetodosPago, useBodegas } from '@/lib/queries'
+import { useCajas, useGuardarCajas, useMetodosPago, useGuardarMetodosPago, useBodegas, useVentasConfig, useGuardarVentasConfig } from '@/lib/queries'
 import { Spinner } from '@/components/shared/Spinner'
 import type { Caja, MetodoPago } from '@/types'
 
@@ -35,14 +35,16 @@ function MetodoIcon({ icon }: { icon: string }) {
 export function VentasConfigTab() {
   const { data: cajas, isLoading: loadingCajas } = useCajas()
   const { data: metodos, isLoading: loadingMetodos } = useMetodosPago()
+  const { data: ventasConfig, isLoading: loadingVentasConfig } = useVentasConfig()
   const guardarCajas = useGuardarCajas()
   const guardarMetodos = useGuardarMetodosPago()
+  const guardarVentasConfig = useGuardarVentasConfig()
   const { data: bodegas } = useBodegas()
 
   const [cajaModal, setCajaModal] = useState<Caja | null | 'new'>(null)
   const [metodoModal, setMetodoModal] = useState<MetodoPago | null | 'new'>(null)
 
-  const loading = loadingCajas || loadingMetodos
+  const loading = loadingCajas || loadingMetodos || loadingVentasConfig
 
   async function toggleActiva(id: string) {
     const lista = cajas ?? []
@@ -73,6 +75,29 @@ export function VentasConfigTab() {
 
   return (
     <div className="p-6 max-w-2xl flex flex-col gap-5">
+
+      {/* Control de stock en POS */}
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div className="flex items-center justify-between gap-4 px-5 py-4">
+          <div className="flex items-center gap-2.5">
+            <svg className="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path d="M21 8l-9 5-9-5 9-5 9 5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg>
+            <div>
+              <h3 className="text-sm font-semibold text-gray-900">Permitir ventas sin stock</h3>
+              <p className="text-xs text-gray-400 mt-0.5">Si se desactiva, el POS bloqueará ventas con stock insuficiente en la bodega de la caja.</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={ventasConfig?.permitirVentasSinStock ?? true}
+            disabled={guardarVentasConfig.isPending}
+            onClick={() => guardarVentasConfig.mutate({ permitirVentasSinStock: !(ventasConfig?.permitirVentasSinStock ?? true) })}
+            className={`relative inline-flex h-6 w-11 flex-shrink-0 rounded-full transition-colors disabled:opacity-50 ${(ventasConfig?.permitirVentasSinStock ?? true) ? 'bg-blue-600' : 'bg-gray-300'}`}
+          >
+            <span className={`inline-block h-5 w-5 mt-0.5 rounded-full bg-white shadow transition-transform ${(ventasConfig?.permitirVentasSinStock ?? true) ? 'translate-x-5' : 'translate-x-0.5'}`} />
+          </button>
+        </div>
+      </div>
 
       {/* Cajas periféricas */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">

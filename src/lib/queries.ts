@@ -1207,6 +1207,31 @@ export function useMetodosPago() {
   })
 }
 
+export interface VentasConfig {
+  permitirVentasSinStock: boolean
+}
+
+const VENTAS_CONFIG_DEFAULT: VentasConfig = { permitirVentasSinStock: true }
+
+export function useVentasConfig() {
+  const { empresaId } = useAuth()
+  return useQuery({
+    queryKey: ['ventas_config', empresaId],
+    queryFn: () => dbGet<Partial<VentasConfig>>(empresaId!, 'ventas_config'),
+    enabled: !!empresaId,
+    select: (data): VentasConfig => ({ ...VENTAS_CONFIG_DEFAULT, ...(data ?? {}) }),
+  })
+}
+
+export function useGuardarVentasConfig() {
+  const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (config: VentasConfig) => dbSet(empresaId!, 'ventas_config', config),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['ventas_config', empresaId] }),
+  })
+}
+
 // Ventas: tabla relacional `ventas` + `venta_items` (migradas desde el blob erp_data).
 // Mismo patrón que Productos: id TEXT (preserva los ids generados por uid()), paginación
 // server-side con .range(), y una fila por venta en vez de reescribir un array completo.

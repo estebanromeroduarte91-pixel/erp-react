@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
-import { useProductos, useBuscarProductos, useVentasEnRango, useConfirmarVenta, useMetodosPago, useCajaSesiones, useCajas, useGuardarCajaSesiones, useIncrementarContadorVenta, useOrdenesLite, useUserProfiles, useUserCargoMap, useCargos, fetchLotesActivosParaVenta, useClientes, useBuscarClientes, useCrearCliente, CARGOS_DEFAULT } from '@/lib/queries'
+import { useProductos, useBuscarProductos, useVentasEnRango, useConfirmarVenta, useMetodosPago, useCajaSesiones, useCajas, useGuardarCajaSesiones, useIncrementarContadorVenta, useOrdenesLite, useUserProfiles, useUserCargoMap, useCargos, fetchLotesActivosParaVenta, useClientes, useBuscarClientes, useCrearCliente, useVentasConfig, CARGOS_DEFAULT } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 
 import { useAnchorRect, fixedDropdownStyle } from '@/lib/useAnchorRect'
@@ -49,6 +49,7 @@ export function POSTab() {
   const { data: ventas } = useVentasEnRango(today(), today())
   const { data: ordenes } = useOrdenesLite()
   const { data: metodos } = useMetodosPago()
+  const { data: ventasConfig } = useVentasConfig()
   const { data: sesiones } = useCajaSesiones()
   const { data: cajas } = useCajas()
   const guardarSesiones = useGuardarCajaSesiones()
@@ -156,6 +157,7 @@ export function POSTab() {
   const [tipoDoc, setTipoDoc] = useState<'boleta' | 'factura' | 'ticket'>('boleta')
   const [metodoSel, setMetodoSel] = useState<string>('')
   const [guardando, setGuardando] = useState(false)
+  const [ventaError, setVentaError] = useState('')
   const busRef = useRef<HTMLInputElement>(null)
 
   const metodoActual = metodoSel || metodos?.[0]?.id || ''
@@ -268,6 +270,23 @@ export function POSTab() {
 
   const totalIva = items.reduce((s, it) => s + lineTotal(it), 0)
   const totalNeto = items.reduce((s, it) => s + lineNeto(it), 0)
+  const faltantesStock = useMemo(() => {
+    const bodegaId = cajaAbierta?.bodegaId
+    if (!bodegaId) return []
+    const cantidades = new Map<string, number>()
+    for (const item of items) {
+      if (!item.producto_id || item.producto_id === 'ot-servicio' || item.producto_id.startsWith('rep-')) continue
+      const producto = (productos ?? []).find(p => p.id === item.producto_id)
+      if (!producto || producto.tipo === 'servicio') continue
+      cantidades.set(producto.id, (cantidades.get(producto.id) ?? 0) + item.cantidad)
+    }
+    return [...cantidades.entries()].flatMap(([productoId, solicitado]) => {
+      const producto = (productos ?? []).find(p => p.id === productoId)!
+      const disponible = producto.stock_sucursales?.[bodegaId] ?? producto.stock ?? 0
+      return solicitado > disponible ? [{ nombre: producto.nombre, solicitado, disponible }] : []
+    })
+  }, [items, productos, cajaAbierta?.bodegaId])
+  const bloquearPorStock = ventasConfig?.permitirVentasSinStock === false && faltantesStock.length > 0
 
   const otsListas = useMemo(() => {
     const todas = (ordenes ?? []).filter(o => o.status !== 'Entregado' && o.status !== 'No reparable')
@@ -370,6 +389,11 @@ export function POSTab() {
 
   async function confirmarVenta() {
     if (!metodoActual || !items.length) return
+    if (bloquearPorStock) {
+      setVentaError(`Stock insuficiente: ${faltantesStock.map(f => `${f.nombre} (${f.disponible} disponible${f.disponible === 1 ? '' : 's'}, ${f.solicitado} solicitado${f.solicitado === 1 ? '' : 's'})`).join(', ')}.`)
+      return
+    }
+    setVentaError('')
     setGuardando(true)
     try {
       const nextNum = await incrementarContador.mutateAsync()
@@ -490,6 +514,8 @@ export function POSTab() {
       setClienteTel('')
       setClienteEmail('')
       setBusqueda('')
+    } catch (error) {
+      setVentaError(error instanceof Error ? error.message : 'No se pudo confirmar la venta.')
     } finally {
       setGuardando(false)
     }
@@ -980,9 +1006,17 @@ export function POSTab() {
 
         {/* Footer acciones */}
         <div className="p-4 border-t border-gray-200 bg-white flex flex-col gap-2">
+          {bloquearPorStock && (
+            <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+              Stock insuficiente: {faltantesStock.map(f => `${f.nombre} (${f.disponible}/${f.solicitado})`).join(', ')}
+            </div>
+          )}
+          {ventaError && !bloquearPorStock && (
+            <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{ventaError}</div>
+          )}
           <button
             onClick={confirmarVenta}
-            disabled={!items.length || guardando}
+            disabled={!items.length || guardando || bloquearPorStock}
             className="w-full bg-gray-900 text-white font-bold py-3.5 rounded-xl text-base hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition"
           >
             {guardando ? 'Registrando…' : `Cobrar ${items.length > 0 ? fmt(totalIva) : ''}`}
