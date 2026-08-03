@@ -1,20 +1,24 @@
 import { useState, useRef, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 
-const THRESHOLD = 70   // px de arrastre para gatillar la recarga
-const MAX = 90         // tope visual del arrastre
+const THRESHOLD = 64   // px de arrastre para gatillar la recarga
+const MAX = 76         // tope visual del arrastre
+const COOLDOWN = 10_000
 
 export function PullToRefresh({ children }: { children: ReactNode }) {
   const qc = useQueryClient()
   const [pull, setPull] = useState(0)
   const [refreshing, setRefreshing] = useState(false)
   const startY = useRef(0)
+  const lastRefresh = useRef(0)
   // `active` afecta el render (controla si la transición CSS está activa), así que
   // es estado real, no un ref — leerlo durante el render no está permitido para refs.
   const [active, setActive] = useState(false)
 
   function onTouchStart(e: React.TouchEvent) {
-    if (window.scrollY <= 0 && !refreshing && e.touches.length === 1) {
+    const target = e.target as HTMLElement
+    const esControl = !!target.closest('input, textarea, select, button, [contenteditable="true"]')
+    if (!esControl && window.scrollY <= 0 && !refreshing && Date.now() - lastRefresh.current >= COOLDOWN && e.touches.length === 1) {
       startY.current = e.touches[0].clientY
       setActive(true)
     }
@@ -31,9 +35,12 @@ export function PullToRefresh({ children }: { children: ReactNode }) {
     if (!active) return
     setActive(false)
     if (pull >= THRESHOLD && !refreshing) {
+      lastRefresh.current = Date.now()
       setRefreshing(true)
       setPull(THRESHOLD)
-      try { await qc.refetchQueries() } catch { /* noop */ }
+      // Sólo queries observadas por la pantalla montada. Evita reactivar en
+      // segundo plano módulos visitados anteriormente durante esta sesión.
+      try { await qc.refetchQueries({ type: 'active' }) } catch { /* noop */ }
       setRefreshing(false)
     }
     setPull(0)
@@ -41,29 +48,37 @@ export function PullToRefresh({ children }: { children: ReactNode }) {
 
   const y = refreshing ? THRESHOLD : pull
   const visible = pull > 0 || refreshing
+  const listo = pull >= THRESHOLD
 
   return (
     <div onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
       <div style={{
-        position: 'fixed', top: 0, left: 0, right: 0, zIndex: 300,
+        position: 'fixed', top: 'calc(env(safe-area-inset-top, 0px) + 8px)', left: 0, right: 0, zIndex: 510,
         display: 'flex', justifyContent: 'center', pointerEvents: 'none',
-        transform: `translateY(${y - 44}px)`,
+        transform: `translateY(${y - 58}px) scale(${visible ? 1 : 0.92})`,
         transition: active ? 'none' : 'transform .2s ease, opacity .2s ease',
         opacity: visible ? 1 : 0,
       }}>
         <div style={{
-          width: 34, height: 34, borderRadius: '50%', background: '#fff',
-          boxShadow: '0 2px 8px rgba(0,0,0,.18)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          height: 38, borderRadius: 999, background: 'rgba(255,255,255,.96)',
+          border: '1px solid rgba(148,163,184,.25)',
+          boxShadow: '0 6px 18px rgba(15,23,42,.14)', padding: '0 13px',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+          color: '#475569', fontSize: 12, fontWeight: 600,
         }}>
           {refreshing ? (
-            <div className="animate-spin rounded-full border-2 border-gray-200 border-t-blue-600" style={{ width: 18, height: 18 }} />
+            <>
+              <div className="animate-spin rounded-full border-2 border-gray-200 border-t-blue-600" style={{ width: 17, height: 17 }} />
+              <span>Actualizando…</span>
+            </>
           ) : (
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3656e6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-              style={{ transform: `rotate(${Math.min(pull / THRESHOLD, 1) * 270}deg)`, transition: active ? 'none' : 'transform .2s' }}>
-              <polyline points="23 4 23 10 17 10" />
-              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
-            </svg>
+            <>
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#3656e6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                style={{ transform: `rotate(${Math.min(pull / THRESHOLD, 1) * 180}deg)`, transition: active ? 'none' : 'transform .2s' }}>
+                <path d="M12 5v14m0 0 5-5m-5 5-5-5" />
+              </svg>
+              <span>{listo ? 'Suelta para actualizar' : 'Desliza para actualizar'}</span>
+            </>
           )}
         </div>
       </div>

@@ -704,7 +704,7 @@ export function POSTab() {
   }
 
   return (
-    <div className="flex gap-4 h-[calc(100vh-8rem)]">
+    <div className="flex flex-col md:flex-row gap-3 md:gap-4 min-h-[calc(100dvh-9rem)] md:h-[calc(100vh-8rem)] px-3 pt-3 md:p-0 pb-4">
       {/* Panel izquierdo: buscador + carrito */}
       <div className="flex-1 flex flex-col gap-4 min-w-0">
         {/* Buscador OT */}
@@ -823,7 +823,7 @@ export function POSTab() {
         </div>
 
         {/* Carrito */}
-        <div className="flex-1 bg-white rounded-xl border border-gray-200 overflow-auto">
+        <div className="flex-1 bg-white rounded-xl border border-gray-200 overflow-auto min-h-48">
           {items.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-2">
               <svg className="w-12 h-12 text-gray-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -833,7 +833,50 @@ export function POSTab() {
               <p className="text-sm">Busca un producto para agregarlo al carrito</p>
             </div>
           ) : (
-            <table className="w-full text-sm">
+            <>
+            <div className="md:hidden divide-y divide-gray-100">
+              <div className="px-4 py-2.5 bg-gray-50 flex items-center justify-between">
+                <span className="text-xs font-semibold text-gray-500 uppercase">Carrito</span>
+                <span className="text-xs font-bold text-blue-700">{items.reduce((s, it) => s + it.cantidad, 0)} ítems</span>
+              </div>
+              {items.map(it => (
+                <div key={it.id} className="p-4">
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-gray-900 leading-snug">{it.producto_nombre}</p>
+                      <p className="text-xs font-bold text-blue-700 mt-1">{fmt(lineTotal(it))}</p>
+                    </div>
+                    <button onClick={() => eliminarItem(it.id)} aria-label={`Quitar ${it.producto_nombre}`}
+                      className="w-9 h-9 flex items-center justify-center rounded-full bg-red-50 text-red-500 flex-shrink-0">
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <label className="text-[10px] font-semibold text-gray-500 uppercase">
+                      Cantidad
+                      <input type="number" min={1} value={it.cantidad}
+                        onChange={e => cambiarCantidad(it.id, Number(e.target.value))}
+                        className="mt-1 w-full h-11 text-center border border-gray-200 rounded-lg px-2 text-base focus:outline-none focus:border-blue-400" />
+                    </label>
+                    <label className="text-[10px] font-semibold text-gray-500 uppercase">
+                      Precio
+                      <input type="number" min={0} value={it.precio_iva}
+                        onChange={e => cambiarPrecio(it.id, Number(e.target.value))}
+                        className="mt-1 w-full h-11 text-right border border-gray-200 rounded-lg px-2 text-base focus:outline-none focus:border-blue-400" />
+                    </label>
+                    <label className="text-[10px] font-semibold text-gray-500 uppercase">
+                      Descuento
+                      <input type="number" min={0} max={100} value={it.descuento}
+                        onChange={e => cambiarDescuento(it.id, Number(e.target.value))}
+                        className="mt-1 w-full h-11 text-center border border-gray-200 rounded-lg px-2 text-base focus:outline-none focus:border-blue-400" />
+                    </label>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <table className="hidden md:table w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50">
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Producto</th>
@@ -886,12 +929,13 @@ export function POSTab() {
                 ))}
               </tbody>
             </table>
+            </>
           )}
         </div>
       </div>
 
       {/* Panel derecho */}
-      <div className="w-72 flex flex-col flex-shrink-0 bg-gray-50 rounded-xl border border-gray-200 overflow-hidden">
+      <div className="w-full md:w-72 flex flex-col flex-shrink-0 bg-gray-50 rounded-xl border border-gray-200 md:overflow-hidden">
         <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
 
           {/* Cliente */}
@@ -1024,7 +1068,7 @@ export function POSTab() {
         </div>
 
         {/* Footer acciones */}
-        <div className="p-4 border-t border-gray-200 bg-white flex flex-col gap-2">
+        <div className="sticky md:static z-20 border-t border-gray-200 bg-white p-4 flex flex-col gap-2 rounded-b-xl" style={{ bottom: 'calc(64px + env(safe-area-inset-bottom, 0px))' }}>
           {bloquearPorStock && (
             <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
               Stock insuficiente: {faltantesStock.map(f => `${f.nombre} (${f.disponible}/${f.solicitado})`).join(', ')}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { usePuedeUsarModulo } from '@/lib/queries'
@@ -69,6 +69,8 @@ export function MobileTabBar() {
   const { logout } = useAuth()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [pwOpen, setPwOpen] = useState(false)
+  const drawerRef = useRef<HTMLDivElement>(null)
+  const moreButtonRef = useRef<HTMLButtonElement>(null)
   const puedeCompras = usePuedeUsarModulo('compras')
   const puedeGastos = usePuedeUsarModulo('gastos')
 
@@ -78,6 +80,33 @@ export function MobileTabBar() {
     return true
   })
   const masActive = masItems.some(i => i.to === pathname)
+
+  useEffect(() => {
+    if (!drawerOpen) return
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const focusables = () => Array.from(drawerRef.current?.querySelectorAll<HTMLElement>('a, button:not([disabled])') ?? [])
+    focusables()[0]?.focus()
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        setDrawerOpen(false)
+        moreButtonRef.current?.focus()
+        return
+      }
+      if (e.key !== 'Tab') return
+      const list = focusables()
+      if (!list.length) return
+      const first = list[0]
+      const last = list[list.length - 1]
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus() }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus() }
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.body.style.overflow = previousOverflow
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [drawerOpen])
 
   return (
     <>
@@ -91,14 +120,14 @@ export function MobileTabBar() {
 
       {/* Drawer panel */}
       <div style={{
-        position: 'fixed', left: 0, right: 0, bottom: 'calc(56px + max(env(safe-area-inset-bottom), 50px))', zIndex: 201,
+        position: 'fixed', left: 0, right: 0, bottom: 'calc(64px + env(safe-area-inset-bottom, 0px))', zIndex: 201,
         background: '#fff', borderRadius: '20px 20px 0 0',
         padding: '8px 0 8px',
-        transform: drawerOpen ? 'translateY(0)' : 'translateY(calc(100% + 56px + max(env(safe-area-inset-bottom), 50px)))',
+        transform: drawerOpen ? 'translateY(0)' : 'translateY(calc(100% + 64px + env(safe-area-inset-bottom, 0px)))',
         transition: 'transform 0.3s ease',
         boxShadow: '0 -4px 24px rgba(0,0,0,0.12)',
         pointerEvents: drawerOpen ? 'auto' : 'none',
-      }}>
+      }} ref={drawerRef} role="dialog" aria-modal="true" aria-label="Más opciones" aria-hidden={!drawerOpen} inert={!drawerOpen}>
         <div style={{ width: 36, height: 4, background: '#e5e7eb', borderRadius: 99, margin: '4px auto 16px' }} />
         {masItems.map(item => (
           <Link
@@ -161,7 +190,8 @@ export function MobileTabBar() {
         background: '#fff',
         display: 'flex', alignItems: 'flex-start',
         paddingTop: 8,
-        paddingBottom: 'max(env(safe-area-inset-bottom), 50px)',
+        minHeight: 'calc(64px + env(safe-area-inset-bottom, 0px))',
+        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
       }}>
         {TABS.map(tab => {
           const active = pathname === tab.to
@@ -169,9 +199,11 @@ export function MobileTabBar() {
             <Link
               key={tab.to}
               to={tab.to}
+              aria-label={tab.label}
+              aria-current={active ? 'page' : undefined}
               style={{
                 flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                gap: 3, textDecoration: 'none', paddingTop: 8,
+                gap: 3, textDecoration: 'none', minHeight: 56,
                 color: active ? 'var(--primary)' : 'var(--gray-400)',
               }}
             >
@@ -183,10 +215,13 @@ export function MobileTabBar() {
 
         {/* Más tab */}
         <button
+          ref={moreButtonRef}
           onClick={() => setDrawerOpen(o => !o)}
+          aria-label="Más opciones"
+          aria-expanded={drawerOpen}
           style={{
             flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-            gap: 3, paddingTop: 8, background: 'none', border: 'none', cursor: 'pointer',
+            gap: 3, minHeight: 56, background: 'none', border: 'none', cursor: 'pointer',
             color: masActive || drawerOpen ? 'var(--primary)' : 'var(--gray-400)',
           }}
         >

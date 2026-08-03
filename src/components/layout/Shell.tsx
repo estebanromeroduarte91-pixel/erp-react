@@ -19,7 +19,7 @@ export function Shell({ children }: { children: ReactNode }) {
           height: 'env(safe-area-inset-top)', background: '#f2f2f7',
         }} />
         <PullToRefresh>
-          <main style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'calc(72px + max(env(safe-area-inset-bottom), 50px))' }}>
+          <main style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'calc(68px + env(safe-area-inset-bottom, 0px))' }}>
             {children}
           </main>
         </PullToRefresh>
