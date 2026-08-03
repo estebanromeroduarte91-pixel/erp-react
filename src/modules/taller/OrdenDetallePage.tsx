@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { useOrdenesLite, useOrdenPorNum, useActualizarOrden, useMsgTemplates, useSeguimientoConfig, useChecklist, useEquipos, useBuscarProductos, useAjustarStock, useBodegas, useTraslados } from '@/lib/queries'
+import { useOrdenesLite, useOrdenPorNum, useActualizarOrden, useMsgTemplates, useSeguimientoConfig, useChecklist, useEquipos, useBuscarProductos, useBodegas, useTraslados } from '@/lib/queries'
 import { DerivarModal } from './DerivarModal'
 import { useAuth } from '@/context/AuthContext'
 import { sendEmail, buildEmailIngreso, buildEmailAprobacion, buildEmailInspeccion, buildEmailListo, puedeResponderCorreo } from '@/lib/email'
@@ -48,7 +48,6 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
 
   const { data: checklistPorCategoria } = useChecklist()
   const { data: equipos = [] } = useEquipos()
-  const ajustarStock = useAjustarStock()
   const { data: bodegas = [] } = useBodegas()
   const { data: traslados = [] } = useTraslados()
 
@@ -527,10 +526,6 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
     } else {
       if (!repSelected) return
       nuevo = { productId: repSelected.id, name: repSelected.nombre, qty, precio }
-      // Descontar stock de la sucursal de la orden (ajuste atómico por delta).
-      if (orden.branchId) {
-        await ajustarStock.mutateAsync([{ producto_id: repSelected.id, bodega_id: orden.branchId, delta: -qty }])
-      }
     }
 
     await actualizarOrden.mutateAsync({ id: orden.id, repuestos: [...(orden.repuestos ?? []), nuevo] })
@@ -1615,6 +1610,9 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
                         <div>
                           <p className="text-sm font-semibold text-green-800">{repSelected.nombre}</p>
                           <p className="text-xs text-green-600 mt-0.5">Stock disponible: {stockTotal(repSelected)} unidades</p>
+                          {stockTotal(repSelected) === 0 && (
+                            <p className="text-xs font-semibold text-red-600 mt-1">Advertencia: este producto no tiene stock disponible.</p>
+                          )}
                         </div>
                         <button onClick={() => { setRepSelected(null); setRepSearch('') }}
                           className="text-green-400 hover:text-green-600 transition">
@@ -1651,7 +1649,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
               </button>
               <button
                 onClick={confirmarRepuesto}
-                disabled={actualizarOrden.isPending || ajustarStock.isPending || (!repManual && !repSelected) || (repManual && !repManualNombre.trim())}
+                disabled={actualizarOrden.isPending || (!repManual && !repSelected) || (repManual && !repManualNombre.trim())}
                 className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 disabled:opacity-50 transition">
                 {actualizarOrden.isPending ? 'Guardando…' : 'Agregar repuesto'}
               </button>

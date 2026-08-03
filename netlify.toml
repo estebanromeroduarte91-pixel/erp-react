@@ -1,3 +1,16 @@
+# Netlify NO es el hosting de producción: pixit.cl lo sirve Cloudflare Pages
+# (el DNS apunta ahí y la respuesta trae `server: cloudflare`).
+#
+# El sitio `pixiterp` se conserva como plan B, pero con los builds automáticos
+# DETENIDOS: antes construía en cada push igual que Cloudflare, así que cada
+# commit gastaba créditos del plan gratis (300/mes, que ya se agotaron una vez)
+# para producir un sitio que nadie miraba.
+#
+# El último build quedó publicado en https://pixiterp.netlify.app — si alguna
+# vez hay que hacer failover, se reactivan los builds desde el panel de Netlify
+# y se apunta el DNS de pixit.cl para acá. Este archivo se mantiene porque es
+# lo que hace falta para que ese build salga bien.
+
 [build]
   command = "npm run build"
   publish = "dist"
