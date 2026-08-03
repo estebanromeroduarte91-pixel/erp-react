@@ -2811,6 +2811,36 @@ export function useActualizarLead() {
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['pixit_admin_leads'] }),
   })
 }
+
+// ── Errores de runtime (panel Pixit Admin) ────────────────────────
+// Los que registra src/lib/errorLog.ts desde el navegador de los clientes.
+// RLS: solo platform_admins leen (ver supabase/30_error_log.sql).
+export interface ErrorRegistrado {
+  id: string
+  empresa_id: string | null
+  mensaje: string
+  stack: string | null
+  componente: string | null
+  ruta: string | null
+  user_agent: string | null
+  creado_en: string
+}
+
+export function useErrorLog(limite = 50) {
+  const { esPlatformAdmin } = useAuth()
+  return useQuery({
+    queryKey: ['pixit_admin_errores', limite],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('error_log')
+        .select('id,empresa_id,mensaje,stack,componente,ruta,user_agent,creado_en')
+        .order('creado_en', { ascending: false })
+        .limit(limite)
+      if (error) throw error
+      return (data ?? []) as ErrorRegistrado[]
+    },
+    enabled: esPlatformAdmin,
+  })
+}
 // ── Cotizaciones (solo lectura para el cliente, sin flujo de aprobación) ──
 
 // Órdenes ABIERTAS en versión liviana, solo para el selector "Vincular a orden"

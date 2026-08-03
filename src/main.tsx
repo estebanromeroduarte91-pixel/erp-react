@@ -4,6 +4,11 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import './index.css'
 import App from './App.tsx'
 import { AuthProvider } from '@/context/AuthContext'
+import { instalarCapturaGlobalDeErrores } from '@/lib/errorLog'
+
+// Captura los errores que NO pasan por el ErrorBoundary (handlers de eventos,
+// timers, promesas rechazadas sin catch) — ver supabase/30_error_log.sql.
+instalarCapturaGlobalDeErrores()
 
 const queryClient = new QueryClient({
   defaultOptions: {

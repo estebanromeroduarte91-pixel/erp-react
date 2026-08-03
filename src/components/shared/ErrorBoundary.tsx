@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
+import { registrarError } from '@/lib/errorLog'
 
 interface Props {
   children: ReactNode
@@ -22,6 +23,13 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error('ErrorBoundary capturó un error de render:', error, info.componentStack)
+    // Además de la consola (que solo ve quien tiene el navegador abierto), se
+    // registra en `error_log` para poder verlo después desde el Panel Pixit.
+    void registrarError({
+      mensaje: error.message || String(error),
+      stack: error.stack,
+      componente: info.componentStack ?? undefined,
+    })
   }
 
   render() {

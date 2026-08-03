@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react'
-import { usePlatformEmpresas, useActualizarEmpresaAdmin, useLeads, useActualizarLead, type EmpresaAdmin, type Lead } from '@/lib/queries'
+import { useState, useMemo, Fragment } from 'react'
+import { usePlatformEmpresas, useActualizarEmpresaAdmin, useLeads, useActualizarLead, useErrorLog, type EmpresaAdmin, type Lead } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { Spinner } from '@/components/shared/Spinner'
 import { useUpdatePlanLimits, TIER_LIMITS, TIER_ORDER, type PlanTier } from '@/lib/queries/usePlanLimits'
@@ -42,7 +42,7 @@ export function PixitAdminPage() {
   const { startImpersonation } = useAuth()
   const [busqueda, setBusqueda] = useState('')
   const [tierPorActivar, setTierPorActivar] = useState<Record<string, PlanTier>>({})
-  const [tab, setTab] = useState<'empresas' | 'leads'>('empresas')
+  const [tab, setTab] = useState<'empresas' | 'leads' | 'errores'>('empresas')
 
   const lista = useMemo(() => {
     if (!busqueda.trim()) return empresas ?? []
@@ -91,7 +91,7 @@ export function PixitAdminPage() {
 
       {/* Pestañas */}
       <div className="flex gap-1 mb-4 border-b border-gray-200">
-        {([['empresas', 'Empresas'], ['leads', 'Leads']] as const).map(([id, label]) => (
+        {([['empresas', 'Empresas'], ['leads', 'Leads'], ['errores', 'Errores']] as const).map(([id, label]) => (
           <button key={id} onClick={() => setTab(id)}
             className={`px-4 py-2 text-sm font-semibold border-b-2 -mb-px transition ${
               tab === id ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -102,6 +102,7 @@ export function PixitAdminPage() {
       </div>
 
       {tab === 'leads' && <LeadsPanel />}
+      {tab === 'errores' && <ErroresPanel />}
 
       {tab === 'empresas' && <>
       {/* Métricas */}
@@ -326,6 +327,91 @@ function LeadsPanel() {
                   )}
                 </td>
               </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+// ── Errores de runtime ──────────────────────────────────────────
+// Lo que antes moría en la consola del navegador del cliente. El stack viene
+// minificado (el build no emite source maps), así que lo útil para ubicar el
+// problema suele ser el mensaje + la ruta.
+function ErroresPanel() {
+  const { data: errores, isLoading } = useErrorLog(100)
+  const { data: empresas } = usePlatformEmpresas()
+  const [abierto, setAbierto] = useState<string | null>(null)
+
+  const nombreEmpresa = useMemo(() => {
+    const m = new Map((empresas ?? []).map(e => [e.id, e.nombre]))
+    return (id: string | null) => (id ? m.get(id) ?? '—' : '—')
+  }, [empresas])
+
+  if (isLoading) return <div className="py-16 text-center text-gray-400 text-sm">Cargando…</div>
+
+  if (!errores?.length) {
+    return (
+      <div className="bg-white rounded-xl border border-gray-200 p-10 text-center">
+        <p className="text-sm text-gray-500">Sin errores registrados.</p>
+        <p className="text-xs text-gray-400 mt-1">
+          Acá aparecen los errores de runtime que les ocurren a los clientes en el navegador.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+        <span className="text-sm font-semibold text-gray-700">Últimos {errores.length} errores</span>
+        <span className="text-xs text-gray-400">Click en una fila para ver el detalle</span>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="bg-gray-50 text-left">
+              <th className="px-4 py-2 text-xs font-bold text-gray-400 uppercase">Cuándo</th>
+              <th className="px-4 py-2 text-xs font-bold text-gray-400 uppercase">Empresa</th>
+              <th className="px-4 py-2 text-xs font-bold text-gray-400 uppercase">Mensaje</th>
+              <th className="px-4 py-2 text-xs font-bold text-gray-400 uppercase">Pantalla</th>
+            </tr>
+          </thead>
+          <tbody>
+            {errores.map(e => (
+              <Fragment key={e.id}>
+                <tr onClick={() => setAbierto(abierto === e.id ? null : e.id)}
+                  className="border-t border-gray-100 cursor-pointer hover:bg-gray-50">
+                  <td className="px-4 py-2 text-xs text-gray-500 whitespace-nowrap">
+                    {new Date(e.creado_en).toLocaleString('es-CL')}
+                  </td>
+                  <td className="px-4 py-2 text-xs text-gray-600">{nombreEmpresa(e.empresa_id)}</td>
+                  <td className="px-4 py-2 text-gray-800 max-w-md truncate" title={e.mensaje}>{e.mensaje}</td>
+                  <td className="px-4 py-2 text-xs font-mono text-gray-500">{e.ruta ?? '—'}</td>
+                </tr>
+                {abierto === e.id && (
+                  <tr className="bg-gray-50 border-t border-gray-100">
+                    <td colSpan={4} className="px-4 py-3 space-y-2">
+                      {e.stack && (
+                        <div>
+                          <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Stack (minificado)</p>
+                          <pre className="text-[11px] text-gray-600 whitespace-pre-wrap break-all">{e.stack}</pre>
+                        </div>
+                      )}
+                      {e.componente && (
+                        <div>
+                          <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Componente</p>
+                          <pre className="text-[11px] text-gray-600 whitespace-pre-wrap break-all">{e.componente}</pre>
+                        </div>
+                      )}
+                      {e.user_agent && (
+                        <p className="text-[11px] text-gray-400">{e.user_agent}</p>
+                      )}
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
             ))}
           </tbody>
         </table>
