@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { useClientes, useCrearCliente, useActualizarCliente, useEliminarCliente, useImportarClientes, useOrdenesLite, useVentas } from '@/lib/queries'
+import { useClientes, useCrearCliente, useActualizarCliente, useEliminarCliente, useImportarClientes, useOrdenesLite, useVentasDeCliente } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { useIsMobile } from '@/lib/useIsMobile'
 import { Spinner } from '@/components/shared/Spinner'
@@ -99,7 +99,6 @@ const STATUS_BADGE: Record<string, { bg: string; color: string }> = {
 export function ClientesTab() {
   const { data: clientes, isLoading } = useClientes()
   const { data: ordenes } = useOrdenesLite()
-  const { data: ventas } = useVentas()
   const crearCliente = useCrearCliente()
   const actualizarCliente = useActualizarCliente()
   const eliminarCliente = useEliminarCliente()
@@ -196,6 +195,13 @@ export function ClientesTab() {
     [clientes, seleccionadoId],
   )
   function setSeleccionado(c: Cliente | null) { setSeleccionadoId(c?.id ?? null) }
+
+  // Solo las ventas del cliente abierto en la ficha: antes se bajaba la tabla
+  // completa de ventas (con sus items) para quedarse con las de esta persona.
+  const nombreCompletoSel = seleccionado
+    ? `${seleccionado.nombre} ${seleccionado.apellido ?? ''}`.trim()
+    : null
+  const { data: ventas } = useVentasDeCliente(nombreCompletoSel)
 
   // Ajuste de estado durante el render en vez de useEffect — auto-selecciona
   // el primer cliente en desktop; el guard (!seleccionadoId) evita el loop.
@@ -431,7 +437,7 @@ export function ClientesTab() {
 
 type StatsType = {
   ots: NonNullable<ReturnType<typeof useOrdenesLite>['data']>
-  boletas: NonNullable<ReturnType<typeof useVentas>['data']>
+  boletas: NonNullable<ReturnType<typeof useVentasDeCliente>['data']>
   totalVentas: number
 } | null
 

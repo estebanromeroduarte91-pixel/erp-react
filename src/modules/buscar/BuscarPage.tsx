@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useVentas, useOrdenesLite, useBuscarProductos, useClientes } from '@/lib/queries'
+import { useBuscarVentas, useOrdenesLite, useBuscarProductos, useClientes } from '@/lib/queries'
 import { Spinner } from '@/components/shared/Spinner'
 import { soloRutDigits } from '@/lib/rut'
 
@@ -52,12 +52,15 @@ export function BuscarPage() {
   const [query, setQuery] = useState('')
   const navigate = useNavigate()
 
-  const { data: ventas, isLoading: loadV } = useVentas()
+  // Ventas: búsqueda server-side (ilike + limit), igual que productos. Antes
+  // se bajaba la tabla completa de ventas —con el join de venta_items— solo
+  // para filtrarla con includes() en el navegador.
+  const { data: ventas } = useBuscarVentas(query)
   const { data: ordenes, isLoading: loadO } = useOrdenesLite()
   const { data: clientes, isLoading: loadC } = useClientes()
   const { data: productosBuscados } = useBuscarProductos(query)   // búsqueda server-side
 
-  const isLoading = loadV || loadO || loadC
+  const isLoading = loadO || loadC
 
   const results: Result[] = useMemo(() => {
     const q = query.trim().toLowerCase()

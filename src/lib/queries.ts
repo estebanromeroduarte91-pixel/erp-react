@@ -1414,6 +1414,54 @@ export function useVentaPorId(id: string | null) {
   })
 }
 
+// Ventas de UN cliente puntual — para la ficha de Clientes, que antes bajaba
+// la tabla completa de ventas solo para quedarse con las de la persona
+// seleccionada. `ilike` sin comodines = igualdad sin distinguir mayúsculas,
+// que es la misma comparación que hacía el filtro en JS.
+export function useVentasDeCliente(nombreCompleto: string | null) {
+  const { empresaId } = useAuth()
+  const nombre = (nombreCompleto ?? '').trim()
+  return useQuery({
+    queryKey: ['ventas', empresaId, 'cliente', nombre],
+    queryFn: async () => {
+      // `%` y `_` son comodines de ilike: se escapan para que un nombre que
+      // los contenga no termine matcheando de más.
+      const patron = nombre.replace(/[\\%_]/g, m => '\\' + m)
+      const { data, error } = await supabase
+        .from('ventas')
+        .select(VENTA_COLS)
+        .eq('empresa_id', empresaId!)
+        .ilike('cliente', patron)
+      if (error) throw error
+      return (data ?? []).map(hidratarVenta)
+    },
+    enabled: !!empresaId && !!nombre,
+  })
+}
+
+// Búsqueda de ventas por número o cliente (pantalla Buscar) — antes se bajaba
+// la tabla entera y se filtraba en el navegador con includes().
+export function useBuscarVentas(termino: string) {
+  const { empresaId } = useAuth()
+  const q = termino.trim()
+  return useQuery({
+    queryKey: ['ventas', empresaId, 'buscar', q],
+    queryFn: async () => {
+      const term = q.replace(/[%,()]/g, '')
+      const { data, error } = await supabase
+        .from('ventas')
+        .select(VENTA_COLS)
+        .eq('empresa_id', empresaId!)
+        .or(`numero.ilike.%${term}%,cliente.ilike.%${term}%`)
+        .order('fecha', { ascending: false })
+        .limit(5)
+      if (error) throw error
+      return (data ?? []).map(hidratarVenta)
+    },
+    enabled: !!empresaId && q.length >= 2,
+  })
+}
+
 // Totales agregados (histórico + período + métodos de pago) calculados en el
 // servidor (fn_ventas_resumen) — antes VentasListTab traía la tabla ENTERA de
 // ventas al navegador (miles de filas) solo para sumar estos números en JS.
