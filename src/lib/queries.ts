@@ -416,7 +416,13 @@ function hidratarProducto(row: Record<string, unknown>): Producto {
   for (const s of stockRows) stock_sucursales[s.bodega_id] = s.cantidad
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- se destructura solo para omitirlo de `rest`
   const { producto_stock: _omit, ...rest } = row
-  return { ...(rest as unknown as Producto), stock_sucursales }
+  const categoria = String(row.categoria ?? '').trim().toLocaleLowerCase('es')
+  const esServicio = row.tipo === 'servicio' || categoria === 'servicio' || categoria === 'servicios'
+  return {
+    ...(rest as unknown as Producto),
+    tipo: esServicio ? 'servicio' : 'producto',
+    stock_sucursales: esServicio ? undefined : stock_sucursales,
+  }
 }
 
 function filaProducto(p: Producto, empresaId: string) {

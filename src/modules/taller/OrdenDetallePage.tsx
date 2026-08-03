@@ -1617,10 +1617,13 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
                           const stk = stockTotal(p)
                           return (
                             <button key={p.id} onClick={() => seleccionarProducto(p)}
-                              className={`w-full text-left px-4 py-2.5 hover:bg-blue-50 transition ${i > 0 ? 'border-t border-gray-100' : ''} ${stk === 0 ? 'opacity-50' : ''}`}>
+                              className={`w-full text-left px-4 py-2.5 hover:bg-blue-50 transition ${i > 0 ? 'border-t border-gray-100' : ''} ${p.tipo !== 'servicio' && stk === 0 ? 'opacity-50' : ''}`}>
                               <div className="text-sm font-medium text-gray-800 truncate">{p.nombre}</div>
                               <div className="text-xs text-gray-400 mt-0.5 flex items-center gap-2">
-                                <span className={stk > 0 ? 'text-green-600' : 'text-red-500'}>Stock: {stk}</span>
+                                {p.tipo === 'servicio'
+                                  ? <span className="text-violet-600">Servicio · sin control de stock</span>
+                                  : <span className={stk > 0 ? 'text-green-600' : 'text-red-500'}>Stock: {stk}</span>
+                                }
                                 {p.precio_venta ? <span>· ${p.precio_venta.toLocaleString('es-CL')}</span> : null}
                               </div>
                             </button>
@@ -1638,8 +1641,11 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
                       <div className="flex items-start justify-between mb-3">
                         <div>
                           <p className="text-sm font-semibold text-green-800">{repSelected.nombre}</p>
-                          <p className="text-xs text-green-600 mt-0.5">Stock disponible: {stockTotal(repSelected)} unidades</p>
-                          {stockTotal(repSelected) === 0 && (
+                          {repSelected.tipo === 'servicio'
+                            ? <p className="text-xs text-violet-600 mt-0.5">Servicio · sin control de stock</p>
+                            : <p className="text-xs text-green-600 mt-0.5">Stock disponible: {stockTotal(repSelected)} unidades</p>
+                          }
+                          {repSelected.tipo !== 'servicio' && stockTotal(repSelected) === 0 && (
                             <p className="text-xs font-semibold text-red-600 mt-1">Advertencia: este producto no tiene stock disponible.</p>
                           )}
                         </div>
@@ -1654,7 +1660,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
                         <div>
                           <label className="text-[10px] text-gray-500 font-medium block mb-1">Cantidad</label>
                           <input value={repQty} onChange={e => setRepQty(e.target.value)}
-                            type="number" min="1" max={stockTotal(repSelected)}
+                            type="number" min="1" max={repSelected.tipo === 'servicio' ? undefined : stockTotal(repSelected)}
                             className="w-20 text-base md:text-sm border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-blue-400 bg-white" />
                         </div>
                         <div className="flex-1">
