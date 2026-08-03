@@ -11,19 +11,14 @@ export function PullToRefresh({ children }: { children: ReactNode }) {
   const [refreshing, setRefreshing] = useState(false)
   const startY = useRef(0)
   const lastRefresh = useRef(0)
-  const dragged = useRef(false)
   // `active` afecta el render (controla si la transición CSS está activa), así que
   // es estado real, no un ref — leerlo durante el render no está permitido para refs.
   const [active, setActive] = useState(false)
 
   function onTouchStart(e: React.TouchEvent) {
     const target = e.target as HTMLElement
-    // Las tarjetas móviles son <button>. Permitir iniciar el gesto sobre ellas
-    // hace que pull-to-refresh funcione en toda la lista; si hubo arrastre, el
-    // click posterior se cancela en onClickCapture para no abrir la orden.
-    const esCampoEditable = !!target.closest('input, textarea, select, [contenteditable="true"]')
-    dragged.current = false
-    if (!esCampoEditable && window.scrollY <= 1 && !refreshing && Date.now() - lastRefresh.current >= COOLDOWN && e.touches.length === 1) {
+    const esControl = !!target.closest('input, textarea, select, button, [contenteditable="true"]')
+    if (!esControl && window.scrollY <= 0 && !refreshing && Date.now() - lastRefresh.current >= COOLDOWN && e.touches.length === 1) {
       startY.current = e.touches[0].clientY
       setActive(true)
     }
@@ -32,9 +27,8 @@ export function PullToRefresh({ children }: { children: ReactNode }) {
   function onTouchMove(e: React.TouchEvent) {
     if (!active) return
     const dy = e.touches[0].clientY - startY.current
-    if (dy > 8) dragged.current = true
     // solo si sigue arriba y arrastra hacia abajo
-    setPull(dy > 0 && window.scrollY <= 1 ? Math.min(dy * 0.5, MAX) : 0)
+    setPull(dy > 0 && window.scrollY <= 0 ? Math.min(dy * 0.5, MAX) : 0)
   }
 
   async function onTouchEnd() {
@@ -52,31 +46,12 @@ export function PullToRefresh({ children }: { children: ReactNode }) {
     setPull(0)
   }
 
-  function onClickCapture(e: React.MouseEvent) {
-    if (!dragged.current) return
-    e.preventDefault()
-    e.stopPropagation()
-    dragged.current = false
-  }
-
-  function onTouchCancel() {
-    setActive(false)
-    setPull(0)
-    dragged.current = false
-  }
-
   const y = refreshing ? THRESHOLD : pull
   const visible = pull > 0 || refreshing
   const listo = pull >= THRESHOLD
 
   return (
-    <div
-      onTouchStart={onTouchStart}
-      onTouchMove={onTouchMove}
-      onTouchEnd={onTouchEnd}
-      onTouchCancel={onTouchCancel}
-      onClickCapture={onClickCapture}
-    >
+    <div onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
       <div style={{
         position: 'fixed', top: 'calc(env(safe-area-inset-top, 0px) + 8px)', left: 0, right: 0, zIndex: 510,
         display: 'flex', justifyContent: 'center', pointerEvents: 'none',
