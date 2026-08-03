@@ -17,6 +17,7 @@ interface AuthState {
   cargando: boolean
   planEstado: string | null   // 'trial' | 'activo' | 'vencido' | null (empresas antiguas, sin restricción)
   trialTermina: string | null // ISO date; solo aplica si planEstado === 'trial'
+  usuarioActivo: boolean      // user_profiles.activo — false = acceso revocado por su admin
   impersonatedEmpresaId: string | null
   impersonatedEmpresaNombre: string | null
 }
@@ -27,6 +28,7 @@ interface AuthContextValue extends AuthState {
   recoveryMode: boolean  // true cuando el usuario llegó por el enlace de "olvidé mi contraseña"
   trialExpirado: boolean // true si el trial de 30 días ya venció y no hay plan activo
   cuentaSuspendida: boolean // true si un platform admin marcó la empresa como 'suspendida'
+  usuarioDesactivado: boolean // true si el admin de la empresa desactivó a este usuario
   login: (email: string, password: string) => Promise<string | null>
   logout: () => Promise<void>
   clearRecovery: () => void
@@ -48,6 +50,7 @@ const ESTADO_INICIAL: AuthState = {
   cargando: true,
   planEstado: null,
   trialTermina: null,
+  usuarioActivo: true,
   impersonatedEmpresaId: null,
   impersonatedEmpresaNombre: null,
 }
@@ -126,6 +129,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         cargando: false,
         planEstado: emp?.plan_estado ?? null,
         trialTermina: emp?.trial_termina ?? null,
+        // `activo` puede venir null en perfiles antiguos (antes de que la
+        // columna existiera) — esos se tratan como activos, no como revocados.
+        usuarioActivo: perfil.activo !== false,
         impersonatedEmpresaId: savedImpersonatedId,
         impersonatedEmpresaNombre: savedImpersonatedNombre,
       })
@@ -162,6 +168,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         cargando: false,
         planEstado: emp?.plan_estado ?? null,
         trialTermina: emp?.trial_termina ?? null,
+        // El dueño de la empresa no se puede autodesactivar (su perfil se crea
+        // siempre con activo: true, arriba).
+        usuarioActivo: true,
         impersonatedEmpresaId: savedImpersonatedId,
         impersonatedEmpresaNombre: savedImpersonatedNombre,
       })
@@ -221,6 +230,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const esAdmin = estado.rol === 'admin'
   const trialExpirado = estado.planEstado === 'trial' && !!estado.trialTermina && new Date(estado.trialTermina) < new Date()
   const cuentaSuspendida = estado.planEstado === 'suspendida'
+  const usuarioDesactivado = !!estado.session && !!estado.empresaId && !estado.usuarioActivo
 
   const value: AuthContextValue = {
     ...estado,
@@ -232,6 +242,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     recoveryMode,
     trialExpirado,
     cuentaSuspendida,
+    usuarioDesactivado,
     login,
     logout,
     clearRecovery,

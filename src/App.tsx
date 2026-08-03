@@ -35,7 +35,7 @@ const LandingPage = lazyWithReload(() => import('@/modules/landing/LandingPage')
 
 function AppRoutes() {
   const location = useLocation()
-  const { session, cargando, recoveryMode, trialExpirado, cuentaSuspendida, esPlatformAdmin, empresaId } = useAuth()
+  const { session, cargando, recoveryMode, trialExpirado, cuentaSuspendida, usuarioDesactivado, esPlatformAdmin, empresaId } = useAuth()
   // Un platform admin sin empresa propia (solo entra a administrar la plataforma,
   // no opera ningún taller) cae directo al panel — el resto de las rutas requieren empresa.
   const soloPlatformAdmin = esPlatformAdmin && !empresaId
@@ -73,6 +73,9 @@ function AppRoutes() {
   // su empresa de pruebas esté vencida/suspendida.
   if (!esPlatformAdmin && trialExpirado) return <TrialExpirado motivo="trial" />
   if (!esPlatformAdmin && cuentaSuspendida) return <TrialExpirado motivo="suspendida" />
+  // Desactivar a alguien en Accesos antes solo lo ocultaba de la lista: seguía
+  // pudiendo entrar y operar con normalidad (ver 27_usuario_inactivo_sin_acceso.sql).
+  if (!esPlatformAdmin && usuarioDesactivado) return <TrialExpirado motivo="desactivado" />
 
   return (
     <Shell>
