@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="referrer" content="no-referrer">
 <title>Subir fotos — Orden</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <style>
@@ -96,6 +97,10 @@ const params=new URLSearchParams(window.location.search);
 const token=params.get('t');
 let currentOrder=null; // { num, modelo, nombre, status, branch_id, tipo, fotos_actuales }
 
+function qrPhotoUrl(path){
+  return _SB_URL+'/functions/v1/qr-photo?t='+encodeURIComponent(token)+'&p='+encodeURIComponent(path);
+}
+
 // El tipo (ingreso/inspeccion/salida/traslado) viene fijo en el token del servidor,
 // nunca del query param — así no hay forma de que una foto quede en el campo equivocado.
 function getFotos(){ return currentOrder.fotos_actuales||[]; }
@@ -185,8 +190,7 @@ async function handleFiles(files){
       const path='qr/'+token+'/'+Date.now()+'_'+Math.random().toString(36).slice(2)+'.'+ext;
       const {error}=await sb.storage.from('erp-assets').upload(path,blob,{upsert:true,contentType});
       if(error){lastErr=error.message||JSON.stringify(error);throw new Error(lastErr);}
-      const {data:urlData}=sb.storage.from('erp-assets').getPublicUrl(path);
-      const arr=getFotos();arr.push(urlData.publicUrl);setFotos(arr);
+      const arr=getFotos();arr.push(qrPhotoUrl(path));setFotos(arr);
       ok++;
     }catch(e){lastErr=lastErr||e.message||String(e);console.error(e);}
   }

@@ -68,8 +68,8 @@ export function GeneralTab() {
     const path = `${empresaId}/logo/logo_taller.${ext}`
     const { error } = await supabase.storage.from('erp-assets').upload(path, file, { upsert: true, contentType: file.type })
     if (error) { setErrorLogo('Error al subir: ' + error.message); setSubiendoLogo(false); return }
-    const { data: urlData } = supabase.storage.from('erp-assets').getPublicUrl(path)
-    await guardarLogoUrl(urlData.publicUrl + '?t=' + Date.now())
+    const logoUrl = `${import.meta.env.VITE_SUPABASE_URL || 'https://nfcdqdbhrsjhbnbtqewl.supabase.co'}/functions/v1/public-logo?p=${encodeURIComponent(path)}&t=${Date.now()}`
+    await guardarLogoUrl(logoUrl)
     setSubiendoLogo(false)
   }
 
