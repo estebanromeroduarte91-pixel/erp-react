@@ -169,6 +169,32 @@ export function TallerPage() {
     }
   }, [ordenes, derivadoIds, esAdmin, selectedBranchId, userBranchId])
 
+  const gruposMovil = useMemo(() => {
+    const porSucursal = new Map<string, OrdenLista[]>()
+    for (const orden of lista) {
+      const key = orden.branchId || '__sin_sucursal__'
+      porSucursal.set(key, [...(porSucursal.get(key) ?? []), orden])
+    }
+    const grupos = bodegas
+      .filter(b => porSucursal.has(b.id))
+      .map(b => ({
+        id: b.id,
+        nombre: b.nombre ?? b.name ?? 'Sucursal',
+        ordenes: porSucursal.get(b.id) ?? [],
+      }))
+    const idsConocidos = new Set(bodegas.map(b => b.id))
+    for (const [id, ordenesSucursal] of porSucursal) {
+      if (!idsConocidos.has(id)) {
+        grupos.push({
+          id,
+          nombre: id === '__sin_sucursal__' ? 'Sin sucursal asignada' : 'Sucursal no disponible',
+          ordenes: ordenesSucursal,
+        })
+      }
+    }
+    return grupos
+  }, [lista, bodegas])
+
   const isMobile = useIsMobile()
 
   function abrirNueva() {
@@ -314,29 +340,44 @@ export function TallerPage() {
               <p style={{ fontSize: 13, marginTop: 4 }}>No hay órdenes con este filtro</p>
             </div>
           ) : (
-            <div style={{ background: '#fff', borderRadius: 14, overflow: 'hidden' }}>
-              {lista.map((o, i) => (
-                <button
-                  key={o.id}
-                  onClick={() => setDetalleNum(o.num)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 10, width: '100%',
-                    padding: '12px 14px', background: 'none', border: 'none', cursor: 'pointer',
-                    borderBottom: i < lista.length - 1 ? '0.5px solid #f2f2f7' : 'none',
-                    textAlign: 'left',
-                  }}
-                >
-                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: STATUS_DOT[o.status] ?? '#8e8e93', flexShrink: 0 }} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: '#8e8e93', marginBottom: 1 }}>#{o.num}</div>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: '#1c1c1e', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{[o.nombre, o.apellido].filter(Boolean).join(' ')}</div>
-                    <div style={{ fontSize: 12, color: '#8e8e93', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{o.modelo ?? o.trabajo ?? ''}</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {gruposMovil.map(grupo => (
+                <section key={grupo.id} aria-label={grupo.nombre}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '0 4px 7px' }}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="1.8">
+                      <path d="M3 21h18M5 21V8l7-5 7 5v13M9 21v-6h6v6" />
+                    </svg>
+                    <h2 style={{ flex: 1, margin: 0, fontSize: 13, fontWeight: 700, color: '#475569' }}>{grupo.nombre}</h2>
+                    <span style={{ minWidth: 24, height: 20, padding: '0 7px', borderRadius: 99, background: '#e2e8f0', color: '#475569', fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {grupo.ordenes.length}
+                    </span>
                   </div>
-                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                    <span style={{ display: 'block', marginBottom: 4 }}><EstadoBadge estado={o.status} subestado={o.subestado} /></span>
-                    <span style={{ fontSize: 11, color: '#8e8e93' }}>{fmtFecha(o.fecha)}</span>
+                  <div style={{ background: '#fff', borderRadius: 14, overflow: 'hidden', border: '0.5px solid #e5e7eb' }}>
+                    {grupo.ordenes.map((o, i) => (
+                      <button
+                        key={o.id}
+                        onClick={() => setDetalleNum(o.num)}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+                          padding: '12px 14px', background: 'none', border: 'none', cursor: 'pointer',
+                          borderBottom: i < grupo.ordenes.length - 1 ? '0.5px solid #f2f2f7' : 'none',
+                          textAlign: 'left',
+                        }}
+                      >
+                        <div style={{ width: 8, height: 8, borderRadius: '50%', background: STATUS_DOT[o.status] ?? '#8e8e93', flexShrink: 0 }} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: '#8e8e93', marginBottom: 1 }}>#{o.num}</div>
+                          <div style={{ fontSize: 14, fontWeight: 600, color: '#1c1c1e', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{[o.nombre, o.apellido].filter(Boolean).join(' ')}</div>
+                          <div style={{ fontSize: 12, color: '#8e8e93', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{o.modelo ?? o.trabajo ?? ''}</div>
+                        </div>
+                        <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                          <span style={{ display: 'block', marginBottom: 4 }}><EstadoBadge estado={o.status} subestado={o.subestado} /></span>
+                          <span style={{ fontSize: 11, color: '#8e8e93' }}>{fmtFecha(o.fecha)}</span>
+                        </div>
+                      </button>
+                    ))}
                   </div>
-                </button>
+                </section>
               ))}
             </div>
           )}
