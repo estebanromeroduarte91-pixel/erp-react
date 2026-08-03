@@ -8,6 +8,7 @@ import { capWords } from '@/lib/formatters'
 import { IconCashRegister, IconLock, IconLockOpen, IconBuildingStore } from '@tabler/icons-react'
 import type { VentaItem, Venta, Orden, CajaSesion, LoteInventario, Producto } from '@/types'
 import { fechaLocal } from '@/lib/fecha'
+import { MobileSheet } from '@/components/shared/MobileSheet'
 
 const IVA = 0.19
 
@@ -635,18 +636,25 @@ export function POSTab() {
   // Closing modal overlay
   if (cerrando) {
     return (
-      <div className="flex items-center justify-center h-[calc(100vh-8rem)]">
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm w-full max-w-md overflow-hidden">
-          <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
-            <div>
-              <h2 className="text-base font-bold text-gray-900">Cerrar caja</h2>
-              <p className="text-xs text-gray-400 mt-0.5">{cajaAbierta?.nombre} · {today()}</p>
-            </div>
-            <button onClick={() => setCerrando(false)} className="text-gray-400 hover:text-gray-600 p-1">
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+      <MobileSheet
+        open
+        onClose={() => setCerrando(false)}
+        title="Cerrar caja"
+        description={`${cajaAbierta?.nombre ?? 'Caja'} · ${today()}`}
+        footer={
+          <div className="flex gap-3">
+            <button onClick={() => setCerrando(false)}
+              className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-100 transition">
+              Cancelar
+            </button>
+            <button onClick={cerrarCaja} disabled={guardandoCaja}
+              className="flex-1 bg-gray-900 text-white font-semibold py-2.5 rounded-xl hover:bg-gray-800 disabled:opacity-60 transition">
+              {guardandoCaja ? 'Cerrando…' : 'Confirmar cierre'}
             </button>
           </div>
-          <div className="px-6 py-5 space-y-4">
+        }
+      >
+          <div className="px-5 md:px-6 py-5 space-y-4">
             <div className="space-y-2">
               {[
                 { label: 'Sistema espera (efectivo + fondo)', value: esperadoEfect },
@@ -687,19 +695,8 @@ export function POSTab() {
                 rows={2} placeholder="Ej: faltante de $5.000..."
                 className="w-full px-3 py-2 border border-gray-200 rounded-lg text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400 resize-none" />
             </div>
-            <div className="flex gap-3">
-              <button onClick={() => setCerrando(false)}
-                className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-100 transition">
-                Cancelar
-              </button>
-              <button onClick={cerrarCaja} disabled={guardandoCaja}
-                className="flex-1 bg-gray-900 text-white font-semibold py-2.5 rounded-xl hover:bg-gray-800 disabled:opacity-60 transition">
-                {guardandoCaja ? 'Cerrando…' : 'Confirmar cierre'}
-              </button>
-            </div>
           </div>
-        </div>
-      </div>
+      </MobileSheet>
     )
   }
 
@@ -1101,20 +1098,25 @@ export function POSTab() {
       </div>
 
       {/* Modal nuevo cliente */}
-      {showNuevoCliente && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
-            <div className="flex items-start justify-between px-5 py-4 border-b border-gray-100">
-              <div>
-                <h3 className="text-base font-bold text-gray-900">Nuevo cliente</h3>
-                <p className="text-xs text-gray-400 mt-0.5">Los datos quedan en el directorio de clientes</p>
-              </div>
-              <button onClick={cerrarModalCliente} className="text-gray-400 hover:text-gray-600 p-1">
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
+      <MobileSheet
+        open={showNuevoCliente}
+        onClose={cerrarModalCliente}
+        title="Nuevo cliente"
+        description="Los datos quedan en el directorio de clientes"
+        maxWidth="max-w-sm"
+        footer={
+          <div className="flex items-center justify-end gap-2">
+            <button onClick={cerrarModalCliente}
+              className="px-4 py-2.5 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-100 transition">
+              Cancelar
+            </button>
+            <button onClick={handleCrearClientePOS} disabled={!nuevoCliente.nombre.trim() || crearCliente.isPending}
+              className="px-5 py-2.5 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition">
+              {crearCliente.isPending ? 'Creando…' : 'Crear cliente'}
+            </button>
+          </div>
+        }
+      >
             <div className="px-5 py-4 space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -1164,19 +1166,7 @@ export function POSTab() {
                 )}
               </div>
             )}
-            <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-gray-100 bg-gray-50">
-              <button onClick={cerrarModalCliente}
-                className="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-100 transition">
-                Cancelar
-              </button>
-              <button onClick={handleCrearClientePOS} disabled={!nuevoCliente.nombre.trim() || crearCliente.isPending}
-                className="px-5 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition">
-                {crearCliente.isPending ? 'Creando…' : 'Crear cliente'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      </MobileSheet>
     </div>
   )
 }
