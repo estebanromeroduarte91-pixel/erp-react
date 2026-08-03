@@ -62,6 +62,25 @@ cada push a `main` y en cada Pull Request. Es un complemento al build que ya hac
 Pages en cada deploy (que también falla si hay errores de TypeScript) — corre más rápido y
 además valida ESLint, que el deploy de Cloudflare no revisa.
 
+## Dependencias y `npm audit`
+
+- **`xlsx` (SheetJS)** se instala desde el CDN oficial del proveedor
+  (`https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz`), no desde npm: SheetJS dejó de
+  publicar en el registro, y la última versión que hay ahí (0.18.5) arrastra dos
+  vulnerabilidades altas (prototype pollution y ReDoS) que **sí** son alcanzables acá,
+  porque la app parsea archivos `.xlsx` subidos por el usuario (importar clientes, equipos
+  e historial de órdenes). Al actualizar la versión hay que cambiar esa URL a mano.
+  CI y cualquier `npm ci` necesitan poder alcanzar `cdn.sheetjs.com`.
+
+- **`react-router` — advisory [GHSA-qwww-vcr4-c8h2](https://github.com/advisories/GHSA-qwww-vcr4-c8h2)
+  (CSRF en modo RSC): NO aplica a este proyecto y se deja a propósito sin "arreglar".**
+  La app usa `HashRouter` puro (SPA estática servida por Cloudflare Pages), sin framework
+  mode, sin `react-router.config.ts` y sin React Server Components — no hay servidor
+  ejecutando actions, que es lo que explota ese advisory. El `npm audit fix --force` que
+  npm sugiere baja a `react-router-dom@7.11.0`, que es un cambio breaking, a cambio de
+  nada. Por eso `npm audit` queda en 2 (react-router + react-router-dom) y eso es lo
+  esperado, no un pendiente.
+
 ## Estructura
 
 - `src/modules/` — un módulo por área de negocio (ventas, taller, inventario, compras,
