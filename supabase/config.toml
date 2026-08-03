@@ -1,0 +1,10 @@
+[functions.qr-photo]
+# Las fotos se cargan directamente en etiquetas <img>, que no pueden adjuntar
+# un header Authorization. La función valida el token QR y la ruta del objeto
+# antes de servirlo, por lo que el gateway no debe exigir además un JWT.
+verify_jwt = false
+
+[functions.public-logo]
+# Los logos de empresa también se consumen como imágenes públicas. La función
+# limita internamente las rutas permitidas.
+verify_jwt = false
