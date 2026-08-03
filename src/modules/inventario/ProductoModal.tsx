@@ -32,6 +32,8 @@ export function ProductoModal({ producto, productos, bodegas, onClose }: Props) 
   const [stockSucs, setStockSucs] = useState<Record<string, number>>(producto?.stock_sucursales ?? {})
   const [categoria, setCategoria] = useState(producto?.categoria ?? '')
   const [subcategoria, setSubcategoria] = useState(producto?.subcategoria ?? '')
+  const [categoriaOpen, setCategoriaOpen] = useState(false)
+  const [subcategoriaOpen, setSubcategoriaOpen] = useState(false)
   const [enlace, setEnlace] = useState(producto?.enlace ?? '')
   const [enlaceOpen, setEnlaceOpen] = useState(false)
   const [descripcion, setDescripcion] = useState(producto?.descripcion ?? '')
@@ -174,23 +176,55 @@ export function ProductoModal({ producto, productos, bodegas, onClose }: Props) 
                   ))}
                 </select>
               </div>
-              <div>
+              <div className="relative">
                 <label className="text-xs font-medium text-gray-600 mb-1 block">Categoría</label>
-                <input value={categoria} onChange={(e) => setCategoria(e.target.value)}
-                  list="cats-list" placeholder="Ej: Pantallas"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
-                <datalist id="cats-list">
-                  {cats.map((c) => <option key={c} value={c} />)}
-                </datalist>
+                <input value={categoria} onChange={(e) => { setCategoria(e.target.value); setCategoriaOpen(true) }}
+                  onFocus={() => setCategoriaOpen(true)}
+                  onBlur={() => setTimeout(() => setCategoriaOpen(false), 150)}
+                  placeholder="Ej: Pantallas"
+                  className="w-full border border-gray-200 rounded-lg pl-3 pr-9 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+                <button type="button" tabIndex={-1} aria-label="Mostrar categorías"
+                  onMouseDown={e => { e.preventDefault(); setCategoriaOpen(v => !v) }}
+                  className="absolute right-1 top-6 w-8 h-8 flex items-center justify-center text-gray-400">
+                  <svg className={`w-4 h-4 transition ${categoriaOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" d="m6 9 6 6 6-6" /></svg>
+                </button>
+                {categoriaOpen && cats.length > 0 && (
+                  <div className="absolute left-0 right-0 z-40 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-52 overflow-y-auto">
+                    {cats.map(c => (
+                      <button key={c} type="button"
+                        onMouseDown={() => { setCategoria(c); setSubcategoria(''); setCategoriaOpen(false) }}
+                        className={`w-full text-left px-3.5 py-2.5 text-sm hover:bg-blue-50 hover:text-blue-700 transition ${c === categoria ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-700'}`}>
+                        {c}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
-              <div>
+              <div className="relative">
                 <label className="text-xs font-medium text-gray-600 mb-1 block">Subcategoría</label>
-                <input value={subcategoria} onChange={(e) => setSubcategoria(e.target.value)}
-                  list="subcats-list" placeholder="Ej: iPhone 14"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
-                <datalist id="subcats-list">
-                  {subcats.map((s) => <option key={s} value={s} />)}
-                </datalist>
+                <input value={subcategoria} onChange={(e) => { setSubcategoria(e.target.value); setSubcategoriaOpen(true) }}
+                  onFocus={() => setSubcategoriaOpen(true)}
+                  onBlur={() => setTimeout(() => setSubcategoriaOpen(false), 150)}
+                  placeholder="Ej: iPhone 14"
+                  className="w-full border border-gray-200 rounded-lg pl-3 pr-9 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+                {subcats.length > 0 && (
+                  <button type="button" tabIndex={-1} aria-label="Mostrar subcategorías"
+                    onMouseDown={e => { e.preventDefault(); setSubcategoriaOpen(v => !v) }}
+                    className="absolute right-1 top-6 w-8 h-8 flex items-center justify-center text-gray-400">
+                    <svg className={`w-4 h-4 transition ${subcategoriaOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" d="m6 9 6 6 6-6" /></svg>
+                  </button>
+                )}
+                {subcategoriaOpen && subcats.length > 0 && (
+                  <div className="absolute left-0 right-0 z-40 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-52 overflow-y-auto">
+                    {subcats.map(s => (
+                      <button key={s} type="button"
+                        onMouseDown={() => { setSubcategoria(s); setSubcategoriaOpen(false) }}
+                        className={`w-full text-left px-3.5 py-2.5 text-sm hover:bg-blue-50 hover:text-blue-700 transition ${s === subcategoria ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-700'}`}>
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
               <div className="col-span-2 relative">
                 <label className="text-xs font-medium text-gray-600 mb-1 block">Enlace (opcional)</label>
