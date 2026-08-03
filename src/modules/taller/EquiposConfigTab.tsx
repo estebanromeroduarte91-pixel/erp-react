@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useCatEquipo, useGuardarCatEquipo, useMarcasEquipo, useGuardarMarcasEquipo, useEquipos, useGuardarEquipos } from '@/lib/queries'
 import { Spinner } from '@/components/shared/Spinner'
 import type { Equipo } from '@/types'
+import { validarArchivoImport, validarContenidoImport } from '@/lib/importArchivo'
 
 function ListaEditable({
   titulo, descripcion, items, onGuardar, isPending,
@@ -138,11 +139,14 @@ function ExcelImportSection() {
   const [omitidos, setOmitidos] = useState(0)
   const [errorMsg, setErrorMsg] = useState('')
 
-  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
     setFileName(file.name)
     setEstado('idle')
+
+    const invalido = await validarArchivoImport(file, ['xlsx'])
+    if (invalido) { setErrorMsg(invalido); setEstado('error'); e.target.value = ''; return }
 
     const reader = new FileReader()
     reader.onload = async ev => {
@@ -173,6 +177,9 @@ function ExcelImportSection() {
 
         const marcasEnExcel = [...new Set(resultados.map(e => e.marca ?? '').filter(Boolean))]
         const marcasParaAgregar = marcasEnExcel.filter(m => !marcasConfig.includes(m))
+
+        const excede = validarContenidoImport(resultados.length, wb.SheetNames.length)
+        if (excede) { setErrorMsg(excede); setEstado('error'); return }
 
         setNuevos(resultados)
         setMarcasNuevas(marcasParaAgregar)

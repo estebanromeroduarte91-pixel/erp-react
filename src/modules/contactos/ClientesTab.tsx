@@ -8,6 +8,7 @@ import { formatRut, soloRutDigits } from '@/lib/rut'
 import { capWords, capFirst } from '@/lib/formatters'
 import { OrdenDetallePage } from '@/modules/taller/OrdenDetallePage'
 import type { Cliente } from '@/types'
+import { validarArchivoImport, validarContenidoImport } from '@/lib/importArchivo'
 
 function uid() { return Math.random().toString(36).slice(2) + Date.now().toString(36) }
 
@@ -134,9 +135,15 @@ export function ClientesTab() {
     if (!file) return
     setImportError('')
     setImportRows([])
+    // Antes cualquier archivo llegaba directo al parser: el accept del input es
+    // solo una sugerencia de UI y no frena un drag&drop ni "todos los archivos".
+    const invalido = await validarArchivoImport(file, ['xlsx', 'xls'])
+    if (invalido) { setImportError(invalido); e.target.value = ''; return }
     try {
       const rows = await parseExcelClientes(file)
       if (!rows.length) { setImportError('El archivo no contiene clientes válidos (falta la columna Nombre).'); return }
+      const excede = validarContenidoImport(rows.length)
+      if (excede) { setImportError(excede); return }
       setImportRows(rows)
     } catch {
       setImportError('Error al leer el archivo. Verifica que sea un .xlsx válido.')

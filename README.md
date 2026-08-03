@@ -81,6 +81,34 @@ además valida ESLint, que el deploy de Cloudflare no revisa.
   nada. Por eso `npm audit` queda en 2 (react-router + react-router-dom) y eso es lo
   esperado, no un pendiente.
 
+  **Volver a evaluar esta excepción si pasa cualquiera de estas cosas:** se actualiza
+  React Router a una versión que ya tenga el parche; se introduce SSR, framework mode
+  (`react-router.config.ts` / `@react-router/dev`), React Server Components o Server
+  Actions; o se cambia `HashRouter` por un router con loaders/actions del lado del
+  servidor. Mientras siga siendo una SPA estática sin servidor, la excepción se sostiene.
+
+- **`npm audit` no corre en CI a propósito.** El workflow hace lint + test + build, nada
+  más. Si alguna vez se agrega, tiene que ser con una allowlist que permita explícitamente
+  GHSA-qwww-vcr4-c8h2 — si no, CI queda en rojo permanente por un advisory que no aplica,
+  y un CI que siempre falla es un CI que nadie mira.
+
+## Importación de archivos Excel
+
+`src/lib/importArchivo.ts` valida todo archivo antes de pasarlo al parser: tamaño máximo
+(10 MB), extensión contra las que cada pantalla realmente soporta (Clientes e Inventario
+`.xlsx`/`.xls`, Equipos también `.csv`, Historial solo `.xlsx`), firma binaria del
+contenido, y tope de filas (20.000) y hojas (20) ya parseado.
+
+Se valida la **firma binaria** y no el MIME del navegador: el MIME de un `.xlsx` es
+inconsistente entre navegadores y sistemas —a veces llega vacío—, así que como filtro duro
+rechazaría archivos legítimos. Un `.xlsx` es un ZIP (`50 4B`) y un `.xls` es OLE2
+(`D0 CF 11 E0`); eso detecta un archivo renombrado, que la extensión sola no ve.
+
+Ojo: el `accept` del `<input type="file">` es solo una sugerencia de UI — no frena un
+drag&drop ni a quien elija "todos los archivos" en el diálogo. Por eso la validación va en
+el código, y en Equipos vive dentro de `procesarExcel()`, que es por donde entran tanto el
+input como el drag&drop.
+
 ## Estructura
 
 - `src/modules/` — un módulo por área de negocio (ventas, taller, inventario, compras,

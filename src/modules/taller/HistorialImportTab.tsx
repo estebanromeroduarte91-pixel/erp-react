@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { useOrdenesLite, useImportarOrdenes, useBodegas, useClientes, useImportarClientes, useActualizarCliente } from '@/lib/queries'
 import type { Cliente, Orden } from '@/types'
+import { validarArchivoImport, validarContenidoImport } from '@/lib/importArchivo'
 
 function uid() { return Math.random().toString(36).slice(2) + Date.now().toString(36) }
 
@@ -112,11 +113,14 @@ export function HistorialImportTab() {
   const [estado, setEstado] = useState<'idle' | 'preview' | 'subiendo' | 'listo' | 'error'>('idle')
   const [errorMsg, setErrorMsg] = useState('')
 
-  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
     setFileName(file.name)
     setEstado('idle')
+
+    const invalido = await validarArchivoImport(file, ['xlsx'])
+    if (invalido) { setErrorMsg(invalido); setEstado('error'); e.target.value = ''; return }
 
     const reader = new FileReader()
     reader.onload = async (ev) => {
@@ -126,6 +130,9 @@ export function HistorialImportTab() {
         const wb = XLSX.read(data, { type: 'array', cellDates: true })
         const ws = wb.Sheets[wb.SheetNames[0]]
         const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: '' })
+
+        const excede = validarContenidoImport(rows.length, wb.SheetNames.length)
+        if (excede) { setErrorMsg(excede); setEstado('error'); return }
 
         const numsExistentes = new Set((ordenes ?? []).map(o => String(o.num ?? '')))
         const clientesMerged: Cliente[] = [...(clientes ?? [])]

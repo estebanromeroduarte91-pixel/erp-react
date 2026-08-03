@@ -7,6 +7,7 @@ import { Money } from '@/components/shared/Money'
 import { Spinner } from '@/components/shared/Spinner'
 import { ProductoModal } from './ProductoModal'
 import type { Producto, LoteInventario, Bodega } from '@/types'
+import { validarArchivoImport, validarContenidoImport } from '@/lib/importArchivo'
 
 function uidLote() { return Math.random().toString(36).slice(2) + Date.now().toString(36) }
 
@@ -213,9 +214,13 @@ export function ProductosTab() {
     if (!file) return
     setImportError('')
     setImportRows([])
+    const invalido = await validarArchivoImport(file, ['xlsx', 'xls'])
+    if (invalido) { setImportError(invalido); e.target.value = ''; return }
     try {
       const rows = await parseExcel(file, bodegas ?? [])
       if (!rows.length) { setImportError('El archivo no contiene productos válidos.'); return }
+      const excede = validarContenidoImport(rows.length)
+      if (excede) { setImportError(excede); return }
       setImportRows(rows)
     } catch {
       setImportError('Error al leer el archivo. Verifica que sea un .xlsx válido.')

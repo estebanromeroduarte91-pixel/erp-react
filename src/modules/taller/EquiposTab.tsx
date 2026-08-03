@@ -3,6 +3,7 @@ import { useEquipos, useGuardarEquipos, useCatEquipo, useMarcasEquipo, useGuarda
 import { useAuth } from '@/context/AuthContext'
 import { Spinner } from '@/components/shared/Spinner'
 import type { Equipo } from '@/types'
+import { validarArchivoImport, validarContenidoImport } from '@/lib/importArchivo'
 
 const EMPTY_FORM = { marca: '', modelo: '', categoria: 'Teléfono', descripcion: '' }
 
@@ -188,8 +189,12 @@ export function EquiposTab() {
     await guardar.mutateAsync((equipos ?? []).filter(e => e.id !== id))
   }
 
-  function procesarExcel(file: File) {
+  // Se valida acá y no en el onChange del input porque esta función también la
+  // llama el drag&drop, que es justamente la vía que se salta el `accept`.
+  async function procesarExcel(file: File) {
     setImportError('')
+    const invalido = await validarArchivoImport(file, ['xlsx', 'xls', 'csv'])
+    if (invalido) { setImportError(invalido); return }
     const reader = new FileReader()
     reader.onload = async (ev) => {
       try {
@@ -198,6 +203,8 @@ export function EquiposTab() {
         const ws = wb.Sheets[wb.SheetNames[0]]
         const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: '' })
         if (!rows.length) { setImportError('Archivo vacío'); return }
+        const excede = validarContenidoImport(rows.length, wb.SheetNames.length)
+        if (excede) { setImportError(excede); return }
         const headers = Object.keys(rows[0]).map(h => h.toLowerCase().trim())
         const find = (keys: string[]) => keys.find(k => headers.includes(k))
         const cols = {
