@@ -29,3 +29,13 @@ jobs:
 
       - name: Typecheck + build
         run: npm run build
+
+      # Smoke tests sobre el build real: verifican que la app no quede en
+      # pantalla en blanco (landing, login, páginas públicas por token). Solo
+      # se instala Chromium — el resto de los navegadores sería tiempo de CI
+      # sin beneficio para lo que estas pruebas vigilan.
+      - name: Instalar navegador para E2E
+        run: npx playwright install --with-deps chromium
+
+      - name: Smoke tests (E2E)
+        run: npm run test:e2e

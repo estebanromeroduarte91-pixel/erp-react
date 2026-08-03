@@ -57,10 +57,32 @@ Piezas clave a tener presente si vas a tocar el schema:
 
 ## CI
 
-[`.github/workflows/ci.yml`](./.github/workflows/ci.yml) corre lint + typecheck + build en
-cada push a `main` y en cada Pull Request. Es un complemento al build que ya hace Cloudflare
-Pages en cada deploy (que también falla si hay errores de TypeScript) — corre más rápido y
-además valida ESLint, que el deploy de Cloudflare no revisa.
+[`.github/workflows/ci.yml`](./.github/workflows/ci.yml) corre lint + tests + typecheck +
+build + smoke tests en cada push a `main` y en cada Pull Request. Es un complemento al build
+que ya hace Cloudflare Pages en cada deploy (que también falla si hay errores de TypeScript)
+— corre más rápido y además valida ESLint, que el deploy de Cloudflare no revisa.
+
+## Tests
+
+- **`npm test`** — unitarios con Vitest sobre lógica pura (FIFO de lotes, RUT, contabilidad,
+  estado de OC, reparto de gastos por sucursal, fechas locales, validación de archivos
+  importados, tablas de planes).
+- **`npm run test:e2e`** — smoke tests con Playwright sobre el **build real** (`dist`), no
+  sobre el dev server: verifican que la landing, el login, las páginas públicas por token
+  (`foto-orden.html`, `aprobar.html`, `cotizacion.html`) y una ruta inexistente no queden en
+  pantalla en blanco ni tiren errores de consola.
+
+  Existen por un incidente concreto: un deploy dejó la app en blanco porque los chunks lazy
+  del build anterior dejaban de existir y el error caía en el ErrorBoundary. Ningún test
+  unitario lo detectó, porque el bug vivía en el build y no en la lógica.
+
+  **No hay pruebas E2E con sesión iniciada, a propósito**: crearían órdenes y ventas reales
+  contra la base de producción. Para tenerlas hace falta primero un entorno de pruebas
+  aparte (un segundo proyecto Supabase, o una empresa dedicada) — pendiente conocido.
+
+  Ojo: `e2e/` está excluido de Vitest en `vitest.config.ts`. Los dos runners usan archivos
+  `.spec/.test` pero APIs distintas, y sin esa exclusión Vitest intenta correr los de
+  Playwright y falla.
 
 ## Dependencias y `npm audit`
 
