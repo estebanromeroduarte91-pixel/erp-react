@@ -138,7 +138,10 @@ Deno.serve(async (req) => {
       // un 400 SIN dejar registro en email_log — el fallo quedaba invisible
       // tanto para el taller como para nosotros. Ahora todo el camino de
       // envío queda cubierto y cualquier fallo se registra con su motivo.
-      let client: { send: (o: unknown) => Promise<unknown>; close: () => Promise<void> } | null = null;
+      // `close` se tipa como `unknown` y no como `Promise<void>`: no está
+      // garantizado que devuelva una promesa, y asumirlo fue justamente lo que
+      // rompió antes.
+      let client: { send: (o: unknown) => Promise<unknown>; close: () => unknown } | null = null;
       try {
         const { SMTPClient } = await import("https://deno.land/x/denomailer@1.6.0/mod.ts");
         client = new SMTPClient({
@@ -160,7 +163,12 @@ Deno.serve(async (req) => {
         ]);
         await client.close();
       } catch (smtpErr) {
-        await client?.close().catch(() => {});
+        // Cerrar la conexión no debe pisar el error original. Se envuelve en su
+        // propio try porque `close()` puede no devolver una promesa —
+        // encadenarle `.catch()` reventaba con "Cannot read properties of
+        // undefined (reading 'catch')" y ESE error tapaba el motivo real del
+        // fallo de envío, que es justamente lo que se quiere ver.
+        try { await client?.close(); } catch { /* se ignora a propósito */ }
         sendError = String((smtpErr as Error)?.message || smtpErr);
       }
     } else {
