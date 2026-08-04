@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { useTraslados, useGuardarTraslados, useTecnicosExternos, useGuardarTecnicosExternos } from '@/lib/queries'
 import { QrFotosModal } from './QrFotosModal'
 import type { Orden, Traslado, TecnicoExterno, EstadoTraslado } from '@/types'
+import { comprimirImagenADataUrl } from '@/lib/imagen'
 
 const ESTADO_LABEL: Record<EstadoTraslado, string> = {
   'enviado': 'Enviado',
@@ -105,10 +106,9 @@ export function DerivarModal({ orden, onClose }: { orden: Orden; onClose: () => 
 
   function handleFotos(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? [])
-    files.forEach(f => {
-      const reader = new FileReader()
-      reader.onload = ev => setFotos(prev => [...prev, ev.target?.result as string])
-      reader.readAsDataURL(f)
+    files.forEach(async f => {
+      const dataUrl = await comprimirImagenADataUrl(f)
+      setFotos(prev => [...prev, dataUrl])
     })
     e.target.value = ''
   }

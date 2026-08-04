@@ -13,6 +13,7 @@ import { PatternLockModal } from './PatternLockModal'
 import { QrFotosModal } from './QrFotosModal'
 import { formatHorario, resolverCategoriaEquipo } from './utils'
 import type { Orden, EstadoOrden, Repuesto, Producto, CheckItem } from '@/types'
+import { comprimirImagenADataUrl } from '@/lib/imagen'
 
 const ESTADOS_OT: EstadoOrden[] = ['Chequeo', 'Reparación', 'Listo', 'Entregado', 'No reparable']
 
@@ -193,12 +194,9 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
   // Fotos: lee archivos como base64
   function handleFotos(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []).slice(0, 6 - fotos.length)
-    files.forEach((f) => {
-      const reader = new FileReader()
-      reader.onload = (ev) => {
-        setFotos((prev) => [...prev, ev.target?.result as string])
-      }
-      reader.readAsDataURL(f)
+    files.forEach(async (f) => {
+      const dataUrl = await comprimirImagenADataUrl(f)
+      setFotos((prev) => [...prev, dataUrl])
     })
     e.target.value = ''
   }

@@ -8,6 +8,7 @@ import { Money } from '@/components/shared/Money'
 import { QrFotosModal } from './QrFotosModal'
 import { totalOrden } from './utils'
 import type { Orden, EstadoOrden, Inspeccion } from '@/types'
+import { comprimirImagenADataUrl } from '@/lib/imagen'
 import { fechaLocal } from '@/lib/fecha'
 
 const PIPELINE: EstadoOrden[] = ['Chequeo', 'Reparación', 'Listo', 'Entregado']
@@ -297,10 +298,9 @@ export function OrdenDetalle({ orden: o, onClose, onEditar }: Props) {
   // Inspección: fotos desde archivo
   function handleFotosInspec(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []).slice(0, 6 - inspecFotos.length)
-    files.forEach(f => {
-      const reader = new FileReader()
-      reader.onload = ev => setInspecFotos(prev => [...prev, ev.target?.result as string])
-      reader.readAsDataURL(f)
+    files.forEach(async f => {
+      const dataUrl = await comprimirImagenADataUrl(f)
+      setInspecFotos(prev => [...prev, dataUrl])
     })
     e.target.value = ''
   }

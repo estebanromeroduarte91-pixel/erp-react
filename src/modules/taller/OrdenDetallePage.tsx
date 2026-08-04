@@ -14,6 +14,7 @@ import { OrdenModal } from './OrdenModal'
 import { formatHorario, resolverCategoriaEquipo } from './utils'
 import { Spinner } from '@/components/shared/Spinner'
 import type { EstadoOrden, Inspeccion, CheckItem, Producto } from '@/types'
+import { comprimirImagenADataUrl } from '@/lib/imagen'
 
 const PIPELINE: EstadoOrden[] = ['Chequeo', 'Reparación', 'Listo', 'Entregado']
 
@@ -333,10 +334,11 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
 
   function handleFotosInspec(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []).slice(0, 6 - inspecFotos.length)
-    files.forEach(f => {
-      const reader = new FileReader()
-      reader.onload = ev => setInspecFotos(prev => [...prev, ev.target?.result as string])
-      reader.readAsDataURL(f)
+    // Se comprime antes de guardar: estas fotos viven como base64 dentro de la
+    // fila de la orden (ver src/lib/imagen.ts).
+    files.forEach(async f => {
+      const dataUrl = await comprimirImagenADataUrl(f)
+      setInspecFotos(prev => [...prev, dataUrl])
     })
     e.target.value = ''
   }
@@ -483,19 +485,20 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
     }
   }
 
-  function handleFotosIngreso(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFotosIngreso(e: React.ChangeEvent<HTMLInputElement>) {
     const existing = orden.photosIngreso ?? []
     const files = Array.from(e.target.files ?? []).slice(0, 6 - existing.length)
-    files.forEach(f => {
-      const reader = new FileReader()
-      reader.onload = async ev => {
-        const fresca = qc.getQueryData<typeof orden | null>(['orden-por-num', empresaId, num])
-        const nuevas = [...(fresca?.photosIngreso ?? []), ev.target?.result as string]
-        await actualizarOrden.mutateAsync({ id: orden.id, photosIngreso: nuevas })
-      }
-      reader.readAsDataURL(f)
-    })
     e.target.value = ''
+    // De a una y esperando cada guardado: acá se lee la lista completa de la
+    // caché y se reescribe entera, así que dos archivos en paralelo leerían la
+    // misma lista y el segundo pisaría al primero. Con `forEach(async …)` no se
+    // esperaba nada y la foto perdida dependía de cuál terminara antes.
+    for (const f of files) {
+      const dataUrl = await comprimirImagenADataUrl(f)
+      const fresca = qc.getQueryData<typeof orden | null>(['orden-por-num', empresaId, num])
+      const nuevas = [...(fresca?.photosIngreso ?? []), dataUrl]
+      await actualizarOrden.mutateAsync({ id: orden.id, photosIngreso: nuevas })
+    }
   }
 
   function stockTotal(p: Producto): number {
