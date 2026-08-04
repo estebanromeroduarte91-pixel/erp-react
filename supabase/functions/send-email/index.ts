@@ -132,19 +132,26 @@ Deno.serve(async (req) => {
 
     if (smtpCfg?.host && smtpCfg?.user && smtpCfg?.password) {
       usedChannel = "smtp";
-      const { SMTPClient } = await import("https://deno.land/x/denomailer@1.6.0/mod.ts");
-      const client = new SMTPClient({
-        connection: {
-          hostname: smtpCfg.host,
-          port: Number(smtpCfg.port || 465),
-          tls: smtpCfg.secure !== false,
-          auth: { username: smtpCfg.user, password: smtpCfg.password },
-        },
-      });
-      const timeout = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("Timeout: el servidor SMTP no respondió en 10s")), 10000)
-      );
+      // La importación de denomailer y la construcción del cliente estaban
+      // FUERA de este try: si fallaba la descarga de la librería o el
+      // constructor, el error saltaba al catch general y la función devolvía
+      // un 400 SIN dejar registro en email_log — el fallo quedaba invisible
+      // tanto para el taller como para nosotros. Ahora todo el camino de
+      // envío queda cubierto y cualquier fallo se registra con su motivo.
+      let client: { send: (o: unknown) => Promise<unknown>; close: () => Promise<void> } | null = null;
       try {
+        const { SMTPClient } = await import("https://deno.land/x/denomailer@1.6.0/mod.ts");
+        client = new SMTPClient({
+          connection: {
+            hostname: smtpCfg.host,
+            port: Number(smtpCfg.port || 465),
+            tls: smtpCfg.secure !== false,
+            auth: { username: smtpCfg.user, password: smtpCfg.password },
+          },
+        });
+        const timeout = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("Timeout: el servidor SMTP no respondió en 10s")), 10000)
+        );
         await Promise.race([
           // denomailer manda multipart/alternative cuando recibe `content`
           // (texto) y `html` juntos.
@@ -153,8 +160,8 @@ Deno.serve(async (req) => {
         ]);
         await client.close();
       } catch (smtpErr) {
-        await client.close().catch(() => {});
-        sendError = String(smtpErr?.message || smtpErr);
+        await client?.close().catch(() => {});
+        sendError = String((smtpErr as Error)?.message || smtpErr);
       }
     } else {
       const resendKey = Deno.env.get("RESEND_API_KEY");
@@ -192,8 +199,35 @@ Deno.serve(async (req) => {
     });
 
   } catch (error) {
+    const motivo = String((error as Error)?.message || error);
+    // Un fallo acá (antes de llegar al envío) no dejaba ningún rastro: el
+    // taller veía "no se pudo enviar" y no había forma de saber por qué,
+    // porque email_log solo se escribía después de intentar el envío.
+    // Se registra con lo que se haya alcanzado a resolver del contexto.
+    try {
+      const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+      const { data: { user } } = await createClient(SUPABASE_URL, ANON_KEY, {
+        global: { headers: { Authorization: req.headers.get("Authorization") || "" } },
+      }).auth.getUser();
+      if (user) {
+        const { data: perfil } = await admin
+          .from("user_profiles").select("empresa_id").eq("id", user.id).maybeSingle();
+        if (perfil?.empresa_id) {
+          await admin.from("email_log").insert({
+            empresa_id: perfil.empresa_id,
+            user_id: user.id,
+            canal: "error",
+            destinatario: "—",
+            asunto: "(falló antes de enviarse)",
+            ok: false,
+            error: motivo,
+          });
+        }
+      }
+    } catch { /* registrar el fallo nunca debe tapar el fallo original */ }
+
     return new Response(
-      JSON.stringify({ ok: false, error: String(error?.message || error) }),
+      JSON.stringify({ ok: false, error: motivo }),
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
