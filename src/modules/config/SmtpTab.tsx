@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { useSmtpConfig, useGuardarSmtpConfig, useEmailLog } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { sendEmail } from '@/lib/email'
-import { diagnosticarRemitente } from '@/lib/correoDiagnostico'
+import { diagnosticarRemitente, diagnosticarConexion } from '@/lib/correoDiagnostico'
 import { Spinner } from '@/components/shared/Spinner'
 import type { SmtpConfig } from '@/types'
 
@@ -20,7 +20,12 @@ export function SmtpTab() {
   const { data: correos } = useEmailLog(20)
   // Se calcula sobre `form` y no sobre lo guardado: así el aviso aparece
   // mientras se escribe, antes de guardar una configuración que no va a andar.
-  const problemas = useMemo(() => diagnosticarRemitente(form), [form])
+  // Primero los de conexión: un puerto/cifrado incompatible impide cualquier
+  // envío, así que importa más que un remitente mal alineado.
+  const problemas = useMemo(
+    () => [...diagnosticarConexion(form), ...diagnosticarRemitente(form)],
+    [form],
+  )
 
   // Ajuste de estado durante el render en vez de useEffect.
   // La contraseña guardada nunca se carga al campo (evita mostrarla en

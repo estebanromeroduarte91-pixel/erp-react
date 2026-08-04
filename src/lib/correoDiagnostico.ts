@@ -34,6 +34,41 @@ const PROVEEDORES_ESTRICTOS = ['gmail.com', 'googlemail.com', 'outlook.com', 'ho
 export const REMITENTE_RESPALDO = 'onboarding@resend.dev'
 
 /**
+ * Revisa que el puerto y el modo de cifrado sean compatibles.
+ *
+ * Verificado contra un servidor real (Exim en el puerto 465): conectarse sin
+ * TLS a 465 no da error, se queda esperando el handshake y muere por timeout a
+ * los 10s. Desde la app eso se veía como "el servidor SMTP no respondió",
+ * apuntando al servidor cuando el problema era la casilla de SSL/TLS.
+ */
+export function diagnosticarConexion(cfg: { port?: number; secure?: boolean }): Diagnostico[] {
+  const puerto = Number(cfg.port)
+  if (!puerto) return []
+
+  // 465 = SMTPS: el cifrado arranca antes de cualquier diálogo. Sin TLS no hay
+  // conversación posible, solo espera hasta que corta.
+  if (puerto === 465 && cfg.secure === false) {
+    return [{
+      severidad: 'error',
+      titulo: 'El puerto 465 necesita SSL/TLS',
+      detalle: 'Con esta combinación el envío no falla: se queda esperando y corta por tiempo agotado ("el servidor no respondió"). Marca la casilla SSL/TLS, o usa el puerto 587 sin marcarla.',
+    }]
+  }
+
+  // 587 = STARTTLS: se abre en texto plano y se cifra después. Forzar TLS
+  // desde el inicio deja al cliente esperando algo que el servidor no manda.
+  if (puerto === 587 && cfg.secure === true) {
+    return [{
+      severidad: 'error',
+      titulo: 'El puerto 587 no usa SSL/TLS directo',
+      detalle: 'El 587 cifra con STARTTLS después de conectar, así que la casilla debe ir desmarcada. Si quieres cifrado directo, usa el puerto 465 con la casilla marcada.',
+    }]
+  }
+
+  return []
+}
+
+/**
  * Revisa la coherencia entre la cuenta SMTP y el remitente configurado.
  * Devuelve la lista de problemas encontrados, en orden de gravedad.
  */

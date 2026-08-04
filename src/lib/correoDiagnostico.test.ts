@@ -1,5 +1,44 @@
 import { describe, it, expect } from 'vitest'
-import { dominioDe, diagnosticarRemitente, REMITENTE_RESPALDO } from './correoDiagnostico'
+import { dominioDe, diagnosticarRemitente, diagnosticarConexion, REMITENTE_RESPALDO } from './correoDiagnostico'
+
+describe('diagnosticarConexion', () => {
+  it('marca ERROR con puerto 465 sin SSL/TLS', () => {
+    // Comprobado contra un servidor Exim real: no rechaza, se cuelga esperando
+    // el handshake y corta a los 10s con "el servidor no respondió".
+    const r = diagnosticarConexion({ port: 465, secure: false })
+    expect(r).toHaveLength(1)
+    expect(r[0].severidad).toBe('error')
+    expect(r[0].detalle).toContain('tiempo agotado')
+  })
+
+  it('acepta puerto 465 con SSL/TLS', () => {
+    expect(diagnosticarConexion({ port: 465, secure: true })).toEqual([])
+  })
+
+  it('marca ERROR con puerto 587 y SSL/TLS directo', () => {
+    const r = diagnosticarConexion({ port: 587, secure: true })
+    expect(r[0].severidad).toBe('error')
+    expect(r[0].titulo).toContain('587')
+  })
+
+  it('acepta puerto 587 sin SSL/TLS (STARTTLS)', () => {
+    expect(diagnosticarConexion({ port: 587, secure: false })).toEqual([])
+  })
+
+  it('no opina sobre puertos no estándar', () => {
+    expect(diagnosticarConexion({ port: 2525, secure: false })).toEqual([])
+  })
+
+  it('no opina si todavía no hay puerto', () => {
+    expect(diagnosticarConexion({})).toEqual([])
+    expect(diagnosticarConexion({ secure: true })).toEqual([])
+  })
+
+  it('no marca error con 465 si el cifrado no se definió (por defecto va con TLS)', () => {
+    // `secure: undefined` = casilla nunca tocada; el servidor lo trata como TLS.
+    expect(diagnosticarConexion({ port: 465 })).toEqual([])
+  })
+})
 
 describe('dominioDe', () => {
   it('extrae el dominio en minúsculas', () => {
