@@ -205,18 +205,6 @@ export function SmtpTab() {
         </p>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-5">
-        <h3 className="text-sm font-bold text-gray-700 mb-1">¿Los correos llegan a spam?</h3>
-        <p className="text-xs text-gray-500 leading-relaxed">
-          Con SMTP propio, que tus correos no caigan en spam depende de los registros
-          <strong> SPF, DKIM y DMARC</strong> del dominio desde el que envías — eso se
-          configura en el DNS de tu dominio, con tu proveedor de correo, no acá. Si no
-          querés lidiar con eso, la pestaña <strong>Dominio</strong> hace ese trabajo por
-          vos: verifica tu dominio en Resend y te entrega los registros DNS listos para
-          copiar, DKIM incluido.
-        </p>
-      </div>
-
       {/* Historial: el dato existía desde siempre en email_log, pero no había
           dónde mirarlo. Un correo que no llegaba se descubría cuando el cliente
           reclamaba — y sin saber por qué había fallado. */}
