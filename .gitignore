@@ -29,3 +29,7 @@ dist-ssr
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+
+# Estado local del CLI de Supabase (host del pooler, versiones, org id):
+# es específico de cada máquina y no debe versionarse, menos en un repo público.
+supabase/.temp/
