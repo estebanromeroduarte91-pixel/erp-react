@@ -2843,6 +2843,39 @@ export function useActualizarLead() {
   })
 }
 
+// ── Historial de correos enviados ─────────────────────────────────
+// `email_log` lo escribe la Edge Function send-email en cada intento, con el
+// error real del servidor cuando falla. Existía desde la Fase 2 pero nadie lo
+// miraba nunca: un correo que no llegaba se descubría cuando el cliente
+// reclamaba. RLS: cada empresa ve solo el suyo.
+export interface CorreoEnviado {
+  id: string
+  canal: string
+  destinatario: string
+  asunto: string
+  ok: boolean
+  error: string | null
+  creado_en: string
+}
+
+export function useEmailLog(limite = 20) {
+  const { empresaId } = useAuth()
+  return useQuery({
+    queryKey: ['email_log', empresaId, limite],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('email_log')
+        .select('id,canal,destinatario,asunto,ok,error,creado_en')
+        .eq('empresa_id', empresaId!)
+        .order('creado_en', { ascending: false })
+        .limit(limite)
+      if (error) throw error
+      return (data ?? []) as CorreoEnviado[]
+    },
+    enabled: !!empresaId,
+  })
+}
+
 // ── Errores de runtime (panel Pixit Admin) ────────────────────────
 // Los que registra src/lib/errorLog.ts desde el navegador de los clientes.
 // RLS: solo platform_admins leen (ver supabase/30_error_log.sql).

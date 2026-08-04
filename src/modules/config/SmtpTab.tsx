@@ -1,7 +1,8 @@
-import { useState } from 'react'
-import { useSmtpConfig, useGuardarSmtpConfig } from '@/lib/queries'
+import { useState, useMemo } from 'react'
+import { useSmtpConfig, useGuardarSmtpConfig, useEmailLog } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { sendEmail } from '@/lib/email'
+import { diagnosticarRemitente } from '@/lib/correoDiagnostico'
 import { Spinner } from '@/components/shared/Spinner'
 import type { SmtpConfig } from '@/types'
 
@@ -15,6 +16,11 @@ export function SmtpTab() {
   const [guardado, setGuardado] = useState(false)
   const [probando, setProbando] = useState(false)
   const [resultado, setResultado] = useState<{ ok: boolean; msg: string } | null>(null)
+
+  const { data: correos } = useEmailLog(20)
+  // Se calcula sobre `form` y no sobre lo guardado: así el aviso aparece
+  // mientras se escribe, antes de guardar una configuración que no va a andar.
+  const problemas = useMemo(() => diagnosticarRemitente(form), [form])
 
   // Ajuste de estado durante el render en vez de useEffect.
   // La contraseña guardada nunca se carga al campo (evita mostrarla en
@@ -144,6 +150,24 @@ export function SmtpTab() {
           </div>
         </div>
 
+        {problemas.length > 0 && (
+          <div className="mt-5 space-y-2">
+            {problemas.map((p, i) => (
+              <div key={i} className={[
+                'px-4 py-3 rounded-xl text-sm border',
+                p.severidad === 'error'
+                  ? 'bg-red-50 text-red-700 border-red-200'
+                  : 'bg-amber-50 text-amber-800 border-amber-200',
+              ].join(' ')}>
+                <p className="font-semibold">
+                  {p.severidad === 'error' ? '⚠ ' : ''}{p.titulo}
+                </p>
+                <p className="mt-0.5 leading-relaxed">{p.detalle}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
         <div className="flex items-center gap-3 mt-5 flex-wrap">
           <button onClick={handleGuardar} disabled={guardar.isPending}
             className="px-5 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 disabled:opacity-60 transition">
@@ -187,6 +211,49 @@ export function SmtpTab() {
           copiar, DKIM incluido.
         </p>
       </div>
+
+      {/* Historial: el dato existía desde siempre en email_log, pero no había
+          dónde mirarlo. Un correo que no llegaba se descubría cuando el cliente
+          reclamaba — y sin saber por qué había fallado. */}
+      {!!correos?.length && (
+        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+            <h3 className="text-sm font-bold text-gray-700">Últimos correos enviados</h3>
+            {(() => {
+              const fallidos = correos.filter(c => !c.ok).length
+              return fallidos > 0
+                ? <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-700">
+                    {fallidos} {fallidos === 1 ? 'falló' : 'fallaron'}
+                  </span>
+                : <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700">
+                    Todos entregados
+                  </span>
+            })()}
+          </div>
+          <div className="divide-y divide-gray-100">
+            {correos.map(c => (
+              <div key={c.id} className="px-5 py-3 flex items-start gap-3">
+                <span className={[
+                  'mt-1 w-2 h-2 rounded-full flex-shrink-0',
+                  c.ok ? 'bg-green-500' : 'bg-red-500',
+                ].join(' ')} />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm text-gray-800 truncate">{c.asunto}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {c.destinatario} · {new Date(c.creado_en).toLocaleString('es-CL')}
+                    {c.canal ? ` · ${c.canal}` : ''}
+                  </p>
+                  {/* El error viene tal cual lo devolvió el servidor: es lo que
+                      permite distinguir una contraseña mala de un buzón lleno. */}
+                  {!c.ok && c.error && (
+                    <p className="text-xs text-red-600 mt-1 break-words">{c.error}</p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
