@@ -18,6 +18,26 @@ import { lazy, type ComponentType } from 'react'
 // la marca nunca se borra) pero se recupera de cada deploy nuevo.
 const KEY_RELOAD = 'pixit_reload_tras_chunk_error'
 
+// Un `location.reload()` a secas NO alcanzaba: el navegador puede responder con
+// el index.html cacheado, que sigue apuntando a los mismos chunks muertos. La
+// página recargaba, volvía a fallar, y como el guard ya había marcado "recargué
+// una vez", el segundo error caía en el ErrorBoundary y la pantalla quedaba en
+// blanco igual. Se vio en el registro de errores: el mismo fallo repitiéndose
+// a las 18:25, 18:29, 18:30 y 18:38 del 2026-08-03.
+//
+// Cambiar la URL (agregando un parámetro que varía) fuerza al navegador a pedir
+// un documento distinto, así que no puede servir la copia vieja. Se conserva el
+// hash porque ahí vive la ruta actual (HashRouter).
+export function urlConCacheBust(href: string, marca = Date.now().toString(36)): string {
+  const url = new URL(href)
+  url.searchParams.set('_v', marca)
+  return url.toString()
+}
+
+export function recargarSinCache(): void {
+  window.location.replace(urlConCacheBust(window.location.href))
+}
+
 export function lazyWithReload<T extends ComponentType<unknown>>(
   factory: () => Promise<{ default: T }>,
 ): ReturnType<typeof lazy<T>> {
@@ -32,7 +52,7 @@ export function lazyWithReload<T extends ComponentType<unknown>>(
         const esErrorDeChunk = /Failed to fetch dynamically imported module|Importing a module script failed|Loading chunk|dynamically imported module/i.test(msg)
         if (esErrorDeChunk && !sessionStorage.getItem(KEY_RELOAD)) {
           sessionStorage.setItem(KEY_RELOAD, '1')
-          window.location.reload()
+          recargarSinCache()
           // Nunca se resuelve: la página se recarga antes de que importe.
           return new Promise<{ default: T }>(() => {})
         }
