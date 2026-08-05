@@ -3,6 +3,10 @@ import { useSmtpConfig, useGuardarSmtpConfig, useEmailLog } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { sendEmail } from '@/lib/email'
 import { diagnosticarRemitente, diagnosticarConexion } from '@/lib/correoDiagnostico'
+import {
+  PROVEEDORES, proveedorPorId, derivarConfig, detectarProveedor, dominioDesdeHost,
+  type ProveedorId,
+} from '@/lib/proveedoresSmtp'
 import { Spinner } from '@/components/shared/Spinner'
 import type { SmtpConfig } from '@/types'
 
@@ -16,6 +20,10 @@ export function SmtpTab() {
   const [guardado, setGuardado] = useState(false)
   const [probando, setProbando] = useState(false)
   const [resultado, setResultado] = useState<{ ok: boolean; msg: string } | null>(null)
+  const [proveedor, setProveedor] = useState<ProveedorId>('manual')
+  const [dominio, setDominio] = useState('')
+  const [detallesAbiertos, setDetallesAbiertos] = useState(false)
+  const prov = proveedorPorId(proveedor)
 
   const { data: correos } = useEmailLog(20)
   // Se calcula sobre `form` y no sobre lo guardado: así el aviso aparece
@@ -35,10 +43,30 @@ export function SmtpTab() {
   if (!cfgSynced && cfg) {
     setCfgSynced(true)
     setForm({ ...cfg, password: '' })
+    // Se arranca en el proveedor que la configuración guardada delata, para no
+    // pedirle de nuevo lo que ya eligió.
+    setProveedor(detectarProveedor(cfg))
+    setDominio(dominioDesdeHost(cfg.host))
   }
 
   function set(k: keyof SmtpConfig, v: string | number | boolean) {
     setForm(f => ({ ...f, [k]: v }))
+  }
+
+  // Elegir proveedor escribe host/puerto/cifrado de una vez. Esos tres datos
+  // dejan de ser responsabilidad del taller, que es el punto de todo esto.
+  function elegirProveedor(id: ProveedorId) {
+    setProveedor(id)
+    setResultado(null)
+    setDetallesAbiertos(false)
+    const derivada = derivarConfig(id, id === 'hosting' ? dominio : '')
+    if (derivada) setForm(f => ({ ...f, ...derivada }))
+  }
+
+  function cambiarDominio(valor: string) {
+    setDominio(valor)
+    const derivada = derivarConfig('hosting', valor)
+    if (derivada) setForm(f => ({ ...f, ...derivada }))
   }
 
   async function handleGuardar() {
@@ -98,34 +126,88 @@ export function SmtpTab() {
           </span>
         </div>
 
+        {/* Selector de proveedor: define host, puerto y cifrado, que son los
+            datos que el taller no tiene por qué conocer — y donde estaba el
+            error caro (465 sin TLS = timeout mudo de 10 segundos). */}
+        <label className="text-xs font-medium text-gray-600 block mb-2">¿Con qué correo envías?</label>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+          {PROVEEDORES.map(p => {
+            const activo = p.id === proveedor
+            return (
+              <button key={p.id} type="button" onClick={() => elegirProveedor(p.id)}
+                className={[
+                  'rounded-lg px-2 py-3 text-center transition',
+                  activo ? 'border-2 border-blue-500 bg-blue-50' : 'border border-gray-200 hover:border-gray-300',
+                ].join(' ')}>
+                <span className={['block text-sm font-medium', activo ? 'text-blue-700' : 'text-gray-600'].join(' ')}>
+                  {p.nombre}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+
+        {prov.pide !== 'nada' && (
+          <div className="mb-4">
+            <label className="text-xs font-medium text-gray-600 block mb-1">{prov.etiquetaPide}</label>
+            <input type="text"
+              value={prov.pide === 'dominio' ? dominio : (form.user ?? '')}
+              onChange={e => prov.pide === 'dominio' ? cambiarDominio(e.target.value) : set('user', e.target.value)}
+              placeholder={prov.ejemploPide} autoComplete="off" name="smtp-ident-no-autofill"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm font-mono bg-gray-50 focus:outline-none focus:border-blue-400" />
+          </div>
+        )}
+
+        {/* El trámite fuera de la app no se puede evitar, pero sí explicarlo:
+            sin esto, quien pega su contraseña normal de Gmail solo recibe
+            "Username and Password not accepted" y no sabe qué hacer. */}
+        {prov.instrucciones && (
+          <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+            <p className="text-sm font-semibold text-amber-800 mb-2">{prov.instrucciones.titulo}</p>
+            <ol className="text-xs text-amber-800 space-y-1 leading-relaxed list-decimal list-inside">
+              {prov.instrucciones.pasos.map((paso, i) => <li key={i}>{paso}</li>)}
+            </ol>
+            <a href={prov.instrucciones.enlace} target="_blank" rel="noreferrer"
+              className="inline-block mt-2 text-xs font-semibold text-blue-600 hover:underline">
+              {prov.instrucciones.textoEnlace} →
+            </a>
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-4">
-          <div className="col-span-2">
-            <label className="text-xs font-medium text-gray-600 block mb-1">Servidor (host)</label>
-            <input type="text" value={form.host ?? ''} onChange={e => set('host', e.target.value)}
-              placeholder="smtp.gmail.com"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm font-mono bg-gray-50 focus:outline-none focus:border-blue-400" />
-          </div>
-          <div>
-            <label className="text-xs font-medium text-gray-600 block mb-1">Puerto</label>
-            <input type="number" value={form.port ?? ''} onChange={e => set('port', +e.target.value)}
-              placeholder="587"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm font-mono bg-gray-50 focus:outline-none focus:border-blue-400" />
-          </div>
-          <div className="flex items-end">
-            <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer pb-2">
-              <input type="checkbox" checked={form.secure ?? false} onChange={e => set('secure', e.target.checked)}
-                className="w-4 h-4 rounded border-gray-300 accent-blue-600" />
-              SSL/TLS (puerto 465)
-            </label>
-          </div>
-          <div>
-            <label className="text-xs font-medium text-gray-600 block mb-1">Usuario / Email</label>
-            <input type="email" value={form.user ?? ''} onChange={e => set('user', e.target.value)}
-              placeholder="tu@gmail.com" autoComplete="off" name="smtp-user-no-autofill"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm font-mono bg-gray-50 focus:outline-none focus:border-blue-400" />
-          </div>
-          <div>
-            <label className="text-xs font-medium text-gray-600 block mb-1">Contraseña / App password</label>
+          {prov.pide === 'nada' && (
+            <>
+              <div className="col-span-2">
+                <label className="text-xs font-medium text-gray-600 block mb-1">Servidor (host)</label>
+                <input type="text" value={form.host ?? ''} onChange={e => set('host', e.target.value)}
+                  placeholder="smtp.gmail.com"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm font-mono bg-gray-50 focus:outline-none focus:border-blue-400" />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-600 block mb-1">Puerto</label>
+                <input type="number" value={form.port ?? ''} onChange={e => set('port', +e.target.value)}
+                  placeholder="587"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm font-mono bg-gray-50 focus:outline-none focus:border-blue-400" />
+              </div>
+              <div className="flex items-end">
+                <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer pb-2">
+                  <input type="checkbox" checked={form.secure ?? false} onChange={e => set('secure', e.target.checked)}
+                    className="w-4 h-4 rounded border-gray-300 accent-blue-600" />
+                  SSL/TLS (puerto 465)
+                </label>
+              </div>
+            </>
+          )}
+          {prov.pide !== 'correo' && (
+            <div className={prov.pide === 'nada' ? '' : 'col-span-2'}>
+              <label className="text-xs font-medium text-gray-600 block mb-1">Usuario / Email</label>
+              <input type="email" value={form.user ?? ''} onChange={e => set('user', e.target.value)}
+                placeholder="contacto@mitaller.cl" autoComplete="off" name="smtp-user-no-autofill"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm font-mono bg-gray-50 focus:outline-none focus:border-blue-400" />
+            </div>
+          )}
+          <div className={prov.pide === 'nada' ? '' : 'col-span-2'}>
+            <label className="text-xs font-medium text-gray-600 block mb-1">{prov.etiquetaPassword}</label>
             <div className="relative">
               <input type={showPw ? 'text' : 'password'} value={form.password ?? ''} onChange={e => set('password', e.target.value)}
                 placeholder={hasStoredPw ? '•••••••• (sin cambios)' : '••••••••'} autoComplete="new-password" name="smtp-password-no-autofill"
@@ -154,6 +236,57 @@ export function SmtpTab() {
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
           </div>
         </div>
+
+        {prov.notaRemitente && (
+          <p className="mt-3 text-xs text-gray-500 leading-relaxed">{prov.notaRemitente}</p>
+        )}
+
+        {/* Los datos técnicos quedan a la vista aunque los ponga la app: cuando
+            algo falle, hace falta poder mirarlos — y corregirlos si el patrón
+            `mail.<dominio>` no acertó con ese hosting. */}
+        {prov.pide !== 'nada' && form.host && (
+          <div className="mt-4 pt-3 border-t border-gray-100">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-gray-500">Datos técnicos, ya resueltos</span>
+              <button type="button" onClick={() => setDetallesAbiertos(v => !v)}
+                className="text-xs font-semibold text-blue-600 hover:underline">
+                {detallesAbiertos ? 'Ocultar' : 'Editar'}
+              </button>
+            </div>
+            {!detallesAbiertos ? (
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                <span className="text-xs font-mono bg-gray-50 rounded-md px-2 py-1 text-gray-500">{form.host}</span>
+                <span className="text-xs font-mono bg-gray-50 rounded-md px-2 py-1 text-gray-500">puerto {form.port}</span>
+                <span className={[
+                  'text-xs rounded-md px-2 py-1',
+                  form.secure ? 'bg-green-50 text-green-700' : 'bg-gray-50 text-gray-500',
+                ].join(' ')}>
+                  {form.secure ? 'SSL/TLS activo' : 'STARTTLS'}
+                </span>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3 mt-2">
+                <div className="col-span-2">
+                  <label className="text-xs font-medium text-gray-600 block mb-1">Servidor (host)</label>
+                  <input type="text" value={form.host ?? ''} onChange={e => set('host', e.target.value)}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm font-mono bg-gray-50 focus:outline-none focus:border-blue-400" />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-600 block mb-1">Puerto</label>
+                  <input type="number" value={form.port ?? ''} onChange={e => set('port', +e.target.value)}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm font-mono bg-gray-50 focus:outline-none focus:border-blue-400" />
+                </div>
+                <div className="flex items-end">
+                  <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer pb-2">
+                    <input type="checkbox" checked={form.secure ?? false} onChange={e => set('secure', e.target.checked)}
+                      className="w-4 h-4 rounded border-gray-300 accent-blue-600" />
+                    SSL/TLS
+                  </label>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {problemas.length > 0 && (
           <div className="mt-5 space-y-2">
