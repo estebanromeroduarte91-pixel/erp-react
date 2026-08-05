@@ -4,6 +4,7 @@ import { gastosPorSucursal } from '@/lib/gastos'
 import { Spinner } from '@/components/shared/Spinner'
 import { useIsMobile } from '@/lib/useIsMobile'
 import { fechaLocal } from '@/lib/fecha'
+import type { Gasto, OC } from '@/types'
 
 const fmt = (n: number) => '$' + Math.round(n).toLocaleString('es-CL')
 const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
@@ -57,10 +58,10 @@ function MiniBarChart({ bars, color }: { bars: { h: number; lbl: string; cur: bo
 }
 
 // Horizontal progress bar item
-function HBar({ label, value, total, color }: { label: string; value: number; total: number; color: string }) {
+function HBar({ label, value, total, color, onClick }: { label: string; value: number; total: number; color: string; onClick?: () => void }) {
   const pct = total > 0 ? Math.round(value / total * 100) : 0
   return (
-    <div style={{ marginBottom: 8 }}>
+    <button type="button" onClick={onClick} disabled={!onClick} style={{ display: 'block', width: '100%', marginBottom: 8, padding: 0, border: 0, background: 'transparent', fontFamily: 'inherit', textAlign: 'left', cursor: onClick ? 'pointer' : 'default' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11, marginBottom: 3 }}>
         <span style={{ color: '#374151', fontWeight: 600, flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0, marginLeft: 6 }}>
@@ -71,12 +72,12 @@ function HBar({ label, value, total, color }: { label: string; value: number; to
       <div style={{ height: 4, background: '#f1f5f9', borderRadius: 99, overflow: 'hidden' }}>
         <div style={{ height: '100%', background: color, width: `${pct}%`, borderRadius: 99 }} />
       </div>
-    </div>
+    </button>
   )
 }
 
 // Collapsible desglose section
-function Desglose({ entries, total, color, label }: { entries: [string, number][]; total: number; color: string; label: string }) {
+function Desglose({ entries, total, color, label, onSelect }: { entries: [string, number][]; total: number; color: string; label: string; onSelect?: (name: string) => void }) {
   const [open, setOpen] = useState(false)
   if (!entries.length) return null
   return (
@@ -93,11 +94,75 @@ function Desglose({ entries, total, color, label }: { entries: [string, number][
       {open && (
         <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid #f1f5f9' }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 8 }}>Por {label}</div>
-          {entries.slice(0, 5).map(([name, val]) => (
-            <HBar key={name} label={name} value={val} total={total} color={color} />
+          {entries.map(([name, val]) => (
+            <HBar key={name} label={name} value={val} total={total} color={color} onClick={onSelect ? () => onSelect(name) : undefined} />
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+function DetalleDesglose({ tipo, nombre, gastos, compras, range, onClose }: {
+  tipo: 'gastos' | 'compras'
+  nombre: string
+  gastos: Gasto[]
+  compras: OC[]
+  range: { from: string; to: string }
+  onClose: () => void
+}) {
+  const esCompras = tipo === 'compras'
+  const total = esCompras
+    ? compras.reduce((s, o) => s + (+o.total || 0), 0)
+    : gastos.reduce((s, g) => s + (+g.monto || 0), 0)
+  return (
+    <div onClick={e => { if (e.target === e.currentTarget) onClose() }} style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(15,23,42,.48)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <div style={{ width: '100%', maxWidth: 680, maxHeight: '86dvh', display: 'flex', flexDirection: 'column', background: '#fff', borderRadius: 16, boxShadow: '0 24px 60px rgba(15,23,42,.25)', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '18px 20px', borderBottom: '1px solid #e5e7eb' }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{ margin: 0, fontSize: 17, fontWeight: 800, color: '#111827' }}>{nombre}</p>
+            <p style={{ margin: '3px 0 0', fontSize: 12, color: '#6b7280' }}>
+              {esCompras ? 'Compras al proveedor' : 'Gastos de la categoría'} · {range.from} al {range.to}
+            </p>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Cerrar detalle" style={{ width: 32, height: 32, borderRadius: 8, border: 0, background: '#f3f4f6', color: '#6b7280', cursor: 'pointer', fontSize: 18 }}>×</button>
+        </div>
+        <div style={{ overflowY: 'auto', padding: '6px 20px 16px' }}>
+          {esCompras ? compras.map(o => (
+            <div key={o.id} style={{ padding: '13px 0', borderBottom: '1px solid #eef2f7' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#1f2937' }}>OC {o.numero || '—'}</div>
+                  <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>{o.fecha} · {o.bodega_nombre || 'Sin sucursal'}</div>
+                </div>
+                <strong style={{ fontSize: 13, color: '#111827', whiteSpace: 'nowrap' }}>{fmt(+o.total || 0)}</strong>
+              </div>
+              {(o.items ?? []).length > 0 && (
+                <div style={{ marginTop: 8, padding: '7px 9px', borderRadius: 8, background: '#f8fafc' }}>
+                  {o.items.map(item => (
+                    <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '3px 0', fontSize: 11 }}>
+                      <span style={{ color: '#475569' }}>{item.producto_nombre} · {item.cantidad} ud.</span>
+                      <span style={{ color: '#64748b', whiteSpace: 'nowrap' }}>{fmt(+item.subtotal || 0)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )) : gastos.map(g => (
+            <div key={g.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '12px 0', borderBottom: '1px solid #eef2f7' }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 650, color: '#1f2937' }}>{g.descripcion || 'Sin descripción'}</div>
+                <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>{g.fecha}{g.subcategoria ? ` · ${g.subcategoria}` : ''}{g.bodega_nombre ? ` · ${g.bodega_nombre}` : ''}</div>
+              </div>
+              <strong style={{ fontSize: 13, color: '#111827', whiteSpace: 'nowrap' }}>{fmt(+g.monto || 0)}</strong>
+            </div>
+          ))}
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', borderTop: '1px solid #e5e7eb', background: '#f8fafc' }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: '#64748b' }}>{esCompras ? compras.length : gastos.length} registro{(esCompras ? compras.length : gastos.length) !== 1 ? 's' : ''}</span>
+          <span style={{ fontSize: 16, fontWeight: 800, color: esCompras ? '#2563eb' : '#ef4444' }}>Total {fmt(total)}</span>
+        </div>
+      </div>
     </div>
   )
 }
@@ -110,6 +175,7 @@ export function EstadisticasPage() {
   const [tab, setTab] = useState<Tab>('mes')
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
+  const [detalle, setDetalle] = useState<{ tipo: 'gastos' | 'compras'; nombre: string } | null>(null)
   const fromRef = useRef<HTMLInputElement>(null)
   const toRef = useRef<HTMLInputElement>(null)
 
@@ -224,7 +290,7 @@ export function EstadisticasPage() {
       totalVentas, ventasNetas, totalGastos, totalCompras, totalCosto, utilidad, ordenesOk, ticketProm,
       bSales, maxBSales, bUtil, topProds, maxQty, catSorted, provSorted,
       meses6, maxMG, maxMC, maxMO,
-      cntVentas: ventasArr.length,
+      cntVentas: ventasArr.length, gastosArr, ocsArr,
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ventas, gastos, ordenes, ocs, productos, bodegas, range, last6])
@@ -377,7 +443,8 @@ export function EstadisticasPage() {
               </div>
             ))}
           </div>
-          <Desglose entries={stats.catSorted} total={stats.totalGastos} color="#ef4444" label="categoría" />
+          <Desglose entries={stats.catSorted} total={stats.totalGastos} color="#ef4444" label="categoría"
+            onSelect={nombre => setDetalle({ tipo: 'gastos', nombre })} />
         </div>
 
         {/* Compras por mes */}
@@ -398,7 +465,8 @@ export function EstadisticasPage() {
               </div>
             ))}
           </div>
-          <Desglose entries={stats.provSorted} total={stats.totalCompras} color="#2563eb" label="proveedor" />
+          <Desglose entries={stats.provSorted} total={stats.totalCompras} color="#2563eb" label="proveedor"
+            onSelect={nombre => setDetalle({ tipo: 'compras', nombre })} />
         </div>
 
         {/* Órdenes completadas por mes */}
@@ -427,6 +495,20 @@ export function EstadisticasPage() {
           )}
         </div>
       </div>
+      {detalle && (
+        <DetalleDesglose
+          tipo={detalle.tipo}
+          nombre={detalle.nombre}
+          range={range}
+          gastos={detalle.tipo === 'gastos'
+            ? stats.gastosArr.filter(g => (g.categoria || 'Sin categoría') === detalle.nombre)
+            : []}
+          compras={detalle.tipo === 'compras'
+            ? stats.ocsArr.filter(o => (o.proveedor_nombre || 'Sin proveedor') === detalle.nombre)
+            : []}
+          onClose={() => setDetalle(null)}
+        />
+      )}
     </div>
   )
 }
