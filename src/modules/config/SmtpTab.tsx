@@ -7,8 +7,18 @@ import {
   PROVEEDORES, proveedorPorId, derivarConfig, detectarProveedor, dominioDesdeHost,
   type ProveedorId,
 } from '@/lib/proveedoresSmtp'
+import { IconBrandGoogle, IconBrandWindows, IconServer, IconAdjustments } from '@tabler/icons-react'
 import { Spinner } from '@/components/shared/Spinner'
 import type { SmtpConfig } from '@/types'
+
+// El módulo de proveedores se mantiene sin dependencias de React (se testea
+// como lógica pura), así que el nombre del ícono se resuelve acá.
+const ICONOS: Record<string, typeof IconServer> = {
+  'brand-google': IconBrandGoogle,
+  'brand-windows': IconBrandWindows,
+  'server': IconServer,
+  'adjustments': IconAdjustments,
+}
 
 export function SmtpTab() {
   const { data: cfg, isLoading } = useSmtpConfig()
@@ -133,12 +143,15 @@ export function SmtpTab() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
           {PROVEEDORES.map(p => {
             const activo = p.id === proveedor
+            const Icono = ICONOS[p.icono] ?? IconAdjustments
             return (
               <button key={p.id} type="button" onClick={() => elegirProveedor(p.id)}
                 className={[
                   'rounded-lg px-2 py-3 text-center transition',
                   activo ? 'border-2 border-blue-500 bg-blue-50' : 'border border-gray-200 hover:border-gray-300',
                 ].join(' ')}>
+                <Icono size={20} stroke={1.6} aria-hidden="true"
+                  className={['mx-auto mb-1', activo ? 'text-blue-600' : 'text-gray-400'].join(' ')} />
                 <span className={['block text-sm font-medium', activo ? 'text-blue-700' : 'text-gray-600'].join(' ')}>
                   {p.nombre}
                 </span>
