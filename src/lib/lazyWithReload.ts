@@ -17,6 +17,23 @@ import { lazy, type ComponentType } from 'react'
 // Con la limpieza, el guard sigue evitando el loop (si el chunk nunca carga,
 // la marca nunca se borra) pero se recupera de cada deploy nuevo.
 const KEY_RELOAD = 'pixit_reload_tras_chunk_error'
+const MAX_REINTENTOS = 3
+const VENTANA_REINTENTOS_MS = 60_000
+
+interface EstadoReintento {
+  intentos: number
+  ultimo: number
+}
+
+function leerEstadoReintento(): EstadoReintento {
+  try {
+    const estado = JSON.parse(sessionStorage.getItem(KEY_RELOAD) ?? 'null') as EstadoReintento | null
+    if (!estado || Date.now() - estado.ultimo > VENTANA_REINTENTOS_MS) return { intentos: 0, ultimo: 0 }
+    return estado
+  } catch {
+    return { intentos: 0, ultimo: 0 }
+  }
+}
 
 // Un `location.reload()` a secas NO alcanzaba: el navegador puede responder con
 // el index.html cacheado, que sigue apuntando a los mismos chunks muertos. La
@@ -34,8 +51,9 @@ export function urlConCacheBust(href: string, marca = Date.now().toString(36)): 
   return url.toString()
 }
 
-export function recargarSinCache(): void {
-  window.location.replace(urlConCacheBust(window.location.href))
+export function recargarSinCache(demoraMs = 0): void {
+  const destino = urlConCacheBust(window.location.href)
+  window.setTimeout(() => window.location.replace(destino), demoraMs)
 }
 
 export function lazyWithReload<T extends ComponentType<unknown>>(
@@ -45,14 +63,24 @@ export function lazyWithReload<T extends ComponentType<unknown>>(
     factory()
       .then((mod) => {
         sessionStorage.removeItem(KEY_RELOAD)
+        const url = new URL(window.location.href)
+        if (url.searchParams.has('_v')) {
+          url.searchParams.delete('_v')
+          window.history.replaceState(null, '', url.toString())
+        }
         return mod
       })
       .catch((err: unknown) => {
         const msg = String(err instanceof Error ? err.message : err)
         const esErrorDeChunk = /Failed to fetch dynamically imported module|Importing a module script failed|Loading chunk|dynamically imported module/i.test(msg)
-        if (esErrorDeChunk && !sessionStorage.getItem(KEY_RELOAD)) {
-          sessionStorage.setItem(KEY_RELOAD, '1')
-          recargarSinCache()
+        const estado = leerEstadoReintento()
+        if (esErrorDeChunk && estado.intentos < MAX_REINTENTOS) {
+          const intento = estado.intentos + 1
+          sessionStorage.setItem(KEY_RELOAD, JSON.stringify({ intentos: intento, ultimo: Date.now() }))
+          // Cloudflare puede publicar index.html antes de que todos los chunks
+          // estén disponibles globalmente. Reintenta hasta tres veces con una
+          // URL nueva y un margen creciente, sin crear un bucle infinito.
+          recargarSinCache(intento * 700)
           // Nunca se resuelve: la página se recarga antes de que importe.
           return new Promise<{ default: T }>(() => {})
         }

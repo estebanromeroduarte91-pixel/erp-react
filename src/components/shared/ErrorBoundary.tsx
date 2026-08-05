@@ -55,7 +55,7 @@ export class ErrorBoundary extends Component<Props, State> {
               {/* Recarga esquivando el caché: si el error fue por chunks de un
                   deploy viejo, un reload normal puede volver a servir el mismo
                   index.html cacheado y fallar igual. */}
-              <button onClick={recargarSinCache}
+              <button onClick={() => recargarSinCache()}
                 className="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition">
                 Recargar página
               </button>
