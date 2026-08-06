@@ -80,6 +80,23 @@ Deno.serve(async (req) => {
     return json({ ok: false, error: "El cuerpo no es JSON válido" }, 400);
   }
 
+  const tema = req.headers.get("X-WC-Webhook-Topic") ?? "";
+
+  // Producto eliminado en la tienda: se desmarca en Pixit. Sin esto, el
+  // producto seguía marcado "vender online" y la sincronización lo volvía a
+  // crear en el siguiente cambio de precio o stock — borrarlo no servía.
+  if (tema.startsWith("product.")) {
+    if (tema !== "product.deleted") {
+      return json({ ok: true, ignorado: `El evento ${tema} no requiere acción` });
+    }
+    const { data, error: e } = await admin.rpc("fn_woo_producto_eliminado", {
+      p_token: token, p_woo_id: Number(pedido.id),
+    });
+    if (e) return json({ ok: false, error: e.message }, 500);
+    console.log("woo-webhook producto eliminado", pedido.id, JSON.stringify(data));
+    return json(data);
+  }
+
   const orderId = String(pedido.id ?? pedido.number ?? "");
   if (!orderId) return json({ ok: false, error: "El pedido no trae identificador" }, 400);
 

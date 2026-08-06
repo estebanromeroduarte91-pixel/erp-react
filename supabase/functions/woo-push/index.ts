@@ -93,7 +93,10 @@ Deno.serve(async (req) => {
   if (!await autorizado(req)) return json({ ok: false, error: "No autorizado" }, 401);
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
-  const { data: pendientes, error } = await admin.rpc("fn_woo_pendientes", { p_limite: 20 });
+  // 50 por llamada: a ~0,5 s por producto son unos 25 s, dentro del tiempo que
+  // tolera una Edge Function. Lo que no entra queda en la cola para la próxima
+  // (solo se borra de la cola lo que se sincronizó bien).
+  const { data: pendientes, error } = await admin.rpc("fn_woo_pendientes", { p_limite: 50 });
   if (error) return json({ ok: false, error: error.message }, 500);
 
   const lista = (pendientes ?? []) as Pendiente[];
