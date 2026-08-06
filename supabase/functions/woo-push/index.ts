@@ -52,8 +52,33 @@ async function llamarWoo(p: Pendiente, ruta: string, metodo: string, cuerpo?: un
   return data;
 }
 
+const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+
+// La anon key es un JWT válido y es PÚBLICA (viaja en el bundle del navegador),
+// así que `verify_jwt` sola no autoriza nada: dejaba que cualquiera disparara
+// sincronizaciones contra la tienda. Se exige o bien la service_role (la usa el
+// cron) o bien una persona con sesión real y perfil de la empresa.
+async function autorizado(req: Request): Promise<boolean> {
+  const cabecera = req.headers.get("Authorization") ?? "";
+  const jwt = cabecera.replace("Bearer ", "").trim();
+  if (!jwt || jwt === ANON_KEY) return false;
+  if (jwt === SERVICE_ROLE_KEY) return true;
+
+  const userClient = createClient(SUPABASE_URL, ANON_KEY, {
+    global: { headers: { Authorization: cabecera } },
+  });
+  const { data, error } = await userClient.auth.getUser(jwt);
+  if (error || !data?.user) return false;
+
+  const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+  const { data: perfil } = await admin
+    .from("user_profiles").select("empresa_id").eq("id", data.user.id).maybeSingle();
+  return !!perfil?.empresa_id;
+}
+
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ ok: false, error: "Método no permitido" }, 405);
+  if (!await autorizado(req)) return json({ ok: false, error: "No autorizado" }, 401);
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
   const { data: pendientes, error } = await admin.rpc("fn_woo_pendientes", { p_limite: 20 });
