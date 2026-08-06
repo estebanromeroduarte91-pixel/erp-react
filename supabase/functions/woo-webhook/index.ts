@@ -1,78 +1,101 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+// Recibe los webhooks de WooCommerce y sincroniza el stock en Pixit.
+//
+// Reescrita: la versión anterior no podía funcionar contra este esquema
+// (buscaba columnas que ya no existen) y además estaba bloqueada por
+// `verify_jwt`. WooCommerce autentica con su propia firma HMAC, no con un
+// token de Supabase, así que esta función DEBE desplegarse con:
+//
+//   supabase functions deploy woo-webhook --no-verify-jwt
+//
+// La seguridad no se pierde: se valida la firma HMAC contra el secreto de ESE
+// taller, y sin firma válida no se toca nada.
 
-const EMPRESA_ID = Deno.env.get('EMPRESA_ID') ?? 'default';
-const WOO_SECRET = Deno.env.get('WOO_WEBHOOK_SECRET') ?? '';
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const sb = createClient(
-  Deno.env.get('SUPABASE_URL')!,
-  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-);
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-async function verificarFirma(req: Request, body: string): Promise<boolean> {
-  if (!WOO_SECRET) return true;
-  const firma = req.headers.get('X-WC-Webhook-Signature');
-  if (!firma) return false;
-  const encoder = new TextEncoder();
-  const cryptoKey = await crypto.subtle.importKey('raw', encoder.encode(WOO_SECRET), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-  const signatureBuffer = await crypto.subtle.sign('HMAC', cryptoKey, encoder.encode(body));
-  const signatureBase64 = btoa(String.fromCharCode(...new Uint8Array(signatureBuffer)));
-  return signatureBase64 === firma;
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+  });
 }
 
-Deno.serve(async (req: Request) => {
-  if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 });
+/** Compara sin filtrar por dónde difieren las cadenas (evita timing attacks). */
+function igualSeguro(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let dif = 0;
+  for (let i = 0; i < a.length; i++) dif |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return dif === 0;
+}
 
-  const bodyText = await req.text();
-  if (!(await verificarFirma(req, bodyText))) return new Response('Unauthorized', { status: 401 });
+async function firmaEsperada(secret: string, cuerpo: string): Promise<string> {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"],
+  );
+  const firma = await crypto.subtle.sign("HMAC", key, enc.encode(cuerpo));
+  return btoa(String.fromCharCode(...new Uint8Array(firma)));
+}
 
-  let order: any;
-  try { order = JSON.parse(bodyText); } catch { return new Response('Bad JSON', { status: 400 }); }
+Deno.serve(async (req) => {
+  if (req.method !== "POST") return json({ ok: false, error: "Método no permitido" }, 405);
 
-  const evento = req.headers.get('X-WC-Webhook-Topic') ?? '';
-  const orderId = order.id ?? '?';
-  console.log(`Webhook: ${evento} | Pedido: ${orderId}`);
+  // El token identifica al taller. Antes la empresa venía fija en una variable
+  // de entorno, así que una sola función servía a un solo cliente.
+  const token = new URL(req.url).searchParams.get("t")?.trim() ?? "";
+  if (!/^[a-f0-9]{48}$/i.test(token)) return json({ ok: false, error: "Enlace inválido" }, 400);
 
-  let delta = 0;
-  let tipo: string;
-  if (evento === 'order.completed') { delta = -1; tipo = 'woocommerce'; }
-  else if (evento === 'order.cancelled' || evento === 'order.refunded') { delta = +1; tipo = 'devolucion'; }
-  else return new Response(JSON.stringify({ ok: true, msg: 'evento ignorado' }), { headers: { 'Content-Type': 'application/json' } });
+  const cuerpo = await req.text();
+  const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
-  const lineItems: any[] = order.line_items ?? [];
-  const resultados: any[] = [];
+  const { data: conn } = await admin
+    .from("woo_conexiones")
+    .select("secret")
+    .eq("token", token)
+    .eq("activa", true)
+    .maybeSingle();
+  if (!conn) return json({ ok: false, error: "Conexión no encontrada" }, 404);
 
-  for (const item of lineItems) {
-    const wooId = item.product_id;
-    const cantidad = item.quantity ?? 1;
-
-    const { data: productos, error: fetchErr } = await sb
-      .from('productos')
-      .select('id, nombre, stock')
-      .eq('woocommerce_product_id', wooId)
-      .eq('empresa_id', EMPRESA_ID)
-      .limit(1);
-
-    if (fetchErr || !productos?.length) {
-      console.warn(`Producto WC ${wooId} no encontrado en ERP`);
-      resultados.push({ wooId, ok: false, error: 'no encontrado' });
-      continue;
-    }
-
-    const prod = productos[0];
-    const stockAntes = prod.stock ?? 0;
-    const cambio = delta * cantidad;
-    const stockDespues = Math.max(0, stockAntes + cambio);
-
-    await sb.from('productos').update({ stock: stockDespues, updated_at: new Date().toISOString() }).eq('id', prod.id);
-    await sb.from('movimientos_stock').insert({
-      empresa_id: EMPRESA_ID, producto_id: prod.id, tipo,
-      cantidad: cambio, stock_antes: stockAntes, stock_despues: stockDespues,
-      referencia: `Pedido WC #${orderId}`, notas: `${item.name} × ${cantidad}`,
-    });
-
-    console.log(`✓ ${prod.nombre}: ${stockAntes} → ${stockDespues}`);
-    resultados.push({ wooId, nombre: prod.nombre, ok: true, stockAntes, stockDespues });
+  const firmaRecibida = req.headers.get("X-WC-Webhook-Signature") ?? "";
+  if (!firmaRecibida || !igualSeguro(firmaRecibida, await firmaEsperada(conn.secret, cuerpo))) {
+    return json({ ok: false, error: "Firma inválida" }, 401);
   }
 
-  return new Response(JSON.stringify({ ok: true, orderId, evento, resultados }), { headers: { 'Content-Type': 'application/json' } });
+  let pedido: { id?: number | string; number?: string; line_items?: unknown[] };
+  try {
+    pedido = JSON.parse(cuerpo);
+  } catch {
+    return json({ ok: false, error: "El cuerpo no es JSON válido" }, 400);
+  }
+
+  const topic = req.headers.get("X-WC-Webhook-Topic") ?? "";
+  const orderId = String(pedido.id ?? pedido.number ?? "");
+  if (!orderId) return json({ ok: false, error: "El pedido no trae identificador" }, 400);
+
+  // Se manda solo lo necesario: SKU y cantidad. El emparejamiento y la escritura
+  // ocurren dentro de fn_woo_aplicar_pedido, en una sola transacción.
+  const items = (pedido.line_items ?? []).map((i) => {
+    const item = i as { sku?: string; quantity?: number; name?: string };
+    return { sku: item.sku ?? "", cantidad: item.quantity ?? 1, nombre: item.name ?? "" };
+  });
+
+  const { data, error } = await admin.rpc("fn_woo_aplicar_pedido", {
+    p_token: token,
+    p_order_id: orderId,
+    p_topic: topic,
+    p_items: items,
+  });
+
+  if (error) {
+    console.error("woo-webhook", orderId, topic, error.message);
+    return json({ ok: false, error: error.message }, 500);
+  }
+
+  // Se responde 200 aunque haya productos sin emparejar: para WooCommerce el
+  // webhook se entregó bien, y reintentarlo no cambiaría el resultado. Lo que
+  // no calzó viaja en la respuesta y queda en el historial de movimientos.
+  console.log("woo-webhook", orderId, topic, JSON.stringify(data));
+  return json(data);
 });
