@@ -63,16 +63,21 @@ Deno.serve(async (req) => {
     return json({ ok: false, error: "Firma inválida" }, 401);
   }
 
-  let pedido: { id?: number | string; number?: string; line_items?: unknown[] };
+  let pedido: { id?: number | string; number?: string; status?: string; line_items?: unknown[] };
   try {
     pedido = JSON.parse(cuerpo);
   } catch {
     return json({ ok: false, error: "El cuerpo no es JSON válido" }, 400);
   }
 
-  const topic = req.headers.get("X-WC-Webhook-Topic") ?? "";
   const orderId = String(pedido.id ?? pedido.number ?? "");
   if (!orderId) return json({ ok: false, error: "El pedido no trae identificador" }, 400);
+
+  // Lo que decide si se mueve el stock es el ESTADO del pedido, no el nombre del
+  // evento: WooCommerce manda todos los cambios como `order.updated` y no existe
+  // un evento `order.completed`.
+  const estado = String(pedido.status ?? "");
+  if (!estado) return json({ ok: true, ignorado: "El pedido no trae estado" });
 
   // Se manda solo lo necesario: SKU y cantidad. El emparejamiento y la escritura
   // ocurren dentro de fn_woo_aplicar_pedido, en una sola transacción.
@@ -84,18 +89,18 @@ Deno.serve(async (req) => {
   const { data, error } = await admin.rpc("fn_woo_aplicar_pedido", {
     p_token: token,
     p_order_id: orderId,
-    p_topic: topic,
+    p_estado: estado,
     p_items: items,
   });
 
   if (error) {
-    console.error("woo-webhook", orderId, topic, error.message);
+    console.error("woo-webhook", orderId, estado, error.message);
     return json({ ok: false, error: error.message }, 500);
   }
 
   // Se responde 200 aunque haya productos sin emparejar: para WooCommerce el
   // webhook se entregó bien, y reintentarlo no cambiaría el resultado. Lo que
   // no calzó viaja en la respuesta y queda en el historial de movimientos.
-  console.log("woo-webhook", orderId, topic, JSON.stringify(data));
+  console.log("woo-webhook", orderId, estado, JSON.stringify(data));
   return json(data);
 });
