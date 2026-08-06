@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { useProductos, useBodegas, useEliminarProducto, useEliminarTodosProductos, useImportarProductos, useFijarStock, useLotes, useCrearLotes } from '@/lib/queries'
+import { useProductos, useBodegas, useEliminarProducto, useEliminarTodosProductos, useImportarProductos, useFijarStock, useLotes, useCrearLotes, useSincronizarTienda } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { useIsMobile } from '@/lib/useIsMobile'
 import { Money } from '@/components/shared/Money'
@@ -127,6 +127,26 @@ export function ProductosTab() {
   const [bajosStock, setBajosStock] = useState(false)
   const [filtrosSheetOpen, setFiltrosSheetOpen] = useState(false)
   const [accionesMenuOpen, setAccionesMenuOpen] = useState(false)
+  const sincronizar = useSincronizarTienda()
+
+  async function sincronizarTienda() {
+    try {
+      const r = await sincronizar.mutateAsync()
+      const fallidos = (r.resultados ?? []).filter(x => !x.ok)
+      if (!r.procesados) {
+        alert('No hay cambios pendientes de enviar a la tienda.')
+      } else if (fallidos.length) {
+        // Se muestra el mensaje textual de WooCommerce: es el que dice qué
+        // corregir (credenciales, permisos, SKU repetido…).
+        alert(`${r.procesados - fallidos.length} de ${r.procesados} productos actualizados.\n\nFallaron:\n` +
+          fallidos.map(f => `· ${f.sku}: ${f.error}`).join('\n'))
+      } else {
+        alert(`${r.procesados} producto(s) actualizado(s) en la tienda.`)
+      }
+    } catch (e) {
+      alert('No se pudo sincronizar: ' + ((e as Error).message || 'error desconocido'))
+    }
+  }
   const [modalOpen, setModalOpen]       = useState(false)
   const [editando, setEditando]         = useState<Producto | null>(null)
   const [importModal, setImportModal]     = useState(false)
@@ -414,6 +434,17 @@ export function ProductosTab() {
           <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
         </svg>
         Lotes de apertura
+      </button>
+      {/* Los triggers de la base van encolando los cambios solos; esto solo
+          adelanta el procesamiento en vez de esperar al próximo ciclo. */}
+      <button onClick={() => { sincronizarTienda(); setAccionesMenuOpen(false) }}
+        disabled={sincronizar.isPending}
+        title="Publica en WooCommerce los productos marcados 'vender online' cuyo precio o stock cambió"
+        className="flex items-center gap-2 text-sm font-semibold px-3 py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-60 transition">
+        <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+        {sincronizar.isPending ? 'Sincronizando…' : 'Sincronizar tienda'}
       </button>
     </>
   )

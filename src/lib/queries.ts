@@ -408,7 +408,7 @@ export function useChecklist() {
 // se rehidrata desde `producto_stock` para que los consumidores mantengan la misma forma.
 // Todas las claves de caché cuelgan de ['productos', empresaId] para que una sola
 // invalidación cubra tanto la lista como las búsquedas.
-const PRODUCTO_COLS = 'id,nombre,sku,unidad,precio_compra,precio_venta,stock_min,categoria,subcategoria,enlace,descripcion,tipo, producto_stock(bodega_id,cantidad)'
+const PRODUCTO_COLS = 'id,nombre,sku,unidad,precio_compra,precio_venta,stock_min,categoria,subcategoria,enlace,descripcion,tipo,vender_online, producto_stock(bodega_id,cantidad)'
 
 function hidratarProducto(row: Record<string, unknown>): Producto {
   const stock_sucursales: Record<string, number> = {}
@@ -440,6 +440,7 @@ function filaProducto(p: Producto, empresaId: string) {
     enlace: p.enlace ?? null,
     descripcion: p.descripcion ?? null,
     tipo: p.tipo === 'servicio' ? 'servicio' : 'producto',
+    vender_online: p.vender_online === true,
   }
 }
 
@@ -2840,6 +2841,32 @@ export function useActualizarLead() {
       if (error) throw error
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['pixit_admin_leads'] }),
+  })
+}
+
+// ── Tienda online (WooCommerce) ───────────────────────────────────
+// Empuja a la tienda los productos marcados "vender online" cuyo precio o
+// stock cambió. Los triggers de la base van llenando la cola sola; esto solo
+// dispara el procesamiento sin esperar al cron.
+export interface ResultadoSync {
+  ok: boolean
+  procesados?: number
+  detalle?: string
+  resultados?: { sku: string; ok: boolean; woo_id?: number; creado?: boolean; error?: string }[]
+  error?: string
+}
+
+export function useSincronizarTienda() {
+  const qc = useQueryClient()
+  const { empresaId } = useAuth()
+  return useMutation({
+    mutationFn: async (): Promise<ResultadoSync> => {
+      const { data, error } = await supabase.functions.invoke('woo-push')
+      if (error) throw error
+      return data as ResultadoSync
+    },
+    // El push escribe `woo_product_id` en los productos que crea por primera vez.
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['productos', empresaId] }),
   })
 }
 

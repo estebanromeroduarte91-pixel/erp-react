@@ -98,6 +98,10 @@ export interface Producto {
   descripcion?: string
   enlace?: string
   tipo?: 'producto' | 'servicio'
+  // Publica el producto en la tienda online (WooCommerce) y mantiene su precio
+  // y stock sincronizados. Por defecto false: que algo aparezca en la tienda
+  // tiene que ser una decisión explícita.
+  vender_online?: boolean
 }
 
 export interface HorarioBloque {

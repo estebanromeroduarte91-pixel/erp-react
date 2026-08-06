@@ -32,6 +32,7 @@ export function ProductoModal({ producto, productos, bodegas, onClose }: Props) 
   const [stockSucs, setStockSucs] = useState<Record<string, number>>(producto?.stock_sucursales ?? {})
   const [categoria, setCategoria] = useState(producto?.categoria ?? '')
   const [subcategoria, setSubcategoria] = useState(producto?.subcategoria ?? '')
+  const [venderOnline, setVenderOnline] = useState(producto?.vender_online === true)
   const [categoriaOpen, setCategoriaOpen] = useState(false)
   const [subcategoriaOpen, setSubcategoriaOpen] = useState(false)
   const [enlace, setEnlace] = useState(producto?.enlace ?? '')
@@ -107,6 +108,8 @@ export function ProductoModal({ producto, productos, bodegas, onClose }: Props) 
       enlace: enlace.trim() || undefined,
       descripcion: descripcion.trim() || undefined,
       tipo,
+      // Un servicio no tiene stock que publicar ni despachar.
+      vender_online: esServicio ? false : venderOnline,
     }
 
     try {
@@ -257,6 +260,27 @@ export function ProductoModal({ producto, productos, bodegas, onClose }: Props) 
                   rows={2} placeholder="Descripción opcional..."
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400 resize-none" />
               </div>
+
+              {/* El stock que se publica es el de la bodega desde la que se
+                  despacha lo online, no el total: no se puede ofrecer algo que
+                  está en la otra sucursal. */}
+              {!esServicio && (
+                <div className="col-span-2">
+                  <label className="flex items-start gap-2.5 cursor-pointer rounded-lg border border-gray-200 px-3 py-2.5 hover:border-gray-300 transition">
+                    <input type="checkbox" checked={venderOnline}
+                      onChange={(e) => setVenderOnline(e.target.checked)}
+                      className="mt-0.5 w-4 h-4 rounded border-gray-300 accent-blue-600 flex-shrink-0" />
+                    <span className="min-w-0">
+                      <span className="block text-sm font-medium text-gray-700">Vender en la tienda online</span>
+                      <span className="block text-xs text-gray-400 leading-relaxed mt-0.5">
+                        {sku.trim()
+                          ? 'Se publica en WooCommerce y su precio y stock quedan sincronizados.'
+                          : 'Necesita un SKU: es lo que enlaza el producto con la tienda.'}
+                      </span>
+                    </span>
+                  </label>
+                </div>
+              )}
             </div>
           </section>
 

@@ -27,10 +27,19 @@ interface Pendiente {
   consumer_secret: string;
 }
 
+// Se llama tanto desde el cron (servidor a servidor) como desde la app en el
+// navegador, y para lo segundo hacen falta cabeceras CORS: sin ellas el
+// navegador bloquea la respuesta en la comprobación previa.
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+    headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "no-store" },
   });
 }
 
@@ -77,6 +86,9 @@ async function autorizado(req: Request): Promise<boolean> {
 }
 
 Deno.serve(async (req) => {
+  // La comprobación previa del navegador llega sin credenciales: hay que
+  // responderla antes de exigir autorización, o nunca llega la petición real.
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ ok: false, error: "Método no permitido" }, 405);
   if (!await autorizado(req)) return json({ ok: false, error: "No autorizado" }, 401);
 
