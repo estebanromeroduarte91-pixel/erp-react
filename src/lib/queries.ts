@@ -5,6 +5,7 @@ import { dbGet, dbSet } from './db'
 import { MSG_DEFAULTS } from './msgTemplatesDefaults'
 import { reconciliarLotes } from './lotes'
 import { soloRutDigits } from './rut'
+import { extraerMensajeError } from './edgeError'
 import { DEFAULT_PLAN_LIMITS, type PlanTier } from './queries/usePlanLimits'
 import { useAuth } from '@/context/AuthContext'
 import type { Orden, Repuesto, Cliente, Producto, Bodega, Movimiento, Proveedor, Venta, VentaItem, MetodoPago, Caja, CajaSesion, Gasto, GastoCat, CuentaContable, Asiento, SeguimientoConfig, SmtpConfig, MsgTemplates, Cargo, UserProfile, UserConfig, PendingInvite, EmailDomain, OC, OCLogEntry, OCRecepcion, Categoria, Kit, Traslado, TecnicoExterno, Equipo, FichaUsuario, LoteInventario, ConteoInventario, Cotizacion } from '@/types'
@@ -2862,7 +2863,9 @@ export function useSincronizarTienda() {
   return useMutation({
     mutationFn: async (): Promise<ResultadoSync> => {
       const { data, error } = await supabase.functions.invoke('woo-push')
-      if (error) throw error
+      // El motivo real viaja en el cuerpo de la respuesta, no en error.message
+      // (ver src/lib/edgeError.ts).
+      if (error) throw new Error(await extraerMensajeError(error, 'No se pudo sincronizar'))
       return data as ResultadoSync
     },
     // El push escribe `woo_product_id` en los productos que crea por primera vez.

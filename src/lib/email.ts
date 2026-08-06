@@ -1,6 +1,7 @@
 import { supabase } from './supabase'
 import { dbGet } from './db'
 import type { SmtpConfig, EmailDomain } from '@/types'
+import { extraerMensajeError } from './edgeError'
 
 interface TpConfig {
   nombre?: string
@@ -13,29 +14,6 @@ export interface SendEmailResult {
   error?: string
 }
 
-// `supabase.functions.invoke()` da un mensaje genérico ("Edge Function returned
-// a non-2xx status code") cuando la función responde con error — el motivo real
-// (usuario/contraseña SMTP inválidos, timeout, límite de envíos, etc.) queda en
-// el CUERPO de esa respuesta, no en `error.message`. La propia librería lo
-// documenta así: `FunctionsHttpError.context` es el `Response` sin consumir
-// (`await error.context.json()`). Sin esto, tanto "Enviar correo de prueba"
-// como cualquier fallo real de envío mostraban ese texto genérico y no daban
-// ninguna pista de qué corregir.
-async function extraerMensajeError(error: unknown, fallback: string): Promise<string> {
-  const contexto = (error as { context?: unknown } | null)?.context
-  if (contexto && typeof contexto === 'object' && 'json' in contexto) {
-    try {
-      const cuerpo = await (contexto as Response).clone().json()
-      if (cuerpo?.error) return String(cuerpo.error)
-    } catch {
-      try {
-        const texto = await (contexto as Response).text()
-        if (texto) return texto
-      } catch { /* sigue al fallback */ }
-    }
-  }
-  return error instanceof Error ? error.message : fallback
-}
 
 // Envía un correo reutilizando la MISMA Edge Function `send-email` y la misma
 // configuración (dominio Resend verificado o SMTP/Resend manual) del ERP vanilla.

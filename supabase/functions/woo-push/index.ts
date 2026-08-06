@@ -93,10 +93,12 @@ Deno.serve(async (req) => {
   if (!await autorizado(req)) return json({ ok: false, error: "No autorizado" }, 401);
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
-  // 50 por llamada: a ~0,5 s por producto son unos 25 s, dentro del tiempo que
-  // tolera una Edge Function. Lo que no entra queda en la cola para la próxima
-  // (solo se borra de la cola lo que se sincronizó bien).
-  const { data: pendientes, error } = await admin.rpc("fn_woo_pendientes", { p_limite: 50 });
+  // 15 por llamada. La primera vez que se publica un producto hacen falta DOS
+  // llamadas a WooCommerce (buscarlo por SKU y luego actualizarlo), y WordPress
+  // puede tardar más de un segundo en cada una: con tandas grandes la función
+  // se pasaba del tiempo permitido y el botón quedaba girando. Lo que no entra
+  // queda en la cola — solo se borra lo que se sincronizó bien.
+  const { data: pendientes, error } = await admin.rpc("fn_woo_pendientes", { p_limite: 15 });
   if (error) return json({ ok: false, error: error.message }, 500);
 
   const lista = (pendientes ?? []) as Pendiente[];
@@ -121,9 +123,27 @@ Deno.serve(async (req) => {
       // Si no se conoce el id de la tienda, se busca por SKU antes de crear:
       // el catálogo se cargó por CSV, así que muchos productos YA existen allá
       // y crearlos de nuevo los duplicaría.
+      //
+      // `status=any` es imprescindible: los productos que entraron por CSV
+      // quedaron como BORRADOR, y sin ese parámetro la búsqueda no los ve, así
+      // que se intentaba crearlos y WooCommerce respondía "el SKU ya está en la
+      // tabla de búsqueda".
       if (!wooId) {
-        const encontrados = await llamarWoo(p, `/products?sku=${encodeURIComponent(p.sku)}`, "GET") as { id: number }[];
-        if (Array.isArray(encontrados) && encontrados.length > 0) wooId = encontrados[0].id;
+        const sku = encodeURIComponent(p.sku);
+        const encontrados = await llamarWoo(p, `/products?sku=${sku}&status=any`, "GET") as { id: number }[];
+        if (Array.isArray(encontrados) && encontrados.length > 0) {
+          wooId = encontrados[0].id;
+        } else {
+          // La papelera no entra en `any`, pero SÍ conserva el SKU reservado.
+          // Se avisa en vez de crear —que fallaría— y en vez de restaurarlo
+          // solo: si alguien lo borró en la tienda, esa decisión es suya.
+          const enPapelera = await llamarWoo(p, `/products?sku=${sku}&status=trash`, "GET") as { id: number }[];
+          if (Array.isArray(enPapelera) && enPapelera.length > 0) {
+            throw new Error(
+              `El SKU ${p.sku} está en la papelera de WooCommerce. Restauralo o vaciá la papelera, o desmarcá "vender online" en Pixit.`,
+            );
+          }
+        }
       }
 
       const guardado = wooId
