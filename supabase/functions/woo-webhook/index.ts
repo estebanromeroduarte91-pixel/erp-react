@@ -59,6 +59,16 @@ Deno.serve(async (req) => {
   if (!conn) return json({ ok: false, error: "Conexión no encontrada" }, 404);
 
   const firmaRecibida = req.headers.get("X-WC-Webhook-Signature") ?? "";
+
+  // Al guardar un webhook, WooCommerce prueba la URL con un "ping": llega SIN
+  // firma y con el cuerpo `webhook_id=8` como formulario, no como JSON. Exige
+  // un 200 exacto para dar la URL por válida; cualquier otra cosa la rechaza y
+  // no activa el webhook. Responder 200 acá no abre ninguna puerta: el ping no
+  // toca stock ni lee datos, solo confirma que la dirección existe.
+  if (!firmaRecibida && /^webhook_id=\d+$/.test(cuerpo.trim())) {
+    return json({ ok: true, ping: true, detalle: "Conexión verificada" });
+  }
+
   if (!firmaRecibida || !igualSeguro(firmaRecibida, await firmaEsperada(conn.secret, cuerpo))) {
     return json({ ok: false, error: "Firma inválida" }, 401);
   }
