@@ -119,6 +119,11 @@ Deno.serve(async (req) => {
       };
 
       let wooId = p.woo_product_id;
+      // Una variación (mismo artículo en varios colores/medidas) vive en otra
+      // ruta de la API: /products/{padre}/variations/{id}. Tratarla como
+      // producto simple devolvía "404: para manipular variaciones deberías
+      // usar /products/<id>/variations/<id>".
+      let rutaBase = "/products";
 
       // Si no se conoce el id de la tienda, se busca por SKU antes de crear:
       // el catálogo se cargó por CSV, así que muchos productos YA existen allá
@@ -130,9 +135,14 @@ Deno.serve(async (req) => {
       // tabla de búsqueda".
       if (!wooId) {
         const sku = encodeURIComponent(p.sku);
-        const encontrados = await llamarWoo(p, `/products?sku=${sku}&status=any`, "GET") as { id: number }[];
+        const encontrados = await llamarWoo(p, `/products?sku=${sku}&status=any`, "GET") as
+          { id: number; type?: string; parent_id?: number }[];
         if (Array.isArray(encontrados) && encontrados.length > 0) {
-          wooId = encontrados[0].id;
+          const hallado = encontrados[0];
+          wooId = hallado.id;
+          if (hallado.type === "variation" && hallado.parent_id) {
+            rutaBase = `/products/${hallado.parent_id}/variations`;
+          }
         } else {
           // La papelera no entra en `any`, pero SÍ conserva el SKU reservado.
           // Se avisa en vez de crear —que fallaría— y en vez de restaurarlo
@@ -146,14 +156,26 @@ Deno.serve(async (req) => {
         }
       }
 
+      // Una variación no acepta `name` ni `status`: esos viven en el producto
+      // padre. Mandarlos hace que WooCommerce rechace la actualización.
+      const esVariacion = rutaBase !== "/products";
+      const cuerpoFinal = esVariacion
+        ? { sku: cuerpo.sku, regular_price: cuerpo.regular_price,
+            manage_stock: cuerpo.manage_stock, stock_quantity: cuerpo.stock_quantity }
+        : cuerpo;
+
       const guardado = wooId
-        ? await llamarWoo(p, `/products/${wooId}`, "PUT", cuerpo) as { id: number }
+        ? await llamarWoo(p, `${rutaBase}/${wooId}`, "PUT", cuerpoFinal) as { id: number }
         // Entra como borrador, igual que la carga por CSV: publicar es una
         // decisión de quien revisa la ficha y le pone foto.
         : await llamarWoo(p, "/products", "POST", { ...cuerpo, status: "draft" }) as { id: number };
 
       await admin.rpc("fn_woo_sync_ok", {
-        p_empresa: p.empresa_id, p_producto: p.producto_id, p_woo_id: guardado.id,
+        p_empresa: p.empresa_id, p_producto: p.producto_id,
+        // Para una variación NO se guarda el id: sin el id del padre no se
+        // podría reconstruir la ruta, así que conviene volver a buscarla por
+        // SKU en cada sincronización (una llamada más, pero siempre correcta).
+        p_woo_id: esVariacion ? null : guardado.id,
       });
       resultados.push({ sku: p.sku, ok: true, woo_id: guardado.id, creado: !wooId });
     } catch (e) {
