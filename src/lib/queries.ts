@@ -670,7 +670,10 @@ export function useFijarStock() {
       // guardaba, el conteo pisaba ese descuento y lo borraba en silencio.
       const delta = cant - antes
       if (delta !== 0) {
-        const { error } = await supabase.rpc('fn_ajustar_stock', { ajustes: [{ producto_id, bodega_id, delta }] })
+        // `fn_fijar_stock_manual` y no `fn_ajustar_stock`: esta última está
+        // revocada para el navegador (solo la usan las funciones de venta y
+        // compra por dentro). El envoltorio agrega el control de rol.
+        const { error } = await supabase.rpc('fn_fijar_stock_manual', { ajustes: [{ producto_id, bodega_id, delta }] })
         if (error) throw error
       }
 
@@ -729,7 +732,7 @@ export function useAjustarStock() {
     mutationFn: async (ajustes: AjusteStock[]) => {
       const validos = ajustes.filter(a => a.producto_id && a.bodega_id && a.delta !== 0)
       if (!validos.length) return
-      const { error } = await supabase.rpc('fn_ajustar_stock', { ajustes: validos })
+      const { error } = await supabase.rpc('fn_fijar_stock_manual', { ajustes: validos })
       if (error) throw error
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['productos', empresaId] }),

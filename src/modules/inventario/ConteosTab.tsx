@@ -91,6 +91,11 @@ export function ConteosTab() {
       }
       await guardarConteos.mutateAsync([conteo, ...conteos])
       setEnCurso(false); setFilas([])
+    } catch (e) {
+      // Antes esto era try/finally sin catch: si el ajuste fallaba, el conteo
+      // quedaba en pantalla sin explicación y sin haberse aplicado. Peor que en
+      // otras pantallas, porque acá se pierde el trabajo de contar a mano.
+      alert(`No se pudo aplicar el conteo: ${(e as Error).message}\n\nEl conteo sigue en pantalla, no se perdió.`)
     } finally {
       setGuardando(false)
     }

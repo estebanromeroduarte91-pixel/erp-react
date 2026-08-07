@@ -958,7 +958,14 @@ function StockCell({ producto, bodegaId }: { producto: Producto; bodegaId: strin
     setEditando(false)
     const n = Math.max(0, parseInt(valor, 10) || 0)
     if (n === actual) return
-    await fijarStock.mutateAsync({ producto_id: producto.id, bodega_id: bodegaId, cantidad: n })
+    try {
+      await fijarStock.mutateAsync({ producto_id: producto.id, bodega_id: bodegaId, cantidad: n })
+    } catch (e) {
+      // Sin esto el fallo era invisible: el número volvía al valor anterior y
+      // parecía que no se había tocado nada. Así estuvo roto un tiempo el ajuste
+      // de stock, sin que nadie pudiera saber por qué.
+      alert(`No se pudo guardar el stock: ${(e as Error).message}`)
+    }
   }
 
   if (editando) {
