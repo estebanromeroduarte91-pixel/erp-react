@@ -8,3 +8,19 @@ verify_jwt = false
 # Los logos de empresa también se consumen como imágenes públicas. La función
 # limita internamente las rutas permitidas.
 verify_jwt = false
+
+[functions.woo-webhook]
+# WooCommerce firma con X-WC-Webhook-Signature (HMAC), no con un JWT de
+# Supabase: con verificación de JWT el gateway la rechaza antes de que la
+# función pueda validar nada, y los pedidos dejan de descontar stock en
+# silencio. Ya pasó una vez. La autenticación real es el token de la URL más
+# la firma HMAC, que la función comprueba por su cuenta.
+verify_jwt = false
+
+[functions.woo-push]
+# Ésta SÍ exige JWT, y se deja explícito para que nadie se lo saque por
+# analogía con woo-webhook. La llaman el cron (con la service_role) y la app
+# (con la sesión de la persona), y ambas mandan un JWT válido. Aun así el
+# gateway no alcanza como control: la anon key también es un JWT válido y es
+# pública, así que la función vuelve a comprobar quién llama.
+verify_jwt = true
