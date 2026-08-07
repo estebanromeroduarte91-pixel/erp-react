@@ -63,11 +63,35 @@ async function llamarWoo(p: Pendiente, ruta: string, metodo: string, cuerpo?: un
 
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
+// Credencial propia del cron. Antes el cron se identificaba con la service_role,
+// y eso tenía dos problemas: obligaba a guardar la llave maestra del proyecto
+// dentro de la base de datos, y dependía de que la cadena guardada coincidiera
+// exactamente con la que el entorno le inyecta a esta función — que en la
+// práctica NO coincidió, y daba un 401 imposible de diagnosticar desde afuera.
+// Con un secreto dedicado los dos extremos se fijan a propósito y la llave
+// maestra no sale de donde tiene que estar.
+const CRON_TOKEN = Deno.env.get("WOO_PUSH_CRON_TOKEN") ?? "";
+
+// Comparación de tiempo constante: una comparación normal corta en el primer
+// carácter distinto, y esa diferencia de tiempo permite adivinar el secreto de a
+// un carácter por vez.
+function secretosIguales(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let dif = 0;
+  for (let i = 0; i < a.length; i++) dif |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return dif === 0;
+}
+
 // La anon key es un JWT válido y es PÚBLICA (viaja en el bundle del navegador),
 // así que `verify_jwt` sola no autoriza nada: dejaba que cualquiera disparara
-// sincronizaciones contra la tienda. Se exige o bien la service_role (la usa el
-// cron) o bien una persona con sesión real y perfil de la empresa.
+// sincronizaciones contra la tienda. Se exige o bien el secreto del cron, o bien
+// la service_role, o bien una persona con sesión real y perfil de la empresa.
 async function autorizado(req: Request): Promise<boolean> {
+  // Va primero: el cron manda la anon key en Authorization solo para pasar el
+  // control del gateway, y el rechazo de la anon de más abajo lo bloquearía.
+  const tokenCron = req.headers.get("x-cron-token") ?? "";
+  if (CRON_TOKEN && tokenCron && secretosIguales(tokenCron, CRON_TOKEN)) return true;
+
   const cabecera = req.headers.get("Authorization") ?? "";
   const jwt = cabecera.replace("Bearer ", "").trim();
   if (!jwt || jwt === ANON_KEY) return false;
