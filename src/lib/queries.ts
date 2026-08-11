@@ -2165,6 +2165,49 @@ export function useGuardarEmailDomain() {
 // de supabase/09_owner_update_empresa_nombre.sql. El nombre queda cacheado en el
 // AuthContext (no en React Query) — hay que recargar para que se refleje en el
 // sidebar/topbar tras guardar.
+// ── Datos tributarios de la empresa (para emitir DTE) ─────────
+// Viven en columnas de `empresas` y no en `erp_data` porque el servidor los
+// necesita para armar el documento: un JSON opaco no se puede validar ni
+// proteger con un trigger.
+export type DatosTributarios = {
+  rut?: string
+  razon_social?: string
+  giro?: string
+  direccion_origen?: string
+  comuna_origen?: string
+  acteco?: string
+  dte_ambiente?: 'certificacion' | 'produccion'
+}
+
+export function useDatosTributarios() {
+  const { empresaId } = useAuth()
+  return useQuery({
+    queryKey: ['datos_tributarios', empresaId],
+    queryFn: async (): Promise<DatosTributarios> => {
+      const { data, error } = await supabase
+        .from('empresas')
+        .select('rut, razon_social, giro, direccion_origen, comuna_origen, acteco, dte_ambiente')
+        .eq('id', empresaId!)
+        .single()
+      if (error) throw error
+      return data as DatosTributarios
+    },
+    enabled: !!empresaId,
+  })
+}
+
+export function useGuardarDatosTributarios() {
+  const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (datos: DatosTributarios) => {
+      const { error } = await supabase.from('empresas').update(datos).eq('id', empresaId!)
+      if (error) throw error
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['datos_tributarios', empresaId] }),
+  })
+}
+
 export function useActualizarNombreEmpresa() {
   const { empresaId } = useAuth()
   return useMutation({

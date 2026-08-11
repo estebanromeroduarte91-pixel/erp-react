@@ -9,10 +9,11 @@ import { CargosTab } from './CargosTab'
 import { AccesosTab } from './AccesosTab'
 import { NotificacionesTab } from './NotificacionesTab'
 import { SuscripcionTab } from './SuscripcionTab'
+import { TributarioTab } from './TributarioTab'
 
-type Tab = 'general' | 'dominio' | 'smtp' | 'cargos' | 'accesos' | 'notificaciones' | 'suscripcion'
+type Tab = 'general' | 'dominio' | 'smtp' | 'tributario' | 'cargos' | 'accesos' | 'notificaciones' | 'suscripcion'
 
-const TABS_VALIDOS: Tab[] = ['general', 'dominio', 'smtp', 'cargos', 'accesos', 'notificaciones', 'suscripcion']
+const TABS_VALIDOS: Tab[] = ['general', 'dominio', 'smtp', 'tributario', 'cargos', 'accesos', 'notificaciones', 'suscripcion']
 function resolveConfigTab(param: string | null): Tab {
   return TABS_VALIDOS.includes(param as Tab) ? (param as Tab) : 'general'
 }
@@ -29,6 +30,9 @@ export function ConfigPage() {
     { key: 'general', label: 'General', adminOnly: true },
     { key: 'dominio', label: 'Dominio' },
     { key: 'smtp',    label: 'SMTP' },
+    // Solo admin: el RUT define a nombre de quién se emiten los documentos,
+    // y un trigger en la base rechaza el cambio si no lo hace un admin.
+    { key: 'tributario', label: 'Tributario', adminOnly: true },
     { key: 'cargos',  label: 'Cargos',  adminOnly: true, requierePlan: true },
     { key: 'accesos', label: 'Accesos', adminOnly: true, requierePlan: true },
     { key: 'notificaciones', label: 'Notificaciones', adminOnly: true },
@@ -58,6 +62,7 @@ export function ConfigPage() {
       {tab === 'general' && esAdmin  && <GeneralTab />}
       {tab === 'dominio'             && <DominioTab />}
       {tab === 'smtp'                && <SmtpTab />}
+      {tab === 'tributario' && esAdmin && <TributarioTab />}
       {tab === 'cargos'  && esAdmin  && (puedeAccesos ? <CargosTab /> : <ModuloBloqueado nombre="Gestión de permisos" />)}
       {tab === 'accesos' && esAdmin  && (puedeAccesos ? <AccesosTab /> : <ModuloBloqueado nombre="Gestión de permisos" />)}
       {tab === 'notificaciones' && esAdmin && <NotificacionesTab />}
