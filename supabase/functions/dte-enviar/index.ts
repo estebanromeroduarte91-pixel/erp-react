@@ -21,6 +21,9 @@ const CRON_TOKEN = Deno.env.get("DTE_CRON_TOKEN") ?? "";
 
 const URL_SOBRE = "https://api.simpleapi.cl/api/v1/envio/generar";
 const URL_ENVIAR = "https://api.simpleapi.cl/api/v1/envio/enviar";
+// Valida un XML contra el esquema del SII y dice QUÉ está mal. Ojo: acá `input`
+// es un ARCHIVO, no el JSON de texto que usan los demás endpoints.
+const URL_VALIDADOR = "https://api.simpleapi.cl/api/v1/consulta/validador";
 
 // RUT del SII como receptor del sobre. Es fijo para todo Chile.
 const RUT_SII = "60803000-K";
@@ -112,10 +115,14 @@ Deno.serve(async (req) => {
   // pelado o viene envuelto en algo — un sobre con datos de más al final es
   // justo lo que el SII rechaza por esquema.
   let soloSobre = false;
+  let validar = false;
   try {
     const cuerpo = await req.json();
     soloSobre = cuerpo?.solo_sobre === true;
+    validar = cuerpo?.validar === true;
   } catch { /* sin cuerpo, comportamiento normal */ }
+  // Validar implica armar el sobre y no mandarlo.
+  if (validar) soloSobre = true;
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
   const resultados: unknown[] = [];
@@ -179,6 +186,22 @@ Deno.serve(async (req) => {
         },
       }, [{ nombre: "certificado.pfx", datos: certBuf }, ...xmls]);
 
+      if (validar) {
+        // Se validan las dos cosas por separado para saber si el problema está
+        // en el sobre o en la boleta que va adentro.
+        const validarUno = async (nombre: string, datos: ArrayBuffer) => {
+          const f = new FormData();
+          f.append("input", new File([datos], nombre));
+          const res = await fetch(URL_VALIDADOR, {
+            method: "POST", headers: { Authorization: SIMPLEAPI_KEY }, body: f,
+          });
+          return { que: nombre, status: res.status, respuesta: (await res.text()).slice(0, 900) };
+        };
+        resultados.push(await validarUno("sobre.xml", sobre));
+        resultados.push(await validarUno(xmls[0].nombre, xmls[0].datos));
+        continue;
+      }
+
       if (soloSobre) {
         resultados.push({
           empresa_id: empresaId,
@@ -238,7 +261,7 @@ Deno.serve(async (req) => {
     } catch (e) {
       const motivo = (e as Error).message;
       // En diagnóstico no se toca ningún estado: la idea es mirar, no cambiar.
-      if (soloSobre) { resultados.push({ empresa_id: empresaId, ok: false, error: motivo }); continue; }
+      if (soloSobre || validar) { resultados.push({ empresa_id: empresaId, ok: false, error: motivo }); continue; }
       // Vuelven a `generado` para que el próximo intento los tome: quedaron
       // emitidos y válidos, lo que falló fue el trámite con el SII.
       await admin.from("dte_documentos").update({
