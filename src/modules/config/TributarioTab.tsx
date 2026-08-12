@@ -1,5 +1,8 @@
-import { useState } from 'react'
-import { useDatosTributarios, useGuardarDatosTributarios, type DatosTributarios } from '@/lib/queries'
+import { useRef, useState } from 'react'
+import {
+  useDatosTributarios, useGuardarDatosTributarios, type DatosTributarios,
+  useCertificadoDte, useSubirCertificadoDte,
+} from '@/lib/queries'
 import { formatRut, validarRut } from '@/lib/rut'
 import { Spinner } from '@/components/shared/Spinner'
 
@@ -108,6 +111,8 @@ export function TributarioTab() {
         </div>
       </div>
 
+      <CertificadoCard rutEmpresa={form.rut} onAviso={showToast} />
+
       {/* El ambiente no se cambia desde acá a propósito: pasar a producción
           significa que los documentos empiezan a existir para el SII y no se
           pueden borrar. Se habilita recién cuando el circuito esté probado. */}
@@ -138,6 +143,113 @@ export function TributarioTab() {
           {toast.msg}
         </div>
       )}
+    </div>
+  )
+}
+
+// Días de aviso antes del vencimiento. Un certificado vencido no da un error
+// entendible: simplemente deja de poder emitirse, y eso se descubre con un
+// cliente esperando su boleta. Un mes es tiempo suficiente para renovarlo.
+const DIAS_AVISO = 30
+
+function CertificadoCard({ rutEmpresa, onAviso }: {
+  rutEmpresa?: string
+  onAviso: (msg: string, type?: 'ok' | 'err') => void
+}) {
+  const { data: cert, isLoading } = useCertificadoDte()
+  const subir = useSubirCertificadoDte()
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [archivo, setArchivo] = useState<File | null>(null)
+  const [clave, setClave] = useState('')
+
+  const diasRestantes = cert?.dias_restantes ?? null
+  const porVencer = diasRestantes !== null && diasRestantes <= DIAS_AVISO
+
+  async function handleSubir() {
+    if (!archivo || !clave) return
+    try {
+      const r = await subir.mutateAsync({ archivo, clave })
+      onAviso(`Certificado cargado ✓ RUT ${r.rut_firmante}, vence el ${r.vence_el}`)
+      setArchivo(null)
+      setClave('')
+      if (inputRef.current) inputRef.current.value = ''
+    } catch (e) {
+      onAviso((e as Error).message, 'err')
+    }
+  }
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-5">
+      <h4 className="text-sm font-semibold text-gray-900">Certificado digital</h4>
+      <p className="text-xs text-gray-500 mt-1">
+        El archivo <code className="bg-gray-100 px-1 rounded">.pfx</code> (o <code className="bg-gray-100 px-1 rounded">.p12</code>) que
+        te entregó tu proveedor de firma electrónica. Se usa para firmar cada documento ante el SII.
+      </p>
+
+      {isLoading ? (
+        <div className="py-6 flex justify-center"><Spinner className="w-5 h-5" /></div>
+      ) : cert ? (
+        <div className={`mt-4 rounded-lg border p-3 text-xs ${
+          porVencer ? 'bg-amber-50 border-amber-200 text-amber-900' : 'bg-green-50 border-green-200 text-green-900'
+        }`}>
+          <p className="font-semibold">
+            {porVencer ? `Vence en ${diasRestantes} días` : 'Certificado cargado'}
+          </p>
+          <p className="mt-0.5">RUT {cert.rut_firmante} · vence el {cert.vence_el}</p>
+          {porVencer && (
+            <p className="mt-1">
+              Renovalo con tu proveedor y volvé a cargarlo acá. Un certificado vencido detiene la emisión.
+            </p>
+          )}
+        </div>
+      ) : (
+        <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+          Todavía no hay certificado cargado. Sin él no se puede emitir ningún documento.
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-4 mt-4">
+        <div className="col-span-2">
+          <label className="block text-xs font-medium text-gray-700 mb-1">
+            {cert ? 'Reemplazar certificado' : 'Archivo del certificado'}
+          </label>
+          <input
+            ref={inputRef}
+            type="file"
+            accept=".pfx,.p12"
+            onChange={e => setArchivo(e.target.files?.[0] ?? null)}
+            className="w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-gray-100 file:text-gray-700"
+          />
+        </div>
+        <div className="col-span-1">
+          <label className="block text-xs font-medium text-gray-700 mb-1">Clave del certificado</label>
+          <input
+            type="password"
+            value={clave}
+            autoComplete="off"
+            onChange={e => setClave(e.target.value)}
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+          />
+        </div>
+      </div>
+
+      <div className="flex items-center gap-3 mt-4">
+        <button
+          onClick={handleSubir}
+          disabled={!archivo || !clave || subir.isPending}
+          className="bg-blue-600 text-white text-sm font-medium rounded-lg px-4 py-2 hover:bg-blue-700 disabled:opacity-50"
+        >
+          {subir.isPending ? 'Verificando…' : 'Cargar certificado'}
+        </button>
+        {!rutEmpresa && (
+          <span className="text-xs text-amber-700">Completá primero el RUT de la empresa.</span>
+        )}
+      </div>
+
+      <p className="text-[11px] text-gray-500 mt-3">
+        El archivo se guarda cifrado y su clave se guarda por separado. No se puede descargar
+        desde la aplicación: solo lo usa el servidor al momento de firmar un documento.
+      </p>
     </div>
   )
 }

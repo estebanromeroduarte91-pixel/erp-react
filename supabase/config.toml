@@ -24,3 +24,9 @@ verify_jwt = false
 # gateway no alcanza como control: la anon key también es un JWT válido y es
 # pública, así que la función vuelve a comprobar quién llama.
 verify_jwt = true
+
+[functions.dte-certificado]
+# Exige JWT y además comprueba por dentro que quien llama sea admin de la
+# empresa: por acá entra la firma legal del contribuyente, así que la anon key
+# —que es pública— no vale como sesión.
+verify_jwt = true

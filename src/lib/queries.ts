@@ -2208,6 +2208,56 @@ export function useGuardarDatosTributarios() {
   })
 }
 
+// ── Certificado digital para DTE ──────────────────────────────
+export type CertificadoDte = {
+  rut_firmante: string
+  vence_el: string
+  subido_en: string
+  /** Se calcula acá y no en el render: `Date.now()` durante el render es impuro. */
+  dias_restantes: number
+}
+
+export function useCertificadoDte() {
+  const { empresaId } = useAuth()
+  return useQuery({
+    queryKey: ['dte_certificado', empresaId],
+    queryFn: async (): Promise<CertificadoDte | null> => {
+      const { data, error } = await supabase
+        .from('dte_certificados')
+        .select('rut_firmante, vence_el, subido_en')
+        .eq('empresa_id', empresaId!)
+        .maybeSingle()
+      if (error) throw error
+      if (!data) return null
+      const fila = data as Omit<CertificadoDte, 'dias_restantes'>
+      return {
+        ...fila,
+        dias_restantes: Math.ceil((new Date(fila.vence_el).getTime() - Date.now()) / 86_400_000),
+      }
+    },
+    enabled: !!empresaId,
+  })
+}
+
+// La subida NO va directo al bucket: `dte-privado` no tiene policies, así que
+// el navegador no puede escribir ahí. Pasa por una Edge Function que además
+// valida el .pfx y su clave antes de guardar nada.
+export function useSubirCertificadoDte() {
+  const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ archivo, clave }: { archivo: File; clave: string }) => {
+      const form = new FormData()
+      form.append('certificado', archivo)
+      form.append('clave', clave)
+      const { data, error } = await supabase.functions.invoke('dte-certificado', { body: form })
+      if (error) throw new Error(await extraerMensajeError(error, 'No se pudo cargar el certificado'))
+      return data as { rut_firmante: string; vence_el: string; emitido_para: string }
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['dte_certificado', empresaId] }),
+  })
+}
+
 export function useActualizarNombreEmpresa() {
   const { empresaId } = useAuth()
   return useMutation({
