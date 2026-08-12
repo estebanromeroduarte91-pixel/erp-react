@@ -30,3 +30,9 @@ verify_jwt = true
 # empresa: por acá entra la firma legal del contribuyente, así que la anon key
 # —que es pública— no vale como sesión.
 verify_jwt = true
+
+[functions.dte-caf]
+# Mismo criterio que dte-certificado: JWT en el gateway y comprobación de rol
+# admin adentro. Cargar folios equivocados produce documentos que el SII
+# rechaza, con el folio ya gastado.
+verify_jwt = true

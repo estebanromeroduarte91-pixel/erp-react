@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import {
   useDatosTributarios, useGuardarDatosTributarios, type DatosTributarios,
   useCertificadoDte, useSubirCertificadoDte,
+  useCafDte, useSubirCafDte,
 } from '@/lib/queries'
 import { formatRut, validarRut } from '@/lib/rut'
 import { Spinner } from '@/components/shared/Spinner'
@@ -112,6 +113,8 @@ export function TributarioTab() {
       </div>
 
       <CertificadoCard rutEmpresa={form.rut} onAviso={showToast} />
+
+      <FoliosCard ambiente={form.dte_ambiente ?? 'certificacion'} onAviso={showToast} />
 
       {/* El ambiente no se cambia desde acá a propósito: pasar a producción
           significa que los documentos empiezan a existir para el SII y no se
@@ -250,6 +253,108 @@ function CertificadoCard({ rutEmpresa, onAviso }: {
         El archivo se guarda cifrado y su clave se guarda por separado. No se puede descargar
         desde la aplicación: solo lo usa el servidor al momento de firmar un documento.
       </p>
+    </div>
+  )
+}
+
+const NOMBRE_DOC: Record<number, string> = {
+  33: 'Factura electrónica',
+  34: 'Factura exenta',
+  39: 'Boleta electrónica',
+  41: 'Boleta exenta',
+  56: 'Nota de débito',
+  61: 'Nota de crédito',
+}
+
+// Cuando quedan menos folios que esto, conviene ir al SII a pedir más. Quedarse
+// sin folios detiene la venta: no se puede emitir y el cliente está esperando.
+const FOLIOS_AVISO = 20
+
+function FoliosCard({ ambiente, onAviso }: {
+  ambiente: string
+  onAviso: (msg: string, type?: 'ok' | 'err') => void
+}) {
+  const { data: cafs, isLoading } = useCafDte()
+  const subir = useSubirCafDte()
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const delAmbiente = (cafs ?? []).filter(c => c.ambiente === ambiente)
+
+  async function handleArchivo(archivo: File | null) {
+    if (!archivo) return
+    try {
+      const r = await subir.mutateAsync(archivo)
+      onAviso(`${r.documento}: folios ${r.folio_desde} al ${r.folio_hasta} cargados (${r.cantidad}) ✓`)
+    } catch (e) {
+      onAviso((e as Error).message, 'err')
+    } finally {
+      if (inputRef.current) inputRef.current.value = ''
+    }
+  }
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-5">
+      <h4 className="text-sm font-semibold text-gray-900">Folios autorizados (CAF)</h4>
+      <p className="text-xs text-gray-500 mt-1">
+        El archivo XML que descargás del SII para cada tipo de documento. Autoriza un rango de
+        números y se agota a medida que emitís.
+      </p>
+
+      {isLoading ? (
+        <div className="py-6 flex justify-center"><Spinner className="w-5 h-5" /></div>
+      ) : delAmbiente.length === 0 ? (
+        <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+          No hay folios cargados para el ambiente de {ambiente}. Sin folios no se puede emitir.
+        </div>
+      ) : (
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="text-left text-gray-500 border-b border-gray-100">
+                <th className="py-2 font-medium">Documento</th>
+                <th className="py-2 font-medium">Rango</th>
+                <th className="py-2 font-medium text-right">Disponibles</th>
+              </tr>
+            </thead>
+            <tbody>
+              {delAmbiente.map(c => {
+                // `ultimo_folio` arranca en 0 cuando el CAF todavía no se usó.
+                const usado = Math.max(c.ultimo_folio, c.folio_desde - 1)
+                const quedan = c.folio_hasta - usado
+                const pocos = quedan <= FOLIOS_AVISO
+                return (
+                  <tr key={c.id} className="border-b border-gray-50">
+                    <td className="py-2 text-gray-900">{NOMBRE_DOC[c.tipo_dte] ?? `Tipo ${c.tipo_dte}`}</td>
+                    <td className="py-2 text-gray-500">{c.folio_desde}–{c.folio_hasta}</td>
+                    <td className={`py-2 text-right font-semibold ${
+                      quedan === 0 ? 'text-red-600' : pocos ? 'text-amber-600' : 'text-gray-900'
+                    }`}>
+                      {quedan === 0 ? 'agotado' : quedan}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <div className="mt-4">
+        <label className="block text-xs font-medium text-gray-700 mb-1">Cargar un CAF nuevo</label>
+        <input
+          ref={inputRef}
+          type="file"
+          accept=".xml"
+          disabled={subir.isPending}
+          onChange={e => void handleArchivo(e.target.files?.[0] ?? null)}
+          className="w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-gray-100 file:text-gray-700"
+        />
+        <p className="text-[11px] text-gray-500 mt-2">
+          Se va a cargar como folios de <strong>{ambiente}</strong>. El archivo no dice a qué ambiente
+          pertenece, así que asegurate de que sea el correcto: un CAF de prueba usado en producción
+          emite documentos que el SII rechaza.
+        </p>
+      </div>
     </div>
   )
 }

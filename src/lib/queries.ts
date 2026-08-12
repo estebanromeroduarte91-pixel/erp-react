@@ -2258,6 +2258,50 @@ export function useSubirCertificadoDte() {
   })
 }
 
+// ── CAF: rangos de folios autorizados por el SII ──────────────
+export type CafDte = {
+  id: string
+  tipo_dte: number
+  ambiente: string
+  folio_desde: number
+  folio_hasta: number
+  ultimo_folio: number
+  activo: boolean
+}
+
+export function useCafDte() {
+  const { empresaId } = useAuth()
+  return useQuery({
+    queryKey: ['dte_caf', empresaId],
+    queryFn: async (): Promise<CafDte[]> => {
+      const { data, error } = await supabase
+        .from('dte_caf')
+        .select('id, tipo_dte, ambiente, folio_desde, folio_hasta, ultimo_folio, activo')
+        .eq('empresa_id', empresaId!)
+        .order('tipo_dte')
+        .order('folio_desde')
+      if (error) throw error
+      return (data ?? []) as CafDte[]
+    },
+    enabled: !!empresaId,
+  })
+}
+
+export function useSubirCafDte() {
+  const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (archivo: File) => {
+      const form = new FormData()
+      form.append('caf', archivo)
+      const { data, error } = await supabase.functions.invoke('dte-caf', { body: form })
+      if (error) throw new Error(await extraerMensajeError(error, 'No se pudo cargar el CAF'))
+      return data as { documento: string; ambiente: string; folio_desde: number; folio_hasta: number; cantidad: number }
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['dte_caf', empresaId] }),
+  })
+}
+
 export function useActualizarNombreEmpresa() {
   const { empresaId } = useAuth()
   return useMutation({
