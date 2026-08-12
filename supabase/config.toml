@@ -36,3 +36,9 @@ verify_jwt = true
 # admin adentro. Cargar folios equivocados produce documentos que el SII
 # rechaza, con el folio ya gastado.
 verify_jwt = true
+
+[functions.dte-emitir]
+# JWT en el gateway y comprobación de rol adentro. Emite quien vende, así que
+# admite admin, encargado y vendedor — a diferencia de dte-certificado y
+# dte-caf, que son configuración y quedan solo para admin.
+verify_jwt = true

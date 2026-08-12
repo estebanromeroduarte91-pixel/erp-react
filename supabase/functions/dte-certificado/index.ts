@@ -133,20 +133,16 @@ Deno.serve(async (req) => {
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
-  // El RUT del certificado tiene que ser el mismo de la empresa: firmar con el
-  // certificado de otro contribuyente no es un descuido, es un documento
-  // emitido a nombre equivocado.
+  // OJO: el RUT del certificado NO tiene por qué ser el de la empresa, y de
+  // hecho casi nunca lo es. El certificado digital pertenece a una PERSONA
+  // NATURAL —el representante legal que firma— mientras que el emisor del
+  // documento es la empresa. SimpleAPI los recibe por separado: `Certificado.Rut`
+  // y `Emisor.Rut`. Una versión anterior de esta función exigía que coincidieran
+  // y habría impedido cargar cualquier certificado real.
   const { data: empresa } = await admin
     .from("empresas").select("rut").eq("id", quien.empresaId).maybeSingle();
-  const rutEmpresa = String(empresa?.rut ?? "").replace(/[^0-9kK]/g, "").toUpperCase();
-  if (!rutEmpresa) {
+  if (!String(empresa?.rut ?? "").trim()) {
     return json({ ok: false, error: "Primero completá el RUT de la empresa en Configuración → Tributario." }, 400);
-  }
-  if (rutEmpresa !== datos.rut) {
-    return json({
-      ok: false,
-      error: `El certificado es del RUT ${datos.rut} y la empresa tiene ${rutEmpresa}. No coinciden.`,
-    }, 400);
   }
 
   const ruta = `${quien.empresaId}/certificado.pfx`;
