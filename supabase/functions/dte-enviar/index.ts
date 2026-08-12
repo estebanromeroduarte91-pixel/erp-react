@@ -243,17 +243,26 @@ Deno.serve(async (req) => {
 
       // Paso 2: al SII.
       //
-      // OJO — dos valores que la documentación no explica y que deduje del
-      // ejemplo: `Ambiente` 0 sería certificación y 1 producción; `Tipo`
-      // distinguiría el tipo de envío, y como las boletas viajan por un
-      // servidor distinto del SII (en la consulta de estado eso se declara con
-      // `ServidorBoletaREST`), acá se manda 2 para boletas. Si el SII rechaza
-      // el envío, ESTE es el primer lugar donde mirar.
+      // `Ambiente` 0 es certificación y 1 producción; `Tipo` 2 es boleta y 1 el
+      // resto. Son los tres únicos campos que declara el contrato de este
+      // endpoint.
       const esBoleta = docs.every(d => d.tipo_dte === 39 || d.tipo_dte === 41);
       const respuestaBytes = await llamarBytes(URL_ENVIAR, {
         Certificado: certificado,
         Ambiente: empresa.dte_ambiente === "produccion" ? 1 : 0,
         Tipo: esBoleta ? 2 : 1,
+        // NO se manda `ServidorBoletaREST` acá: el contrato de este endpoint
+        // solo declara Certificado, Ambiente y Tipo. Se probó agregarlo por
+        // analogía con la consulta y no cambió nada — el TrackID siguió siendo
+        // de 8 dígitos. Mandar campos inventados no ayuda y confunde el
+        // diagnóstico.
+        //
+        // PENDIENTE CONOCIDO: con estos valores SimpleAPI entrega el
+        // EnvioBOLETA al receptor tradicional (Palena/Maullín) en vez del REST
+        // de boletas. Se detecta por el largo del TrackID: el del SII para
+        // boleta tiene 15 dígitos y estos vienen con 8. Allá el sobre se valida
+        // contra el esquema de EnvioDTE y se rechaza con "extra data at end of
+        // complex element", sin importar qué tenga el documento.
       }, [
         { nombre: "certificado.pfx", datos: certBuf },
         // Los bytes originales, sin pasar por texto. Ver el comentario de

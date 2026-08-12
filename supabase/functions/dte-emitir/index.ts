@@ -196,15 +196,28 @@ Deno.serve(async (req) => {
     : { ...emisorBase, RazonSocial: empresa!.razon_social, Giro: empresa!.giro };
 
   // 66666666-6 es el RUT genérico para boleta sin datos del cliente.
+  //
+  // El receptor de una BOLETA admite menos campos que el de una factura: no
+  // tiene Giro ni Contacto. Mandarlos hace que el XML lleve elementos que el
+  // esquema del SII no espera dentro de ese elemento, y el envío se rechaza
+  // entero con "extra data at end of complex element" — un mensaje que no dice
+  // qué campo sobra. Por eso cada tipo arma solo lo suyo.
   const r = entrada.receptor ?? {};
-  const receptor = {
-    Rut: rutSii(r.rut || "66666666-6"),
-    RazonSocial: r.razon_social || "Consumidor final",
-    Direccion: r.direccion || "",
-    Comuna: r.comuna || "",
-    Giro: r.giro || "",
-    Contacto: r.contacto || "",
-  };
+  const receptor = esBoleta
+    ? {
+        Rut: rutSii(r.rut || "66666666-6"),
+        RazonSocial: r.razon_social || "Consumidor final",
+        Direccion: r.direccion || "",
+        Comuna: r.comuna || "",
+      }
+    : {
+        Rut: rutSii(r.rut || "66666666-6"),
+        RazonSocial: r.razon_social || "Consumidor final",
+        Direccion: r.direccion || "",
+        Comuna: r.comuna || "",
+        Giro: r.giro || "",
+        Contacto: r.contacto || "",
+      };
 
   const documento = {
     Documento: {
@@ -212,8 +225,9 @@ Deno.serve(async (req) => {
         IdentificacionDTE: identificacion,
         Emisor: emisor,
         Receptor: receptor,
-        RutSolicitante: "",
-        Transporte: null,
+        // `RutSolicitante` y `Transporte` son de factura y guía: el encabezado
+        // de una boleta no los tiene.
+        ...(esBoleta ? {} : { RutSolicitante: "", Transporte: null }),
         Totales: exento
           ? { MontoTotal: total }
           : { MontoNeto: neto, TasaIVA: TASA_IVA, IVA: iva, MontoTotal: total },
