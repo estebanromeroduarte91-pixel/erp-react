@@ -1,0 +1,210 @@
+// Manda al SII los documentos ya emitidos.
+//
+// Son dos llamadas encadenadas a SimpleAPI:
+//   1. POST /api/v1/envio/generar  → arma un "sobre" con varios DTE
+//   2. POST /api/v1/envio/enviar   → lo manda al SII y devuelve un TrackID
+//
+// Va por tandas y no por documento porque así lo recomienda SimpleAPI (una vez
+// por hora). Eso además separa dos cosas que conviene tener separadas: el
+// cliente se lleva su boleta en el momento —ya está timbrada y firmada— y el
+// trámite con el SII ocurre después, sin hacer esperar a nadie en el mostrador.
+//
+// La llama el cron con `x-cron-token`, igual que woo-push.
+
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+const SIMPLEAPI_KEY = Deno.env.get("SIMPLEAPI_KEY")!;
+const CRON_TOKEN = Deno.env.get("DTE_CRON_TOKEN") ?? "";
+
+const URL_SOBRE = "https://api.simpleapi.cl/api/v1/envio/generar";
+const URL_ENVIAR = "https://api.simpleapi.cl/api/v1/envio/enviar";
+
+// RUT del SII como receptor del sobre. Es fijo para todo Chile.
+const RUT_SII = "60803000-K";
+
+// Cuántos documentos entran en un sobre. Un sobre gigante tarda más de lo que
+// dura la función y además, si el SII lo rechaza, se cae la tanda entera.
+const POR_SOBRE = 50;
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-cron-token",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "no-store" },
+  });
+}
+
+function secretosIguales(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let dif = 0;
+  for (let i = 0; i < a.length; i++) dif |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return dif === 0;
+}
+
+async function autorizado(req: Request): Promise<boolean> {
+  const tokenCron = req.headers.get("x-cron-token") ?? "";
+  if (CRON_TOKEN && tokenCron && secretosIguales(tokenCron, CRON_TOKEN)) return true;
+
+  const cabecera = req.headers.get("Authorization") ?? "";
+  const jwt = cabecera.replace("Bearer ", "").trim();
+  if (!jwt || jwt === ANON_KEY) return false;
+  if (jwt === SERVICE_ROLE_KEY) return true;
+
+  const userClient = createClient(SUPABASE_URL, ANON_KEY, {
+    global: { headers: { Authorization: cabecera } },
+  });
+  const { data, error } = await userClient.auth.getUser(jwt);
+  if (error || !data?.user) return false;
+
+  const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+  const { data: perfil } = await admin
+    .from("user_profiles").select("empresa_id, activo").eq("id", data.user.id).maybeSingle();
+  return !!perfil?.empresa_id && perfil.activo !== false;
+}
+
+const rutSii = (v: string) => {
+  const limpio = String(v ?? "").replace(/[^0-9kK]/g, "").toUpperCase();
+  return limpio.length < 2 ? limpio : `${limpio.slice(0, -1)}-${limpio.slice(-1)}`;
+};
+
+async function llamar(url: string, input: unknown, archivos: { nombre: string; datos: ArrayBuffer }[]) {
+  const form = new FormData();
+  form.append("input", JSON.stringify(input));
+  // Mismo orden que en la emisión: certificado primero, después el resto.
+  for (const a of archivos) form.append("files", new File([a.datos], a.nombre));
+  const res = await fetch(url, { method: "POST", headers: { Authorization: SIMPLEAPI_KEY }, body: form });
+  const texto = await res.text();
+  if (!res.ok) throw new Error(`${url.split("/").pop()} ${res.status}: ${texto.slice(0, 800)}`);
+  return texto;
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (req.method !== "POST") return json({ ok: false, error: "Método no permitido" }, 405);
+  if (!await autorizado(req)) return json({ ok: false, error: "No autorizado" }, 401);
+
+  const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+  const resultados: unknown[] = [];
+
+  // Se agrupa por empresa: cada una tiene su certificado, su resolución y su
+  // ambiente, y un sobre no puede mezclar contribuyentes.
+  const { data: pendientes } = await admin
+    .from("dte_documentos")
+    .select("id, empresa_id, folio, tipo_dte, ambiente, xml_ruta")
+    .eq("estado", "generado")
+    .not("xml_ruta", "is", null)
+    .limit(POR_SOBRE * 4);
+
+  if (!pendientes?.length) return json({ ok: true, enviados: 0, detalle: "Nada pendiente de envío" });
+
+  const porEmpresa = new Map<string, typeof pendientes>();
+  for (const d of pendientes) {
+    const lista = porEmpresa.get(d.empresa_id) ?? [];
+    if (lista.length < POR_SOBRE) lista.push(d);
+    porEmpresa.set(d.empresa_id, lista);
+  }
+
+  for (const [empresaId, docs] of porEmpresa) {
+    try {
+      const { data: empresa } = await admin
+        .from("empresas")
+        .select("rut, dte_ambiente, numero_resolucion, fecha_resolucion")
+        .eq("id", empresaId).maybeSingle();
+      if (!empresa?.fecha_resolucion) throw new Error("Falta la fecha de resolución del SII en Configuración → Tributario");
+
+      const { data: cert } = await admin
+        .from("dte_certificados").select("ruta, rut_firmante").eq("empresa_id", empresaId).maybeSingle();
+      if (!cert) throw new Error("No hay certificado digital cargado");
+
+      const { data: clave } = await admin.rpc("fn_dte_leer_clave", { p_empresa: empresaId });
+      if (!clave) throw new Error("No se pudo leer la clave del certificado");
+
+      const certBin = await admin.storage.from("dte-privado").download(cert.ruta);
+      if (certBin.error || !certBin.data) throw new Error("No se pudo leer el certificado");
+      const certBuf = await certBin.data.arrayBuffer();
+
+      const xmls: { nombre: string; datos: ArrayBuffer }[] = [];
+      for (const d of docs) {
+        const bin = await admin.storage.from("dte-privado").download(d.xml_ruta!);
+        if (bin.error || !bin.data) throw new Error(`No se pudo leer el XML del folio ${d.folio}`);
+        xmls.push({ nombre: `dte-${d.tipo_dte}-${d.folio}.xml`, datos: await bin.data.arrayBuffer() });
+      }
+
+      const certificado = { Rut: rutSii(String(cert.rut_firmante)), Password: clave };
+
+      // Paso 1: el sobre.
+      const sobre = await llamar(URL_SOBRE, {
+        Certificado: certificado,
+        Caratula: {
+          RutEmisor: rutSii(String(empresa.rut)),
+          RutReceptor: RUT_SII,
+          FechaResolucion: empresa.fecha_resolucion,
+          NumeroResolucion: empresa.numero_resolucion ?? 0,
+        },
+      }, [{ nombre: "certificado.pfx", datos: certBuf }, ...xmls]);
+
+      const rutaSobre = `${empresaId}/sobres/${Date.now()}.xml`;
+      await admin.storage.from("dte-privado")
+        .upload(rutaSobre, new TextEncoder().encode(sobre), { contentType: "application/xml", upsert: true });
+
+      await admin.from("dte_documentos")
+        .update({ estado: "en_sobre", actualizado_en: new Date().toISOString() })
+        .in("id", docs.map(d => d.id));
+
+      // Paso 2: al SII.
+      //
+      // OJO — dos valores que la documentación no explica y que deduje del
+      // ejemplo: `Ambiente` 0 sería certificación y 1 producción; `Tipo`
+      // distinguiría el tipo de envío, y como las boletas viajan por un
+      // servidor distinto del SII (en la consulta de estado eso se declara con
+      // `ServidorBoletaREST`), acá se manda 2 para boletas. Si el SII rechaza
+      // el envío, ESTE es el primer lugar donde mirar.
+      const esBoleta = docs.every(d => d.tipo_dte === 39 || d.tipo_dte === 41);
+      const respuesta = await llamar(URL_ENVIAR, {
+        Certificado: certificado,
+        Ambiente: empresa.dte_ambiente === "produccion" ? 1 : 0,
+        Tipo: esBoleta ? 2 : 1,
+      }, [
+        { nombre: "certificado.pfx", datos: certBuf },
+        { nombre: "sobre.xml", datos: new TextEncoder().encode(sobre).buffer as ArrayBuffer },
+      ]);
+
+      // El TrackID puede venir como número suelto o dentro de un JSON.
+      let trackId = respuesta.trim();
+      try {
+        const j = JSON.parse(respuesta);
+        trackId = String(j?.trackId ?? j?.TrackId ?? j?.track_id ?? trackId);
+      } catch { /* vino como texto plano */ }
+
+      await admin.from("dte_documentos").update({
+        estado: "enviado",
+        track_id: trackId.slice(0, 100),
+        ultimo_error: null,
+        actualizado_en: new Date().toISOString(),
+      }).in("id", docs.map(d => d.id));
+
+      resultados.push({ empresa_id: empresaId, enviados: docs.length, track_id: trackId.slice(0, 100) });
+    } catch (e) {
+      const motivo = (e as Error).message;
+      // Vuelven a `generado` para que el próximo intento los tome: quedaron
+      // emitidos y válidos, lo que falló fue el trámite con el SII.
+      await admin.from("dte_documentos").update({
+        estado: "generado",
+        ultimo_error: motivo.slice(0, 2000),
+        actualizado_en: new Date().toISOString(),
+      }).in("id", docs.map(d => d.id));
+      resultados.push({ empresa_id: empresaId, ok: false, error: motivo });
+    }
+  }
+
+  console.log("dte-enviar", JSON.stringify(resultados));
+  return json({ ok: true, resultados });
+});

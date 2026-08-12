@@ -42,3 +42,13 @@ verify_jwt = true
 # admite admin, encargado y vendedor — a diferencia de dte-certificado y
 # dte-caf, que son configuración y quedan solo para admin.
 verify_jwt = true
+
+[functions.dte-enviar]
+# La llama el cron con `x-cron-token` y también se puede disparar a mano desde
+# la app. El gateway exige JWT; la comprobación real la hace la función.
+verify_jwt = true
+
+[functions.dte-consultar]
+# La llama el cron con `x-cron-token`. Pregunta al SII si aceptó o rechazó cada
+# sobre enviado; sin esto los documentos quedarían para siempre en "enviado".
+verify_jwt = true
