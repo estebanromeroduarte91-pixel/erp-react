@@ -197,7 +197,7 @@ Deno.serve(async (req) => {
         track_id: trackId,
         documentos: docs.length,
         veredicto: veredicto ?? "sin resolver todavía",
-        respuesta: texto.slice(0, 400),
+        respuesta: texto.slice(0, 2000),
       });
     } catch (e) {
       resultados.push({ track_id: trackId, ok: false, error: (e as Error).message });

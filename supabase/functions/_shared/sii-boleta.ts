@@ -25,7 +25,10 @@ const URLS = {
   },
 } as const;
 
-const USER_AGENT = "PixitERP/1.0";
+// El receptor de boletas declara esta cabecera como obligatoria y algunos de
+// sus frontales rechazan agentes no compatibles antes de procesar el token.
+// Se usa literalmente el formato publicado en la especificación del SII.
+const USER_AGENT = "Mozilla/4.0 ( compatible; PROG 1.0; Windows NT)";
 const XMLDSIG = "http://www.w3.org/2000/09/xmldsig#";
 const C14N = "http://www.w3.org/TR/2001/REC-xml-c14n-20010315";
 const RSA_SHA1 = "http://www.w3.org/2000/09/xmldsig#rsa-sha1";
@@ -49,6 +52,38 @@ function binario(bytes: ArrayBuffer): string {
     partes.push(String.fromCharCode(...vista.subarray(i, i + 0x8000)));
   }
   return partes.join("");
+}
+
+function unirBytes(partes: Uint8Array[]): Uint8Array {
+  const total = partes.reduce((n, parte) => n + parte.byteLength, 0);
+  const salida = new Uint8Array(total);
+  let offset = 0;
+  for (const parte of partes) {
+    salida.set(parte, offset);
+    offset += parte.byteLength;
+  }
+  return salida;
+}
+
+function multipartBoleta(
+  campos: Record<string, string>,
+  nombreArchivo: string,
+  archivo: ArrayBuffer,
+): { boundary: string; body: Uint8Array } {
+  const encoder = new TextEncoder();
+  const boundary = `----PixitSii${crypto.randomUUID().replaceAll("-", "")}`;
+  const partes: Uint8Array[] = [];
+  for (const [nombre, valor] of Object.entries(campos)) {
+    partes.push(encoder.encode(
+      `--${boundary}\r\nContent-Disposition: form-data; name="${nombre}"\r\n\r\n${valor}\r\n`,
+    ));
+  }
+  partes.push(encoder.encode(
+    `--${boundary}\r\nContent-Disposition: form-data; name="archivo"; filename="${nombreArchivo}"\r\nContent-Type: application/xml\r\n\r\n`,
+  ));
+  partes.push(new Uint8Array(archivo));
+  partes.push(encoder.encode(`\r\n--${boundary}--\r\n`));
+  return { boundary, body: unirBytes(partes) };
 }
 
 function enteroBase64(n: { toString(radix: number): string }): string {
@@ -143,11 +178,15 @@ export async function crearSesionBoletaSii(
     body: solicitudToken,
     signal: AbortSignal.timeout(20_000),
   }), "Token");
+  const estado = extraerTag(tokenXml, "ESTADO") ?? "";
+  if (estado !== "00" && estado !== "0") {
+    const glosa = extraerTag(tokenXml, "GLOSA") ?? textoSeguro(tokenXml);
+    throw new Error(`El SII rechazó la creación del token (${estado || "sin estado"}): ${glosa}`);
+  }
   const token = extraerTag(tokenXml, "TOKEN");
   if (!token) {
-    const estado = extraerTag(tokenXml, "ESTADO") ?? "sin estado";
     const glosa = extraerTag(tokenXml, "GLOSA") ?? textoSeguro(tokenXml);
-    throw new Error(`El SII no entregó token (${estado}): ${glosa}`);
+    throw new Error(`El SII no entregó token (${estado || "sin estado"}): ${glosa}`);
   }
   return { ambiente, token };
 }
@@ -166,21 +205,28 @@ export async function enviarSobreBoleta(
 ): Promise<{ trackId: string; respuesta: unknown }> {
   const envia = separarRut(rutFirmante);
   const empresa = separarRut(rutEmpresa);
-  const form = new FormData();
-  form.append("rutSender", envia.cuerpo);
-  form.append("dvSender", envia.dv);
-  form.append("rutCompany", empresa.cuerpo);
-  form.append("dvCompany", empresa.dv);
-  form.append("archivo", new File([sobre], `envio-boleta-${Date.now()}.xml`, { type: "application/xml" }));
+  const nombreArchivo = `envio-boleta-${Date.now()}.xml`;
+  // Pangal no procesa de forma confiable el multipart transmitido en chunks
+  // por FormData desde Edge Runtime: puede leer el XML hasta la mitad y
+  // responder LPX-00007 (unexpected EOF). Se arma un cuerpo binario completo,
+  // manteniendo intactos los bytes ISO-8859-1 del XML y permitiendo que fetch
+  // envíe un Content-Length definido.
+  const multipart = multipartBoleta({
+    rutSender: envia.cuerpo,
+    dvSender: envia.dv,
+    rutCompany: empresa.cuerpo,
+    dvCompany: empresa.dv,
+  }, nombreArchivo, sobre);
 
   const texto = await respuestaTexto(await fetch(URLS[sesion.ambiente].envio, {
     method: "POST",
     headers: {
       Accept: "application/json",
       Cookie: `TOKEN=${sesion.token}`,
+      "Content-Type": `multipart/form-data; boundary=${multipart.boundary}`,
       "User-Agent": USER_AGENT,
     },
-    body: form,
+    body: multipart.body,
     signal: AbortSignal.timeout(30_000),
   }), "Envío de boleta");
 
@@ -191,7 +237,10 @@ export async function enviarSobreBoleta(
     throw new Error(`El SII respondió un envío sin JSON válido: ${textoSeguro(texto)}`);
   }
   const trackId = String(respuesta.trackid ?? respuesta.trackId ?? "").trim();
-  if (!/^\d{15}$/.test(trackId)) {
+  // La API define un entero de hasta 15 dígitos (no exactamente 15) y sus
+  // propios ejemplos usan valores cortos. En certificación Pangal actualmente
+  // devuelve TrackID de 8 dígitos.
+  if (!/^\d{1,15}$/.test(trackId) || String(respuesta.estado ?? "").toUpperCase() !== "REC") {
     throw new Error(`El receptor REST no devolvió un TrackID de boleta válido: ${textoSeguro(texto)}`);
   }
   return { trackId, respuesta };

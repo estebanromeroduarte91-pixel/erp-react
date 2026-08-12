@@ -91,17 +91,26 @@ function calcular(tipo: number, items: ItemEntrada[]) {
 
   const detalles = items.map((it) => {
     const cantidad = Number(it.cantidad) || 0;
-    const bruto = (Number(it.precio) || 0) * cantidad - (Number(it.descuento) || 0);
+    const precioBruto = Number(it.precio) || 0;
+    const descuentoBruto = Number(it.descuento) || 0;
+    const bruto = precioBruto * cantidad - descuentoBruto;
     // En boleta el precio trae el IVA adentro; se descuenta para obtener el neto.
     const montoItem = esBoleta && !exento ? Math.round(bruto / (1 + TASA_IVA / 100)) : Math.round(bruto);
+    // Cuando IndMntNeto=2, PrcItem y los descuentos también deben expresarse
+    // sin IVA. Si sólo MontoItem fuera neto, el SII acepta con reparo 200
+    // ("Valor Detalle Distinto a Precio * Cantidad").
+    const precioDocumento = esBoleta && !exento ? precioBruto / (1 + TASA_IVA / 100) : precioBruto;
+    const descuentoDocumento = esBoleta && !exento
+      ? descuentoBruto / (1 + TASA_IVA / 100)
+      : descuentoBruto;
     return {
       IndicadorExento: it.exento || exento ? 1 : 0,
       Nombre: String(it.nombre ?? "").slice(0, 80),
       Descripcion: String(it.descripcion ?? "").slice(0, 1000),
       Cantidad: cantidad,
       UnidadMedida: it.unidad ?? "un",
-      Precio: Number(it.precio) || 0,
-      Descuento: Number(it.descuento) || 0,
+      Precio: Number(precioDocumento.toFixed(5)),
+      Descuento: Number(descuentoDocumento.toFixed(5)),
       Recargo: 0,
       MontoItem: montoItem,
     };
@@ -186,14 +195,18 @@ Deno.serve(async (req) => {
 
   const emisorBase = {
     Rut: rutSii(String(empresa!.rut)),
-    ActividadEconomica: String(empresa!.acteco).split(/[^0-9]+/).filter(Boolean).map(Number),
     DireccionOrigen: empresa!.direccion_origen,
     ComunaOrigen: empresa!.comuna_origen,
     Telefono: [],
   };
   const emisor = esBoleta
     ? { ...emisorBase, RazonSocialBoleta: empresa!.razon_social, GiroBoleta: empresa!.giro }
-    : { ...emisorBase, RazonSocial: empresa!.razon_social, Giro: empresa!.giro };
+    : {
+        ...emisorBase,
+        RazonSocial: empresa!.razon_social,
+        Giro: empresa!.giro,
+        ActividadEconomica: String(empresa!.acteco).split(/[^0-9]+/).filter(Boolean).map(Number),
+      };
 
   // 66666666-6 es el RUT genérico para boleta sin datos del cliente.
   //
@@ -230,6 +243,8 @@ Deno.serve(async (req) => {
         ...(esBoleta ? {} : { RutSolicitante: "", Transporte: null }),
         Totales: exento
           ? { MontoTotal: total }
+          : esBoleta
+          ? { MontoNeto: neto, IVA: iva, MontoTotal: total }
           : { MontoNeto: neto, TasaIVA: TASA_IVA, IVA: iva, MontoTotal: total },
       },
       Detalles: detalles,
