@@ -342,6 +342,12 @@ export interface SeguimientoConfig {
   msgApertura?: string
   msgCierre?: string
   logoUrl?: string
+  /** Apariencia de la representación impresa de boletas electrónicas. */
+  boletaEstilo?: 'moderna' | 'clasica'
+  boletaMostrarLogo?: boolean
+  boletaColor?: string
+  boletaContacto?: string
+  boletaPie?: string
 }
 
 export interface SmtpConfig {

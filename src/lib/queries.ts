@@ -2305,6 +2305,48 @@ export function useSubirCafDte() {
   })
 }
 
+// ── Emisión e impresión de documentos tributarios ─────────────
+export type ItemDte = {
+  nombre: string
+  descripcion?: string
+  cantidad: number
+  precio: number
+  descuento?: number
+  exento?: boolean
+}
+
+export type ReceptorDte = {
+  rut?: string
+  razon_social?: string
+  direccion?: string
+  comuna?: string
+}
+
+export function useEmitirDte() {
+  return useMutation({
+    mutationFn: async (datos: {
+      tipo_dte: number
+      venta_id?: string
+      receptor?: ReceptorDte
+      items: ItemDte[]
+    }) => {
+      const { data, error } = await supabase.functions.invoke('dte-emitir', { body: datos })
+      if (error) throw new Error(await extraerMensajeError(error, 'No se pudo emitir el documento'))
+      return data as { folio: number; tipo_dte: number; neto: number; iva: number; total: number }
+    },
+  })
+}
+
+export function useImprimirDte() {
+  return useMutation({
+    mutationFn: async (datos: { folio: number; tipo_dte: number; forma_pago?: string }) => {
+      const { data, error } = await supabase.functions.invoke('dte-imprimir', { body: datos })
+      if (error) throw new Error(await extraerMensajeError(error, 'No se pudo imprimir el documento'))
+      return data as { pdf_base64: string }
+    },
+  })
+}
+
 export function useActualizarNombreEmpresa() {
   const { empresaId } = useAuth()
   return useMutation({

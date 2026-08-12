@@ -4,6 +4,7 @@ import { useVentasResumen, useVentasPaginadas, useVentaPorId, useAnularVenta, us
 import { useAuth } from '@/context/AuthContext'
 import { Spinner } from '@/components/shared/Spinner'
 import { fechaLocal } from '@/lib/fecha'
+import { supabase } from '@/lib/supabase'
 import type { Venta } from '@/types'
 
 const fmt = (n: number) => '$' + Math.round(n).toLocaleString('es-CL')
@@ -49,6 +50,8 @@ export function VentasListTab() {
   const [hasta, setHasta] = useState('')
   const [page, setPage] = useState(0)
   const [detalle, setDetalle] = useState<Venta | null>(null)
+  const [imprimiendo, setImprimiendo] = useState(false)
+  const [errorImpresion, setErrorImpresion] = useState('')
   const desdeRef = useRef<HTMLInputElement>(null)
   const hastaRef = useRef<HTMLInputElement>(null)
 
@@ -136,6 +139,45 @@ export function VentasListTab() {
     if (!esAdmin) return
     if (!confirm(`¿Anular la venta ${v.numero}?`)) return
     await anularVenta.mutateAsync(v.id)
+  }
+
+  async function imprimirBoleta(v: Venta) {
+    const ventana = window.open('', '_blank')
+    if (ventana) {
+      ventana.document.title = 'Preparando boleta…'
+      ventana.document.body.innerHTML = '<p style="font:14px system-ui;padding:24px;color:#475569">Preparando boleta…</p>'
+    }
+    setImprimiendo(true)
+    setErrorImpresion('')
+    try {
+      const { data, error } = await supabase.functions.invoke('dte-imprimir', {
+        body: {
+          venta_id: v.id,
+          regenerar: true,
+          forma_pago: mpMap[v.metodo_pago] ?? v.metodo_pago ?? '',
+        },
+      })
+      if (error) throw error
+      if (!data?.ok || !data?.pdf_base64) throw new Error(data?.error || 'No se recibió la boleta')
+
+      const bin = atob(String(data.pdf_base64))
+      const bytes = new Uint8Array(bin.length)
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+      const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }))
+      if (ventana) ventana.location.href = url
+      else {
+        const a = document.createElement('a')
+        a.href = url
+        a.target = '_blank'
+        a.click()
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 60_000)
+    } catch (e) {
+      ventana?.close()
+      setErrorImpresion(e instanceof Error ? e.message : 'No se pudo abrir la boleta')
+    } finally {
+      setImprimiendo(false)
+    }
   }
 
   const hayMas = lista.length < totalFiltrado
@@ -429,6 +471,18 @@ export function VentasListTab() {
               </div>
             </div>
             <div className="px-6 py-4 border-t border-gray-100 bg-gray-50">
+              {(detalle.tipo_doc ?? 'boleta') === 'boleta' && detalle.estado === 'pagada' && (
+                <div className="mb-4">
+                  <button
+                    onClick={() => imprimirBoleta(detalle)}
+                    disabled={imprimiendo}
+                    className="w-full px-4 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 disabled:opacity-60 transition"
+                  >
+                    {imprimiendo ? 'Preparando boleta…' : 'Ver / imprimir boleta'}
+                  </button>
+                  {errorImpresion && <p className="text-xs text-red-600 mt-2">{errorImpresion}</p>}
+                </div>
+              )}
               <div className="flex justify-between text-sm text-gray-600 mb-1">
                 <span>Subtotal neto</span><span>{fmt(detalle.total)}</span>
               </div>

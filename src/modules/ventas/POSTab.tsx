@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
-import { useProductos, useBuscarProductos, useVentasEnRango, useConfirmarVenta, useMetodosPago, useCajaSesiones, useCajas, useGuardarCajaSesiones, useIncrementarContadorVenta, useOrdenesLite, useUserProfiles, useUserCargoMap, useCargos, fetchLotesActivosParaVenta, useClientes, useBuscarClientes, useCrearCliente, useVentasConfig, CARGOS_DEFAULT } from '@/lib/queries'
+import { TIPO_DTE, abrirPdfBase64, lineaParaDte } from '@/lib/dte'
+import { useProductos, useBuscarProductos, useVentasEnRango, useConfirmarVenta, useMetodosPago, useCajaSesiones, useCajas, useGuardarCajaSesiones, useIncrementarContadorVenta, useOrdenesLite, useUserProfiles, useUserCargoMap, useCargos, fetchLotesActivosParaVenta, useClientes, useBuscarClientes, useCrearCliente, useVentasConfig, CARGOS_DEFAULT, useEmitirDte, useImprimirDte } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 
 import { useAnchorRect, fixedDropdownStyle } from '@/lib/useAnchorRect'
@@ -55,6 +56,8 @@ export function POSTab() {
   const { data: cajas } = useCajas()
   const guardarSesiones = useGuardarCajaSesiones()
   const confirmarVentaMutation = useConfirmarVenta()
+  const emitirDte = useEmitirDte()
+  const imprimirDte = useImprimirDte()
   const incrementarContador = useIncrementarContadorVenta()
   const { data: userProfiles } = useUserProfiles()
   const { data: userCargoMap } = useUserCargoMap()
@@ -159,6 +162,9 @@ export function POSTab() {
   const [metodoSel, setMetodoSel] = useState<string>('')
   const [guardando, setGuardando] = useState(false)
   const [ventaError, setVentaError] = useState('')
+  // Aviso separado del error de venta: acá la venta SÍ se guardó y lo que falló
+  // fue el documento tributario. Mezclarlos haría creer que no se cobró.
+  const [avisoDte, setAvisoDte] = useState('')
   const busRef = useRef<HTMLInputElement>(null)
 
   const metodoActual = metodoSel || metodos?.[0]?.id || ''
@@ -404,6 +410,7 @@ export function POSTab() {
       return
     }
     setVentaError('')
+    setAvisoDte('')
     setGuardando(true)
     try {
       const nextNum = await incrementarContador.mutateAsync()
@@ -516,6 +523,37 @@ export function POSTab() {
       // se corta la conexión a mitad de camino, no queda nada aplicado a
       // medias — o se guarda todo, o no se guarda nada.
       await confirmarVentaMutation.mutateAsync({ venta, movimiento: mov, ajustesStock: ajustes, lotes: loteUpdates, orden })
+
+      // Documento tributario. Va DESPUÉS de la venta y en su propio try: la
+      // venta ya está cobrada y guardada, así que un problema del SII o de
+      // SimpleAPI no puede deshacerla ni dejar al cliente esperando en la caja.
+      // Si falla, el documento queda pendiente y se reintenta después.
+      if (tipoDoc !== 'ticket') {
+        try {
+          const emitido = await emitirDte.mutateAsync({
+            tipo_dte: tipoDoc === 'factura' ? TIPO_DTE.factura : TIPO_DTE.boleta,
+            venta_id: venta.id,
+            receptor: clienteRut.trim()
+              ? { rut: clienteRut.trim(), razon_social: cliente.trim() || undefined }
+              : undefined,
+            // Se usan las líneas del carrito y no `venta.items`: ahí el precio
+            // ya viene con el descuento aplicado, y volver a descontarlo sobre
+            // ese valor lo cobraría dos veces en la boleta.
+            items: items.map(it => ({
+              nombre: it.producto_nombre,
+              ...lineaParaDte(it.precio_iva, it.cantidad, lineTotal(it)),
+            })),
+          })
+          const pdf = await imprimirDte.mutateAsync({
+            folio: emitido.folio,
+            tipo_dte: emitido.tipo_dte,
+            forma_pago: metodoActual,
+          })
+          abrirPdfBase64(pdf.pdf_base64, true)
+        } catch (e) {
+          setAvisoDte(`La venta ${venta.numero} se guardó correctamente, pero no se pudo emitir el documento: ${(e as Error).message}`)
+        }
+      }
 
       if (otSeleccionada) setOtSeleccionada(null)
       setItems([])
@@ -1073,6 +1111,15 @@ export function POSTab() {
           )}
           {ventaError && !bloquearPorStock && (
             <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{ventaError}</div>
+          )}
+          {/* Ámbar y no rojo, a propósito: la plata entró y la venta quedó
+              registrada. Lo que falta es el documento, y eso se resuelve
+              después sin volver a cobrarle a nadie. */}
+          {avisoDte && (
+            <div className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 flex items-start gap-2">
+              <span className="flex-1">{avisoDte}</span>
+              <button onClick={() => setAvisoDte('')} className="text-amber-600 hover:text-amber-800 font-bold">×</button>
+            </div>
           )}
           <button
             onClick={confirmarVenta}
