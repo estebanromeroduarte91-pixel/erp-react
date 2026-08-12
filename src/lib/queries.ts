@@ -2177,6 +2177,9 @@ export type DatosTributarios = {
   comuna_origen?: string
   acteco?: string
   dte_ambiente?: 'certificacion' | 'produccion'
+  /** Resolución del SII que autoriza a emitir. Va en la carátula del sobre de envío. */
+  numero_resolucion?: number
+  fecha_resolucion?: string
 }
 
 export function useDatosTributarios() {
@@ -2186,7 +2189,7 @@ export function useDatosTributarios() {
     queryFn: async (): Promise<DatosTributarios> => {
       const { data, error } = await supabase
         .from('empresas')
-        .select('rut, razon_social, giro, direccion_origen, comuna_origen, acteco, dte_ambiente')
+        .select('rut, razon_social, giro, direccion_origen, comuna_origen, acteco, dte_ambiente, numero_resolucion, fecha_resolucion')
         .eq('id', empresaId!)
         .single()
       if (error) throw error

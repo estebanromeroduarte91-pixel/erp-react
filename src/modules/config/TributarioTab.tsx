@@ -11,13 +11,17 @@ import { Spinner } from '@/components/shared/Spinner'
 // llenan una sola vez, al configurar la empresa. Existe como pantalla y no como
 // SQL porque cada taller que contrate Pixit tiene que poder hacerlo solo.
 
-const CAMPOS: { key: keyof DatosTributarios; label: string; ayuda: string; ancho?: 'medio' }[] = [
+const CAMPOS: { key: keyof DatosTributarios; label: string; ayuda: string; ancho?: 'medio'; tipo?: 'texto' | 'numero' | 'fecha' }[] = [
   { key: 'rut',              label: 'RUT de la empresa', ayuda: 'El del contribuyente que emite. Debe coincidir con el del certificado digital.', ancho: 'medio' },
   { key: 'razon_social',     label: 'Razón social',      ayuda: 'El nombre legal, tal como está en el SII. No el nombre de fantasía.' },
   { key: 'giro',             label: 'Giro',              ayuda: 'La glosa de tu actividad. Aparece impresa en la factura.' },
   { key: 'direccion_origen', label: 'Dirección',         ayuda: 'Dirección desde donde se emite el documento.' },
   { key: 'comuna_origen',    label: 'Comuna',            ayuda: 'Comuna de esa dirección.', ancho: 'medio' },
   { key: 'acteco',           label: 'Código de actividad económica', ayuda: 'Los dígitos de tu actividad en el SII (ej. 952100). Sin esto la factura se rechaza.', ancho: 'medio' },
+  // Van en la carátula del sobre de envío, no en el documento. En certificación
+  // el número es 0; en producción, el de tu resolución real del SII.
+  { key: 'numero_resolucion', label: 'N° de resolución SII', ayuda: 'En certificación va 0. En producción, el número de la resolución que te autorizó como emisor.', ancho: 'medio', tipo: 'numero' },
+  { key: 'fecha_resolucion',  label: 'Fecha de resolución',  ayuda: 'La fecha de esa misma resolución.', ancho: 'medio', tipo: 'fecha' },
 ]
 
 export function TributarioTab() {
@@ -39,7 +43,11 @@ export function TributarioTab() {
   }
 
   const rutInvalido = !!form.rut && !validarRut(form.rut)
-  const faltantes = CAMPOS.filter(c => !String(form[c.key] ?? '').trim()).map(c => c.label)
+  // Ojo: el N° de resolución 0 es un valor VÁLIDO en certificación, así que no
+  // se puede usar la verdad/falsedad del valor para saber si falta.
+  const faltantes = CAMPOS
+    .filter(c => form[c.key] === undefined || form[c.key] === null || String(form[c.key]).trim() === '')
+    .map(c => c.label)
 
   async function handleGuardar() {
     if (rutInvalido) {
@@ -54,6 +62,8 @@ export function TributarioTab() {
         direccion_origen: form.direccion_origen?.trim(),
         comuna_origen: form.comuna_origen?.trim(),
         acteco: form.acteco?.trim(),
+        numero_resolucion: Number(form.numero_resolucion ?? 0),
+        fecha_resolucion: form.fecha_resolucion || undefined,
       })
       showToast('Datos tributarios guardados ✓')
     } catch (e) {
@@ -79,6 +89,7 @@ export function TributarioTab() {
               <div key={c.key} className={c.ancho === 'medio' ? 'col-span-1' : 'col-span-2'}>
                 <label className="block text-xs font-medium text-gray-700 mb-1">{c.label}</label>
                 <input
+                  type={c.tipo === 'fecha' ? 'date' : c.tipo === 'numero' ? 'number' : 'text'}
                   value={String(form[c.key] ?? '')}
                   onChange={e => {
                     const v = esRut ? formatRut(e.target.value) : e.target.value
