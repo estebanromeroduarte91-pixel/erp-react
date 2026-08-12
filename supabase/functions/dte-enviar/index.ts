@@ -203,12 +203,32 @@ Deno.serve(async (req) => {
       }
 
       if (soloSobre) {
+        const txt = comoTexto(sobre);
+        const cierre = txt.lastIndexOf("</EnvioBOLETA>");
         resultados.push({
-          empresa_id: empresaId,
           documentos: docs.length,
           largo: sobre.byteLength,
-          empieza: comoTexto(sobre).slice(0, 300),
-          termina: comoTexto(sobre).slice(-300),
+          // Un `<?xml` de más adentro del sobre es la causa clásica de
+          // "extra data at end of complex element": el DTE se incrustó con su
+          // propia declaración en vez de pelada.
+          declaraciones_xml: (txt.match(/<\?xml/g) ?? []).length,
+          aperturas_dte: (txt.match(/<DTE[ >]/g) ?? []).length,
+          cierres_dte: (txt.match(/<\/DTE>/g) ?? []).length,
+          sobra_al_final: cierre >= 0 ? JSON.stringify(txt.slice(cierre + 14)) : "no se encontró el cierre",
+          caratula: txt.slice(txt.indexOf("<Caratula"), txt.indexOf("</Caratula>") + 11),
+          // Cómo empieza el DTE incrustado dentro del sobre.
+          tras_caratula: txt.slice(txt.indexOf("</Caratula>") + 11, txt.indexOf("</Caratula>") + 400),
+          // Uno por documento: el giro es el campo con acentos, así que es
+          // donde se ve si los bytes llegaron sanos o corrompidos.
+          por_documento: docs.map((d, i) => {
+            const x = comoTexto(xmls[i].datos);
+            const g = x.indexOf("<GiroEmisor>");
+            return {
+              folio: d.folio,
+              giro: g >= 0 ? x.slice(g, x.indexOf("</GiroEmisor>") + 13) : "(sin GiroEmisor)",
+              sano: g >= 0 ? !x.slice(g, g + 80).includes("\uFFFD") : null,
+            };
+          }),
         });
         continue;
       }
