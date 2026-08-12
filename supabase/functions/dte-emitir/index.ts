@@ -215,21 +215,29 @@ Deno.serve(async (req) => {
   // esquema del SII no espera dentro de ese elemento, y el envío se rechaza
   // entero con "extra data at end of complex element" — un mensaje que no dice
   // qué campo sobra. Por eso cada tipo arma solo lo suyo.
+  //
+  // Los campos vacíos se OMITEN en vez de mandarse como "". La plantilla de
+  // impresión escribe la etiqueta igual aunque el valor esté vacío, así que una
+  // boleta a consumidor final salía con "Giro:", "Dirección:" y "Comuna:"
+  // colgando sin nada al lado.
   const r = entrada.receptor ?? {};
+  const siHay = (valor: string | undefined, clave: string) =>
+    valor && String(valor).trim() ? { [clave]: String(valor).trim() } : {};
+
   const receptor = esBoleta
     ? {
         Rut: rutSii(r.rut || "66666666-6"),
         RazonSocial: r.razon_social || "Consumidor final",
-        Direccion: r.direccion || "",
-        Comuna: r.comuna || "",
+        ...siHay(r.direccion, "Direccion"),
+        ...siHay(r.comuna, "Comuna"),
       }
     : {
         Rut: rutSii(r.rut || "66666666-6"),
         RazonSocial: r.razon_social || "Consumidor final",
-        Direccion: r.direccion || "",
-        Comuna: r.comuna || "",
-        Giro: r.giro || "",
-        Contacto: r.contacto || "",
+        ...siHay(r.direccion, "Direccion"),
+        ...siHay(r.comuna, "Comuna"),
+        ...siHay(r.giro, "Giro"),
+        ...siHay(r.contacto, "Contacto"),
       };
 
   const documento = {

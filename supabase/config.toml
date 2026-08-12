@@ -52,3 +52,9 @@ verify_jwt = true
 # La llama el cron con `x-cron-token`. Pregunta al SII si aceptó o rechazó cada
 # sobre enviado; sin esto los documentos quedarían para siempre en "enviado".
 verify_jwt = true
+
+[functions.dte-imprimir]
+# Exige JWT y filtra por la empresa de quien llama: sin ese filtro, pasando un
+# folio cualquiera se podría pedir la boleta de otro taller. La puede usar
+# cualquier rol con sesión — reimprimir es tarea de mostrador.
+verify_jwt = true
