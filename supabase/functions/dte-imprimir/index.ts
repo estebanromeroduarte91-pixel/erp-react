@@ -1,10 +1,10 @@
 // Devuelve la representación impresa de un documento ya emitido, en el formato
 // de una impresora térmica de 80 mm.
 //
-// La genera SimpleAPI a partir del XML del DTE. Se usa su generador y no uno
-// propio porque la boleta impresa lleva el TIMBRE ELECTRÓNICO —el código PDF417
-// que el SII exige— y equivocarse ahí es un problema de fiscalización, no de
-// estética.
+// Las boletas usan una plantilla propia configurable. Desde el 1 de enero de
+// 2026 la Res. Ex. SII N° 207 dejó opcional el PDF417 en la representación
+// impresa; el timbre permanece dentro del XML firmado. Las facturas y la
+// plantilla clásica siguen delegándose al generador de SimpleAPI.
 //
 // El PDF se guarda la primera vez y después se sirve desde el bucket: reimprimir
 // es algo que pasa seguido (se corta el papel, el cliente lo pide de nuevo) y no
@@ -61,7 +61,7 @@ function lineas(texto: string, fuente: PDFFont, tamano: number, ancho: number): 
   return salida;
 }
 
-function base64(bytes: Uint8Array): string {
+function codificarBase64(bytes: Uint8Array): string {
   let bin = "";
   for (let i = 0; i < bytes.length; i += 0x8000) {
     bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
@@ -101,7 +101,7 @@ async function pdfBoletaModerna(
   const altoDetalles = detalles.reduce((s, d) => s + Math.max(18, lineas(String(d.NmbItem ?? d.DscItem ?? "Item"), normal, 7.4, nombreAncho).length * 9 + 7), 0);
   const mostrarReceptor = seguro(receptor.RUTRecep) && seguro(receptor.RUTRecep) !== "66666666-6";
   const mostrarLogo = config.boletaMostrarLogo !== false && !!config.logoUrl;
-  const alto = Math.max(470, 390 + altoDetalles + (mostrarLogo ? 35 : 0) + (mostrarReceptor ? 25 : 0));
+  const alto = Math.max(400, 330 + altoDetalles + (mostrarLogo ? 35 : 0) + (mostrarReceptor ? 25 : 0));
   const page = pdf.addPage([ancho, alto]);
   const acento = colorHex(config.boletaColor);
   const gris = rgb(0.38, 0.42, 0.48);
@@ -159,7 +159,10 @@ async function pdfBoletaModerna(
   y -= 15;
   page.drawText("FECHA", { x: margen, y, size: 6.5, font: negrita, color: gris });
   page.drawText(seguro(id.FchEmis), { x: margen, y: y - 11, size: 8, font: normal });
-  const hora = new Date().toLocaleTimeString("es-CL", { timeZone: "America/Santiago", hour: "2-digit", minute: "2-digit" });
+  const marcaTiempo = seguro(documento.TmstFirma ?? documento.TED?.DD?.TSTED);
+  const hora = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(marcaTiempo)
+    ? marcaTiempo.slice(11, 16)
+    : new Date().toLocaleTimeString("es-CL", { timeZone: "America/Santiago", hour: "2-digit", minute: "2-digit" });
   const horaAncho = normal.widthOfTextAtSize(hora, 8);
   page.drawText("HORA", { x: ancho - margen - Math.max(horaAncho, 24), y, size: 6.5, font: negrita, color: gris });
   page.drawText(hora, { x: ancho - margen - horaAncho, y: y - 11, size: 8, font: normal });
@@ -240,10 +243,6 @@ async function identificar(req: Request) {
   const cabecera = req.headers.get("Authorization") ?? "";
   const jwt = cabecera.replace("Bearer ", "").trim();
   if (!jwt || jwt === ANON_KEY) return null;
-  if (jwt === SERVICE_ROLE_KEY) {
-    const empresaId = req.headers.get("x-empresa-id") ?? "";
-    return empresaId ? { empresaId, nombre: "Prueba Pixit" } : null;
-  }
 
   const userClient = createClient(SUPABASE_URL, ANON_KEY, {
     global: { headers: { Authorization: cabecera } },
@@ -336,7 +335,7 @@ Deno.serve(async (req) => {
       const ruta = `${quien.empresaId}/pdf/${doc.ambiente}-${doc.tipo_dte}-${doc.folio}.pdf`;
       await admin.storage.from("dte-privado").upload(ruta, bytes, { contentType: "application/pdf", upsert: true });
       await admin.from("dte_documentos").update({ pdf_ruta: ruta, actualizado_en: new Date().toISOString() }).eq("id", doc.id);
-      return json({ ok: true, pdf_base64: base64(bytes), desde_cache: false, plantilla: "moderna" });
+      return json({ ok: true, pdf_base64: codificarBase64(bytes), desde_cache: false, plantilla: "moderna" });
     } catch (e) {
       return json({ ok: false, error: `No se pudo construir la boleta: ${(e as Error).message}` }, 500);
     }
