@@ -3,6 +3,7 @@ import {
   useDatosTributarios, useGuardarDatosTributarios, type DatosTributarios,
   useCertificadoDte, useSubirCertificadoDte,
   useCafDte, useSubirCafDte,
+  useDteDocumentos, useEnviarDte, useConsultarDte,
 } from '@/lib/queries'
 import { formatRut, validarRut } from '@/lib/rut'
 import { Spinner } from '@/components/shared/Spinner'
@@ -127,6 +128,8 @@ export function TributarioTab() {
 
       <FoliosCard ambiente={form.dte_ambiente ?? 'certificacion'} onAviso={showToast} />
 
+      <EstadoDteCard onAviso={showToast} />
+
       {/* El ambiente no se cambia desde acá a propósito: pasar a producción
           significa que los documentos empiezan a existir para el SII y no se
           pueden borrar. Se habilita recién cuando el circuito esté probado. */}
@@ -155,6 +158,100 @@ export function TributarioTab() {
           toast.type === 'ok' ? 'bg-gray-900 text-white' : 'bg-red-600 text-white'
         }`}>
           {toast.msg}
+        </div>
+      )}
+    </div>
+  )
+}
+
+const ESTADO_DTE: Record<string, { label: string; clase: string }> = {
+  generado: { label: 'Pendiente de envío', clase: 'bg-amber-50 text-amber-700 border-amber-200' },
+  en_sobre: { label: 'Preparando envío', clase: 'bg-blue-50 text-blue-700 border-blue-200' },
+  enviado: { label: 'Esperando respuesta', clase: 'bg-blue-50 text-blue-700 border-blue-200' },
+  aceptado: { label: 'Aceptado por SII', clase: 'bg-green-50 text-green-700 border-green-200' },
+  rechazado: { label: 'Rechazado', clase: 'bg-red-50 text-red-700 border-red-200' },
+  error: { label: 'Error de emisión', clase: 'bg-red-50 text-red-700 border-red-200' },
+}
+
+function EstadoDteCard({ onAviso }: { onAviso: (msg: string, type?: 'ok' | 'err') => void }) {
+  const documentos = useDteDocumentos()
+  const enviar = useEnviarDte()
+  const consultar = useConsultarDte()
+  const filas = documentos.data ?? []
+  const pendientes = filas.filter(d => ['generado', 'en_sobre'].includes(d.estado)).length
+  const esperando = filas.filter(d => d.estado === 'enviado').length
+
+  async function enviarPendientes() {
+    try {
+      await enviar.mutateAsync()
+      onAviso('Envío al SII procesado ✓')
+    } catch (e) {
+      onAviso((e as Error).message, 'err')
+    }
+  }
+
+  async function consultarSii() {
+    try {
+      await consultar.mutateAsync()
+      onAviso('Respuesta del SII actualizada ✓')
+    } catch (e) {
+      onAviso((e as Error).message, 'err')
+    }
+  }
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h4 className="text-sm font-semibold text-gray-900">Estado de documentos SII</h4>
+          <p className="text-xs text-gray-500 mt-1">
+            Emisión, envío y aceptación son etapas distintas. Un folio sólo queda confirmado cuando el SII lo acepta.
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => void enviarPendientes()}
+            disabled={enviar.isPending}
+            className="px-3 py-2 text-xs font-semibold rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-50"
+          >
+            {enviar.isPending ? 'Enviando…' : `Enviar pendientes${pendientes ? ` (${pendientes})` : ''}`}
+          </button>
+          <button
+            onClick={() => void consultarSii()}
+            disabled={consultar.isPending}
+            className="px-3 py-2 text-xs font-semibold rounded-lg bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-50"
+          >
+            {consultar.isPending ? 'Consultando…' : `Consultar SII${esperando ? ` (${esperando})` : ''}`}
+          </button>
+        </div>
+      </div>
+
+      {documentos.isLoading ? (
+        <div className="py-6 flex justify-center"><Spinner className="w-5 h-5" /></div>
+      ) : filas.length === 0 ? (
+        <p className="mt-4 text-xs text-gray-500 rounded-lg bg-gray-50 border border-gray-100 p-3">
+          Todavía no hay documentos electrónicos registrados.
+        </p>
+      ) : (
+        <div className="mt-4 divide-y divide-gray-100 border border-gray-100 rounded-lg overflow-hidden">
+          {filas.map(d => {
+            const estado = ESTADO_DTE[d.estado] ?? { label: d.estado, clase: 'bg-gray-50 text-gray-700 border-gray-200' }
+            return (
+              <div key={d.id} className="px-3 py-2.5 flex items-start gap-3 text-xs">
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold text-gray-900">{NOMBRE_DOC[d.tipo_dte] ?? `DTE ${d.tipo_dte}`} N° {d.folio}</p>
+                  <p className="text-gray-400 mt-0.5">
+                    {d.ambiente === 'produccion' ? 'Producción' : 'Certificación'}
+                    {d.track_id ? ` · TrackID ${d.track_id}` : ''}
+                  </p>
+                  {d.ultimo_error && <p className="text-red-600 mt-1 break-words">{d.ultimo_error}</p>}
+                </div>
+                <span className={`shrink-0 border rounded-full px-2 py-1 font-semibold ${estado.clase}`}>
+                  {estado.label}
+                </span>
+              </div>
+            )
+          })}
         </div>
       )}
     </div>

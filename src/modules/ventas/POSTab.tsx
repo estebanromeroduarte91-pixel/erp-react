@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { TIPO_DTE, abrirPdfBase64, lineaParaDte } from '@/lib/dte'
-import { useProductos, useBuscarProductos, useVentasEnRango, useConfirmarVenta, useMetodosPago, useCajaSesiones, useCajas, useGuardarCajaSesiones, useIncrementarContadorVenta, useOrdenesLite, useUserProfiles, useUserCargoMap, useCargos, fetchLotesActivosParaVenta, useClientes, useBuscarClientes, useCrearCliente, useVentasConfig, CARGOS_DEFAULT, useEmitirDte, useImprimirDte } from '@/lib/queries'
+import { useProductos, useBuscarProductos, useVentasEnRango, useConfirmarVenta, useMetodosPago, useCajaSesiones, useCajas, useGuardarCajaSesiones, useIncrementarContadorVenta, useOrdenesLite, useUserProfiles, useUserCargoMap, useCargos, fetchLotesActivosParaVenta, useClientes, useBuscarClientes, useCrearCliente, useVentasConfig, CARGOS_DEFAULT, useEmitirDte, useImprimirDte, useEnviarDte } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 
 import { useAnchorRect, fixedDropdownStyle } from '@/lib/useAnchorRect'
@@ -58,6 +58,7 @@ export function POSTab() {
   const confirmarVentaMutation = useConfirmarVenta()
   const emitirDte = useEmitirDte()
   const imprimirDte = useImprimirDte()
+  const enviarDte = useEnviarDte()
   const incrementarContador = useIncrementarContadorVenta()
   const { data: userProfiles } = useUserProfiles()
   const { data: userCargoMap } = useUserCargoMap()
@@ -529,8 +530,10 @@ export function POSTab() {
       // SimpleAPI no puede deshacerla ni dejar al cliente esperando en la caja.
       // Si falla, el documento queda pendiente y se reintenta después.
       if (tipoDoc !== 'ticket') {
+        const avisosDocumento: string[] = []
+        let emitido: { folio: number; tipo_dte: number } | null = null
         try {
-          const emitido = await emitirDte.mutateAsync({
+          emitido = await emitirDte.mutateAsync({
             tipo_dte: tipoDoc === 'factura' ? TIPO_DTE.factura : TIPO_DTE.boleta,
             venta_id: venta.id,
             receptor: clienteRut.trim()
@@ -544,14 +547,34 @@ export function POSTab() {
               ...lineaParaDte(it.precio_iva, it.cantidad, lineTotal(it)),
             })),
           })
-          const pdf = await imprimirDte.mutateAsync({
-            folio: emitido.folio,
-            tipo_dte: emitido.tipo_dte,
-            forma_pago: metodoActual,
-          })
-          abrirPdfBase64(pdf.pdf_base64, true)
         } catch (e) {
-          setAvisoDte(`La venta ${venta.numero} se guardó correctamente, pero no se pudo emitir el documento: ${(e as Error).message}`)
+          avisosDocumento.push(`no se pudo emitir el documento: ${(e as Error).message}`)
+        }
+
+        if (emitido) {
+          try {
+            const pdf = await imprimirDte.mutateAsync({
+              folio: emitido.folio,
+              tipo_dte: emitido.tipo_dte,
+              forma_pago: metodoActual,
+            })
+            abrirPdfBase64(pdf.pdf_base64, true)
+          } catch (e) {
+            avisosDocumento.push(`se emitió el folio ${emitido.folio}, pero no se pudo abrir la impresión: ${(e as Error).message}`)
+          }
+
+          try {
+            await enviarDte.mutateAsync()
+          } catch (e) {
+            // El DTE ya existe y queda con estado `generado`; el cron o el
+            // próximo disparo volverán a intentar enviarlo sin gastar otro
+            // folio ni duplicar la venta.
+            avisosDocumento.push(`el folio ${emitido.folio} quedó pendiente de envío al SII: ${(e as Error).message}`)
+          }
+        }
+
+        if (avisosDocumento.length) {
+          setAvisoDte(`La venta ${venta.numero} se guardó correctamente, pero ${avisosDocumento.join(' ')}`)
         }
       }
 

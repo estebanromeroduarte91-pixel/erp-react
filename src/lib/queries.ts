@@ -6,6 +6,7 @@ import { MSG_DEFAULTS } from './msgTemplatesDefaults'
 import { reconciliarLotes } from './lotes'
 import { soloRutDigits } from './rut'
 import { extraerMensajeError } from './edgeError'
+import { errorEnResultadosDte, type ResultadoProcesoDte } from './dteProceso'
 import { DEFAULT_PLAN_LIMITS, type PlanTier } from './queries/usePlanLimits'
 import { useAuth } from '@/context/AuthContext'
 import type { Orden, Repuesto, Cliente, Producto, Bodega, Movimiento, Proveedor, Venta, VentaItem, MetodoPago, Caja, CajaSesion, Gasto, GastoCat, CuentaContable, Asiento, SeguimientoConfig, SmtpConfig, MsgTemplates, Cargo, UserProfile, UserConfig, PendingInvite, EmailDomain, OC, OCLogEntry, OCRecepcion, Categoria, Kit, Traslado, TecnicoExterno, Equipo, FichaUsuario, LoteInventario, ConteoInventario, Cotizacion } from '@/types'
@@ -2322,6 +2323,34 @@ export type ReceptorDte = {
   comuna?: string
 }
 
+export type DteDeVenta = {
+  folio: number
+  tipo_dte: number
+  estado: string
+}
+
+// Una venta contable no implica necesariamente que exista un documento
+// tributario electrónico. Las ventas históricas (anteriores a la integración
+// DTE) no tienen fila en dte_documentos, por lo que la interfaz debe comprobar
+// este vínculo antes de ofrecer imprimir una boleta.
+export function useDteDeVenta(ventaId?: string) {
+  const { empresaId } = useAuth()
+  return useQuery({
+    queryKey: ['dte_de_venta', empresaId, ventaId],
+    queryFn: async (): Promise<DteDeVenta | null> => {
+      const { data, error } = await supabase
+        .from('dte_documentos')
+        .select('folio, tipo_dte, estado')
+        .eq('empresa_id', empresaId!)
+        .eq('venta_id', ventaId!)
+        .maybeSingle()
+      if (error) throw error
+      return data as DteDeVenta | null
+    },
+    enabled: !!empresaId && !!ventaId,
+  })
+}
+
 export function useEmitirDte() {
   return useMutation({
     mutationFn: async (datos: {
@@ -2344,6 +2373,68 @@ export function useImprimirDte() {
       if (error) throw new Error(await extraerMensajeError(error, 'No se pudo imprimir el documento'))
       return data as { pdf_base64: string }
     },
+  })
+}
+
+export type DteDocumentoResumen = {
+  id: string
+  folio: number
+  tipo_dte: number
+  ambiente: 'certificacion' | 'produccion'
+  estado: 'generado' | 'en_sobre' | 'enviado' | 'aceptado' | 'rechazado' | 'error'
+  track_id?: string | null
+  ultimo_error?: string | null
+  creado_en: string
+}
+
+export function useDteDocumentos(limite = 20) {
+  const { empresaId } = useAuth()
+  return useQuery({
+    queryKey: ['dte_documentos', empresaId, limite],
+    queryFn: async (): Promise<DteDocumentoResumen[]> => {
+      const { data, error } = await supabase
+        .from('dte_documentos')
+        .select('id, folio, tipo_dte, ambiente, estado, track_id, ultimo_error, creado_en')
+        .eq('empresa_id', empresaId!)
+        .order('creado_en', { ascending: false })
+        .limit(limite)
+      if (error) throw error
+      return (data ?? []) as DteDocumentoResumen[]
+    },
+    enabled: !!empresaId,
+  })
+}
+
+// Disparo manual del mismo proceso que ejecuta el cron. La Edge Function
+// limita la operación a la empresa de la sesión; el navegador nunca puede
+// enviar documentos de otro contribuyente.
+export function useEnviarDte() {
+  const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke('dte-enviar', { body: {} })
+      if (error) throw new Error(await extraerMensajeError(error, 'No se pudo enviar la boleta al SII'))
+      const fallo = errorEnResultadosDte(data)
+      if (fallo) throw new Error(fallo)
+      return data as { ok: boolean; enviados?: number; resultados?: ResultadoProcesoDte[] }
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['dte_documentos', empresaId] }),
+  })
+}
+
+export function useConsultarDte() {
+  const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke('dte-consultar', { body: {} })
+      if (error) throw new Error(await extraerMensajeError(error, 'No se pudo consultar la respuesta del SII'))
+      const fallo = errorEnResultadosDte(data)
+      if (fallo) throw new Error(fallo)
+      return data as { ok: boolean; consultados?: number; resultados?: ResultadoProcesoDte[] }
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['dte_documentos', empresaId] }),
   })
 }
 

@@ -39,25 +39,28 @@ function secretosIguales(a: string, b: string): boolean {
   return dif === 0;
 }
 
-async function autorizado(req: Request): Promise<boolean> {
+type Alcance = { todas: true } | { todas: false; empresaId: string };
+
+async function alcanceAutorizado(req: Request): Promise<Alcance | null> {
   const tokenCron = req.headers.get("x-cron-token") ?? "";
-  if (CRON_TOKEN && tokenCron && secretosIguales(tokenCron, CRON_TOKEN)) return true;
+  if (CRON_TOKEN && tokenCron && secretosIguales(tokenCron, CRON_TOKEN)) return { todas: true };
 
   const cabecera = req.headers.get("Authorization") ?? "";
   const jwt = cabecera.replace("Bearer ", "").trim();
-  if (!jwt || jwt === ANON_KEY) return false;
-  if (jwt === SERVICE_ROLE_KEY) return true;
+  if (!jwt || jwt === ANON_KEY) return null;
+  if (jwt === SERVICE_ROLE_KEY) return { todas: true };
 
   const userClient = createClient(SUPABASE_URL, ANON_KEY, {
     global: { headers: { Authorization: cabecera } },
   });
   const { data, error } = await userClient.auth.getUser(jwt);
-  if (error || !data?.user) return false;
+  if (error || !data?.user) return null;
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
   const { data: perfil } = await admin
     .from("user_profiles").select("empresa_id, activo").eq("id", data.user.id).maybeSingle();
-  return !!perfil?.empresa_id && perfil.activo !== false;
+  if (!perfil?.empresa_id || perfil.activo === false) return null;
+  return { todas: false, empresaId: String(perfil.empresa_id) };
 }
 
 const rutSii = (v: string) => {
@@ -87,16 +90,18 @@ function interpretar(texto: string): "aceptado" | "rechazado" | null {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ ok: false, error: "Método no permitido" }, 405);
-  if (!await autorizado(req)) return json({ ok: false, error: "No autorizado" }, 401);
+  const alcance = await alcanceAutorizado(req);
+  if (!alcance) return json({ ok: false, error: "No autorizado" }, 401);
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
-  const { data: enviados } = await admin
+  let consultaEnviados = admin
     .from("dte_documentos")
     .select("id, empresa_id, track_id, tipo_dte, folio, ambiente")
     .eq("estado", "enviado")
-    .not("track_id", "is", null)
-    .limit(100);
+    .not("track_id", "is", null);
+  if (!alcance.todas) consultaEnviados = consultaEnviados.eq("empresa_id", alcance.empresaId);
+  const { data: enviados } = await consultaEnviados.limit(100);
 
   if (!enviados?.length) return json({ ok: true, consultados: 0, detalle: "Nada enviado pendiente de respuesta" });
 

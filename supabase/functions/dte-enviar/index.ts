@@ -53,25 +53,28 @@ function secretosIguales(a: string, b: string): boolean {
   return dif === 0;
 }
 
-async function autorizado(req: Request): Promise<boolean> {
+type Alcance = { todas: true } | { todas: false; empresaId: string };
+
+async function alcanceAutorizado(req: Request): Promise<Alcance | null> {
   const tokenCron = req.headers.get("x-cron-token") ?? "";
-  if (CRON_TOKEN && tokenCron && secretosIguales(tokenCron, CRON_TOKEN)) return true;
+  if (CRON_TOKEN && tokenCron && secretosIguales(tokenCron, CRON_TOKEN)) return { todas: true };
 
   const cabecera = req.headers.get("Authorization") ?? "";
   const jwt = cabecera.replace("Bearer ", "").trim();
-  if (!jwt || jwt === ANON_KEY) return false;
-  if (jwt === SERVICE_ROLE_KEY) return true;
+  if (!jwt || jwt === ANON_KEY) return null;
+  if (jwt === SERVICE_ROLE_KEY) return { todas: true };
 
   const userClient = createClient(SUPABASE_URL, ANON_KEY, {
     global: { headers: { Authorization: cabecera } },
   });
   const { data, error } = await userClient.auth.getUser(jwt);
-  if (error || !data?.user) return false;
+  if (error || !data?.user) return null;
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
   const { data: perfil } = await admin
     .from("user_profiles").select("empresa_id, activo").eq("id", data.user.id).maybeSingle();
-  return !!perfil?.empresa_id && perfil.activo !== false;
+  if (!perfil?.empresa_id || perfil.activo === false) return null;
+  return { todas: false, empresaId: String(perfil.empresa_id) };
 }
 
 const rutSii = (v: string) => {
@@ -109,7 +112,8 @@ const comoTexto = (b: ArrayBuffer) => new TextDecoder("iso-8859-1").decode(b);
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ ok: false, error: "Método no permitido" }, 405);
-  if (!await autorizado(req)) return json({ ok: false, error: "No autorizado" }, 401);
+  const alcance = await alcanceAutorizado(req);
+  if (!alcance) return json({ ok: false, error: "No autorizado" }, 401);
 
   // Modo diagnóstico: arma el sobre y lo devuelve tal como lo entregó
   // SimpleAPI, SIN mandarlo al SII. Sirve para ver si lo que devuelve es XML
@@ -130,14 +134,17 @@ Deno.serve(async (req) => {
 
   // Se agrupa por empresa: cada una tiene su certificado, su resolución y su
   // ambiente, y un sobre no puede mezclar contribuyentes.
-  const { data: pendientes } = await admin
+  let consultaPendientes = admin
     .from("dte_documentos")
     .select("id, empresa_id, folio, tipo_dte, ambiente, xml_ruta")
     // En diagnóstico también se miran los rechazados: son justamente los que
     // hay que volver a armar para entender qué salió mal.
     .in("estado", soloSobre ? ["generado", "rechazado"] : ["generado"])
-    .not("xml_ruta", "is", null)
-    .limit(POR_SOBRE * 4);
+    .not("xml_ruta", "is", null);
+  // Una llamada desde el navegador sólo puede procesar documentos de la
+  // empresa de esa sesión. El cron y service_role sí recorren todas.
+  if (!alcance.todas) consultaPendientes = consultaPendientes.eq("empresa_id", alcance.empresaId);
+  const { data: pendientes } = await consultaPendientes.limit(POR_SOBRE * 4);
 
   if (!pendientes?.length) return json({ ok: true, enviados: 0, detalle: "Nada pendiente de envío" });
 

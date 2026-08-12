@@ -1,9 +1,10 @@
 import { useState, useMemo, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { useVentasResumen, useVentasPaginadas, useVentaPorId, useAnularVenta, useMetodosPago, useVentasRealtime } from '@/lib/queries'
+import { useVentasResumen, useVentasPaginadas, useVentaPorId, useAnularVenta, useMetodosPago, useVentasRealtime, useDteDeVenta } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { Spinner } from '@/components/shared/Spinner'
 import { fechaLocal } from '@/lib/fecha'
+import { extraerMensajeError } from '@/lib/edgeError'
 import { supabase } from '@/lib/supabase'
 import type { Venta } from '@/types'
 
@@ -54,6 +55,7 @@ export function VentasListTab() {
   const [errorImpresion, setErrorImpresion] = useState('')
   const desdeRef = useRef<HTMLInputElement>(null)
   const hastaRef = useRef<HTMLInputElement>(null)
+  const dteDeVenta = useDteDeVenta(detalle?.id)
 
   const [rangoDesde, rangoHasta] = useMemo(() => rangoDePeriodo(periodo, desde, hasta), [periodo, desde, hasta])
 
@@ -135,6 +137,11 @@ export function VentasListTab() {
     cambiarFiltro(() => setPeriodo('rango'))
   }
 
+  function abrirDetalle(v: Venta) {
+    setErrorImpresion('')
+    setDetalle(v)
+  }
+
   async function anular(v: Venta) {
     if (!esAdmin) return
     if (!confirm(`¿Anular la venta ${v.numero}?`)) return
@@ -142,6 +149,11 @@ export function VentasListTab() {
   }
 
   async function imprimirBoleta(v: Venta) {
+    const dte = dteDeVenta.data
+    if (!dte) {
+      setErrorImpresion('Esta venta no tiene una boleta electrónica emitida en Pixit.')
+      return
+    }
     const ventana = window.open('', '_blank')
     if (ventana) {
       ventana.document.title = 'Preparando boleta…'
@@ -152,12 +164,13 @@ export function VentasListTab() {
     try {
       const { data, error } = await supabase.functions.invoke('dte-imprimir', {
         body: {
-          venta_id: v.id,
+          folio: dte.folio,
+          tipo_dte: dte.tipo_dte,
           regenerar: true,
           forma_pago: mpMap[v.metodo_pago] ?? v.metodo_pago ?? '',
         },
       })
-      if (error) throw error
+      if (error) throw new Error(await extraerMensajeError(error, 'No se pudo abrir la boleta'))
       if (!data?.ok || !data?.pdf_base64) throw new Error(data?.error || 'No se recibió la boleta')
 
       const bin = atob(String(data.pdf_base64))
@@ -326,7 +339,7 @@ export function VentasListTab() {
             {/* Cards — mobile */}
             <div className="md:hidden divide-y divide-gray-100">
               {lista.map(v => (
-                <div key={v.id} className="px-4 py-3 active:bg-gray-50 cursor-pointer" onClick={() => setDetalle(v)}>
+                <div key={v.id} className="px-4 py-3 active:bg-gray-50 cursor-pointer" onClick={() => abrirDetalle(v)}>
                   <div className="flex items-center justify-between mb-1">
                     <span className="font-mono text-xs font-semibold text-blue-600">{v.numero}</span>
                     <span className={`font-bold text-sm ${v.estado === 'anulada' ? 'line-through text-gray-400' : 'text-gray-900'}`}>
@@ -363,7 +376,7 @@ export function VentasListTab() {
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {lista.map(v => (
-                    <tr key={v.id} className="hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => setDetalle(v)}>
+                    <tr key={v.id} className="hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => abrirDetalle(v)}>
                       <td className="px-4 py-3 font-mono text-xs font-semibold text-blue-600">{v.numero}</td>
                       <td className="px-4 py-3 text-gray-600 text-xs">{v.fecha}</td>
                       <td className="px-4 py-3 text-gray-800 font-medium">{v.cliente}</td>
@@ -383,7 +396,7 @@ export function VentasListTab() {
                       </td>
                       <td className="px-3 py-3 text-right" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-2">
-                          <button onClick={() => setDetalle(v)} className="text-xs text-blue-600 hover:underline font-medium">Ver</button>
+                          <button onClick={() => abrirDetalle(v)} className="text-xs text-blue-600 hover:underline font-medium">Ver</button>
                           {v.estado === 'pagada' && esAdmin && (
                             <button onClick={() => anular(v)} className="text-xs text-red-500 hover:underline font-medium">Anular</button>
                           )}
@@ -471,7 +484,10 @@ export function VentasListTab() {
               </div>
             </div>
             <div className="px-6 py-4 border-t border-gray-100 bg-gray-50">
-              {(detalle.tipo_doc ?? 'boleta') === 'boleta' && detalle.estado === 'pagada' && (
+              {(detalle.tipo_doc ?? 'boleta') === 'boleta' && detalle.estado === 'pagada' && dteDeVenta.isLoading && (
+                <div className="mb-4 h-10 rounded-xl bg-gray-200 animate-pulse" aria-label="Comprobando boleta electrónica" />
+              )}
+              {(detalle.tipo_doc ?? 'boleta') === 'boleta' && detalle.estado === 'pagada' && dteDeVenta.data && (
                 <div className="mb-4">
                   <button
                     onClick={() => imprimirBoleta(detalle)}
@@ -482,6 +498,16 @@ export function VentasListTab() {
                   </button>
                   {errorImpresion && <p className="text-xs text-red-600 mt-2">{errorImpresion}</p>}
                 </div>
+              )}
+              {(detalle.tipo_doc ?? 'boleta') === 'boleta' && detalle.estado === 'pagada' && dteDeVenta.isError && (
+                <p className="mb-4 text-xs text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2.5">
+                  No se pudo comprobar si esta venta tiene una boleta electrónica. Intenta nuevamente.
+                </p>
+              )}
+              {(detalle.tipo_doc ?? 'boleta') === 'boleta' && detalle.estado === 'pagada' && !dteDeVenta.isLoading && !dteDeVenta.isError && !dteDeVenta.data && (
+                <p className="mb-4 text-xs text-gray-500 bg-white border border-gray-200 rounded-xl px-3 py-2.5">
+                  Esta venta no tiene una boleta electrónica emitida en Pixit.
+                </p>
               )}
               <div className="flex justify-between text-sm text-gray-600 mb-1">
                 <span>Subtotal neto</span><span>{fmt(detalle.total)}</span>
