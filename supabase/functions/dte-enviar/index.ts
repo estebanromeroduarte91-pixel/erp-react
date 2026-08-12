@@ -75,21 +75,47 @@ const rutSii = (v: string) => {
   return limpio.length < 2 ? limpio : `${limpio.slice(0, -1)}-${limpio.slice(-1)}`;
 };
 
-async function llamar(url: string, input: unknown, archivos: { nombre: string; datos: ArrayBuffer }[]) {
+// Devuelve los BYTES tal cual, sin decodificar.
+//
+// Esto no es un detalle: los documentos del SII vienen en ISO-8859-1
+// (`<?xml version="1.0" encoding="ISO-8859-1"?>`). Si se los pasa por
+// `res.text()` se decodifican como UTF-8 y al volver a codificarlos cada
+// carácter acentuado se convierte en dos bytes distintos. El XML deja de
+// coincidir con su firma y con su esquema, y el SII lo rechaza con un mensaje
+// que no menciona la codificación por ningún lado ("extra data at end of
+// complex element"). Pasó exactamente eso con el giro "Reparación de artículos
+// electrónicos".
+async function llamarBytes(url: string, input: unknown, archivos: { nombre: string; datos: ArrayBuffer }[]) {
   const form = new FormData();
   form.append("input", JSON.stringify(input));
   // Mismo orden que en la emisión: certificado primero, después el resto.
   for (const a of archivos) form.append("files", new File([a.datos], a.nombre));
   const res = await fetch(url, { method: "POST", headers: { Authorization: SIMPLEAPI_KEY }, body: form });
-  const texto = await res.text();
-  if (!res.ok) throw new Error(`${url.split("/").pop()} ${res.status}: ${texto.slice(0, 800)}`);
-  return texto;
+  const bytes = await res.arrayBuffer();
+  if (!res.ok) {
+    const texto = new TextDecoder("iso-8859-1").decode(bytes);
+    throw new Error(`${url.split("/").pop()} ${res.status}: ${texto.slice(0, 800)}`);
+  }
+  return bytes;
 }
+
+/** Solo para mirar: nunca para reenviar. */
+const comoTexto = (b: ArrayBuffer) => new TextDecoder("iso-8859-1").decode(b);
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ ok: false, error: "Método no permitido" }, 405);
   if (!await autorizado(req)) return json({ ok: false, error: "No autorizado" }, 401);
+
+  // Modo diagnóstico: arma el sobre y lo devuelve tal como lo entregó
+  // SimpleAPI, SIN mandarlo al SII. Sirve para ver si lo que devuelve es XML
+  // pelado o viene envuelto en algo — un sobre con datos de más al final es
+  // justo lo que el SII rechaza por esquema.
+  let soloSobre = false;
+  try {
+    const cuerpo = await req.json();
+    soloSobre = cuerpo?.solo_sobre === true;
+  } catch { /* sin cuerpo, comportamiento normal */ }
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
   const resultados: unknown[] = [];
@@ -99,7 +125,9 @@ Deno.serve(async (req) => {
   const { data: pendientes } = await admin
     .from("dte_documentos")
     .select("id, empresa_id, folio, tipo_dte, ambiente, xml_ruta")
-    .eq("estado", "generado")
+    // En diagnóstico también se miran los rechazados: son justamente los que
+    // hay que volver a armar para entender qué salió mal.
+    .in("estado", soloSobre ? ["generado", "rechazado"] : ["generado"])
     .not("xml_ruta", "is", null)
     .limit(POR_SOBRE * 4);
 
@@ -141,7 +169,7 @@ Deno.serve(async (req) => {
       const certificado = { Rut: rutSii(String(cert.rut_firmante)), Password: clave };
 
       // Paso 1: el sobre.
-      const sobre = await llamar(URL_SOBRE, {
+      const sobre = await llamarBytes(URL_SOBRE, {
         Certificado: certificado,
         Caratula: {
           RutEmisor: rutSii(String(empresa.rut)),
@@ -151,9 +179,20 @@ Deno.serve(async (req) => {
         },
       }, [{ nombre: "certificado.pfx", datos: certBuf }, ...xmls]);
 
+      if (soloSobre) {
+        resultados.push({
+          empresa_id: empresaId,
+          documentos: docs.length,
+          largo: sobre.byteLength,
+          empieza: comoTexto(sobre).slice(0, 300),
+          termina: comoTexto(sobre).slice(-300),
+        });
+        continue;
+      }
+
       const rutaSobre = `${empresaId}/sobres/${Date.now()}.xml`;
       await admin.storage.from("dte-privado")
-        .upload(rutaSobre, new TextEncoder().encode(sobre), { contentType: "application/xml", upsert: true });
+        .upload(rutaSobre, sobre, { contentType: "application/xml", upsert: true });
 
       await admin.from("dte_documentos")
         .update({ estado: "en_sobre", actualizado_en: new Date().toISOString() })
@@ -168,14 +207,18 @@ Deno.serve(async (req) => {
       // `ServidorBoletaREST`), acá se manda 2 para boletas. Si el SII rechaza
       // el envío, ESTE es el primer lugar donde mirar.
       const esBoleta = docs.every(d => d.tipo_dte === 39 || d.tipo_dte === 41);
-      const respuesta = await llamar(URL_ENVIAR, {
+      const respuestaBytes = await llamarBytes(URL_ENVIAR, {
         Certificado: certificado,
         Ambiente: empresa.dte_ambiente === "produccion" ? 1 : 0,
         Tipo: esBoleta ? 2 : 1,
       }, [
         { nombre: "certificado.pfx", datos: certBuf },
-        { nombre: "sobre.xml", datos: new TextEncoder().encode(sobre).buffer as ArrayBuffer },
+        // Los bytes originales, sin pasar por texto. Ver el comentario de
+        // `llamarBytes`: recodificar acá fue lo que hizo que el SII rechazara
+        // el primer envío.
+        { nombre: "sobre.xml", datos: sobre },
       ]);
+      const respuesta = comoTexto(respuestaBytes);
 
       // El TrackID puede venir como número suelto o dentro de un JSON.
       let trackId = respuesta.trim();
@@ -194,6 +237,8 @@ Deno.serve(async (req) => {
       resultados.push({ empresa_id: empresaId, enviados: docs.length, track_id: trackId.slice(0, 100) });
     } catch (e) {
       const motivo = (e as Error).message;
+      // En diagnóstico no se toca ningún estado: la idea es mirar, no cambiar.
+      if (soloSobre) { resultados.push({ empresa_id: empresaId, ok: false, error: motivo }); continue; }
       // Vuelven a `generado` para que el próximo intento los tome: quedaron
       // emitidos y válidos, lo que falló fue el trámite con el SII.
       await admin.from("dte_documentos").update({

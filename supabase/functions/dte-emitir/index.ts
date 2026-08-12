@@ -279,7 +279,13 @@ Deno.serve(async (req) => {
     return json({ ok: false, error: motivo, folio }, 502);
   }
 
-  const texto = await respuesta.text();
+  // Los BYTES tal cual, sin decodificar. El XML del SII viene en ISO-8859-1;
+  // pasarlo por `res.text()` y volver a codificarlo convierte cada acentuada en
+  // dos bytes, rompe la firma y el esquema, y el SII lo rechaza con un mensaje
+  // que no menciona la codificación. Pasó con el giro "Reparación de artículos
+  // electrónicos" en el primer envío.
+  const bytes = await respuesta.arrayBuffer();
+  const texto = new TextDecoder("iso-8859-1").decode(bytes);
   if (!respuesta.ok) {
     const motivo = `SimpleAPI ${respuesta.status}: ${texto.slice(0, 1000)}`;
     await marcarError(motivo);
@@ -289,7 +295,7 @@ Deno.serve(async (req) => {
   // La respuesta es el XML del DTE ya timbrado y firmado.
   const rutaXml = `${quien.empresaId}/dte/${ambiente}-${entrada.tipo_dte}-${folio}.xml`;
   await admin.storage.from("dte-privado")
-    .upload(rutaXml, new TextEncoder().encode(texto), { contentType: "application/xml", upsert: true });
+    .upload(rutaXml, bytes, { contentType: "application/xml", upsert: true });
 
   await admin.from("dte_documentos").update({
     estado: "generado",
