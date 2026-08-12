@@ -1,8 +1,8 @@
 // Manda al SII los documentos ya emitidos.
 //
-// Son dos llamadas encadenadas a SimpleAPI:
-//   1. POST /api/v1/envio/generar  → arma un "sobre" con varios DTE
-//   2. POST /api/v1/envio/enviar   → lo manda al SII y devuelve un TrackID
+// El sobre se arma con SimpleAPI. Después se transporta según su tipo:
+//   - EnvioBOLETA va a la API REST oficial del SII (Pangal/Rahue).
+//   - EnvioDTE conserva el envío tradicional mediante SimpleAPI.
 //
 // Va por tandas y no por documento porque así lo recomienda SimpleAPI (una vez
 // por hora). Eso además separa dos cosas que conviene tener separadas: el
@@ -12,6 +12,7 @@
 // La llama el cron con `x-cron-token`, igual que woo-push.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { crearSesionBoletaSii, enviarSobreBoleta } from "../_shared/sii-boleta.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -140,14 +141,26 @@ Deno.serve(async (req) => {
 
   if (!pendientes?.length) return json({ ok: true, enviados: 0, detalle: "Nada pendiente de envío" });
 
-  const porEmpresa = new Map<string, typeof pendientes>();
+  // Boletas y facturas usan schemas y receptores distintos. Incluso para una
+  // misma empresa deben viajar en sobres separados.
+  const porEmpresaCanal = new Map<string, {
+    empresaId: string;
+    esBoleta: boolean;
+    docs: NonNullable<typeof pendientes>;
+  }>();
   for (const d of pendientes) {
-    const lista = porEmpresa.get(d.empresa_id) ?? [];
-    if (lista.length < POR_SOBRE) lista.push(d);
-    porEmpresa.set(d.empresa_id, lista);
+    const esBoleta = d.tipo_dte === 39 || d.tipo_dte === 41;
+    const llave = `${d.empresa_id}|${esBoleta ? "boleta" : "dte"}`;
+    const grupo = porEmpresaCanal.get(llave) ?? {
+      empresaId: d.empresa_id,
+      esBoleta,
+      docs: [] as NonNullable<typeof pendientes>,
+    };
+    if (grupo.docs.length < POR_SOBRE) grupo.docs.push(d);
+    porEmpresaCanal.set(llave, grupo);
   }
 
-  for (const [empresaId, docs] of porEmpresa) {
+  for (const { empresaId, esBoleta, docs } of porEmpresaCanal.values()) {
     try {
       const { data: empresa } = await admin
         .from("empresas")
@@ -187,8 +200,18 @@ Deno.serve(async (req) => {
       }, [{ nombre: "certificado.pfx", datos: certBuf }, ...xmls]);
 
       if (validar) {
+        if (esBoleta) {
+          // El endpoint /consulta/validador de SimpleAPI declara expresamente
+          // que no valida boletas. Mostrar su resultado acá sería engañoso.
+          resultados.push({
+            empresa_id: empresaId,
+            documentos: docs.length,
+            omitido: "El validador de SimpleAPI no admite DTE 39/41",
+          });
+          continue;
+        }
         // Se validan las dos cosas por separado para saber si el problema está
-        // en el sobre o en la boleta que va adentro.
+        // en el sobre o en el DTE que va adentro.
         const validarUno = async (nombre: string, datos: ArrayBuffer) => {
           const f = new FormData();
           f.append("input", new File([datos], nombre));
@@ -241,43 +264,37 @@ Deno.serve(async (req) => {
         .update({ estado: "en_sobre", actualizado_en: new Date().toISOString() })
         .in("id", docs.map(d => d.id));
 
-      // Paso 2: al SII.
-      //
-      // `Ambiente` 0 es certificación y 1 producción; `Tipo` 2 es boleta y 1 el
-      // resto. Son los tres únicos campos que declara el contrato de este
-      // endpoint.
-      const esBoleta = docs.every(d => d.tipo_dte === 39 || d.tipo_dte === 41);
-      const respuestaBytes = await llamarBytes(URL_ENVIAR, {
-        Certificado: certificado,
-        Ambiente: empresa.dte_ambiente === "produccion" ? 1 : 0,
-        Tipo: esBoleta ? 2 : 1,
-        // NO se manda `ServidorBoletaREST` acá: el contrato de este endpoint
-        // solo declara Certificado, Ambiente y Tipo. Se probó agregarlo por
-        // analogía con la consulta y no cambió nada — el TrackID siguió siendo
-        // de 8 dígitos. Mandar campos inventados no ayuda y confunde el
-        // diagnóstico.
-        //
-        // PENDIENTE CONOCIDO: con estos valores SimpleAPI entrega el
-        // EnvioBOLETA al receptor tradicional (Palena/Maullín) en vez del REST
-        // de boletas. Se detecta por el largo del TrackID: el del SII para
-        // boleta tiene 15 dígitos y estos vienen con 8. Allá el sobre se valida
-        // contra el esquema de EnvioDTE y se rechaza con "extra data at end of
-        // complex element", sin importar qué tenga el documento.
-      }, [
-        { nombre: "certificado.pfx", datos: certBuf },
-        // Los bytes originales, sin pasar por texto. Ver el comentario de
-        // `llamarBytes`: recodificar acá fue lo que hizo que el SII rechazara
-        // el primer envío.
-        { nombre: "sobre.xml", datos: sobre },
-      ]);
-      const respuesta = comoTexto(respuestaBytes);
-
-      // El TrackID puede venir como número suelto o dentro de un JSON.
-      let trackId = respuesta.trim();
-      try {
-        const j = JSON.parse(respuesta);
-        trackId = String(j?.trackId ?? j?.TrackId ?? j?.track_id ?? trackId);
-      } catch { /* vino como texto plano */ }
+      // Paso 2: al SII. Las boletas usan el receptor REST oficial con semilla
+      // y token propio. Las facturas conservan el canal tradicional de
+      // SimpleAPI, que sí corresponde para EnvioDTE.
+      let trackId: string;
+      if (esBoleta) {
+        const ambiente = empresa.dte_ambiente === "produccion" ? "produccion" : "certificacion";
+        const sesion = await crearSesionBoletaSii(ambiente, certBuf, clave);
+        const envio = await enviarSobreBoleta(
+          sesion,
+          String(cert.rut_firmante),
+          String(empresa.rut),
+          sobre,
+        );
+        trackId = envio.trackId;
+      } else {
+        const respuestaBytes = await llamarBytes(URL_ENVIAR, {
+          Certificado: certificado,
+          Ambiente: empresa.dte_ambiente === "produccion" ? 1 : 0,
+          Tipo: 1,
+        }, [
+          { nombre: "certificado.pfx", datos: certBuf },
+          // Se conservan los bytes originales para no romper la firma.
+          { nombre: "sobre.xml", datos: sobre },
+        ]);
+        const respuesta = comoTexto(respuestaBytes);
+        trackId = respuesta.trim();
+        try {
+          const j = JSON.parse(respuesta);
+          trackId = String(j?.trackId ?? j?.TrackId ?? j?.track_id ?? trackId);
+        } catch { /* vino como texto plano */ }
+      }
 
       await admin.from("dte_documentos").update({
         estado: "enviado",

@@ -9,6 +9,7 @@
 // corregir a tiempo.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { consultarSobreBoleta, crearSesionBoletaSii } from "../_shared/sii-boleta.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -69,9 +70,17 @@ const rutSii = (v: string) => {
 // duda NO se cambia el estado: es preferible seguir preguntando a marcar como
 // aceptado algo que no lo está.
 function interpretar(texto: string): "aceptado" | "rechazado" | null {
+  let estado = "";
+  try {
+    const datos = JSON.parse(texto);
+    estado = String(datos?.estado ?? datos?.Estado ?? "").toUpperCase();
+  } catch { /* algunas respuestas antiguas de SimpleAPI vienen como XML */ }
+  if (["RCH", "RCO", "VOF", "RFR", "RPT", "RSC", "RCT"].includes(estado)) return "rechazado";
+  if (["EPR", "DOK", "RPR", "RLV"].includes(estado)) return "aceptado";
+
   const t = texto.toUpperCase();
-  if (/\bRCH\b|RECHAZAD|REPARO/.test(t)) return "rechazado";
-  if (/\bEPR\b|\bACEPTADO\b|ACEPTADO CON REPAROS|\bDOK\b/.test(t)) return "aceptado";
+  if (/\b(RCH|RCO|VOF|RFR|RPT|RSC|RCT)\b|RECHAZAD/.test(t)) return "rechazado";
+  if (/\b(EPR|DOK|RPR|RLV)\b|ACEPTADO/.test(t)) return "aceptado";
   return null;
 }
 
@@ -100,6 +109,9 @@ Deno.serve(async (req) => {
   }
 
   const resultados: unknown[] = [];
+  // Un token dura una hora y su vigencia se renueva al usarlo. Durante esta
+  // ejecución se obtiene sólo una vez por empresa, aunque haya varios sobres.
+  const sesionesBoleta = new Map<string, ReturnType<typeof crearSesionBoletaSii>>();
 
   for (const [clave, docs] of porTrack) {
     const [empresaId, trackId] = clave.split("|");
@@ -111,34 +123,74 @@ Deno.serve(async (req) => {
       if (!cert) throw new Error("No hay certificado cargado");
 
       const { data: clavePfx } = await admin.rpc("fn_dte_leer_clave", { p_empresa: empresaId });
+      if (!clavePfx) throw new Error("No se pudo leer la clave del certificado");
       const bin = await admin.storage.from("dte-privado").download(cert.ruta);
       if (bin.error || !bin.data) throw new Error("No se pudo leer el certificado");
+      if (!empresa?.rut) throw new Error("La empresa no tiene RUT configurado");
 
-      const form = new FormData();
-      form.append("input", JSON.stringify({
-        Certificado: { Rut: rutSii(String(cert.rut_firmante)), Password: clavePfx },
-        RutEmpresa: rutSii(String(empresa?.rut)),
-        TrackId: Number(trackId),
-        Ambiente: empresa?.dte_ambiente === "produccion" ? 1 : 0,
-        // Las boletas viajan por un servidor distinto del SII y hay que
-        // declararlo, o la consulta busca en el lugar equivocado.
-        ServidorBoletaREST: docs.every(d => d.tipo_dte === 39 || d.tipo_dte === 41),
-      }));
-      form.append("files", new File([await bin.data.arrayBuffer()], "certificado.pfx"));
+      const certBuf = await bin.data.arrayBuffer();
+      const esBoleta = docs.every(d => d.tipo_dte === 39 || d.tipo_dte === 41);
+      let texto: string;
+      if (esBoleta) {
+        const ambiente = empresa.dte_ambiente === "produccion" ? "produccion" : "certificacion";
+        let sesionPendiente = sesionesBoleta.get(empresaId);
+        if (!sesionPendiente) {
+          sesionPendiente = crearSesionBoletaSii(ambiente, certBuf, clavePfx);
+          sesionesBoleta.set(empresaId, sesionPendiente);
+        }
+        const sesion = await sesionPendiente;
+        const respuesta = await consultarSobreBoleta(sesion, String(empresa.rut), trackId);
+        texto = JSON.stringify(respuesta);
+      } else {
+        const form = new FormData();
+        form.append("input", JSON.stringify({
+          Certificado: { Rut: rutSii(String(cert.rut_firmante)), Password: clavePfx },
+          RutEmpresa: rutSii(String(empresa.rut)),
+          TrackId: Number(trackId),
+          Ambiente: empresa.dte_ambiente === "produccion" ? 1 : 0,
+          ServidorBoletaREST: false,
+        }));
+        form.append("files", new File([certBuf], "certificado.pfx"));
 
-      const res = await fetch(URL_CONSULTA, {
-        method: "POST", headers: { Authorization: SIMPLEAPI_KEY }, body: form,
-      });
-      const texto = await res.text();
-      if (!res.ok) throw new Error(`SimpleAPI ${res.status}: ${texto.slice(0, 600)}`);
+        const res = await fetch(URL_CONSULTA, {
+          method: "POST", headers: { Authorization: SIMPLEAPI_KEY }, body: form,
+        });
+        texto = await res.text();
+        if (!res.ok) throw new Error(`SimpleAPI ${res.status}: ${texto.slice(0, 600)}`);
+      }
 
-      const veredicto = interpretar(texto);
-      if (veredicto) {
-        await admin.from("dte_documentos").update({
-          estado: veredicto,
-          ultimo_error: veredicto === "rechazado" ? texto.slice(0, 2000) : null,
-          actualizado_en: new Date().toISOString(),
-        }).in("id", docs.map(d => d.id));
+      let datos: Record<string, unknown> | null = null;
+      try { datos = JSON.parse(texto); } catch { /* respuesta XML antigua */ }
+      const estadoSobre = String(datos?.estado ?? datos?.Estado ?? "").toUpperCase();
+      let veredicto: "aceptado" | "rechazado" | null;
+
+      if (estadoSobre === "EPR" && Array.isArray(datos?.detalle_rep_rech)) {
+        // Un sobre procesado puede contener documentos aceptados y rechazados.
+        // El detalle sólo enumera reparos/rechazos; los ausentes están OK.
+        const detalle = datos.detalle_rep_rech as Record<string, unknown>[];
+        let rechazados = 0;
+        for (const d of docs) {
+          const resultado = detalle.find((x) =>
+            Number(x.folio) === Number(d.folio) && Number(x.tipo) === Number(d.tipo_dte)
+          );
+          const rechazado = String(resultado?.estado ?? "").toUpperCase() === "RCH";
+          if (rechazado) rechazados++;
+          await admin.from("dte_documentos").update({
+            estado: rechazado ? "rechazado" : "aceptado",
+            ultimo_error: rechazado ? JSON.stringify(resultado).slice(0, 2000) : null,
+            actualizado_en: new Date().toISOString(),
+          }).eq("id", d.id);
+        }
+        veredicto = rechazados ? (rechazados === docs.length ? "rechazado" : null) : "aceptado";
+      } else {
+        veredicto = interpretar(texto);
+        if (veredicto) {
+          await admin.from("dte_documentos").update({
+            estado: veredicto,
+            ultimo_error: veredicto === "rechazado" ? texto.slice(0, 2000) : null,
+            actualizado_en: new Date().toISOString(),
+          }).in("id", docs.map(d => d.id));
+        }
       }
 
       resultados.push({
