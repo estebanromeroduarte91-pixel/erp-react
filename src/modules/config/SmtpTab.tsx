@@ -3,11 +3,12 @@ import { useSmtpConfig, useGuardarSmtpConfig, useEmailLog } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { sendEmail } from '@/lib/email'
 import { diagnosticarRemitente, diagnosticarConexion } from '@/lib/correoDiagnostico'
+import { modoCorreo, smtpConfigurado } from '@/lib/correoModo'
 import {
   PROVEEDORES, proveedorPorId, derivarConfig, detectarProveedor, dominioDesdeHost,
   type ProveedorId,
 } from '@/lib/proveedoresSmtp'
-import { IconBrandGoogle, IconBrandWindows, IconServer, IconAdjustments } from '@tabler/icons-react'
+import { IconBrandGoogle, IconBrandWindows, IconServer, IconAdjustments, IconSend, IconMailForward } from '@tabler/icons-react'
 import { Spinner } from '@/components/shared/Spinner'
 import type { SmtpConfig } from '@/types'
 
@@ -17,6 +18,7 @@ const ICONOS: Record<string, typeof IconServer> = {
   'brand-google': IconBrandGoogle,
   'brand-windows': IconBrandWindows,
   'server': IconServer,
+  'send': IconSend,
   'adjustments': IconAdjustments,
 }
 
@@ -25,7 +27,7 @@ export function SmtpTab() {
   const guardar = useGuardarSmtpConfig()
   const { empresaId, session, empresaNombre } = useAuth()
 
-  const [form, setForm] = useState<SmtpConfig>({})
+  const [form, setForm] = useState<SmtpConfig>({ mode: 'pixit' })
   const [showPw, setShowPw] = useState(false)
   const [guardado, setGuardado] = useState(false)
   const [probando, setProbando] = useState(false)
@@ -52,7 +54,15 @@ export function SmtpTab() {
   const [cfgSynced, setCfgSynced] = useState(false)
   if (!cfgSynced && cfg) {
     setCfgSynced(true)
-    setForm({ ...cfg, password: '' })
+    const mode = modoCorreo(cfg)
+    setForm({
+      ...cfg,
+      mode,
+      password: '',
+      // En modo administrado, una configuración antigua de remitente sirve
+      // como destino de las respuestas sin pedirle el dato de nuevo al taller.
+      reply_to: cfg.reply_to || cfg.from_email || '',
+    })
     // Se arranca en el proveedor que la configuración guardada delata, para no
     // pedirle de nuevo lo que ya eligió.
     setProveedor(detectarProveedor(cfg))
@@ -61,6 +71,11 @@ export function SmtpTab() {
 
   function set(k: keyof SmtpConfig, v: string | number | boolean) {
     setForm(f => ({ ...f, [k]: v }))
+  }
+
+  function elegirModo(mode: 'pixit' | 'smtp') {
+    setForm(f => ({ ...f, mode }))
+    setResultado(null)
   }
 
   // Elegir proveedor escribe host/puerto/cifrado de una vez. Esos tres datos
@@ -98,12 +113,16 @@ export function SmtpTab() {
     setProbando(true)
     setResultado(null)
     try {
+      // La prueba siempre usa lo que está visible en pantalla. Antes, si se
+      // cambiaba un dato y se probaba sin guardar, el servidor seguía usando
+      // la configuración anterior y el resultado confundía todavía más.
+      await guardar.mutateAsync(form)
       const r = await sendEmail(
         empresaId,
         destino,
         `Prueba de correo — ${empresaNombre || 'Pixit'}`,
         `<p>Si estás leyendo esto, la configuración de correo de <strong>${empresaNombre || 'tu taller'}</strong> funciona.</p>
-         <p style="color:#6b7280;font-size:13px">Correo de prueba enviado desde Configuración › SMTP.</p>`,
+         <p style="color:#6b7280;font-size:13px">Correo de prueba enviado desde Configuración › Correo.</p>`,
       )
       setResultado(r.ok
         ? { ok: true, msg: `Enviado a ${destino}. Revisa tu bandeja (y la carpeta de spam).` }
@@ -116,9 +135,12 @@ export function SmtpTab() {
   }
 
   const hasStoredPw = !!cfg?.hasPassword
+  const mode = modoCorreo(form)
   // "Configurado", no "Conectado": que los campos estén llenos no prueba que el
   // servidor acepte esas credenciales. Eso lo dice el botón de prueba.
-  const estaConfigurado = !!(form.host && form.user && (hasStoredPw || form.password))
+  const estaConfigurado = mode === 'pixit'
+    ? true
+    : smtpConfigurado({ ...form, hasPassword: hasStoredPw })
 
   if (isLoading) return <div className="flex justify-center py-16"><Spinner className="w-8 h-8" /></div>
 
@@ -126,15 +148,81 @@ export function SmtpTab() {
     <div className="max-w-2xl space-y-4">
       <div className="bg-white rounded-xl border border-gray-200 p-5">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-bold text-gray-700">Servidor SMTP</h3>
+          <h3 className="text-sm font-bold text-gray-700">Correo saliente</h3>
           <span className={[
             'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold',
             estaConfigurado ? 'bg-blue-100 text-blue-700' : 'bg-yellow-100 text-yellow-700',
           ].join(' ')}>
             <span className={['w-1.5 h-1.5 rounded-full', estaConfigurado ? 'bg-blue-500' : 'bg-yellow-500'].join(' ')} />
-            {estaConfigurado ? 'Configurado' : 'Sin configurar'}
+            {mode === 'pixit' ? 'Administrado por Pixit' : estaConfigurado ? 'SMTP configurado' : 'SMTP incompleto'}
           </span>
         </div>
+
+        <div className="grid sm:grid-cols-2 gap-3 mb-5">
+          <button type="button" onClick={() => elegirModo('pixit')}
+            className={[
+              'text-left rounded-xl p-4 transition border-2',
+              mode === 'pixit' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300 bg-white',
+            ].join(' ')}>
+            <div className="flex items-start gap-3">
+              <span className={['rounded-lg p-2', mode === 'pixit' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500'].join(' ')}>
+                <IconSend size={18} stroke={1.8} />
+              </span>
+              <span>
+                <span className="block text-sm font-bold text-gray-800">Correo administrado por Pixit</span>
+                <span className="block text-xs text-gray-500 mt-1 leading-relaxed">Funciona sin configurar servidores. Las respuestas llegan al correo de tu empresa.</span>
+                <span className="inline-block text-[10px] font-bold text-green-700 mt-2">RECOMENDADO</span>
+              </span>
+            </div>
+          </button>
+          <button type="button" onClick={() => elegirModo('smtp')}
+            className={[
+              'text-left rounded-xl p-4 transition border-2',
+              mode === 'smtp' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300 bg-white',
+            ].join(' ')}>
+            <div className="flex items-start gap-3">
+              <span className={['rounded-lg p-2', mode === 'smtp' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500'].join(' ')}>
+                <IconServer size={18} stroke={1.8} />
+              </span>
+              <span>
+                <span className="block text-sm font-bold text-gray-800">Enviar desde mi propio correo</span>
+                <span className="block text-xs text-gray-500 mt-1 leading-relaxed">Usa el SMTP de tu casilla para mostrar tu dirección exacta como remitente.</span>
+              </span>
+            </div>
+          </button>
+        </div>
+
+        {mode === 'pixit' ? (
+          <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-4">
+            <div className="flex gap-3 mb-4">
+              <IconMailForward size={21} className="text-blue-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-gray-800">Pixit se encarga de entregar los correos</p>
+                <p className="text-xs text-gray-500 mt-1 leading-relaxed">
+                  El cliente verá el nombre de tu empresa. Cuando responda, su mensaje llegará directamente a la casilla indicada abajo.
+                </p>
+              </div>
+            </div>
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs font-medium text-gray-600 block mb-1">Nombre visible</label>
+                <input type="text" value={form.from_name ?? ''} onChange={e => set('from_name', e.target.value)}
+                  placeholder={empresaNombre || 'Mi Taller'}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-white focus:outline-none focus:border-blue-400" />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-600 block mb-1">Correo para recibir respuestas</label>
+                <input type="email" value={form.reply_to ?? ''} onChange={e => set('reply_to', e.target.value)}
+                  placeholder="contacto@mitaller.cl"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-white focus:outline-none focus:border-blue-400" />
+              </div>
+            </div>
+            <p className="text-[11px] text-gray-400 mt-3">
+              No utiliza la contraseña ni el servidor SMTP de tu hosting. Si eliges tu correo propio, Pixit conectará desde una IP fija.
+            </p>
+          </div>
+        ) : (
+          <>
 
         {/* Selector de proveedor: define host, puerto y cifrado, que son los
             datos que el taller no tiene por qué conocer — y donde estaba el
@@ -155,6 +243,9 @@ export function SmtpTab() {
                 <span className={['block text-sm font-medium', activo ? 'text-blue-700' : 'text-gray-600'].join(' ')}>
                   {p.nombre}
                 </span>
+                {p.recomendado && (
+                  <span className="block text-[10px] font-semibold text-green-700 mt-0.5">Recomendado</span>
+                )}
               </button>
             )
           })}
@@ -213,10 +304,11 @@ export function SmtpTab() {
           )}
           {prov.pide !== 'correo' && (
             <div className={prov.pide === 'nada' ? '' : 'col-span-2'}>
-              <label className="text-xs font-medium text-gray-600 block mb-1">Usuario / Email</label>
+              <label className="text-xs font-medium text-gray-600 block mb-1">Usuario SMTP</label>
               <input type="email" value={form.user ?? ''} onChange={e => set('user', e.target.value)}
-                placeholder="contacto@mitaller.cl" autoComplete="off" name="smtp-user-no-autofill"
+                placeholder="Opcional si es igual al remitente" autoComplete="off" name="smtp-user-no-autofill"
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm font-mono bg-gray-50 focus:outline-none focus:border-blue-400" />
+              <p className="text-[11px] text-gray-400 mt-1">Si lo dejas vacío, Pixit utilizará el email remitente como usuario.</p>
             </div>
           )}
           <div className={prov.pide === 'nada' ? '' : 'col-span-2'}>
@@ -249,6 +341,16 @@ export function SmtpTab() {
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
           </div>
         </div>
+
+        {/* El bloqueo por volumen del hosting no da un error entendible: el
+            servidor responde "535 Incorrect authentication data", que parece
+            una contraseña mal puesta. Conviene advertirlo ANTES, no después de
+            un día sin correos. */}
+        {prov.advertencia && (
+          <p className="mt-3 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 leading-relaxed">
+            {prov.advertencia}
+          </p>
+        )}
 
         {prov.notaRemitente && (
           <p className="mt-3 text-xs text-gray-500 leading-relaxed">{prov.notaRemitente}</p>
@@ -319,10 +421,13 @@ export function SmtpTab() {
           </div>
         )}
 
+          </>
+        )}
+
         <div className="flex items-center gap-3 mt-5 flex-wrap">
           <button onClick={handleGuardar} disabled={guardar.isPending}
             className="px-5 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 disabled:opacity-60 transition">
-            {guardar.isPending ? 'Guardando…' : 'Guardar SMTP'}
+            {guardar.isPending ? 'Guardando…' : 'Guardar configuración'}
           </button>
           <button onClick={handleProbar} disabled={probando || !estaConfigurado}
             title={estaConfigurado ? 'Envía un correo real a tu casilla' : 'Completa y guarda la configuración primero'}
@@ -345,9 +450,8 @@ export function SmtpTab() {
         )}
 
         <p className="mt-4 text-xs text-gray-400 leading-relaxed">
-          Guardar solo almacena los datos: no comprueba que el servidor los acepte. Usa
-          <strong> Enviar correo de prueba</strong> para confirmarlo de verdad — llega a tu
-          propia casilla ({session?.user?.email ?? 'tu correo'}).
+          La prueba guarda primero lo que aparece en pantalla. Usa <strong>Enviar correo de prueba</strong> para
+          confirmar la entrega en tu propia casilla ({session?.user?.email ?? 'tu correo'}).
         </p>
       </div>
 

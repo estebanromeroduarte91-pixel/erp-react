@@ -100,3 +100,31 @@ describe('proveedorPorId', () => {
     expect(proveedorPorId('hosting').instrucciones).toBeUndefined()
   })
 })
+
+describe('Brevo', () => {
+  it('deriva el servidor de correo transaccional', () => {
+    expect(derivarConfig('brevo', '')).toEqual({
+      host: 'smtp-relay.brevo.com', port: 587, secure: false,
+    })
+  })
+
+  it('reconoce una configuración de Brevo ya guardada', () => {
+    expect(detectarProveedor({ host: 'smtp-relay.brevo.com' })).toBe('brevo')
+    // Brevo se llamaba Sendinblue: hay talleres con el host antiguo guardado.
+    expect(detectarProveedor({ host: 'smtp-relay.sendinblue.com' })).toBe('brevo')
+  })
+
+  it('es el proveedor recomendado y no arrastra advertencias', () => {
+    const brevo = proveedorPorId('brevo')
+    expect(brevo.recomendado).toBe(true)
+    expect(brevo.advertencia).toBeUndefined()
+  })
+})
+
+describe('advertencia del hosting compartido', () => {
+  // El bloqueo por volumen ya ocurrió dos veces en producción y se manifiesta
+  // como "535 Incorrect authentication data", que parece contraseña mala.
+  it('avisa del límite de envío antes de elegirlo', () => {
+    expect(proveedorPorId('hosting').advertencia).toMatch(/limitan|bloquean/i)
+  })
+})
