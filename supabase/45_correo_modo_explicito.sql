@@ -177,9 +177,12 @@ as $$
   limit 1;
 $$;
 
-revoke all on function public.get_smtp_status() from public;
-revoke all on function public.guardar_smtp_config(jsonb) from public;
-revoke all on function public.get_smtp_config_for_delivery(uuid) from public;
+-- En Supabase, `anon`, `authenticated` y `service_role` pueden conservar ACL
+-- explícitas de versiones anteriores aunque se revoque solamente a PUBLIC.
+-- Se revocan también esos roles antes de conceder el mínimo necesario.
+revoke all on function public.get_smtp_status() from public, anon, authenticated, service_role;
+revoke all on function public.guardar_smtp_config(jsonb) from public, anon, authenticated, service_role;
+revoke all on function public.get_smtp_config_for_delivery(uuid) from public, anon, authenticated, service_role;
 grant execute on function public.get_smtp_status() to authenticated;
 grant execute on function public.guardar_smtp_config(jsonb) to authenticated;
 grant execute on function public.get_smtp_config_for_delivery(uuid) to service_role;
