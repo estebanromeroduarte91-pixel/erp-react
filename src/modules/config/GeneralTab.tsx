@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { useActualizarNombreEmpresa, useSeguimientoConfig, useGuardarSeguimientoConfig } from '@/lib/queries'
+import { useActualizarNombreEmpresa, useSeguimientoConfig, useGuardarSeguimientoConfig, useDatosTributarios } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { Spinner } from '@/components/shared/Spinner'
@@ -9,6 +9,10 @@ export function GeneralTab() {
   const { empresaId, empresaNombre } = useAuth()
   const actualizarNombreEmpresa = useActualizarNombreEmpresa()
   const { data: cfg, isLoading } = useSeguimientoConfig()
+  // La vista previa mostraba un RUT y una dirección escritos a mano — los del
+  // taller de quien desarrolló esto. Cada cliente de Pixit los veía en SU
+  // pantalla de configuración. Ahora salen los datos de cada empresa.
+  const { data: tributario } = useDatosTributarios()
   const guardarCfg = useGuardarSeguimientoConfig()
 
   const [nombreEmpresa, setNombreEmpresa] = useState(empresaNombre)
@@ -183,8 +187,8 @@ export function GeneralTab() {
                 onChange={e => setForm(f => ({ ...f, boletaEstilo: e.target.value as 'moderna' | 'clasica' }))}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-blue-400"
               >
-                <option value="moderna">Moderna Steve Docs</option>
-                <option value="clasica">Clásica SII / SimpleAPI</option>
+                <option value="moderna">Moderna</option>
+                <option value="clasica">Clásica</option>
               </select>
             </div>
 
@@ -220,7 +224,7 @@ export function GeneralTab() {
               <input
                 value={form.boletaContacto ?? ''}
                 onChange={e => setForm(f => ({ ...f, boletaContacto: e.target.value }))}
-                placeholder="stevedocs.cl · +56 9 ..."
+                placeholder="tutaller.cl · +56 9 ..."
                 maxLength={100}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50"
               />
@@ -254,10 +258,10 @@ export function GeneralTab() {
               <div className="h-0.5 rounded mb-3" style={{ background: form.boletaColor || '#2563eb' }} />
               <p className="font-bold tracking-widest">BOLETA ELECTRÓNICA</p>
               <p className="font-black text-[18px] mt-0.5">N° 000155</p>
-              <p className="mt-2">RUT 77.237.062-8</p>
-              <p>Luis Pasteur 6411, Local 18</p>
+              <p className="mt-2">{tributario?.rut ? `RUT ${tributario.rut}` : 'RUT de tu empresa'}</p>
+              <p>{[tributario?.direccion_origen, tributario?.comuna_origen].filter(Boolean).join(', ') || 'Dirección de tu taller'}</p>
               <div className="border-t border-dashed border-gray-300 my-3" />
-              <div className="flex justify-between text-left"><span>Cambio de pantalla</span><b>$89.990</b></div>
+              <div className="flex justify-between text-left"><span>Producto o servicio</span><b>$89.990</b></div>
               <div className="border-t border-gray-900 my-3" />
               <div className="flex justify-between font-black text-[11px]"><span>TOTAL</span><span>$89.990</span></div>
               <div className="border-t border-dashed border-gray-300 my-3" />
