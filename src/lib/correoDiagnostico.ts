@@ -30,9 +30,6 @@ export function dominioDe(email: string | undefined | null): string | null {
  */
 const PROVEEDORES_ESTRICTOS = ['gmail.com', 'googlemail.com', 'outlook.com', 'hotmail.com', 'live.com', 'yahoo.com']
 
-/** Remitente de respaldo compartido: llega, pero casi siempre a spam. */
-export const REMITENTE_RESPALDO = 'onboarding@resend.dev'
-
 /**
  * Revisa que el puerto y el modo de cifrado sean compatibles.
  *
@@ -78,22 +75,23 @@ export function diagnosticarRemitente(cfg: {
   from_email?: string
 }): Diagnostico[] {
   const problemas: Diagnostico[] = []
-  const haySmtp = !!(cfg.host?.trim() && cfg.user?.trim())
+  // En servidores de hosting, el usuario casi siempre es la misma casilla que
+  // figura como remitente. Se admite dejarlo vacío para replicar el flujo
+  // simple de Gestioo.
+  const usuario = cfg.user?.trim() || cfg.from_email?.trim()
+  const haySmtp = !!(cfg.host?.trim() && usuario)
   if (!haySmtp) return problemas
 
   const fromEmail = cfg.from_email?.trim()
 
-  // Sin remitente propio, el envío sale del buzón compartido de respaldo.
+  // Si no se indicó un remitente separado, el servidor usa la propia cuenta
+  // SMTP. Esto replica el formulario simple de Gestioo y mantiene alineados
+  // autenticación y remitente.
   if (!fromEmail) {
-    problemas.push({
-      severidad: 'aviso',
-      titulo: 'Sin remitente propio',
-      detalle: `Los correos saldrán desde ${REMITENTE_RESPALDO}, un buzón compartido que los filtros suelen mandar a spam. Escribe abajo el correo desde el que quieres que salgan.`,
-    })
     return problemas
   }
 
-  const dominioCuenta = dominioDe(cfg.user)
+  const dominioCuenta = dominioDe(usuario)
   const dominioRemitente = dominioDe(fromEmail)
 
   if (!dominioRemitente) {

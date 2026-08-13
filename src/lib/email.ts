@@ -1,13 +1,7 @@
 import { supabase } from './supabase'
-import { dbGet } from './db'
-import type { SmtpConfig, EmailDomain } from '@/types'
+import type { SmtpConfig } from '@/types'
 import { extraerMensajeError } from './edgeError'
-
-interface TpConfig {
-  nombre?: string
-  from_email?: string
-  email?: string
-}
+import { modoCorreo, smtpConfigurado } from './correoModo'
 
 export interface SendEmailResult {
   ok: boolean
@@ -15,49 +9,23 @@ export interface SendEmailResult {
 }
 
 
-// Envía un correo reutilizando la MISMA Edge Function `send-email` y la misma
-// configuración (dominio Resend verificado o SMTP/Resend manual) del ERP vanilla.
+// La Edge Function resuelve canal, remitente y Reply-To desde la empresa de la
+// sesión. El navegador solo manda el destinatario y el contenido: así nadie
+// puede falsificar un From arbitrario manipulando la petición.
 export async function sendEmail(
   empresaId: string,
   to: string,
   subject: string,
   bodyHtml: string,
 ): Promise<SendEmailResult> {
-  const [cfg, tpCfg, dom] = await Promise.all([
-    getSmtpStatus(),
-    dbGet<TpConfig>(empresaId, 'tp_config'),
-    dbGet<EmailDomain>(empresaId, 'tp_email_domain'),
-  ])
-
-  // Prioridad 1: dominio verificado en Resend → enviar vía Resend
-  if (dom?.status === 'verified' && dom.from_email) {
-    try {
-      const { data, error } = await supabase.functions.invoke('send-email', {
-        body: {
-          to, subject, html: bodyHtml,
-          from: dom.from_email,
-          from_name: dom.from_name || tpCfg?.nombre || 'Taller',
-        },
-      })
-      if (error) return { ok: false, error: await extraerMensajeError(error, 'No se pudo enviar') }
-      return (data as SendEmailResult) ?? { ok: true }
-    } catch (e) {
-      return { ok: false, error: await extraerMensajeError(e, 'No se pudo enviar') }
-    }
-  }
-
-  // Prioridad 2: SMTP / Resend manual (legacy)
-  const fromEmail = cfg?.from_email || tpCfg?.from_email || tpCfg?.email || 'onboarding@resend.dev'
-  // "Pixit" es el respaldo neutral cuando la empresa no puso su propio nombre de
-  // taller — antes decía "Steve Docs" a secas, el taller de Esteban, hardcodeado
-  // como si fuera el default de cualquier cliente nuevo de la plataforma.
-  const fromName = cfg?.from_name || tpCfg?.nombre || 'Pixit'
   try {
-    // La función ahora resuelve la config SMTP/Resend del lado del servidor a
-    // partir de la empresa del usuario autenticado, así que ya no mandamos
-    // credenciales en el body (antes viajaban en texto plano hasta el Edge Function).
-    const body: Record<string, unknown> = { to, subject, html: bodyHtml, from: fromEmail, from_name: fromName }
-    const { data, error } = await supabase.functions.invoke('send-email', { body })
+    // empresaId se conserva en la firma para que todos los llamados existentes
+    // sigan siendo explícitos respecto de su tenant. No se transmite: el
+    // servidor obtiene la empresa desde el JWT y evita suplantaciones.
+    void empresaId
+    const { data, error } = await supabase.functions.invoke('send-email', {
+      body: { to, subject, html: bodyHtml },
+    })
     if (error) return { ok: false, error: await extraerMensajeError(error, 'No se pudo enviar') }
     return (data as SendEmailResult) ?? { ok: true }
   } catch (e) {
@@ -65,18 +33,14 @@ export async function sendEmail(
   }
 }
 
-// Indica si un correo enviado con sendEmail() de verdad llega a una casilla que
-// la empresa lee (dominio propio verificado, o SMTP/Resend manual con su email
-// real) — o si va a salir del remitente genérico de respaldo (onboarding@resend.dev,
-// que nadie del taller revisa). Los templates usan esto para no invitar al
-// cliente a "responder este correo" cuando esa respuesta se perdería.
+// Indica si las respuestas llegan a una casilla que la empresa lee: un dominio
+// verificado, el Reply-To del correo administrado o su propia cuenta SMTP. Los
+// templates usan esto para no invitar a responder cuando no hay destinatario.
 export async function puedeResponderCorreo(empresaId: string): Promise<boolean> {
-  const [cfg, dom] = await Promise.all([
-    getSmtpStatus(),
-    dbGet<EmailDomain>(empresaId, 'tp_email_domain'),
-  ])
-  if (dom?.status === 'verified' && dom.from_email) return true
-  return !!(cfg?.from_email && cfg?.host && cfg?.user && cfg?.hasPassword)
+  void empresaId
+  const cfg = await getSmtpStatus()
+  if (modoCorreo(cfg) === 'pixit') return !!(cfg?.reply_to || cfg?.from_email)
+  return !!cfg && smtpConfigurado(cfg)
 }
 
 // get_smtp_status() nunca devuelve la contraseña real (RPC security definer,
@@ -282,9 +246,9 @@ interface ListoEmailData {
   orden: { num: string | number; modelo: string; nombre: string }
   branchNombre: string
   horario?: string
-  // false cuando el correo sale del remitente genérico de respaldo (sin dominio
-  // propio ni SMTP configurado) — nadie del taller lee esa casilla, así que no
-  // se invita al cliente a responder ahí. Ver puedeResponderCorreo().
+  // false cuando no existe un Reply-To ni un remitente propio que la empresa
+  // lea, por lo que no se invita al cliente a responder. Ver
+  // puedeResponderCorreo().
   puedeResponder?: boolean
 }
 

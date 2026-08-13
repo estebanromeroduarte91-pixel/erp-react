@@ -190,7 +190,7 @@ export function TourOverlay() {
             >
               <div>
                 <p className="font-bold text-xs text-slate-800">1. Ajustes e Inicialización</p>
-                <p className="text-[10px] text-slate-400 mt-0.5">Sucursales, logotipos y SMTP</p>
+                <p className="text-[10px] text-slate-400 mt-0.5">Sucursales, logotipos y correo</p>
               </div>
               <svg className="w-3.5 h-3.5 text-blue-500 opacity-0 group-hover:opacity-100 transition-all transform translate-x-[-4px] group-hover:translate-x-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />

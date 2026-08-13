@@ -4,17 +4,20 @@ import { usePuedeUsarModulo } from '@/lib/queries'
 import { ModuloBloqueado } from '@/components/shared/ModuloBloqueado'
 import { GeneralTab } from './GeneralTab'
 import { SmtpTab } from './SmtpTab'
-import { DominioTab } from './DominioTab'
 import { CargosTab } from './CargosTab'
 import { AccesosTab } from './AccesosTab'
 import { NotificacionesTab } from './NotificacionesTab'
 import { SuscripcionTab } from './SuscripcionTab'
 import { TributarioTab } from './TributarioTab'
 
-type Tab = 'general' | 'dominio' | 'smtp' | 'tributario' | 'cargos' | 'accesos' | 'notificaciones' | 'suscripcion'
+type Tab = 'general' | 'smtp' | 'tributario' | 'cargos' | 'accesos' | 'notificaciones' | 'suscripcion'
 
-const TABS_VALIDOS: Tab[] = ['general', 'dominio', 'smtp', 'tributario', 'cargos', 'accesos', 'notificaciones', 'suscripcion']
+const TABS_VALIDOS: Tab[] = ['general', 'smtp', 'tributario', 'cargos', 'accesos', 'notificaciones', 'suscripcion']
 function resolveConfigTab(param: string | null): Tab {
+  // La antigua pestaña `dominio` permitía que cada cliente ocupara un dominio
+  // de la cuenta Resend de Pixit. El envío administrado ahora usa únicamente
+  // pixit.cl; los enlaces guardados a esa pestaña se llevan a Correo.
+  if (param === 'dominio') return 'smtp'
   return TABS_VALIDOS.includes(param as Tab) ? (param as Tab) : 'general'
 }
 
@@ -23,13 +26,12 @@ export function ConfigPage() {
   const puedeAccesos = usePuedeUsarModulo('accesos')
   const [searchParams, setSearchParams] = useSearchParams()
   const tabParam = resolveConfigTab(searchParams.get('tab'))
-  const tab = tabParam === 'general' && !esAdmin ? 'dominio' : tabParam
+  const tab = tabParam
   const setTab = (key: Tab) => setSearchParams(key === 'general' ? {} : { tab: key }, { replace: true })
 
   const allTabs: { key: Tab; label: string; adminOnly?: boolean; requierePlan?: boolean }[] = [
     { key: 'general', label: 'General', adminOnly: true },
-    { key: 'dominio', label: 'Dominio' },
-    { key: 'smtp',    label: 'SMTP' },
+    { key: 'smtp',    label: 'Correo', adminOnly: true },
     // Solo admin: el RUT define a nombre de quién se emiten los documentos,
     // y un trigger en la base rechaza el cambio si no lo hace un admin.
     { key: 'tributario', label: 'Tributario', adminOnly: true },
@@ -60,8 +62,7 @@ export function ConfigPage() {
       </div>
 
       {tab === 'general' && esAdmin  && <GeneralTab />}
-      {tab === 'dominio'             && <DominioTab />}
-      {tab === 'smtp'                && <SmtpTab />}
+      {tab === 'smtp' && esAdmin     && <SmtpTab />}
       {tab === 'tributario' && esAdmin && <TributarioTab />}
       {tab === 'cargos'  && esAdmin  && (puedeAccesos ? <CargosTab /> : <ModuloBloqueado nombre="Gestión de permisos" />)}
       {tab === 'accesos' && esAdmin  && (puedeAccesos ? <AccesosTab /> : <ModuloBloqueado nombre="Gestión de permisos" />)}

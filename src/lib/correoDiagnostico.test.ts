@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { dominioDe, diagnosticarRemitente, diagnosticarConexion, REMITENTE_RESPALDO } from './correoDiagnostico'
+import { dominioDe, diagnosticarRemitente, diagnosticarConexion } from './correoDiagnostico'
 
 describe('diagnosticarConexion', () => {
   it('marca ERROR con puerto 465 sin SSL/TLS', () => {
@@ -71,11 +71,14 @@ describe('diagnosticarRemitente', () => {
     })).toEqual([])
   })
 
-  it('avisa cuando no hay remitente propio y se usará el buzón de respaldo', () => {
-    const r = diagnosticarRemitente({ host: 'smtp.x.cl', user: 'a@x.cl' })
-    expect(r).toHaveLength(1)
-    expect(r[0].severidad).toBe('aviso')
-    expect(r[0].detalle).toContain(REMITENTE_RESPALDO)
+  it('acepta usuario vacío cuando el remitente es la propia cuenta SMTP', () => {
+    expect(diagnosticarRemitente({
+      host: 'mail.mitaller.cl', user: '', from_email: 'contacto@mitaller.cl',
+    })).toEqual([])
+  })
+
+  it('usa la cuenta SMTP como remitente cuando no se indica otro', () => {
+    expect(diagnosticarRemitente({ host: 'smtp.x.cl', user: 'a@x.cl' })).toEqual([])
   })
 
   it('marca ERROR con Gmail y un remitente de otro dominio', () => {

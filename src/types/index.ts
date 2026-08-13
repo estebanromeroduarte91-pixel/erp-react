@@ -351,12 +351,20 @@ export interface SeguimientoConfig {
 }
 
 export interface SmtpConfig {
+  /**
+   * `pixit`: Pixit entrega el correo y usa el email del taller como Reply-To.
+   * `smtp`: el servidor del taller entrega el correo con su propia casilla.
+   * La ausencia del campo se interpreta como `pixit` para que credenciales
+   * antiguas no activen SMTP accidentalmente.
+   */
+  mode?: 'pixit' | 'smtp'
   host?: string
   port?: number
   user?: string
   password?: string
   from_name?: string
   from_email?: string
+  reply_to?: string
   secure?: boolean
   // Presente solo en la respuesta de get_smtp_status(): indica si hay una
   // contraseña guardada sin revelar su valor real.

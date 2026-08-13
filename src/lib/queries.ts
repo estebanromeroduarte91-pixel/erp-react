@@ -1915,6 +1915,11 @@ const DEFAULT_PLAN_CUENTAS: CuentaContable[] = [
   { id: 'pc-490', codigo: '490', nombre: 'Otros Ingresos',                tipo: 'ingreso',    grupo: 'Ingresos' },
   { id: 'pc-510', codigo: '510', nombre: 'Servicios Básicos',             tipo: 'gasto',      grupo: 'Gastos Operacionales' },
   { id: 'pc-520', codigo: '520', nombre: 'Remuneraciones',                tipo: 'gasto',      grupo: 'Gastos Operacionales' },
+  // El costo de personal se separa en dos: lo que recibe el trabajador y las
+  // leyes sociales. Faltaba la segunda, y sin ella las cotizaciones terminaban
+  // cargadas a "Otros Gastos" o —peor— a un pasivo, donde desaparecen del
+  // resultado porque Pixit no registra el devengo del sueldo.
+  { id: 'pc-521', codigo: '521', nombre: 'Leyes Sociales (Cotizaciones)',  tipo: 'gasto',      grupo: 'Gastos Operacionales' },
   { id: 'pc-530', codigo: '530', nombre: 'Arriendo',                      tipo: 'gasto',      grupo: 'Gastos Operacionales' },
   { id: 'pc-540', codigo: '540', nombre: 'Artículos de Limpieza',         tipo: 'gasto',      grupo: 'Gastos Operacionales' },
   { id: 'pc-550', codigo: '550', nombre: 'Transporte y Logística',        tipo: 'gasto',      grupo: 'Gastos Operacionales' },

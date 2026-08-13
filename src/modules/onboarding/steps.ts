@@ -48,18 +48,18 @@ export const onboardingTours: Record<TourId, TourStep[]> = {
       position: 'bottom',
       route: '/inventario'
     },
-    // 3. SMTP (en Config SMTP)
+    // 3. Correo saliente
     {
       targetId: 'tour-sidebar-config',
       title: 'Configuración del Sistema',
-      content: 'A continuación, vincularemos tu correo corporativo y gestionaremos tu staff. Dirígete a Configuración general.',
+      content: 'A continuación, configuraremos los correos automáticos y gestionaremos tu staff. Dirígete a Configuración general.',
       position: 'right',
       route: '/inventario?tab=bodegas'
     },
     {
       targetId: 'tour-config-tab-smtp',
-      title: 'Configurar Correo SMTP',
-      content: 'Haz clic en la pestaña **SMTP** para ingresar las credenciales de tu servidor de correo y enviar avisos automáticos usando tu propio dominio.',
+      title: 'Configurar correo',
+      content: 'Haz clic en **Correo**. Puedes usar el envío administrado por Pixit sin configurar servidores, o conectar opcionalmente tu propia cuenta SMTP para mostrarla como remitente.',
       position: 'bottom',
       route: '/config'
     },

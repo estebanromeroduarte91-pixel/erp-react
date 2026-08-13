@@ -1,0 +1,38 @@
+services:
+  gateway:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    expose:
+      - "3000"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:3000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      gateway:
+        condition: service_healthy
+    environment:
+      GATEWAY_DOMAIN: ${GATEWAY_DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  caddy_data:
+  caddy_config:
