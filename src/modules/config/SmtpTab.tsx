@@ -18,7 +18,6 @@ const ICONOS: Record<string, typeof IconServer> = {
   'brand-google': IconBrandGoogle,
   'brand-windows': IconBrandWindows,
   'server': IconServer,
-  'send': IconSend,
   'adjustments': IconAdjustments,
 }
 
@@ -243,9 +242,6 @@ export function SmtpTab() {
                 <span className={['block text-sm font-medium', activo ? 'text-blue-700' : 'text-gray-600'].join(' ')}>
                   {p.nombre}
                 </span>
-                {p.recomendado && (
-                  <span className="block text-[10px] font-semibold text-green-700 mt-0.5">Recomendado</span>
-                )}
               </button>
             )
           })}
@@ -341,16 +337,6 @@ export function SmtpTab() {
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
           </div>
         </div>
-
-        {/* El bloqueo por volumen del hosting no da un error entendible: el
-            servidor responde "535 Incorrect authentication data", que parece
-            una contraseña mal puesta. Conviene advertirlo ANTES, no después de
-            un día sin correos. */}
-        {prov.advertencia && (
-          <p className="mt-3 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 leading-relaxed">
-            {prov.advertencia}
-          </p>
-        )}
 
         {prov.notaRemitente && (
           <p className="mt-3 text-xs text-gray-500 leading-relaxed">{prov.notaRemitente}</p>

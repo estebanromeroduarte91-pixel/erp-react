@@ -6,7 +6,7 @@
 // diez segundos y responde "el servidor no respondió", apuntando al lugar
 // equivocado. Si el proveedor los decide, esa combinación no puede existir.
 
-export type ProveedorId = 'brevo' | 'gmail' | 'outlook' | 'hosting' | 'manual'
+export type ProveedorId = 'gmail' | 'outlook' | 'hosting' | 'manual'
 
 export interface Proveedor {
   id: ProveedorId
@@ -22,38 +22,9 @@ export interface Proveedor {
   instrucciones?: { titulo: string; pasos: string[]; enlace: string; textoEnlace: string }
   /** Advertencia sobre el remitente, cuando el proveedor lo impone. */
   notaRemitente?: string
-  /** Riesgo conocido de esta opción, para poder elegir informado. */
-  advertencia?: string
-  /** Se destaca como la opción recomendada. */
-  recomendado?: boolean
 }
 
 export const PROVEEDORES: Proveedor[] = [
-  {
-    // Servicio de correo transaccional. Se pone primero y recomendado porque
-    // resuelve el problema que tienen todos los demás: los servidores pensados
-    // para correo personal o de hosting compartido cortan el envío al superar
-    // un límite diario, y lo hacen sin avisar. Un taller con movimiento manda
-    // decenas de correos al día y los va a chocar.
-    id: 'brevo',
-    nombre: 'Brevo',
-    icono: 'send',
-    pide: 'correo',
-    etiquetaPide: 'Tu correo de la cuenta Brevo',
-    ejemploPide: 'taller@mitaller.cl',
-    etiquetaPassword: 'Clave SMTP',
-    recomendado: true,
-    instrucciones: {
-      titulo: 'Servicio hecho para correo automático',
-      pasos: [
-        'Crea una cuenta gratuita en Brevo (300 correos por día).',
-        'Valida la dirección desde la que vas a enviar: te llega un correo y confirmas con un clic.',
-        'En Configuración → SMTP y API, genera una "clave SMTP" y pégala abajo.',
-      ],
-      enlace: 'https://app.brevo.com/settings/keys/smtp',
-      textoEnlace: 'Abrir las claves SMTP de Brevo',
-    },
-  },
   {
     id: 'gmail',
     nombre: 'Gmail',
@@ -102,7 +73,6 @@ export const PROVEEDORES: Proveedor[] = [
     etiquetaPide: 'Tu dominio',
     ejemploPide: 'mitaller.cl',
     etiquetaPassword: 'Contraseña del correo',
-    advertencia: 'Los hostings limitan cuántos correos podés enviar por día y bloquean la cuenta al pasarte, sin avisar. Si mandás muchas órdenes, conviene un servicio de correo transaccional.',
   },
   {
     id: 'manual',
@@ -141,8 +111,6 @@ export function limpiarDominio(valor: string): string {
 export function derivarConfig(id: ProveedorId, valor: string): ConfigDerivada | null {
   // 465 con SSL directo para Gmail: es el que menos problemas da detrás de
   // firewalls corporativos, comparado con el 587 + STARTTLS.
-  // Brevo solo ofrece STARTTLS en el 587.
-  if (id === 'brevo') return { host: 'smtp-relay.brevo.com', port: 587, secure: false }
   if (id === 'gmail') return { host: 'smtp.gmail.com', port: 465, secure: true }
   // Outlook solo habla STARTTLS en el 587; no ofrece SSL directo.
   if (id === 'outlook') return { host: 'smtp-mail.outlook.com', port: 587, secure: false }
@@ -164,7 +132,6 @@ export function derivarConfig(id: ProveedorId, valor: string): ConfigDerivada | 
 export function detectarProveedor(cfg: { host?: string }): ProveedorId {
   const host = (cfg.host ?? '').trim().toLowerCase()
   if (!host) return 'manual'
-  if (host.includes('brevo') || host.includes('sendinblue')) return 'brevo'
   if (host.includes('gmail')) return 'gmail'
   if (host.includes('outlook') || host.includes('office365') || host.includes('hotmail')) return 'outlook'
   if (host.startsWith('mail.')) return 'hosting'
