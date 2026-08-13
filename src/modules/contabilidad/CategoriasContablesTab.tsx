@@ -106,7 +106,11 @@ export function CategoriasContablesTab() {
           // Es válido solo si el devengo se lleva por fuera.
           const fueraDelResultado = !!cuenta && cuenta.tipo !== 'gasto'
           return (
-          <div key={cat.id} className="flex flex-col md:flex-row md:items-center gap-2 md:gap-3 px-4 py-3 group">
+          // El aviso va en su PROPIA línea, fuera de la fila horizontal: dentro
+          // de ella competía por el ancho con el select y lo dejaba reducido a
+          // una flecha.
+          <div key={cat.id} className="px-4 py-3 group">
+          <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-3">
             <div className="flex items-center gap-3 min-w-0">
               <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: cat.color }} />
               <span className="md:min-w-[130px] text-sm font-medium text-gray-800 truncate">{cat.nombre}</span>
@@ -126,8 +130,9 @@ export function CategoriasContablesTab() {
               <button onClick={() => { setEditando(cat); setModalOpen(true) }} className="text-xs font-medium text-blue-600 hover:underline">Editar</button>
               <button onClick={() => eliminarCategoria(cat)} className="text-xs font-medium text-red-500 hover:underline">Eliminar</button>
             </div>
+          </div>
             {fueraDelResultado && (
-              <p className="w-full md:w-auto md:basis-full text-[11px] text-amber-700">
+              <p className="mt-2 text-[11px] text-amber-700 leading-relaxed">
                 Con una cuenta de {cuenta!.tipo}, este gasto no aparece en el Estado de Resultados.
                 Corresponde solo si el devengo se registra por otra vía.
               </p>
