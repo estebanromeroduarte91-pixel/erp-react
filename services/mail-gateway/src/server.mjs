@@ -137,8 +137,15 @@ async function send(payload) {
     throw error
   }
 
+  const target = String(message.to).trim().toLowerCase()
+  const accepted = result.accepted?.map(value => String(value).trim().toLowerCase()) ?? []
+  if (!accepted.includes(target)) {
+    throw Object.assign(new Error(`550 recipient rejected: ${message.to}`), { responseCode: 550 })
+  }
+
   return {
     ok: true,
+    status: 'accepted',
     messageId: result.messageId,
     accepted: result.accepted?.map(String) ?? [],
     rejected: result.rejected?.map(String) ?? [],

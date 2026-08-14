@@ -5,9 +5,28 @@ import { modoCorreo, smtpConfigurado } from './correoModo'
 
 export interface SendEmailResult {
   ok: boolean
+  status?: 'accepted'
   error?: string
 }
 
+export const EMAIL_SEND_RESULT_EVENT = 'pixit:email-send-result'
+
+export interface EmailSendResultEventDetail {
+  ok: boolean
+  to: string
+  subject: string
+  error?: string
+}
+
+interface SendEmailOptions {
+  notifyError?: boolean
+}
+
+function notifySendResult(detail: EmailSendResultEventDetail, options?: SendEmailOptions) {
+  if (!detail.ok && options?.notifyError !== false && typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent<EmailSendResultEventDetail>(EMAIL_SEND_RESULT_EVENT, { detail }))
+  }
+}
 
 // La Edge Function resuelve canal, remitente y Reply-To desde la empresa de la
 // sesión. El navegador solo manda el destinatario y el contenido: así nadie
@@ -17,6 +36,7 @@ export async function sendEmail(
   to: string,
   subject: string,
   bodyHtml: string,
+  options?: SendEmailOptions,
 ): Promise<SendEmailResult> {
   try {
     // empresaId se conserva en la firma para que todos los llamados existentes
@@ -26,10 +46,18 @@ export async function sendEmail(
     const { data, error } = await supabase.functions.invoke('send-email', {
       body: { to, subject, html: bodyHtml },
     })
-    if (error) return { ok: false, error: await extraerMensajeError(error, 'No se pudo enviar') }
-    return (data as SendEmailResult) ?? { ok: true }
+    if (error) {
+      const result = { ok: false, error: await extraerMensajeError(error, 'No se pudo enviar') }
+      notifySendResult({ ...result, to, subject }, options)
+      return result
+    }
+    const result = (data as SendEmailResult) ?? { ok: true as const, status: 'accepted' as const }
+    notifySendResult({ ...result, to, subject }, options)
+    return result
   } catch (e) {
-    return { ok: false, error: await extraerMensajeError(e, 'No se pudo enviar') }
+    const result = { ok: false, error: await extraerMensajeError(e, 'No se pudo enviar') }
+    notifySendResult({ ...result, to, subject }, options)
+    return result
   }
 }
 

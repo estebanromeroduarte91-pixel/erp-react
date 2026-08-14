@@ -247,8 +247,16 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
     const waMsg = esListo && msgTemplates?.listo_wa ? rellenarTemplate(msgTemplates.listo_wa, vars) : ''
     const emailMsg = esListo && msgTemplates?.listo_email ? rellenarTemplate(msgTemplates.listo_email, vars) : ''
     if (esListo && emailMsg && orden.email && empresaId) {
-      void buildListoHtml(emailMsg).then(html => sendEmail(empresaId, orden.email!, asuntoListo(estado), html))
-      setEmailOk(true)
+      const html = await buildListoHtml(emailMsg)
+      const res = await sendEmail(empresaId, orden.email, asuntoListo(estado), html, { notifyError: false })
+      if (res.ok) {
+        setEmailOk(true)
+      } else {
+        setAprobMsg({
+          msg: `La orden se actualizó, pero el correo a ${orden.email} no salió: ${res.error ?? 'error desconocido'}`,
+          type: 'err',
+        })
+      }
     }
     const mostrarEmail = esListo && emailMsg && orden.email && !empresaId
     if (waMsg || mostrarEmail) setNotif({ estado, waMsg, emailMsg: mostrarEmail ? emailMsg : '' })
@@ -266,9 +274,19 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
   async function enviarEmail() {
     if (!notif?.emailMsg || !orden.email || !empresaId) return
     setEnviandoEmail(true)
-    await sendEmail(empresaId, orden.email, asuntoListo(notif.estado), await buildListoHtml(notif.emailMsg))
-    setEnviandoEmail(false)
-    setEmailOk(true)
+    try {
+      const res = await sendEmail(
+        empresaId,
+        orden.email,
+        asuntoListo(notif.estado),
+        await buildListoHtml(notif.emailMsg),
+        { notifyError: false },
+      )
+      if (res.ok) setEmailOk(true)
+      else setAprobMsg({ msg: `El correo no salió: ${res.error ?? 'error desconocido'}`, type: 'err' })
+    } finally {
+      setEnviandoEmail(false)
+    }
   }
 
   function enviarWhatsApp() {
@@ -324,9 +342,13 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
         html = await buildListoHtml(msgTexto)
       }
 
-      await sendEmail(empresaId, orden.email, asunto, html)
-      setEmailOkDirecto(true)
-      setTimeout(() => setEmailOkDirecto(false), 4000)
+      const res = await sendEmail(empresaId, orden.email, asunto, html, { notifyError: false })
+      if (res.ok) {
+        setEmailOkDirecto(true)
+        setTimeout(() => setEmailOkDirecto(false), 4000)
+      } else {
+        setAprobMsg({ msg: `El correo a ${orden.email} no salió: ${res.error ?? 'error desconocido'}`, type: 'err' })
+      }
     } finally {
       setEnviandoEmailDirecto(false)
     }
@@ -464,7 +486,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
           puedeResponder: empresaId ? await puedeResponderCorreo(empresaId) : false,
         })
         const asunto = `Reporte de inspección — ${orden.modelo ?? 'Equipo'} #OT-${String(orden.num).padStart(4, '0')}`
-        const res = await sendEmail(empresaId, orden.email!, asunto, html)
+        const res = await sendEmail(empresaId, orden.email!, asunto, html, { notifyError: false })
         setAprobMsg(res.ok
           ? { msg: `Reporte enviado a ${orden.email}`, type: 'ok' }
           : { msg: 'Guardado, pero el email falló: ' + (res.error ?? 'error desconocido'), type: 'err' })
@@ -631,7 +653,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
         link,
       })
       const asunto = `Aprobación de presupuesto — ${aprobOrden.modelo ?? 'Equipo'} #${aprobOrden.num ?? ''}`
-      const res = await sendEmail(empresaId, aprobOrden.email, asunto, html)
+      const res = await sendEmail(empresaId, aprobOrden.email, asunto, html, { notifyError: false })
       if (res.ok) {
         setAprobMsg({ msg: `Solicitud enviada a ${aprobOrden.email}`, type: 'ok' })
       } else {

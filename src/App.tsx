@@ -12,6 +12,7 @@ import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import { lazyWithReload } from '@/lib/lazyWithReload'
 import { TourProvider } from '@/modules/onboarding/TourProvider'
 import { TourOverlay } from '@/modules/onboarding/TourOverlay'
+import { EmailSendToast } from '@/components/shared/EmailSendToast'
 
 // Carga perezosa (Lazy Loading) de todos los módulos pesados del ERP.
 // lazyWithReload (en vez de lazy de React) recarga la página sola una vez si
@@ -117,6 +118,7 @@ export default function App() {
         <TourProvider>
           <AppRoutes />
           <TourOverlay />
+          <EmailSendToast />
         </TourProvider>
       </HashRouter>
     </ErrorBoundary>

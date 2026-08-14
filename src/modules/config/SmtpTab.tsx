@@ -36,7 +36,7 @@ export function SmtpTab() {
   const [detallesAbiertos, setDetallesAbiertos] = useState(false)
   const prov = proveedorPorId(proveedor)
 
-  const { data: correos } = useEmailLog(20)
+  const { data: correos, refetch: refetchCorreos } = useEmailLog(20)
   // Se calcula sobre `form` y no sobre lo guardado: así el aviso aparece
   // mientras se escribe, antes de guardar una configuración que no va a andar.
   // Primero los de conexión: un puerto/cifrado incompatible impide cualquier
@@ -122,13 +122,15 @@ export function SmtpTab() {
         `Prueba de correo — ${empresaNombre || 'Pixit'}`,
         `<p>Si estás leyendo esto, la configuración de correo de <strong>${empresaNombre || 'tu taller'}</strong> funciona.</p>
          <p style="color:#6b7280;font-size:13px">Correo de prueba enviado desde Configuración › Correo.</p>`,
+        { notifyError: false },
       )
       setResultado(r.ok
-        ? { ok: true, msg: `Enviado a ${destino}. Revisa tu bandeja (y la carpeta de spam).` }
+        ? { ok: true, msg: `Aceptado para envío a ${destino}. Revisa tu bandeja (y la carpeta de spam).` }
         : { ok: false, msg: r.error || 'No se pudo enviar. Revisa host, puerto, usuario y contraseña.' })
     } catch (e) {
       setResultado({ ok: false, msg: (e as Error).message })
     } finally {
+      await refetchCorreos()
       setProbando(false)
     }
   }
@@ -430,14 +432,14 @@ export function SmtpTab() {
               ? 'bg-green-50 text-green-700 border-green-200'
               : 'bg-red-50 text-red-700 border-red-200',
           ].join(' ')}>
-            <p className="font-semibold">{resultado.ok ? '✓ Correo enviado' : 'No se pudo enviar'}</p>
+            <p className="font-semibold">{resultado.ok ? '✓ Correo aceptado para envío' : 'No se pudo enviar'}</p>
             <p className="mt-0.5 break-words">{resultado.msg}</p>
           </div>
         )}
 
         <p className="mt-4 text-xs text-gray-400 leading-relaxed">
           La prueba guarda primero lo que aparece en pantalla. Usa <strong>Enviar correo de prueba</strong> para
-          confirmar la entrega en tu propia casilla ({session?.user?.email ?? 'tu correo'}).
+          confirmar que el servidor acepta el correo y revisa tu casilla ({session?.user?.email ?? 'tu correo'}).
         </p>
       </div>
 
@@ -447,7 +449,7 @@ export function SmtpTab() {
       {!!correos?.length && (
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-            <h3 className="text-sm font-bold text-gray-700">Últimos correos enviados</h3>
+            <h3 className="text-sm font-bold text-gray-700">Últimos intentos de correo</h3>
             {(() => {
               const fallidos = correos.filter(c => !c.ok).length
               return fallidos > 0
@@ -455,7 +457,7 @@ export function SmtpTab() {
                     {fallidos} {fallidos === 1 ? 'falló' : 'fallaron'}
                   </span>
                 : <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700">
-                    Todos entregados
+                    Aceptados por el servidor
                   </span>
             })()}
           </div>
@@ -472,6 +474,9 @@ export function SmtpTab() {
                     {c.destinatario} · {new Date(c.creado_en).toLocaleString('es-CL')}
                     {c.canal ? ` · ${c.canal}` : ''}
                   </p>
+                  {c.ok && (
+                    <p className="text-[11px] text-green-700 mt-1">Aceptado por el servidor de correo</p>
+                  )}
                   {/* El error viene tal cual lo devolvió el servidor: es lo que
                       permite distinguir una contraseña mala de un buzón lleno. */}
                   {!c.ok && c.error && (

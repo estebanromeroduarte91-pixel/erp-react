@@ -310,7 +310,9 @@ Deno.serve(async (req) => {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    return new Response(JSON.stringify({ ok: true }), {
+    // "accepted" significa que el proveedor aceptó el mensaje para entrega;
+    // no permite afirmar que ya llegó a la bandeja del destinatario.
+    return new Response(JSON.stringify({ ok: true, status: "accepted" }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 

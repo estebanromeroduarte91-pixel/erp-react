@@ -3184,6 +3184,9 @@ export function useEmailLog(limite = 20) {
       return (data ?? []) as CorreoEnviado[]
     },
     enabled: !!empresaId,
+    // Los envíos automáticos ocurren desde otras pantallas. Al volver a
+    // Configuración, el historial debe reflejarlos sin recargar toda la app.
+    refetchInterval: 15_000,
   })
 }
 
