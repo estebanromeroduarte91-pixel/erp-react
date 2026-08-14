@@ -4,6 +4,9 @@ import {
   calcularCostoVentas,
   calcularResumenOperacional,
   periodoAnteriorEquivalente,
+  fechaEfectivaOC,
+  gastoQueAfectaResultado,
+  separarIva,
 } from './metricas'
 
 function venta(estado: Venta['estado'], total = 1000, totalIva = 1190, items: VentaItem[] = []): Venta {
@@ -72,5 +75,59 @@ describe('períodos comparables', () => {
       desde: '2026-08-05',
       hasta: '2026-08-09',
     })
+  })
+})
+
+describe('fechaEfectivaOC', () => {
+  it('prefiere la primera recepción sobre todo lo demás', () => {
+    expect(fechaEfectivaOC({
+      fecha: '2026-07-01',
+      fecha_confirmacion: '2026-07-15',
+      fecha_primera_recepcion: '2026-08-03',
+      fecha_recepcion: '2026-08-20',
+    })).toBe('2026-08-03')
+  })
+
+  it('usa la confirmación cuando todavía no hay recepción', () => {
+    expect(fechaEfectivaOC({ fecha: '2026-07-01', fecha_confirmacion: '2026-07-15' })).toBe('2026-07-15')
+  })
+
+  // Las OC antiguas solo tienen fecha de creación: no deben quedar fuera de
+  // los reportes por falta de datos.
+  it('cae a la fecha de creación si no hay nada más', () => {
+    expect(fechaEfectivaOC({ fecha: '2026-07-01' })).toBe('2026-07-01')
+  })
+
+  it('recorta marcas de tiempo a solo la fecha', () => {
+    expect(fechaEfectivaOC({ fecha: '2026-07-01', fecha_recepcion: '2026-08-03T14:22:00Z' })).toBe('2026-08-03')
+  })
+})
+
+describe('gastoQueAfectaResultado', () => {
+  const base = { id: '1', fecha: '2026-08-01', descripcion: 'x', categoria: 'Otros' }
+
+  // Ningún gasto anterior a este cambio debe moverse: sin clasificar se
+  // descuenta completo, igual que siempre.
+  it('descuenta el total cuando no está clasificado', () => {
+    expect(gastoQueAfectaResultado({ ...base, monto: 119000 })).toBe(119000)
+  })
+
+  it('descuenta solo el neto cuando hay factura', () => {
+    expect(gastoQueAfectaResultado({
+      ...base, monto: 119000, con_credito_fiscal: true, monto_neto: 100000, iva: 19000,
+    })).toBe(100000)
+  })
+
+  it('descuenta el total si dice tener factura pero no trae el neto', () => {
+    expect(gastoQueAfectaResultado({ ...base, monto: 119000, con_credito_fiscal: true })).toBe(119000)
+  })
+})
+
+describe('separarIva', () => {
+  it('reparte de modo que neto + iva siempre da el total', () => {
+    for (const total of [9990, 119000, 1, 33333, 89990]) {
+      const { neto, iva } = separarIva(total)
+      expect(neto + iva).toBe(Math.round(total))
+    }
   })
 })

@@ -1794,12 +1794,18 @@ function hidratarGasto(row: Record<string, unknown>): Gasto {
     metodo: row.metodo as string | undefined,
     bodega_id: row.bodega_id as string | undefined,
     bodega_nombre: row.bodega_nombre as string | undefined,
+    // Null en los gastos históricos: sin clasificar, se descuentan completos.
+    con_credito_fiscal: row.con_credito_fiscal == null ? undefined : Boolean(row.con_credito_fiscal),
+    monto_neto: row.monto_neto == null ? undefined : Number(row.monto_neto),
+    iva: row.iva == null ? undefined : Number(row.iva),
   }
 }
 
+// Lista blanca: un campo que no esté acá se descarta en silencio al guardar.
 const GASTO_FIELD_MAP: Record<string, string> = {
   fecha: 'fecha', descripcion: 'descripcion', monto: 'monto', categoria: 'categoria',
   subcategoria: 'subcategoria', metodo: 'metodo', bodega_id: 'bodega_id', bodega_nombre: 'bodega_nombre',
+  con_credito_fiscal: 'con_credito_fiscal', monto_neto: 'monto_neto', iva: 'iva',
 }
 
 function filaGastoParcial(g: Partial<Gasto>): Record<string, unknown> {

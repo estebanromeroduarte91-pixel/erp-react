@@ -52,7 +52,7 @@ export function calcularResumenOperacional(
   const ventasBrutas = pagadas.reduce((s, venta) => s + (+venta.total_iva || 0), 0)
   const ventasNetas = pagadas.reduce((s, venta) => s + (+venta.total || 0), 0)
   const costoVentas = calcularCostoVentas(pagadas, costosActuales)
-  const totalGastos = gastos.reduce((s, gasto) => s + (+gasto.monto || 0), 0)
+  const totalGastos = gastos.reduce((s, gasto) => s + gastoQueAfectaResultado(gasto), 0)
   const resultadoOperacional = ventasNetas - costoVentas - totalGastos
   const cantidadVentas = pagadas.length
 
@@ -117,3 +117,55 @@ export function periodoAnteriorEquivalente(
   return { desde: moverDias(finAnterior, -(dias - 1)), hasta: finAnterior }
 }
 
+/**
+ * Fecha en que una orden de compra se convierte de verdad en una compra.
+ *
+ * `fecha` es la de creación, y una OC puede crearse en julio y recibirse en
+ * agosto: contarla por la fecha de creación la deja en el mes equivocado.
+ * Se usa la recepción cuando existe, la confirmación si no, y recién al final
+ * la creación — que es lo único que tienen las OC antiguas.
+ */
+export function fechaEfectivaOC(oc: {
+  fecha: string
+  fecha_recepcion?: string
+  fecha_primera_recepcion?: string
+  fecha_confirmacion?: string
+}): string {
+  const fecha = oc.fecha_primera_recepcion || oc.fecha_recepcion || oc.fecha_confirmacion || oc.fecha
+  return String(fecha).slice(0, 10)
+}
+
+/**
+ * Cuántos días hacia atrás se piden las órdenes de compra.
+ *
+ * Se cuentan por fecha de recepción, pero la consulta filtra por fecha de
+ * creación: sin este margen, una OC creada antes del período y recibida dentro
+ * de él nunca llegaría al navegador para poder contarla.
+ */
+export const MARGEN_OC_DIAS = 120
+
+export function restarDias(fecha: string, dias: number): string {
+  return moverDias(fecha, -dias)
+}
+
+/**
+ * Cuánto de un gasto descuenta de verdad el resultado.
+ *
+ * Con factura, el IVA no es un costo: es crédito fiscal que se recupera contra
+ * el IVA de las ventas. Restar el monto total contra ingresos netos infla los
+ * costos y deja la utilidad más baja de la real.
+ *
+ * Sin clasificar (todos los gastos anteriores a este cambio) se descuenta el
+ * total, que es el comportamiento que ya tenían: ningún número del pasado se
+ * mueve por haber agregado esto.
+ */
+export function gastoQueAfectaResultado(gasto: Gasto): number {
+  if (gasto.con_credito_fiscal && gasto.monto_neto != null) return +gasto.monto_neto || 0
+  return +gasto.monto || 0
+}
+
+/** Neto e IVA a partir de un monto con IVA incluido. */
+export function separarIva(montoTotal: number, tasa = 0.19): { neto: number; iva: number } {
+  const neto = Math.round(montoTotal / (1 + tasa))
+  return { neto, iva: Math.round(montoTotal) - neto }
+}

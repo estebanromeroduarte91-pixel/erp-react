@@ -1,7 +1,7 @@
 import { useMemo, useState, useRef } from 'react'
 import { useVentasEnRango, useGastosEnRango, useOrdenesEntregadasEnRango, useBodegas, useOCsEnRango, useCostosProductos } from '@/lib/queries'
 import { distribuirGastosPorSucursal } from '@/lib/gastos'
-import { calcularCostoVentas, calcularResumenOperacional, filtrarVentasPagadas } from '@/lib/metricas'
+import { calcularCostoVentas, calcularResumenOperacional, fechaEfectivaOC, filtrarVentasPagadas, restarDias, MARGEN_OC_DIAS } from '@/lib/metricas'
 import { Spinner } from '@/components/shared/Spinner'
 import { useIsMobile } from '@/lib/useIsMobile'
 import { fechaLocal } from '@/lib/fecha'
@@ -198,7 +198,9 @@ export function EstadisticasPage() {
   const { data: ventas, isLoading: loadV } = useVentasEnRango(range.from, range.to)
   const { data: gastos, isLoading: loadG } = useGastosEnRango(queryRange.from, queryRange.to)
   const { data: ordenes, isLoading: loadO } = useOrdenesEntregadasEnRango(queryRange.from, queryRange.to)
-  const { data: ocs, isLoading: loadOC } = useOCsEnRango(queryRange.from, queryRange.to)
+  // Ver el comentario del Dashboard: margen hacia atrás porque las compras se
+  // cuentan por la fecha de recepción y el servidor filtra por la de creación.
+  const { data: ocs, isLoading: loadOC } = useOCsEnRango(restarDias(queryRange.from, MARGEN_OC_DIAS), queryRange.to)
   const { data: bodegas = [] } = useBodegas()
   const productosSinCosto = useMemo(() => [...new Set((ventas ?? []).flatMap(v => (v.items ?? [])
     .filter(item => item.costo_total == null && item.producto_id)
@@ -210,7 +212,7 @@ export function EstadisticasPage() {
   const stats = useMemo(() => {
     const ventasArr = filtrarVentasPagadas(ventas ?? []).filter(v => inRange(v.fecha))
     const gastosArr = (gastos ?? []).filter(g => inRange(g.fecha))
-    const ocsArr = (ocs ?? []).filter(o => ['recibida', 'confirmada'].includes(o.estado) && inRange(o.fecha))
+    const ocsArr = (ocs ?? []).filter(o => ['recibida', 'confirmada'].includes(o.estado) && inRange(fechaEfectivaOC(o)))
     const fechaEntrega = (o: { deliveredAt?: string; fecha: string }) => o.deliveredAt?.slice(0, 10) || o.fecha
     const ordeArr = (ordenes ?? []).filter(o => inRange(fechaEntrega(o)))
 

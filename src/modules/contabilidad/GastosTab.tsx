@@ -1,6 +1,7 @@
 import { useState, useMemo, useRef } from 'react'
 import { useGastos, useCrearGasto, useActualizarGasto, useEliminarGasto, useGastoCats, useGuardarGastoCats, usePlanCuentas, useCatCuentaMap, useAsientos, useGuardarAsientos, useBodegas } from '@/lib/queries'
 import { asientoDeGasto, asientoIdDeGasto, nextNumeroAsiento } from '@/lib/contabilidad'
+import { separarIva } from '@/lib/metricas'
 import { GASTO_GENERAL_ID } from '@/lib/gastos'
 import { Spinner } from '@/components/shared/Spinner'
 import { capFirst } from '@/lib/formatters'
@@ -406,6 +407,9 @@ function GastoModal({ cats, bodegas, gasto, subcatsPorCat, onClose, onGuardar }:
   const [metodo, setMetodo] = useState(gasto?.metodo ?? 'Efectivo')
   const [bodegaId, setBodegaId] = useState(gasto?.bodega_id ?? '')
   const [fecha, setFecha] = useState(gasto?.fecha ?? today())
+  // Por defecto NO: si no se marca, el gasto se descuenta completo, que es el
+  // comportamiento de siempre. Marcar de más sería inflar la utilidad.
+  const [conFactura, setConFactura] = useState(gasto?.con_credito_fiscal ?? false)
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState('')
 
@@ -431,6 +435,11 @@ function GastoModal({ cats, bodegas, gasto, subcatsPorCat, onClose, onGuardar }:
       fecha,
       descripcion: descripcion.trim(),
       monto: +monto,
+      // Con factura el IVA es crédito fiscal y no costo, así que se guarda
+      // separado y el resultado descuenta solo el neto.
+      con_credito_fiscal: conFactura,
+      monto_neto: conFactura ? separarIva(+monto).neto : undefined,
+      iva: conFactura ? separarIva(+monto).iva : undefined,
       categoria,
       subcategoria: subCanonica,
       metodo,
@@ -554,6 +563,24 @@ function GastoModal({ cats, bodegas, gasto, subcatsPorCat, onClose, onGuardar }:
               <option value={GASTO_GENERAL_ID}>General / Compartido (se reparte entre sucursales)</option>
             </select>
           </div>
+
+          {/* Con factura, el IVA no es costo sino crédito fiscal. Va acá, al
+              lado del monto y de la sucursal, porque es parte de "qué gasto es"
+              y no un detalle contable aparte. */}
+          <label className="flex items-start gap-2.5 cursor-pointer rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5">
+            <input type="checkbox" checked={conFactura}
+              onChange={e => setConFactura(e.target.checked)}
+              className="mt-0.5 rounded border-gray-300 text-blue-600" />
+            <span className="text-sm text-gray-700 leading-snug">
+              Con factura <span className="text-gray-400">(IVA recuperable)</span>
+              {conFactura && +monto > 0 && (
+                <span className="block text-[11px] text-gray-500 mt-0.5">
+                  Neto {fmt(separarIva(+monto).neto)} · IVA {fmt(separarIva(+monto).iva)} — al resultado
+                  del mes le afecta solo el neto.
+                </span>
+              )}
+            </span>
+          </label>
 
           {/* Fila 2: Descripción + Método + Fecha */}
           {/* En mobile se apila (Descripción en su fila, Método+Fecha en la

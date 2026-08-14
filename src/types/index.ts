@@ -294,6 +294,11 @@ export interface Gasto {
   metodo?: string       // 'Efectivo' | 'Transferencia' | etc.
   bodega_id?: string    // sucursal a la que pertenece el gasto, o 'general' si es compartido entre todas
   bodega_nombre?: string
+  // IVA. `undefined` = gasto histórico sin clasificar: se descuenta completo,
+  // igual que antes de que existieran estos campos.
+  con_credito_fiscal?: boolean
+  monto_neto?: number
+  iva?: number
 }
 
 export interface GastoCat {

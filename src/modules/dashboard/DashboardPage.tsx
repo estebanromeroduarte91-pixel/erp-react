@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useVentasEnRango, useUltimasVentas, useGastosEnRango, useBodegas, useMetodosPago, useOCsEnRango, useCostosProductos } from '@/lib/queries'
 import { distribuirGastosPorSucursal } from '@/lib/gastos'
-import { calcularCostoVentas, calcularResumenOperacional, filtrarVentasPagadas, periodoAnteriorEquivalente } from '@/lib/metricas'
+import { calcularCostoVentas, calcularResumenOperacional, fechaEfectivaOC, filtrarVentasPagadas, periodoAnteriorEquivalente, restarDias, MARGEN_OC_DIAS } from '@/lib/metricas'
 import { Spinner } from '@/components/shared/Spinner'
 import { useIsMobile } from '@/lib/useIsMobile'
 import { fechaLocal } from '@/lib/fecha'
@@ -374,7 +374,10 @@ export function DashboardPage() {
   const { data: ventas,  isLoading: loadV } = useVentasEnRango(rangoDesde, rangoHasta)
   const { data: ultimasVentasData = [] } = useUltimasVentas(5)
   const { data: gastos,  isLoading: loadG } = useGastosEnRango(rangoDesde, rangoHasta)
-  const { data: ocs,     isLoading: loadOC } = useOCsEnRango(rangoDesde, rangoHasta)
+  // Las OC se piden con margen hacia atrás porque se cuentan por la fecha en
+  // que se recibieron, no por la de creación: una creada en junio y recibida
+  // en agosto tiene que aparecer en agosto, y el servidor filtra por creación.
+  const { data: ocs,     isLoading: loadOC } = useOCsEnRango(restarDias(rangoDesde, MARGEN_OC_DIAS), rangoHasta)
   const { data: bodegasRaw = [] } = useBodegas()
   const bodegas = useMemo(() => [...bodegasRaw].sort((a, b) => (b.nombre ?? b.name ?? '').localeCompare(a.nombre ?? a.name ?? '', 'es')), [bodegasRaw])
   const { data: metodos  = [] } = useMetodosPago()
@@ -419,7 +422,7 @@ export function DashboardPage() {
     const vPer  = vArr.filter(v => inPeriod(v.fecha, desde, hasta))
     const vPrev = vArr.filter(v => inPeriod(v.fecha, pDesde, pHasta))
     const gPer  = gArr.filter(g => inPeriod(g.fecha, desde, hasta))
-    const ocPer = ocArr.filter(o => ['recibida', 'confirmada'].includes(o.estado) && inPeriod(o.fecha, desde, hasta))
+    const ocPer = ocArr.filter(o => ['recibida', 'confirmada'].includes(o.estado) && inPeriod(fechaEfectivaOC(o), desde, hasta))
 
     const prodCostoMap = new Map(costosProductos.map(p => [p.id, p.precio_compra]))
     const resumen = calcularResumenOperacional(vPer, gPer, prodCostoMap)
