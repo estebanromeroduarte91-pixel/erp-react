@@ -289,7 +289,7 @@ export function ProductoModal({ producto, productos, bodegas, onClose }: Props) 
             <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Precios</h4>
             <div className="grid grid-cols-2 gap-3">
               <Field label="Costo neto ($)" type="number" value={precioCompra} onChange={setPrecioCompra} placeholder="0" />
-              <Field label="Precio de venta ($)" type="number" value={precioVenta} onChange={setPrecioVenta} placeholder="0" />
+              <Field label="Precio de venta con IVA ($)" type="number" value={precioVenta} onChange={setPrecioVenta} placeholder="0" />
             </div>
           </section>
 
