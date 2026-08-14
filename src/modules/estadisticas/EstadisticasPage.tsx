@@ -391,9 +391,9 @@ export function EstadisticasPage() {
       {/* KPIs */}
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)', gap: 12 }}>
         <div style={CARD}>
-          <p style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 4, marginTop: 0 }}>Ventas totales</p>
+          <p style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 4, marginTop: 0 }}>Ventas con IVA</p>
           <p style={{ fontSize: 26, fontWeight: 800, color: '#111827', lineHeight: 1.1, margin: 0 }}>{fmt(stats.totalVentas)}</p>
-          <p style={{ fontSize: 11, color: '#6b7280', marginTop: 3, marginBottom: 0 }}>{stats.cntVentas} venta{stats.cntVentas !== 1 ? 's' : ''} en el período</p>
+          <p style={{ fontSize: 11, color: '#6b7280', marginTop: 3, marginBottom: 0 }}>{stats.cntVentas} venta{stats.cntVentas !== 1 ? 's' : ''} · neto {fmt(stats.ventasNetas)}</p>
         </div>
         <div style={CARD}>
           <p style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 4, marginTop: 0 }}>Resultado operacional</p>
@@ -413,7 +413,7 @@ export function EstadisticasPage() {
         {/* Ventas por sucursal */}
         <div style={CARD}>
           <p style={CT}>Ventas por sucursal</p>
-          <p style={CS}>Por ingresos en el período</p>
+          <p style={CS}>Monto con IVA</p>
           {stats.bSales.length ? stats.bSales.map((b, i) => (
             <HBar key={i} label={b.nombre} value={b.total} total={stats.totalVentas} color={COLORES[i] ?? '#64748b'} />
           )) : <p style={{ fontSize: 11, color: '#9ca3af', textAlign: 'center', padding: '12px 0' }}>Sin ventas en el período</p>}
@@ -422,7 +422,7 @@ export function EstadisticasPage() {
         {/* Utilidad por sucursal */}
         <div style={CARD}>
           <p style={CT}>Resultado por sucursal</p>
-          <p style={CS}>Ventas − Costo de productos − Gastos asignados</p>
+          <p style={CS}>Ventas netas − Costo de productos − Gastos asignados</p>
           {stats.bUtil.length ? stats.bUtil.map((b, i) => (
             <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11, padding: '5px 0', borderBottom: '1px solid #f3f4f6' }}>
               <span style={{ color: '#374151', fontWeight: 600 }}>{b.nombre}</span>

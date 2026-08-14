@@ -165,10 +165,10 @@ function KpiGrid({ cols, stats }: { cols: number; stats: DashboardStats }) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0,1fr))`, gap: 8 }}>
       {[
-        { label: 'Ventas brutas', value: fmt(stats.ventasBrutas), sub: `${stats.txCount} transacciones`, curr: stats.ventasBrutas, prev: stats.ventasBrutasPrev },
+        { label: 'Ventas con IVA', value: fmt(stats.ventasBrutas), sub: `${stats.txCount} transacciones`, curr: stats.ventasBrutas, prev: stats.ventasBrutasPrev },
         { label: 'Ventas netas', value: fmt(stats.ventasNetas), sub: 'sin IVA' },
         { label: 'Resultado operacional', value: fmt(stats.utilidad), sub: `margen ${stats.margen}%`, green: stats.utilidad >= 0 },
-        { label: 'Transacciones', value: String(stats.txCount), sub: stats.ticketProm > 0 ? `${fmt(stats.ticketProm)} prom.` : '—' },
+        { label: 'Transacciones', value: String(stats.txCount), sub: stats.ticketProm > 0 ? `${fmt(stats.ticketProm)} prom. con IVA` : '—' },
       ].map(k => (
         <div key={k.label} style={{ background: C.card, borderRadius: 12, padding: '12px 14px', border: `0.5px solid ${C.border}` }}>
           <p style={{ fontSize: 11, fontWeight: 600, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '.4px', margin: '0 0 4px' }}>{k.label}</p>
