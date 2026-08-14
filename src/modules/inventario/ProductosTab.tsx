@@ -8,6 +8,7 @@ import { Spinner } from '@/components/shared/Spinner'
 import { ProductoModal } from './ProductoModal'
 import type { Producto, LoteInventario, Bodega } from '@/types'
 import { validarArchivoImport, validarContenidoImport } from '@/lib/importArchivo'
+import { fechaLocal } from '@/lib/fecha'
 
 function uidLote() { return Math.random().toString(36).slice(2) + Date.now().toString(36) }
 
@@ -77,6 +78,54 @@ function parseExcel(file: File, bodegas: Bodega[]): Promise<ImportRow[]> {
     reader.onerror = reject
     reader.readAsArrayBuffer(file)
   })
+}
+
+// Exporta los productos que están a la vista, con todo lo que Pixit sabe de
+// cada uno.
+//
+// Las primeras columnas son EXACTAMENTE las de la plantilla de importación, en
+// el mismo orden: así el archivo exportado se puede editar en Excel y volver a
+// subir sin reordenar nada. Las columnas de análisis van después; el importador
+// las ignora porque busca por nombre de columna.
+async function exportarProductos(lista: Producto[], bodegas: Bodega[]) {
+  const XLSX = await import('xlsx')
+  const nombresBodegas = bodegas.map(b => ({ id: b.id, nombre: b.nombre ?? b.name ?? '' })).filter(b => b.nombre)
+
+  const filas = lista.map(p => {
+    const costo = +(p.precio_compra ?? 0)
+    const venta = +(p.precio_venta ?? 0)
+    const total = stockTotal(p)
+    const fila: Record<string, string | number> = {
+      SKU: p.sku ?? '',
+      Producto: p.nombre,
+      'Costo Neto': costo,
+      'Precio Venta': venta,
+      Categoría: p.categoria ?? '',
+      Subcategoría: p.subcategoria ?? '',
+      Enlace: p.enlace ?? '',
+      Tipo: p.tipo ?? 'producto',
+    }
+    for (const b of nombresBodegas) fila[`Stock ${b.nombre}`] = Number(p.stock_sucursales?.[b.id] ?? 0)
+
+    fila['Stock total'] = total
+    fila['Stock mínimo'] = +(p.stock_min ?? 0)
+    // El margen se calcula sobre el precio de venta SIN IVA: comparar un precio
+    // con IVA contra un costo neto daría un margen inflado en 19 puntos.
+    const ventaNeta = Math.round(venta / 1.19)
+    fila['Precio venta neto'] = ventaNeta
+    fila['Margen $'] = ventaNeta - costo
+    fila['Margen %'] = ventaNeta > 0 ? Math.round((ventaNeta - costo) / ventaNeta * 100) : 0
+    fila['Valor inventario'] = total * costo
+    fila['Vender online'] = p.vender_online ? 'Sí' : 'No'
+    return fila
+  })
+
+  const ws = XLSX.utils.json_to_sheet(filas)
+  // Anchos para no tener que arrastrar columnas al abrirlo.
+  ws['!cols'] = Object.keys(filas[0] ?? {}).map(k => ({ wch: k === 'Producto' ? 42 : Math.max(12, k.length + 2) }))
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Productos')
+  XLSX.writeFile(wb, `productos_${fechaLocal(new Date())}.xlsx`)
 }
 
 async function descargarPlantilla(bodegas: Bodega[]) {
@@ -427,6 +476,18 @@ export function ProductosTab() {
           <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
         </svg>
         Eliminar todo
+      </button>
+      {/* Exporta lo que está filtrado en pantalla, no todo el catálogo: si
+          alguien filtró por categoría o por bajo stock, ese recorte es
+          justamente lo que quiere llevarse. */}
+      <button onClick={() => { void exportarProductos(lista, bodegas ?? []); setAccionesMenuOpen(false) }}
+        disabled={lista.length === 0}
+        title="Descarga en Excel los productos que estás viendo, con stock, márgenes y valor de inventario"
+        className="flex items-center gap-2 text-sm font-semibold px-3 py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 transition">
+        <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" />
+        </svg>
+        Exportar a Excel ({lista.length})
       </button>
       <button onClick={() => { generarLotesApertura(); setAccionesMenuOpen(false) }} title="Costeo FIFO: crea lotes de apertura para el stock actual"
         className="flex items-center gap-2 text-sm font-semibold px-3 py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition">
