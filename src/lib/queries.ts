@@ -96,7 +96,7 @@ function filaOrdenParcial(o: Partial<Orden>): Record<string, unknown> {
 // devuelve NO tiene esas claves como propiedades (ni siquiera `undefined`),
 // para que si alguna vez se usa como base de un guardado parcial (spread),
 // `filaOrdenParcial` no las detecte con `in` y no pise/borre esas columnas.
-const ORDEN_LITE_COLS = 'id, num, fecha, status, nombre, apellido, tel, email, rut, modelo, trabajo, branch_id, subestado, venta_id, numero_boleta, costo, presup, repuestos'
+const ORDEN_LITE_COLS = 'id, num, fecha, status, nombre, apellido, tel, email, rut, modelo, trabajo, branch_id, subestado, venta_id, numero_boleta, costo, presup, repuestos, delivered_at'
 
 export interface OrdenLista {
   id: string
@@ -117,6 +117,7 @@ export interface OrdenLista {
   costo?: string
   presup?: string
   repuestos: Repuesto[]
+  deliveredAt?: string
 }
 
 function hidratarOrdenLite(row: Record<string, unknown>): OrdenLista {
@@ -139,6 +140,7 @@ function hidratarOrdenLite(row: Record<string, unknown>): OrdenLista {
     costo: row.costo as string | undefined,
     presup: row.presup as string | undefined,
     repuestos: (row.repuestos as Repuesto[]) ?? [],
+    deliveredAt: row.delivered_at as string | undefined,
   }
 }
 
@@ -217,6 +219,56 @@ export function useOrdenesLite() {
       return filas.map(hidratarOrdenLite)
     },
     enabled: !!empresaId,
+  })
+}
+
+// Variante acotada para reportes. Evita descargar toda la historia de OT sólo
+// para contar las entregadas de un período.
+export function useOrdenesEntregadasEnRango(desde: string, hasta: string) {
+  const { empresaId } = useAuth()
+  return useQuery({
+    queryKey: ['ordenes-lite', empresaId, 'entregadas-rango', desde, hasta],
+    queryFn: async () => {
+      const PAGE = 1000
+      const filas: Record<string, unknown>[] = []
+      // Registros nuevos: la estadística pertenece al día real de entrega.
+      for (let from = 0; ; from += PAGE) {
+        const { data, error } = await supabase
+          .from('ordenes')
+          .select(ORDEN_LITE_COLS)
+          .eq('empresa_id', empresaId!)
+          .eq('is_draft', false)
+          .eq('status', 'Entregado')
+          .gte('delivered_at', `${desde}T00:00:00`)
+          .lte('delivered_at', `${hasta}T23:59:59.999`)
+          .order('delivered_at', { ascending: false })
+          .range(from, from + PAGE - 1)
+        if (error) throw error
+        filas.push(...(data ?? []))
+        if (!data || data.length < PAGE) break
+      }
+
+      // Compatibilidad: órdenes antiguas no guardaban delivered_at; para ellas
+      // se conserva fecha como aproximación, sin descargar toda la historia.
+      for (let from = 0; ; from += PAGE) {
+        const { data, error } = await supabase
+          .from('ordenes')
+          .select(ORDEN_LITE_COLS)
+          .eq('empresa_id', empresaId!)
+          .eq('is_draft', false)
+          .eq('status', 'Entregado')
+          .is('delivered_at', null)
+          .gte('fecha', desde)
+          .lte('fecha', hasta)
+          .order('fecha', { ascending: false })
+          .range(from, from + PAGE - 1)
+        if (error) throw error
+        filas.push(...(data ?? []))
+        if (!data || data.length < PAGE) break
+      }
+      return filas.map(hidratarOrdenLite)
+    },
+    enabled: !!empresaId && !!desde && !!hasta,
   })
 }
 
@@ -536,6 +588,32 @@ export function useProductos() {
       return filas.map(hidratarProducto)
     },
     enabled: !!empresaId,
+  })
+}
+
+// Costos actuales únicamente de los productos referenciados por ventas
+// históricas sin costo FIFO. Estadísticas no necesita descargar catálogo,
+// stock, descripciones ni datos de WooCommerce para resolver ese fallback.
+export function useCostosProductos(productoIds: string[]) {
+  const { empresaId } = useAuth()
+  const ids = [...new Set(productoIds.filter(Boolean))].sort()
+  return useQuery({
+    queryKey: ['productos', empresaId, 'costos', ids],
+    queryFn: async () => {
+      const resultado: { id: string; precio_compra: number }[] = []
+      const CHUNK = 200
+      for (let i = 0; i < ids.length; i += CHUNK) {
+        const { data, error } = await supabase
+          .from('productos')
+          .select('id,precio_compra')
+          .eq('empresa_id', empresaId!)
+          .in('id', ids.slice(i, i + CHUNK))
+        if (error) throw error
+        resultado.push(...(data ?? []).map(p => ({ id: p.id, precio_compra: +p.precio_compra || 0 })))
+      }
+      return resultado
+    },
+    enabled: !!empresaId && ids.length > 0,
   })
 }
 
@@ -1367,7 +1445,7 @@ export function useVentasEnRango(desde: string, hasta: string) {
   })
 }
 
-// Últimas N ventas (no anuladas) sin importar el período seleccionado — para el
+// Últimas N ventas pagadas sin importar el período seleccionado — para el
 // widget de actividad reciente del Dashboard.
 export function useUltimasVentas(limite = 5) {
   const { empresaId } = useAuth()
@@ -1378,7 +1456,7 @@ export function useUltimasVentas(limite = 5) {
         .from('ventas')
         .select(VENTA_COLS)
         .eq('empresa_id', empresaId!)
-        .neq('estado', 'anulada')
+        .eq('estado', 'pagada')
         .order('fecha', { ascending: false })
         .limit(limite)
       if (error) throw error

@@ -1,6 +1,7 @@
 import { useMemo, useState, useRef } from 'react'
-import { useVentasEnRango, useGastos, useOrdenesLite, useBodegas, useOCs, useProductos } from '@/lib/queries'
-import { gastosPorSucursal } from '@/lib/gastos'
+import { useVentasEnRango, useGastosEnRango, useOrdenesEntregadasEnRango, useBodegas, useOCsEnRango, useCostosProductos } from '@/lib/queries'
+import { distribuirGastosPorSucursal } from '@/lib/gastos'
+import { calcularCostoVentas, calcularResumenOperacional, filtrarVentasPagadas } from '@/lib/metricas'
 import { Spinner } from '@/components/shared/Spinner'
 import { useIsMobile } from '@/lib/useIsMobile'
 import { fechaLocal } from '@/lib/fecha'
@@ -38,7 +39,7 @@ function getLast6(): { key: string; lbl: string; isCur: boolean }[] {
   const cur = today().slice(0, 7)
   return Array.from({ length: 6 }, (_, i) => {
     const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - (5 - i))
-    const key = d.toISOString().slice(0, 7)
+    const key = fechaLocal(d).slice(0, 7)
     return { key, lbl: MESES[d.getMonth()], isCur: key === cur }
   })
 }
@@ -181,6 +182,11 @@ export function EstadisticasPage() {
 
   const last6 = useMemo(() => getLast6(), [])
   const range = useMemo(() => getRange(tab, from, to), [tab, from, to])
+  const range6 = useMemo(() => ({ from: `${last6[0].key}-01`, to: today() }), [last6])
+  const queryRange = useMemo(() => ({
+    from: range.from < range6.from ? range.from : range6.from,
+    to: range.to > range6.to ? range.to : range6.to,
+  }), [range, range6])
 
   // Esta pantalla usaba useVentas(), que baja la tabla ENTERA de ventas —
   // paginando de a 1000 hasta traerlas todas— y encima con el join de
@@ -190,37 +196,34 @@ export function EstadisticasPage() {
   // getRange() siempre devuelve fechas válidas (cae al mes actual), así que
   // la query nunca queda deshabilitada.
   const { data: ventas, isLoading: loadV } = useVentasEnRango(range.from, range.to)
-  const { data: gastos, isLoading: loadG } = useGastos()
-  const { data: ordenes, isLoading: loadO } = useOrdenesLite()
-  const { data: ocs, isLoading: loadOC } = useOCs()
+  const { data: gastos, isLoading: loadG } = useGastosEnRango(queryRange.from, queryRange.to)
+  const { data: ordenes, isLoading: loadO } = useOrdenesEntregadasEnRango(queryRange.from, queryRange.to)
+  const { data: ocs, isLoading: loadOC } = useOCsEnRango(queryRange.from, queryRange.to)
   const { data: bodegas = [] } = useBodegas()
-  const { data: productos = [] } = useProductos()
+  const productosSinCosto = useMemo(() => [...new Set((ventas ?? []).flatMap(v => (v.items ?? [])
+    .filter(item => item.costo_total == null && item.producto_id)
+    .map(item => item.producto_id!)))], [ventas])
+  const { data: costosProductos = [], isLoading: loadCostos } = useCostosProductos(productosSinCosto)
 
   const inRange = (f?: string) => !!f && f >= range.from && f <= range.to
 
   const stats = useMemo(() => {
-    const ventasArr = (ventas ?? []).filter(v => v.estado !== 'anulada' && inRange(v.fecha))
+    const ventasArr = filtrarVentasPagadas(ventas ?? []).filter(v => inRange(v.fecha))
     const gastosArr = (gastos ?? []).filter(g => inRange(g.fecha))
     const ocsArr = (ocs ?? []).filter(o => ['recibida', 'confirmada'].includes(o.estado) && inRange(o.fecha))
-    const ordeArr = (ordenes ?? []).filter(o => o.status === 'Entregado' && inRange(o.fecha))
+    const fechaEntrega = (o: { deliveredAt?: string; fecha: string }) => o.deliveredAt?.slice(0, 10) || o.fecha
+    const ordeArr = (ordenes ?? []).filter(o => inRange(fechaEntrega(o)))
 
-    // Costo real de lo vendido (FIFO, congelado en la venta). Para ventas sin costo
-    // congelado (anteriores al costeo FIFO), recae en el precio_compra actual del producto.
-    const prodCostoMap = new Map(productos.map(p => [p.id, p.precio_compra ?? 0]))
-    const costoVendido = (lista: typeof ventasArr) => lista.reduce((s, v) => s + (v.items ?? []).reduce((cs, it) => {
-      if (it.costo_total != null) return cs + it.costo_total
-      if (!it.producto_id) return cs
-      return cs + it.cantidad * (prodCostoMap.get(it.producto_id) ?? 0)
-    }, 0), 0)
-
-    const totalVentas = ventasArr.reduce((s, v) => s + (+v.total_iva || 0), 0)
-    const ventasNetas = ventasArr.reduce((s, v) => s + (+v.total || 0), 0)
-    const totalGastos = gastosArr.reduce((s, g) => s + (+g.monto || 0), 0)
+    const prodCostoMap = new Map(costosProductos.map(p => [p.id, p.precio_compra]))
+    const resumen = calcularResumenOperacional(ventasArr, gastosArr, prodCostoMap)
+    const totalVentas = resumen.ventasBrutas
+    const ventasNetas = resumen.ventasNetas
+    const totalGastos = resumen.gastos
     const totalCompras = ocsArr.reduce((s, o) => s + (+o.total || 0), 0)
-    const totalCosto = costoVendido(ventasArr)
-    const utilidad = ventasNetas - totalCosto - totalGastos
+    const totalCosto = resumen.costoVentas
+    const utilidad = resumen.resultadoOperacional
     const ordenesOk = ordeArr.length
-    const ticketProm = ordenesOk ? Math.round(ordeArr.reduce((s, o) => s + (o.presup != null ? +o.presup : 0), 0) / ordenesOk) : 0
+    const ticketProm = resumen.ticketPromedio
 
     // Ventas por sucursal
     const maxBSales = Math.max(...bodegas.map(b => ventasArr.filter(v => v.branchId === b.id).reduce((s, v) => s + (+v.total_iva || 0), 0)), 1)
@@ -231,6 +234,11 @@ export function EstadisticasPage() {
       }))
       .filter(b => b.total > 0)
       .sort((a, b) => b.total - a.total)
+    const idsBodegasVentas = new Set(bodegas.map(b => b.id))
+    const totalSinSucursal = ventasArr
+      .filter(v => !v.branchId || !idsBodegasVentas.has(v.branchId))
+      .reduce((s, v) => s + (+v.total_iva || 0), 0)
+    if (totalSinSucursal > 0) bSales.push({ nombre: 'Sin sucursal', total: totalSinSucursal })
 
     // Utilidad por sucursal: ventas de la sucursal menos sus gastos (directos + prorrateo
     // de los gastos "General/Compartido" según % de ventas netas). El costo de compras (OC)
@@ -239,37 +247,51 @@ export function EstadisticasPage() {
     bodegas.forEach(b => {
       ventasNetasPorSucursal[b.id] = ventasArr.filter(v => v.branchId === b.id).reduce((s, v) => s + (+v.total || 0), 0)
     })
-    const gastosPorSuc = gastosPorSucursal(gastosArr, bodegas, ventasNetasPorSucursal)
+    const distribucionGastos = distribuirGastosPorSucursal(gastosArr, bodegas, ventasNetasPorSucursal)
+    const gastosPorSuc = distribucionGastos.porSucursal
     const bUtil = bodegas
       .map(b => {
         const bV = ventasArr.filter(v => v.branchId === b.id)
         return {
           nombre: b.nombre ?? b.name ?? '—',
-          util: bV.reduce((s, v) => s + (+v.total || 0), 0) - costoVendido(bV) - (gastosPorSuc[b.id] ?? 0),
+          util: bV.reduce((s, v) => s + (+v.total || 0), 0) - calcularCostoVentas(bV, prodCostoMap) - (gastosPorSuc[b.id] ?? 0),
         }
       })
       .filter(b => b.util !== 0)
       .sort((a, b) => b.util - a.util)
+    const ventasSinSucursal = ventasArr.filter(v => !v.branchId || !idsBodegasVentas.has(v.branchId))
+    if (ventasSinSucursal.length > 0 || distribucionGastos.noAsignado > 0) {
+      bUtil.push({
+        nombre: 'Sin sucursal / no asignado',
+        util: ventasSinSucursal.reduce((s, v) => s + (+v.total || 0), 0)
+          - calcularCostoVentas(ventasSinSucursal, prodCostoMap)
+          - distribucionGastos.noAsignado,
+      })
+    }
 
     // Top productos
     const prodMap: Record<string, { nombre: string; qty: number; revenue: number }> = {}
     ventasArr.forEach(v => (v.items ?? []).forEach(it => {
-      const k = it.producto_nombre || '—'
+      const k = it.producto_id || `nombre:${it.producto_nombre || '—'}`
       if (!prodMap[k]) prodMap[k] = { nombre: k, qty: 0, revenue: 0 }
+      prodMap[k].nombre = it.producto_nombre || '—'
       prodMap[k].qty += (+it.cantidad || 1)
       prodMap[k].revenue += (+it.subtotal || 0)
     }))
     const topProds = Object.values(prodMap).sort((a, b) => b.qty - a.qty).slice(0, 5)
     const maxQty = Math.max(...topProds.map(p => p.qty), 1)
 
-    // Gastos por categoría
+    const gastos6 = (gastos ?? []).filter(g => g.fecha >= range6.from && g.fecha <= range6.to)
+    const ocs6 = (ocs ?? []).filter(o => ['recibida', 'confirmada'].includes(o.estado) && o.fecha >= range6.from && o.fecha <= range6.to)
+
+    // Los desgloses pertenecen al mismo rango de seis meses que sus gráficos.
     const catMap: Record<string, number> = {}
-    gastosArr.forEach(g => { catMap[g.categoria || 'Sin categoría'] = (catMap[g.categoria || 'Sin categoría'] || 0) + (+g.monto || 0) })
+    gastos6.forEach(g => { catMap[g.categoria || 'Sin categoría'] = (catMap[g.categoria || 'Sin categoría'] || 0) + (+g.monto || 0) })
     const catSorted = Object.entries(catMap).sort((a, b) => b[1] - a[1])
 
     // Compras por proveedor
     const provMap: Record<string, number> = {}
-    ocsArr.forEach(o => { provMap[o.proveedor_nombre || 'Sin proveedor'] = (provMap[o.proveedor_nombre || 'Sin proveedor'] || 0) + (+o.total || 0) })
+    ocs6.forEach(o => { provMap[o.proveedor_nombre || 'Sin proveedor'] = (provMap[o.proveedor_nombre || 'Sin proveedor'] || 0) + (+o.total || 0) })
     const provSorted = Object.entries(provMap).sort((a, b) => b[1] - a[1])
 
     // Últimos 6 meses (totales globales, no filtrados por rango)
@@ -280,7 +302,7 @@ export function EstadisticasPage() {
       ...m,
       gastos: gastosAll.filter(g => g.fecha?.startsWith(m.key)).reduce((s, g) => s + (+g.monto || 0), 0),
       compras: (ocsAll).filter(o => ['recibida', 'confirmada'].includes(o.estado) && o.fecha?.startsWith(m.key)).reduce((s, o) => s + (+o.total || 0), 0),
-      ordenes: ordeAll.filter(o => o.status === 'Entregado' && o.fecha?.startsWith(m.key)).length,
+      ordenes: ordeAll.filter(o => fechaEntrega(o).startsWith(m.key)).length,
     }))
     const maxMG = Math.max(...meses6.map(m => m.gastos), 1)
     const maxMC = Math.max(...meses6.map(m => m.compras), 1)
@@ -290,14 +312,18 @@ export function EstadisticasPage() {
       totalVentas, ventasNetas, totalGastos, totalCompras, totalCosto, utilidad, ordenesOk, ticketProm,
       bSales, maxBSales, bUtil, topProds, maxQty, catSorted, provSorted,
       meses6, maxMG, maxMC, maxMO,
-      cntVentas: ventasArr.length, gastosArr, ocsArr,
+      cntVentas: resumen.cantidadVentas,
+      gastos6,
+      ocs6,
+      totalGastos6: gastos6.reduce((s, g) => s + (+g.monto || 0), 0),
+      totalCompras6: ocs6.reduce((s, o) => s + (+o.total || 0), 0),
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ventas, gastos, ordenes, ocs, productos, bodegas, range, last6])
+  }, [ventas, gastos, ordenes, ocs, costosProductos, bodegas, range, range6, last6])
 
   const isMobile = useIsMobile()
 
-  if (loadV || loadG || loadO || loadOC) return <div className="flex justify-center py-16"><Spinner className="w-8 h-8" /></div>
+  if (loadV || loadG || loadO || loadOC || loadCostos) return <div className="flex justify-center py-16"><Spinner className="w-8 h-8" /></div>
 
   const TABS: { id: Tab; label: string }[] = [
     { id: '7d', label: '7 días' },
@@ -370,9 +396,9 @@ export function EstadisticasPage() {
           <p style={{ fontSize: 11, color: '#6b7280', marginTop: 3, marginBottom: 0 }}>{stats.cntVentas} venta{stats.cntVentas !== 1 ? 's' : ''} en el período</p>
         </div>
         <div style={CARD}>
-          <p style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 4, marginTop: 0 }}>Utilidad neta</p>
+          <p style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 4, marginTop: 0 }}>Resultado operacional</p>
           <p style={{ fontSize: 26, fontWeight: 800, color: stats.utilidad >= 0 ? '#10b981' : '#ef4444', lineHeight: 1.1, margin: 0 }}>{fmt(stats.utilidad)}</p>
-          <p style={{ fontSize: 11, color: '#6b7280', marginTop: 3, marginBottom: 0 }}>Ventas netas − Costo de productos − Gastos</p>
+          <p style={{ fontSize: 11, color: '#6b7280', marginTop: 3, marginBottom: 0 }}>Estimado: ventas netas − costo vendido − gastos</p>
         </div>
         <div style={CARD}>
           <p style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 4, marginTop: 0 }}>Órdenes completadas</p>
@@ -395,7 +421,7 @@ export function EstadisticasPage() {
 
         {/* Utilidad por sucursal */}
         <div style={CARD}>
-          <p style={CT}>Utilidad por sucursal</p>
+          <p style={CT}>Resultado por sucursal</p>
           <p style={CS}>Ventas − Costo de productos − Gastos asignados</p>
           {stats.bUtil.length ? stats.bUtil.map((b, i) => (
             <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11, padding: '5px 0', borderBottom: '1px solid #f3f4f6' }}>
@@ -443,7 +469,7 @@ export function EstadisticasPage() {
               </div>
             ))}
           </div>
-          <Desglose entries={stats.catSorted} total={stats.totalGastos} color="#ef4444" label="categoría"
+          <Desglose entries={stats.catSorted} total={stats.totalGastos6} color="#ef4444" label="categoría"
             onSelect={nombre => setDetalle({ tipo: 'gastos', nombre })} />
         </div>
 
@@ -465,7 +491,7 @@ export function EstadisticasPage() {
               </div>
             ))}
           </div>
-          <Desglose entries={stats.provSorted} total={stats.totalCompras} color="#2563eb" label="proveedor"
+          <Desglose entries={stats.provSorted} total={stats.totalCompras6} color="#2563eb" label="proveedor"
             onSelect={nombre => setDetalle({ tipo: 'compras', nombre })} />
         </div>
 
@@ -489,7 +515,7 @@ export function EstadisticasPage() {
           </div>
           {stats.ticketProm > 0 && (
             <div style={{ marginTop: 8, padding: 8, background: '#fffbeb', borderRadius: 7, border: '1px solid #fde68a' }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: '#b45309', marginBottom: 2 }}>TICKET PROMEDIO</div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: '#b45309', marginBottom: 2 }}>TICKET PROMEDIO · PERÍODO SELECCIONADO</div>
               <div style={{ fontSize: 16, fontWeight: 800, color: '#92400e' }}>{fmt(stats.ticketProm)}</div>
             </div>
           )}
@@ -499,12 +525,12 @@ export function EstadisticasPage() {
         <DetalleDesglose
           tipo={detalle.tipo}
           nombre={detalle.nombre}
-          range={range}
+          range={range6}
           gastos={detalle.tipo === 'gastos'
-            ? stats.gastosArr.filter(g => (g.categoria || 'Sin categoría') === detalle.nombre)
+            ? stats.gastos6.filter(g => (g.categoria || 'Sin categoría') === detalle.nombre)
             : []}
           compras={detalle.tipo === 'compras'
-            ? stats.ocsArr.filter(o => (o.proveedor_nombre || 'Sin proveedor') === detalle.nombre)
+            ? stats.ocs6.filter(o => (o.proveedor_nombre || 'Sin proveedor') === detalle.nombre)
             : []}
           onClose={() => setDetalle(null)}
         />

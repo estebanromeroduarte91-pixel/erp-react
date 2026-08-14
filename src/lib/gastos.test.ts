@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { gastosPorSucursal, GASTO_GENERAL_ID } from './gastos'
+import { distribuirGastosPorSucursal, gastosPorSucursal, GASTO_GENERAL_ID } from './gastos'
 import type { Gasto, Bodega } from '@/types'
 
 // Esta función decide cuánto gasto carga cada sucursal, y de ahí sale la
@@ -54,14 +54,36 @@ describe('gastosPorSucursal', () => {
   })
 
   it('sin ventas en el período no reparte los generales (no divide por cero)', () => {
-    const r = gastosPorSucursal(
+    const distribucion = distribuirGastosPorSucursal(
       [gasto(500, GASTO_GENERAL_ID)],
       bodegas,
       { 'suc-a': 0, 'suc-b': 0 },
     )
+    const r = distribucion.porSucursal
     expect(r['suc-a']).toBe(0)
     expect(r['suc-b']).toBe(0)
+    expect(distribucion.noAsignado).toBe(500)
     expect(Number.isNaN(r['suc-a'])).toBe(false)
+  })
+
+  it('reporta gastos asociados a una sucursal inexistente como no asignados', () => {
+    const r = distribuirGastosPorSucursal(
+      [gasto(350, 'sucursal-eliminada')],
+      bodegas,
+      { 'suc-a': 100, 'suc-b': 100 },
+    )
+    expect(r.noAsignado).toBe(350)
+  })
+
+  it('cuadra el total distribuido más lo no asignado contra el gasto global', () => {
+    const gastos = [
+      gasto(200, 'suc-a'),
+      gasto(900, GASTO_GENERAL_ID),
+      gasto(350, 'sucursal-eliminada'),
+    ]
+    const r = distribuirGastosPorSucursal(gastos, bodegas, { 'suc-a': 700, 'suc-b': 300 })
+    const totalDistribuido = Object.values(r.porSucursal).reduce((s, monto) => s + monto, 0)
+    expect(totalDistribuido + r.noAsignado).toBe(1450)
   })
 
   it('reparte el total de generales sin perder ni inventar plata', () => {

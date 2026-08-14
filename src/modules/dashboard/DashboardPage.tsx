@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useVentasEnRango, useUltimasVentas, useGastosEnRango, useBodegas, useMetodosPago, useOCsEnRango, useProductos } from '@/lib/queries'
-import { gastosPorSucursal } from '@/lib/gastos'
+import { useVentasEnRango, useUltimasVentas, useGastosEnRango, useBodegas, useMetodosPago, useOCsEnRango, useCostosProductos } from '@/lib/queries'
+import { distribuirGastosPorSucursal } from '@/lib/gastos'
+import { calcularCostoVentas, calcularResumenOperacional, filtrarVentasPagadas, periodoAnteriorEquivalente } from '@/lib/metricas'
 import { Spinner } from '@/components/shared/Spinner'
 import { useIsMobile } from '@/lib/useIsMobile'
 import { fechaLocal } from '@/lib/fecha'
@@ -26,34 +27,6 @@ function periodoDesdeHasta(rango: Rango, customDesde: string, customHasta: strin
   if (rango === 'mes') return { desde: `${mesStr()}-01`, hasta: hoyStr() }
   if (rango === 'año') return { desde: `${añoStr()}-01-01`, hasta: hoyStr() }
   return { desde: customDesde || hoyStr(), hasta: customHasta || hoyStr() }
-}
-
-// OJO con los toISOString() de esta función: NO son el bug de zona horaria que
-// se corrigió en el resto de la app (ver src/lib/fecha.ts). Acá la fecha se
-// parsea desde 'YYYY-MM-DD' —que JS interpreta como medianoche UTC— y se
-// vuelve a formatear en UTC, así que la ida y vuelta es consistente y el
-// cálculo da bien. Cambiarlos a fecha local SÍ los rompería.
-function prevPeriod(rango: Rango, desde: string, hasta: string) {
-  if (rango === 'hoy') {
-    const d = new Date(hoyStr()); d.setDate(d.getDate() - 1)
-    const s = d.toISOString().slice(0, 10)
-    return { desde: s, hasta: s }
-  }
-  if (rango === 'mes') {
-    // `d` es local (new Date() + setMonth), así que el mes también se lee en
-    // local: formatearlo con toISOString() mezclaba las dos referencias.
-    const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - 1)
-    const m = localDateStr(d).slice(0, 7)
-    return { desde: `${m}-01`, hasta: `${m}-31` }
-  }
-  if (rango === 'año') {
-    const y = String(parseInt(añoStr()) - 1)
-    return { desde: `${y}-01-01`, hasta: `${y}-12-31` }
-  }
-  const diff = new Date(hasta).getTime() - new Date(desde).getTime()
-  const pHasta = new Date(new Date(desde).getTime() - 86400000).toISOString().slice(0, 10)
-  const pDesde = new Date(new Date(desde).getTime() - diff - 86400000).toISOString().slice(0, 10)
-  return { desde: pDesde, hasta: pHasta }
 }
 
 function inPeriod(fecha: string | undefined, desde: string, hasta: string) {
@@ -194,7 +167,7 @@ function KpiGrid({ cols, stats }: { cols: number; stats: DashboardStats }) {
       {[
         { label: 'Ventas brutas', value: fmt(stats.ventasBrutas), sub: `${stats.txCount} transacciones`, curr: stats.ventasBrutas, prev: stats.ventasBrutasPrev },
         { label: 'Ventas netas', value: fmt(stats.ventasNetas), sub: 'sin IVA' },
-        { label: 'Utilidad Sucursales', value: fmt(stats.utilidad), sub: `margen ${stats.margen}%`, green: stats.utilidad >= 0 },
+        { label: 'Resultado operacional', value: fmt(stats.utilidad), sub: `margen ${stats.margen}%`, green: stats.utilidad >= 0 },
         { label: 'Transacciones', value: String(stats.txCount), sub: stats.ticketProm > 0 ? `${fmt(stats.ticketProm)} prom.` : '—' },
       ].map(k => (
         <div key={k.label} style={{ background: C.card, borderRadius: 12, padding: '12px 14px', border: `0.5px solid ${C.border}` }}>
@@ -238,7 +211,7 @@ function SucursalCards({ stack = false, stats, setSucDetalle }: { stack?: boolea
                 ))}
               </div>
               <div style={{ marginTop: 8, padding: '6px 8px', background: s.utilidad >= 0 ? C.greenBg : C.redBg, borderRadius: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: 11, color: C.textSecondary }}>Utilidad</span>
+                <span style={{ fontSize: 11, color: C.textSecondary }}>Resultado</span>
                 <span style={{ fontSize: 13, fontWeight: 700, color: s.utilidad >= 0 ? C.green : C.red }}>
                   {s.utilidad >= 0 ? '+' : ''}{fmt(s.utilidad)}
                 </span>
@@ -352,7 +325,7 @@ function MetodosPagoCard({ tienesSucs, bodegas, tabMp, setTabMp, expandedMp, set
 function GastosCard({ stats }: { stats: DashboardStats }) {
   return (
     <div style={{ background: C.card, border: `0.5px solid ${C.border}`, borderRadius: 12, padding: '12px 14px' }}>
-      <SectionLabel text="Total gastado" />
+      <SectionLabel text="Costos y gastos" />
       {[
         { label: 'Costo de productos vendidos', value: stats.totalCosto, to: '/ventas' },
         { label: 'Gastos operacionales', value: stats.totalGastos, to: '/contabilidad' },
@@ -363,11 +336,11 @@ function GastosCard({ stats }: { stats: DashboardStats }) {
         </Link>
       ))}
       <div style={{ marginTop: 10, paddingTop: 10, borderTop: `0.5px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-        <span style={{ fontSize: 13, color: C.textSecondary }}>Total salida</span>
+        <span style={{ fontSize: 13, color: C.textSecondary }}>Costos + gastos</span>
         <span style={{ fontSize: 17, fontWeight: 700, color: C.red }}>{fmt(stats.totalSalida)}</span>
       </div>
       <div style={{ marginTop: 8, padding: '8px 10px', background: stats.utilidad >= 0 ? C.greenBg : C.redBg, borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span style={{ fontSize: 12, color: C.textSecondary }}>Resultado neto</span>
+        <span style={{ fontSize: 12, color: C.textSecondary }}>Resultado operacional estimado</span>
         <span style={{ fontSize: 14, fontWeight: 700, color: stats.utilidad >= 0 ? C.green : C.red }}>
           {stats.utilidad >= 0 ? '+' : ''}{fmt(stats.utilidad)}
         </span>
@@ -391,7 +364,7 @@ export function DashboardPage() {
   const isMobile = useIsMobile()
 
   const { desde, hasta } = periodoDesdeHasta(rango, customDesde, customHasta)
-  const { desde: pDesde, hasta: pHasta } = prevPeriod(rango, desde, hasta)
+  const { desde: pDesde, hasta: pHasta } = periodoAnteriorEquivalente(rango, desde, hasta)
   // Cubre período actual + anterior (comparación) en una sola consulta acotada,
   // en vez de traer todo el historial y filtrar en el navegador — el Dashboard
   // es la primera pantalla tras el login, no necesita años de datos para pintar.
@@ -402,18 +375,24 @@ export function DashboardPage() {
   const { data: ultimasVentasData = [] } = useUltimasVentas(5)
   const { data: gastos,  isLoading: loadG } = useGastosEnRango(rangoDesde, rangoHasta)
   const { data: ocs,     isLoading: loadOC } = useOCsEnRango(rangoDesde, rangoHasta)
-  const { data: productos = [] } = useProductos()
   const { data: bodegasRaw = [] } = useBodegas()
   const bodegas = useMemo(() => [...bodegasRaw].sort((a, b) => (b.nombre ?? b.name ?? '').localeCompare(a.nombre ?? a.name ?? '', 'es')), [bodegasRaw])
   const { data: metodos  = [] } = useMetodosPago()
+  const productosSinCosto = useMemo(() => [...new Set((ventas ?? []).flatMap(v => (v.items ?? [])
+    .filter(item => item.costo_total == null && item.producto_id)
+    .map(item => item.producto_id!)))], [ventas])
+  const { data: costosProductos = [], isLoading: loadCostos } = useCostosProductos(productosSinCosto)
 
   // Ventas de la sucursal seleccionada (para el detalle al tocar una tarjeta)
   const ventasSuc = useMemo(() => {
     if (!sucDetalle) return []
+    const idsBodegas = new Set(bodegas.map(b => b.id))
     return (ventas ?? [])
-      .filter(v => v.estado !== 'anulada' && v.branchId === sucDetalle.id && inPeriod(v.fecha, desde, hasta))
+      .filter(v => v.estado === 'pagada'
+        && (sucDetalle.id === 'sin-sucursal' ? (!v.branchId || !idsBodegas.has(v.branchId)) : v.branchId === sucDetalle.id)
+        && inPeriod(v.fecha, desde, hasta))
       .sort((a, b) => (b.fecha ?? '').localeCompare(a.fecha ?? ''))
-  }, [ventas, sucDetalle, desde, hasta])
+  }, [ventas, sucDetalle, desde, hasta, bodegas])
 
   const mpById = useMemo(() => {
     const m: Record<string, string> = {}
@@ -424,7 +403,7 @@ export function DashboardPage() {
 
   const drillVentas = useMemo(() => {
     if (!expandedMp) return []
-    const vArr = (ventas ?? []).filter(v => v.estado !== 'anulada' && inPeriod(v.fecha, desde, hasta))
+    const vArr = (ventas ?? []).filter(v => v.estado === 'pagada' && inPeriod(v.fecha, desde, hasta))
     const bId = bodegas[tabMp]?.id
     const byBranch = bodegas.length > 0 && bId ? vArr.filter(v => v.branchId === bId) : vArr
     return byBranch
@@ -433,7 +412,7 @@ export function DashboardPage() {
   }, [ventas, desde, hasta, tabMp, expandedMp, bodegas])
 
   const stats = useMemo(() => {
-    const vArr  = (ventas  ?? []).filter(v => v.estado !== 'anulada')
+    const vArr  = filtrarVentasPagadas(ventas ?? [])
     const gArr  = gastos  ?? []
     const ocArr = ocs     ?? []
 
@@ -442,31 +421,25 @@ export function DashboardPage() {
     const gPer  = gArr.filter(g => inPeriod(g.fecha, desde, hasta))
     const ocPer = ocArr.filter(o => ['recibida', 'confirmada'].includes(o.estado) && inPeriod(o.fecha, desde, hasta))
 
-    // Costo real de lo vendido (FIFO, congelado en la venta). Para ventas sin costo
-    // congelado (anteriores al costeo FIFO), recae en el precio_compra actual del producto.
-    const prodCostoMap = new Map(productos.map(p => [p.id, p.precio_compra ?? 0]))
-    const costoVendido = (lista: typeof vPer) => lista.reduce((s, v) => s + (v.items ?? []).reduce((cs, it) => {
-      if (it.costo_total != null) return cs + it.costo_total
-      if (!it.producto_id) return cs
-      return cs + it.cantidad * (prodCostoMap.get(it.producto_id) ?? 0)
-    }, 0), 0)
-
-    const ventasBrutas     = vPer.reduce((s, v) => s + (+v.total_iva || 0), 0)
+    const prodCostoMap = new Map(costosProductos.map(p => [p.id, p.precio_compra]))
+    const resumen = calcularResumenOperacional(vPer, gPer, prodCostoMap)
+    const ventasBrutas     = resumen.ventasBrutas
     const ventasBrutasPrev = vPrev.reduce((s, v) => s + (+v.total_iva || 0), 0)
-    const ventasNetas      = vPer.reduce((s, v) => s + (+v.total || 0), 0)
+    const ventasNetas      = resumen.ventasNetas
     const totalOC          = ocPer.reduce((s, o) => s + (+o.total || 0), 0)
-    const totalGastos      = gPer.reduce((s, g) => s + (+g.monto || 0), 0)
-    const totalCosto       = costoVendido(vPer)
+    const totalGastos      = resumen.gastos
+    const totalCosto       = resumen.costoVentas
     const totalSalida      = totalCosto + totalGastos
-    const utilidad         = ventasNetas - totalSalida
-    const margen           = ventasNetas > 0 ? Math.round(utilidad / ventasNetas * 100) : 0
-    const txCount          = vPer.length
-    const ticketProm       = txCount > 0 ? Math.round(ventasBrutas / txCount) : 0
+    const utilidad         = resumen.resultadoOperacional
+    const margen           = resumen.margen
+    const txCount          = resumen.cantidadVentas
+    const ticketProm       = resumen.ticketPromedio
 
     // Gastos directos de cada sucursal + prorrateo de los "General/Compartido" según % de ventas netas.
     const ventasNetasPorSucursal: Record<string, number> = {}
     bodegas.forEach(b => { ventasNetasPorSucursal[b.id] = vPer.filter(v => v.branchId === b.id).reduce((s, v) => s + (+v.total || 0), 0) })
-    const gastosPorSuc = gastosPorSucursal(gPer, bodegas, ventasNetasPorSucursal)
+    const distribucionGastos = distribuirGastosPorSucursal(gPer, bodegas, ventasNetasPorSucursal)
+    const gastosPorSuc = distribucionGastos.porSucursal
 
     const totalGeneral = ventasBrutas || 1
     const sucursales = bodegas.map((b, i) => {
@@ -481,10 +454,28 @@ export function DashboardPage() {
         neto:   bNeta,
         count:  bVPer.length,
         part:   Math.round(bVPer.reduce((s, v) => s + (+v.total_iva || 0), 0) / totalGeneral * 100),
-        utilidad: bNeta - costoVendido(bVPer) - (gastosPorSuc[b.id] ?? 0),
+        utilidad: bNeta - calcularCostoVentas(bVPer, prodCostoMap) - (gastosPorSuc[b.id] ?? 0),
         color:  SUC_COLORS[i] ?? '#64748b',
       }
     })
+    const idsBodegas = new Set(bodegas.map(b => b.id))
+    const ventasSinSucursal = vPer.filter(v => !v.branchId || !idsBodegas.has(v.branchId))
+    const ventasPrevSinSucursal = vPrev.filter(v => !v.branchId || !idsBodegas.has(v.branchId))
+    if (ventasSinSucursal.length > 0 || ventasPrevSinSucursal.length > 0 || distribucionGastos.noAsignado > 0) {
+      const neto = ventasSinSucursal.reduce((s, v) => s + (+v.total || 0), 0)
+      const bruto = ventasSinSucursal.reduce((s, v) => s + (+v.total_iva || 0), 0)
+      sucursales.push({
+        id: 'sin-sucursal',
+        nombre: 'Sin sucursal / no asignado',
+        total: bruto,
+        totalPrev: ventasPrevSinSucursal.reduce((s, v) => s + (+v.total_iva || 0), 0),
+        neto,
+        count: ventasSinSucursal.length,
+        part: Math.round(bruto / totalGeneral * 100),
+        utilidad: neto - calcularCostoVentas(ventasSinSucursal, prodCostoMap) - distribucionGastos.noAsignado,
+        color: '#64748b',
+      })
+    }
 
     const mpPorSuc = bodegas.map(b => {
       const bV = vPer.filter(v => v.branchId === b.id)
@@ -499,7 +490,7 @@ export function DashboardPage() {
     const mpGlobalSorted = Object.entries(mpGlobal).sort((a, b) => b[1] - a[1])
 
     return { ventasBrutas, ventasBrutasPrev, ventasNetas, totalOC, totalGastos, totalCosto, totalSalida, utilidad, margen, txCount, ticketProm, sucursales, mpPorSuc, mpGlobalSorted }
-  }, [ventas, gastos, ocs, productos, bodegas, desde, hasta, pDesde, pHasta])
+  }, [ventas, gastos, ocs, costosProductos, bodegas, desde, hasta, pDesde, pHasta])
   // Actividad reciente: siempre las últimas ventas reales, sin importar el
   // período seleccionado (consulta chica aparte, no depende del rango visible).
   const ultimasVentas = useMemo(
@@ -507,7 +498,7 @@ export function DashboardPage() {
     [ultimasVentasData],
   )
 
-  if (loadV || loadG || loadOC) {
+  if (loadV || loadG || loadOC || loadCostos) {
     return <div className="flex justify-center py-16"><Spinner className="w-8 h-8" /></div>
   }
 
