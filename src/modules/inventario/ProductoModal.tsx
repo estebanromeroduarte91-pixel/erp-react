@@ -1,6 +1,7 @@
 import { useState, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useGuardarProducto, useCategorias, useGuardarCategorias } from '@/lib/queries'
+import { buscarSimilar } from '@/lib/texto'
 import type { Producto, Bodega } from '@/types'
 
 interface Props {
@@ -127,6 +128,11 @@ export function ProductoModal({ producto, productos, bodegas, onClose, onGuardad
     const q = catQuery.trim().toLowerCase()
     return q ? cats.filter(c => c.toLowerCase().includes(q)) : cats
   }, [cats, catQuery])
+  // "Cable" cuando ya existe "Cables" no es una categoría nueva: es la misma
+  // escrita distinto. Sin este aviso las variantes se acumulan solas y después
+  // hay productos repartidos entre dos categorías que deberían ser una.
+  const catSimilar = useMemo(() => buscarSimilar(catQuery, cats), [catQuery, cats])
+
   const categoriaNueva = useMemo(() => {
     const q = catQuery.trim()
     return !!q && !cats.some(c => c.toLowerCase() === q.toLowerCase())
@@ -309,7 +315,27 @@ export function ProductoModal({ producto, productos, bodegas, onClose, onGuardad
                           <p className="px-3.5 py-4 text-xs text-gray-400 text-center">Ninguna categoría coincide</p>
                         )}
                       </div>
-                      {categoriaNueva && (
+                      {categoriaNueva && catSimilar && (
+                        <div className="px-3.5 py-3 bg-amber-50 border-t border-amber-200">
+                          <p className="text-xs text-amber-900 leading-snug">
+                            Ya existe <strong>&quot;{catSimilar}&quot;</strong>
+                            {conteoPorCat[catSimilar] ? ` con ${conteoPorCat[catSimilar]} producto${conteoPorCat[catSimilar] === 1 ? '' : 's'}` : ''}.
+                            ¿Es la misma?
+                          </p>
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            <button type="button"
+                              onClick={() => { setCategoria(catSimilar); setSubcategoria(''); setCategoriaOpen(false) }}
+                              className="px-3 py-1.5 text-xs font-semibold text-white bg-amber-600 rounded-lg hover:bg-amber-700 transition">
+                              Usar &quot;{catSimilar}&quot;
+                            </button>
+                            <button type="button" onClick={() => void crearCategoria(catQuery)}
+                              className="px-3 py-1.5 text-xs font-medium text-amber-800 underline underline-offset-2">
+                              Crear &quot;{catQuery.trim()}&quot; igual
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                      {categoriaNueva && !catSimilar && (
                         <button type="button" onClick={() => void crearCategoria(catQuery)}
                           className="w-full flex items-center gap-2 px-3.5 py-2.5 text-sm font-semibold text-blue-700 bg-blue-50 border-t border-blue-100 hover:bg-blue-100 transition">
                           <span className="font-bold">+</span>
