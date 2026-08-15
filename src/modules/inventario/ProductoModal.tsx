@@ -283,9 +283,9 @@ export function ProductoModal({ producto, productos, bodegas, onClose, onGuardad
                 </button>
                 {categoriaOpen && catPos && createPortal(
                   <>
-                    <div className="fixed inset-0 z-[60]" onClick={() => setCategoriaOpen(false)} />
+                    <div className="fixed inset-0 z-[120]" onClick={() => setCategoriaOpen(false)} />
                     <div
-                      className="fixed z-[61] bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden"
+                      className="fixed z-[121] bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden"
                       style={{ left: catPos.left, width: catPos.width, top: catPos.top, bottom: catPos.bottom }}
                     >
                       <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-100 bg-gray-50">
