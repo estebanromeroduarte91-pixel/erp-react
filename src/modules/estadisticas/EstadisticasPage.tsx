@@ -1,5 +1,5 @@
 import { useMemo, useState, useRef } from 'react'
-import { useVentasEnRango, useGastosEnRango, useOrdenesEntregadasEnRango, useBodegas, useOCsEnRango, useCostosProductos } from '@/lib/queries'
+import { useVentasEnRango, useGastosEnRango, useOrdenesEntregadasEnRango, useBodegas, useOCsEnRango, useCostosProductos, useMetodosPago } from '@/lib/queries'
 import { distribuirGastosPorSucursal } from '@/lib/gastos'
 import { calcularCostoVentas, calcularResumenOperacional, fechaEfectivaOC, filtrarVentasPagadas, periodoAnteriorEquivalente, restarDias, MARGEN_OC_DIAS, type RangoComparacion } from '@/lib/metricas'
 import { Spinner } from '@/components/shared/Spinner'
@@ -284,6 +284,16 @@ export function EstadisticasPage() {
   // cuentan por la fecha de recepción y el servidor filtra por la de creación.
   const { data: ocs, isLoading: loadOC } = useOCsEnRango(restarDias(queryRange.from, MARGEN_OC_DIAS), queryRange.to)
   const { data: bodegas = [] } = useBodegas()
+  // `venta.metodo_pago` guarda el ID del método, no su nombre: sin este mapeo
+  // la tarjeta mostraba cosas como "mpt7zej50ss1s". Mismo criterio que el
+  // Dashboard, incluida la capitalización de los métodos por defecto, que se
+  // guardan con id en minúscula ("efectivo", "transfer").
+  const { data: metodosPago = [] } = useMetodosPago()
+  const nombreMetodo = useMemo(() => {
+    const porId: Record<string, string> = {}
+    metodosPago.forEach(mp => { porId[mp.id] = mp.label })
+    return (id: string) => porId[id] || (id ? id.charAt(0).toUpperCase() + id.slice(1) : '—')
+  }, [metodosPago])
   const productosSinCosto = useMemo(() => [...new Set((ventas ?? []).flatMap(v => (v.items ?? [])
     .filter(item => item.costo_total == null && item.producto_id)
     .map(item => item.producto_id!)))], [ventas])
@@ -367,7 +377,7 @@ export function EstadisticasPage() {
     // Métodos de pago del período (esto solo existía en el Dashboard).
     const mpMap: Record<string, number> = {}
     ventasArr.forEach(v => {
-      const mp = v.metodo_pago || 'Otro'
+      const mp = nombreMetodo(v.metodo_pago || '')
       mpMap[mp] = (mpMap[mp] ?? 0) + (+v.total_iva || 0)
     })
     const mpSorted = Object.entries(mpMap).sort((a, b) => b[1] - a[1])
@@ -448,7 +458,7 @@ export function EstadisticasPage() {
       ocsPeriodo: ocsArr,
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ventas, gastos, ordenes, ocs, costosProductos, bodegas, range, range6, last6, previo])
+  }, [ventas, gastos, ordenes, ocs, costosProductos, bodegas, range, range6, last6, previo, nombreMetodo])
 
   const isMobile = useIsMobile()
 
