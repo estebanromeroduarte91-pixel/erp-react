@@ -752,7 +752,7 @@ export function useFijarStock() {
         // `fn_fijar_stock_manual` y no `fn_ajustar_stock`: esta última está
         // revocada para el navegador (solo la usan las funciones de venta y
         // compra por dentro). El envoltorio agrega el control de rol.
-        const { error } = await supabase.rpc('fn_fijar_stock_manual', { ajustes: [{ producto_id, bodega_id, delta }] })
+        const { error } = await supabase.rpc('fn_fijar_stock_manual', { ajustes: [{ producto_id, bodega_id, delta }], p_empresa_id: empresaId })
         if (error) throw error
       }
 
@@ -811,7 +811,7 @@ export function useAjustarStock() {
     mutationFn: async (ajustes: AjusteStock[]) => {
       const validos = ajustes.filter(a => a.producto_id && a.bodega_id && a.delta !== 0)
       if (!validos.length) return
-      const { error } = await supabase.rpc('fn_fijar_stock_manual', { ajustes: validos })
+      const { error } = await supabase.rpc('fn_fijar_stock_manual', { ajustes: validos, p_empresa_id: empresaId })
       if (error) throw error
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['productos', empresaId] }),
@@ -1651,6 +1651,7 @@ export function useConfirmarVenta() {
         p_ajustes_stock: p.ajustesStock?.length ? p.ajustesStock : null,
         p_lotes: p.lotes?.length ? p.lotes : null,
         p_orden: p.orden ?? null,
+        p_empresa_id: empresaId,
       })
       if (error) throw error
     },
@@ -1688,7 +1689,7 @@ export function useAnularVenta() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.rpc('fn_anular_venta', { p_venta_id: id })
+      const { error } = await supabase.rpc('fn_anular_venta', { p_venta_id: id, p_empresa_id: empresaId })
       if (error) throw error
     },
     onMutate: async (id: string) => {
@@ -1776,7 +1777,7 @@ export function useIncrementarContadorVenta() {
     // siguiente_folio() es atómico en la base (lock de fila): dos ventas
     // confirmadas al mismo tiempo ya no pueden sacar el mismo número VTA-.
     mutationFn: async () => {
-      const { data, error } = await supabase.rpc('siguiente_folio', { p_tipo: 'venta' })
+      const { data, error } = await supabase.rpc('siguiente_folio', { p_tipo: 'venta', p_empresa_id: empresaId })
       if (error) throw error
       return data as number
     },
@@ -2136,8 +2137,10 @@ export function useSmtpConfig() {
   return useQuery({
     queryKey: ['tp_smtp_config', empresaId],
     // get_smtp_status() nunca devuelve la contraseña real, solo hasPassword.
+    // Se manda la empresa impersonada: sin esto, un platform admin viendo
+    // Configuración → SMTP de otra empresa veía el estado de SU PROPIO correo.
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_smtp_status')
+      const { data, error } = await supabase.rpc('get_smtp_status', { p_empresa_id: empresaId })
       if (error) throw error
       return (data ?? {}) as SmtpConfig
     },
@@ -2153,7 +2156,7 @@ export function useGuardarSmtpConfig() {
     // guardar_smtp_config conserva la contraseña guardada si no se manda una
     // nueva (password vacío/ausente), así el cliente nunca necesita conocerla.
     mutationFn: async (cfg: SmtpConfig) => {
-      const { error } = await supabase.rpc('guardar_smtp_config', { p_datos: cfg })
+      const { error } = await supabase.rpc('guardar_smtp_config', { p_datos: cfg, p_empresa_id: empresaId })
       if (error) throw error
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['tp_smtp_config', empresaId] }),
@@ -2791,6 +2794,7 @@ export function useRecibirOC() {
         p_lotes: p.lotes?.length ? p.lotes : null,
         p_movimientos: p.movimientos?.length ? p.movimientos : null,
         p_ajustes_stock: p.ajustesStock?.length ? p.ajustesStock : null,
+        p_empresa_id: empresaId,
       })
       if (error) throw error
     },
@@ -2848,7 +2852,7 @@ export function useIncrementarContadorOC() {
     // tiempo ya no pueden sacar el mismo número, y ya no comparten fila
     // con el contador de ventas (antes ambos vivían en el mismo blob `cfg`).
     mutationFn: async () => {
-      const { data, error } = await supabase.rpc('siguiente_folio', { p_tipo: 'oc' })
+      const { data, error } = await supabase.rpc('siguiente_folio', { p_tipo: 'oc', p_empresa_id: empresaId })
       if (error) throw error
       return data as number
     },
@@ -3400,7 +3404,7 @@ export function useCrearCotizacion() {
       // siguiente_folio() es atómico en la base — antes esto calculaba
       // máx+1 sobre la caché de React Query (ni siquiera un fetch fresco),
       // el caso más fácil de duplicar de los 5 folios de la app.
-      const { data: numero, error: errNumero } = await supabase.rpc('siguiente_folio', { p_tipo: 'cotizacion' })
+      const { data: numero, error: errNumero } = await supabase.rpc('siguiente_folio', { p_tipo: 'cotizacion', p_empresa_id: empresaId })
       if (errNumero) throw errNumero
       const { data, error } = await supabase
         .from('cotizaciones')
