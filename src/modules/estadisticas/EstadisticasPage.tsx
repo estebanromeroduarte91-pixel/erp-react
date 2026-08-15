@@ -1,7 +1,7 @@
 import { useMemo, useState, useRef } from 'react'
 import { useVentasEnRango, useGastosEnRango, useOrdenesEntregadasEnRango, useBodegas, useOCsEnRango, useCostosProductos } from '@/lib/queries'
 import { distribuirGastosPorSucursal } from '@/lib/gastos'
-import { calcularCostoVentas, calcularResumenOperacional, fechaEfectivaOC, filtrarVentasPagadas, restarDias, MARGEN_OC_DIAS } from '@/lib/metricas'
+import { calcularCostoVentas, calcularResumenOperacional, fechaEfectivaOC, filtrarVentasPagadas, periodoAnteriorEquivalente, restarDias, MARGEN_OC_DIAS, type RangoComparacion } from '@/lib/metricas'
 import { Spinner } from '@/components/shared/Spinner'
 import { useIsMobile } from '@/lib/useIsMobile'
 import { fechaLocal } from '@/lib/fecha'
@@ -11,7 +11,7 @@ const fmt = (n: number) => '$' + Math.round(n).toLocaleString('es-CL')
 const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
 const COLORES = ['#2563eb', '#0f172a', '#10b981', '#f59e0b', '#f97316', '#8b5cf6']
 
-type Tab = '7d' | '30d' | 'mes' | 'año' | 'custom'
+type Tab = 'hoy' | '7d' | '30d' | 'mes' | 'año' | 'custom'
 
 const today = fechaLocal
 
@@ -23,6 +23,7 @@ function getRange(tab: Tab, from: string, to: string): { from: string; to: strin
   // Se parte de `new Date()` (ahora, en hora local) y no de `new Date(t)`:
   // parsear 'YYYY-MM-DD' da medianoche UTC, que en Chile es el día anterior a
   // las 20:00 — restar días desde ahí corría el rango un día.
+  if (tab === 'hoy') return { from: t, to: t }
   if (tab === '7d') {
     const d = new Date(); d.setDate(d.getDate() - 6)
     return { from: fechaLocal(d), to: t }
@@ -78,8 +79,18 @@ function HBar({ label, value, total, color, onClick }: { label: string; value: n
 }
 
 // Collapsible desglose section
-function Desglose({ entries, total, color, label, nota, onSelect }: { entries: [string, number][]; total: number; color: string; label: string; nota?: string; onSelect?: (name: string) => void }) {
+function Desglose({ entries, total, color, label, nota, sub, onSelect }: {
+  entries: [string, number][]
+  total: number
+  color: string
+  label: string
+  nota?: string
+  /** Segundo nivel: por categoría, el detalle por subcategoría. */
+  sub?: Record<string, [string, number][]>
+  onSelect?: (name: string) => void
+}) {
   const [open, setOpen] = useState(false)
+  const [abierta, setAbierta] = useState<string | null>(null)
   if (!entries.length) return null
   return (
     <div style={{ marginTop: 8 }}>
@@ -96,9 +107,41 @@ function Desglose({ entries, total, color, label, nota, onSelect }: { entries: [
         <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid #f1f5f9' }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 2 }}>Por {label}</div>
           {nota && <div style={{ fontSize: 10, color: '#9ca3af', marginBottom: 8 }}>{nota}</div>}
-          {entries.map(([name, val]) => (
-            <HBar key={name} label={name} value={val} total={total} color={color} onClick={onSelect ? () => onSelect(name) : undefined} />
-          ))}
+          {entries.map(([name, val]) => {
+            const detalle = sub?.[name]
+            const expandida = abierta === name
+            return (
+              <div key={name}>
+                <HBar
+                  label={detalle ? `${name} ${expandida ? '▾' : '▸'}` : name}
+                  value={val} total={total} color={color}
+                  // Con subcategorías, el clic abre el detalle acá mismo: es lo
+                  // que se quiere ver (cuánto se llevó cada empleado, cada
+                  // canal) y sacarlo a un modal obliga a perder el contexto de
+                  // las demás categorías.
+                  onClick={detalle
+                    ? () => setAbierta(a => a === name ? null : name)
+                    : (onSelect ? () => onSelect(name) : undefined)}
+                />
+                {expandida && detalle && (
+                  <div style={{ margin: '2px 0 8px', paddingLeft: 10, borderLeft: `2px solid ${color}55` }}>
+                    {detalle.map(([subNombre, subVal]) => (
+                      <div key={subNombre} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, padding: '3px 0', color: '#4b5563' }}>
+                        <span>{subNombre}</span>
+                        <strong>{fmt(subVal)}</strong>
+                      </div>
+                    ))}
+                    {onSelect && (
+                      <button onClick={() => onSelect(name)}
+                        style={{ marginTop: 4, background: 'none', border: 'none', padding: 0, fontSize: 10, fontWeight: 600, color, cursor: 'pointer', fontFamily: 'inherit' }}>
+                        Ver movimientos →
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
       )}
     </div>
@@ -169,7 +212,23 @@ function DetalleDesglose({ tipo, nombre, gastos, compras, range, onClose }: {
   )
 }
 
+// Variación contra el período anterior equivalente. Un monto suelto no dice si
+// el mes viene bien o mal; el porcentaje es lo que convierte el dato en señal.
+function Delta({ actual, previo }: { actual: number; previo: number }) {
+  if (!previo) return <p style={{ fontSize: 11, color: '#9ca3af', marginTop: 3, marginBottom: 0 }}>sin período anterior</p>
+  const pct = Math.round((actual - previo) / Math.abs(previo) * 100)
+  const sube = actual >= previo
+  return (
+    <p style={{ fontSize: 11, fontWeight: 700, color: sube ? '#059669' : '#dc2626', marginTop: 3, marginBottom: 0 }}>
+      {sube ? '▲' : '▼'} {Math.abs(pct)}% vs período anterior
+    </p>
+  )
+}
+
 const CARD: React.CSSProperties = { background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', padding: '16px 18px' }
+const KPI_LAB: React.CSSProperties = { fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 4, marginTop: 0 }
+const KPI_VAL: React.CSSProperties = { fontSize: 24, fontWeight: 800, color: '#111827', lineHeight: 1.1, margin: 0 }
+const KPI_SUB: React.CSSProperties = { fontSize: 11, color: '#6b7280', marginTop: 3, marginBottom: 0 }
 const CT: React.CSSProperties = { fontSize: 13, fontWeight: 700, color: '#111827', marginBottom: 2, marginTop: 0 }
 const CS: React.CSSProperties = { fontSize: 11, color: '#9ca3af', marginBottom: 12, marginTop: 0 }
 
@@ -190,6 +249,22 @@ export function EstadisticasPage() {
     () => range.from === range.to ? range.from : `${range.from} al ${range.to}`,
     [range],
   )
+  // Período anterior equivalente: sin comparación, un monto suelto no dice si
+  // el mes viene bien o mal. Se reusa el mismo helper del Dashboard para que
+  // las dos pantallas comparen igual.
+  const rangoComparacion: RangoComparacion =
+    tab === 'hoy' ? 'hoy' : tab === 'mes' ? 'mes' : tab === 'año' ? 'año' : 'rango'
+  const previo = useMemo(
+    () => periodoAnteriorEquivalente(rangoComparacion, range.from, range.to),
+    [rangoComparacion, range],
+  )
+  // Las ventas se piden cubriendo también el período anterior; si no, no habría
+  // con qué comparar.
+  const rangoVentas = useMemo(() => ({
+    from: previo.desde < range.from ? previo.desde : range.from,
+    to: range.to,
+  }), [previo, range])
+
   const queryRange = useMemo(() => ({
     from: range.from < range6.from ? range.from : range6.from,
     to: range.to > range6.to ? range.to : range6.to,
@@ -202,7 +277,7 @@ export function EstadisticasPage() {
   // Los totales de acá solo miran el rango, así que se pide solo el rango.
   // getRange() siempre devuelve fechas válidas (cae al mes actual), así que
   // la query nunca queda deshabilitada.
-  const { data: ventas, isLoading: loadV } = useVentasEnRango(range.from, range.to)
+  const { data: ventas, isLoading: loadV } = useVentasEnRango(rangoVentas.from, range.to)
   const { data: gastos, isLoading: loadG } = useGastosEnRango(queryRange.from, queryRange.to)
   const { data: ordenes, isLoading: loadO } = useOrdenesEntregadasEnRango(queryRange.from, queryRange.to)
   // Ver el comentario del Dashboard: margen hacia atrás porque las compras se
@@ -278,6 +353,25 @@ export function EstadisticasPage() {
       })
     }
 
+    // Comparación con el período anterior.
+    const ventasPrev = filtrarVentasPagadas(ventas ?? [])
+      .filter(v => !!v.fecha && v.fecha >= previo.desde && v.fecha <= previo.hasta)
+    const brutasPrev = ventasPrev.reduce((s, v) => s + (+v.total_iva || 0), 0)
+    const cantPrev = ventasPrev.length
+    const ticketPrev = cantPrev > 0 ? Math.round(brutasPrev / cantPrev) : 0
+    const ordenesPrev = (ordenes ?? []).filter(o => {
+      const f = fechaEntrega(o)
+      return f >= previo.desde && f <= previo.hasta
+    }).length
+
+    // Métodos de pago del período (esto solo existía en el Dashboard).
+    const mpMap: Record<string, number> = {}
+    ventasArr.forEach(v => {
+      const mp = v.metodo_pago || 'Otro'
+      mpMap[mp] = (mpMap[mp] ?? 0) + (+v.total_iva || 0)
+    })
+    const mpSorted = Object.entries(mpMap).sort((a, b) => b[1] - a[1])
+
     // Top productos
     const prodMap: Record<string, { nombre: string; qty: number; revenue: number }> = {}
     ventasArr.forEach(v => (v.items ?? []).forEach(it => {
@@ -289,6 +383,10 @@ export function EstadisticasPage() {
     }))
     const topProds = Object.values(prodMap).sort((a, b) => b.qty - a.qty).slice(0, 5)
     const maxQty = Math.max(...topProds.map(p => p.qty), 1)
+    // El ranking por dinero es OTRO: lo más vendido por unidades rara vez es lo
+    // que más factura. Los dos importan y por eso van lado a lado.
+    const topProdsPlata = Object.values(prodMap).sort((a, b) => b.revenue - a.revenue).slice(0, 5)
+    const maxRevenue = Math.max(...topProdsPlata.map(p => p.revenue), 1)
 
     // Los desgloses siguen el PERÍODO ELEGIDO, no los seis meses del gráfico.
     // Antes estaban fijos en seis meses: se cambiaba a "7 días" arriba y estos
@@ -298,6 +396,25 @@ export function EstadisticasPage() {
     const catMap: Record<string, number> = {}
     gastosArr.forEach(g => { catMap[g.categoria || 'Sin categoría'] = (catMap[g.categoria || 'Sin categoría'] || 0) + (+g.monto || 0) })
     const catSorted = Object.entries(catMap).sort((a, b) => b[1] - a[1])
+
+    // Desglose de cada categoría de gasto por subcategoría: es donde viven el
+    // empleado en Sueldos y Comisiones, y el canal en Publicidad. El dato ya se
+    // guardaba; lo que faltaba era mostrarlo sin salir de la tarjeta.
+    const subPorCat: Record<string, [string, number][]> = {}
+    for (const [cat] of Object.entries(catMap)) {
+      const sub: Record<string, number> = {}
+      gastosArr.filter(g => (g.categoria || 'Sin categoría') === cat)
+        .forEach(g => {
+          const k = g.subcategoria?.trim() || 'Sin detalle'
+          sub[k] = (sub[k] ?? 0) + (+g.monto || 0)
+        })
+      const filas = Object.entries(sub).sort((a, b) => b[1] - a[1])
+      // Una sola fila "Sin detalle" no aporta nada: es repetir el total.
+      if (filas.length > 1 || (filas.length === 1 && filas[0][0] !== 'Sin detalle')) {
+        subPorCat[cat] = filas
+      }
+    }
+
 
     // Compras por proveedor
     const provMap: Record<string, number> = {}
@@ -320,7 +437,8 @@ export function EstadisticasPage() {
 
     return {
       totalVentas, ventasNetas, totalGastos, totalCompras, totalCosto, utilidad, ordenesOk, ticketProm,
-      bSales, maxBSales, bUtil, topProds, maxQty, catSorted, provSorted,
+      bSales, maxBSales, bUtil, topProds, maxQty, topProdsPlata, maxRevenue, catSorted, provSorted, subPorCat, mpSorted,
+      brutasPrev, ticketPrev, ordenesPrev,
       meses6, maxMG, maxMC, maxMO,
       cntVentas: resumen.cantidadVentas,
       // Totales del PERÍODO, que son los que corresponden a los desgloses.
@@ -330,13 +448,14 @@ export function EstadisticasPage() {
       ocsPeriodo: ocsArr,
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ventas, gastos, ordenes, ocs, costosProductos, bodegas, range, range6, last6])
+  }, [ventas, gastos, ordenes, ocs, costosProductos, bodegas, range, range6, last6, previo])
 
   const isMobile = useIsMobile()
 
   if (loadV || loadG || loadO || loadOC || loadCostos) return <div className="flex justify-center py-16"><Spinner className="w-8 h-8" /></div>
 
   const TABS: { id: Tab; label: string }[] = [
+    { id: 'hoy', label: 'Hoy' },
     { id: '7d', label: '7 días' },
     { id: '30d', label: '30 días' },
     { id: 'mes', label: 'Este mes' },
@@ -399,27 +518,35 @@ export function EstadisticasPage() {
         </div>
       </div>
 
-      {/* KPIs */}
-      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)', gap: 12 }}>
+      {/* KPIs — cuánto vendí, cuánto me quedó, cuánto trabajé, a qué precio */}
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 12 }}>
         <div style={CARD}>
-          <p style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 4, marginTop: 0 }}>Ventas con IVA</p>
-          <p style={{ fontSize: 26, fontWeight: 800, color: '#111827', lineHeight: 1.1, margin: 0 }}>{fmt(stats.totalVentas)}</p>
-          <p style={{ fontSize: 11, color: '#6b7280', marginTop: 3, marginBottom: 0 }}>{stats.cntVentas} venta{stats.cntVentas !== 1 ? 's' : ''} · neto {fmt(stats.ventasNetas)}</p>
+          <p style={KPI_LAB}>Ventas con IVA</p>
+          <p style={KPI_VAL}>{fmt(stats.totalVentas)}</p>
+          <p style={KPI_SUB}>{stats.cntVentas} venta{stats.cntVentas !== 1 ? 's' : ''} · neto {fmt(stats.ventasNetas)}</p>
+          <Delta actual={stats.totalVentas} previo={stats.brutasPrev} />
         </div>
         <div style={CARD}>
-          <p style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 4, marginTop: 0 }}>Resultado operacional</p>
-          <p style={{ fontSize: 26, fontWeight: 800, color: stats.utilidad >= 0 ? '#10b981' : '#ef4444', lineHeight: 1.1, margin: 0 }}>{fmt(stats.utilidad)}</p>
-          <p style={{ fontSize: 11, color: '#6b7280', marginTop: 3, marginBottom: 0 }}>Estimado: ventas netas − costo vendido − gastos</p>
+          <p style={KPI_LAB}>Resultado operacional</p>
+          <p style={{ ...KPI_VAL, color: stats.utilidad >= 0 ? '#10b981' : '#ef4444' }}>{fmt(stats.utilidad)}</p>
+          <p style={KPI_SUB}>Ventas netas − costo vendido − gastos</p>
         </div>
         <div style={CARD}>
-          <p style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 4, marginTop: 0 }}>Órdenes completadas</p>
-          <p style={{ fontSize: 26, fontWeight: 800, color: '#f59e0b', lineHeight: 1.1, margin: 0 }}>{stats.ordenesOk}</p>
-          <p style={{ fontSize: 11, color: '#6b7280', marginTop: 3, marginBottom: 0 }}>Reparaciones entregadas</p>
+          <p style={KPI_LAB}>Órdenes entregadas</p>
+          <p style={{ ...KPI_VAL, color: '#f59e0b' }}>{stats.ordenesOk}</p>
+          <p style={KPI_SUB}>Reparaciones</p>
+          <Delta actual={stats.ordenesOk} previo={stats.ordenesPrev} />
+        </div>
+        <div style={CARD}>
+          <p style={KPI_LAB}>Ticket promedio</p>
+          <p style={KPI_VAL}>{fmt(stats.ticketProm)}</p>
+          <p style={KPI_SUB}>Con IVA</p>
+          <Delta actual={stats.ticketProm} previo={stats.ticketPrev} />
         </div>
       </div>
 
-      {/* Row 2: ventas por suc / utilidad por suc / top productos */}
-      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: 12 }}>
+      {/* De dónde vino la plata */}
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
 
         {/* Ventas por sucursal */}
         <div style={CARD}>
@@ -442,24 +569,47 @@ export function EstadisticasPage() {
           )) : <p style={{ fontSize: 11, color: '#9ca3af', textAlign: 'center', padding: '12px 0' }}>Sin datos de sucursales</p>}
         </div>
 
-        {/* Top productos */}
+        {/* Top productos por unidades */}
         <div style={CARD}>
-          <p style={CT}>Productos más vendidos</p>
-          <p style={CS}>Por unidades vendidas</p>
+          <p style={CT}>Más vendidos por unidades</p>
+          <p style={CS}>Cantidad en el período</p>
           {stats.topProds.length ? stats.topProds.map((p, i) => (
-            <div key={i} title={`${fmt(p.revenue)} en ventas`} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 0', borderBottom: i < stats.topProds.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 0', borderBottom: i < stats.topProds.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
               <div style={{ width: 18, height: 18, borderRadius: '50%', background: i === 0 ? '#fef9c3' : '#ecefff', color: i === 0 ? '#b45309' : '#3656e6', fontSize: 10, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{i + 1}</div>
-              <span style={{ flex: 1, fontSize: 11, fontWeight: 600, color: '#111827', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.nombre}</span>
-              <span style={{ fontSize: 10, color: '#6b7280', flexShrink: 0 }}>{p.qty} uds.</span>
-              <div style={{ width: 36, height: 4, background: '#f1f5f9', borderRadius: 99, overflow: 'hidden', flexShrink: 0 }}>
-                <div style={{ height: '100%', background: '#3656e6', width: `${Math.round(p.qty / stats.maxQty * 100)}%`, borderRadius: 99 }} />
-              </div>
+              <span style={{ fontSize: 11, color: '#374151', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.nombre}</span>
+              <strong style={{ fontSize: 11, color: '#111827' }}>{p.qty} un</strong>
+            </div>
+          )) : <p style={{ fontSize: 11, color: '#9ca3af', textAlign: 'center', padding: '12px 0' }}>Sin ventas en el período</p>}
+        </div>
+
+        {/* Top productos por dinero — ranking distinto y también necesario:
+            lo que más se vende por unidades rara vez es lo que más factura. */}
+        <div style={CARD}>
+          <p style={CT}>Más vendidos por dinero</p>
+          <p style={CS}>Ingreso neto generado</p>
+          {stats.topProdsPlata.length ? stats.topProdsPlata.map((p, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 0', borderBottom: i < stats.topProdsPlata.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
+              <div style={{ width: 18, height: 18, borderRadius: '50%', background: i === 0 ? '#d1fae5' : '#ecfdf5', color: '#059669', fontSize: 10, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{i + 1}</div>
+              <span style={{ fontSize: 11, color: '#374151', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.nombre}</span>
+              <strong style={{ fontSize: 11, color: '#111827' }}>{fmt(p.revenue)}</strong>
             </div>
           )) : <p style={{ fontSize: 11, color: '#9ca3af', textAlign: 'center', padding: '12px 0' }}>Sin ventas en el período</p>}
         </div>
       </div>
 
-      {/* Row 3: gastos / compras / órdenes — últimos 6 meses */}
+      {/* Métodos de pago — estaba solo en el Dashboard. Va a todo el ancho:
+          es una lista corta y sola en una grilla de tres dejaba dos huecos. */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
+        <div style={CARD}>
+          <p style={CT}>Métodos de pago</p>
+          <p style={CS}>Monto con IVA</p>
+          {stats.mpSorted.length ? stats.mpSorted.map(([nombre, val], i) => (
+            <HBar key={nombre} label={nombre} value={val} total={stats.totalVentas} color={COLORES[i] ?? '#64748b'} />
+          )) : <p style={{ fontSize: 11, color: '#9ca3af', textAlign: 'center', padding: '12px 0' }}>Sin ventas en el período</p>}
+        </div>
+      </div>
+
+      {/* Tendencia y desgloses — el gráfico son 6 meses, el detalle el período */}
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: 12 }}>
 
         {/* Gastos por mes */}
@@ -480,7 +630,7 @@ export function EstadisticasPage() {
               </div>
             ))}
           </div>
-          <Desglose entries={stats.catSorted} total={stats.totalGastosPeriodo} color="#ef4444" label="categoría" nota={notaPeriodo}
+          <Desglose entries={stats.catSorted} total={stats.totalGastosPeriodo} color="#ef4444" label="categoría" nota={notaPeriodo} sub={stats.subPorCat}
             onSelect={nombre => setDetalle({ tipo: 'gastos', nombre })} />
         </div>
 
