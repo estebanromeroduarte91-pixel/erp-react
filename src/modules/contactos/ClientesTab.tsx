@@ -4,6 +4,7 @@ import { useClientes, useCrearCliente, useActualizarCliente, useEliminarCliente,
 import { useAuth } from '@/context/AuthContext'
 import { useIsMobile } from '@/lib/useIsMobile'
 import { Spinner } from '@/components/shared/Spinner'
+import { buscarSimilar } from '@/lib/texto'
 import { formatRut, soloRutDigits } from '@/lib/rut'
 import { capWords, capFirst } from '@/lib/formatters'
 import { OrdenDetallePage } from '@/modules/taller/OrdenDetallePage'
@@ -690,12 +691,19 @@ const CAMPOS_CLIENTE = [
 
 interface Campo { key: string; label: string; placeholder?: string; type?: string; required?: boolean }
 
-function ContactoModal({ titulo, campos, datos, onClose, onGuardar }: {
+function ContactoModal({ titulo, campos, datos, onClose, onGuardar, nombresExistentes }: {
   titulo: string
   campos: Campo[]
   datos: Record<string, string> | null
   onClose: () => void
   onGuardar: (d: Record<string, string>) => Promise<void>
+  /**
+   * Nombres ya registrados, para avisar cuando el que se está escribiendo es
+   * el mismo con otra ortografía. Sin esto se acumulan "Importadora Sur" e
+   * "Importadora del Sur" como dos proveedores, y las compras quedan repartidas
+   * entre los dos sin que nadie lo note.
+   */
+  nombresExistentes?: string[]
 }) {
   const [form, setForm] = useState<Record<string, string>>(() => {
     const init: Record<string, string> = {}
@@ -715,6 +723,10 @@ function ContactoModal({ titulo, campos, datos, onClose, onGuardar }: {
   }
 
   const isEditing = !!datos
+  // Al editar no se avisa: el nombre propio siempre se parecería a sí mismo.
+  const similar = !isEditing && nombresExistentes
+    ? buscarSimilar(form.nombre ?? '', nombresExistentes)
+    : undefined
 
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40 p-4">
@@ -742,6 +754,11 @@ function ContactoModal({ titulo, campos, datos, onClose, onGuardar }: {
                 }}
                 placeholder={c.placeholder}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+              {c.key === 'nombre' && similar && (
+                <p className="mt-1.5 text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
+                  Ya existe <strong>&quot;{similar}&quot;</strong>. Revisá que no sea el mismo.
+                </p>
+              )}
             </div>
           ))}
           {error && <p className="col-span-2 text-sm text-red-600 font-medium">{error}</p>}

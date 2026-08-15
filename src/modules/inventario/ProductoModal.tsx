@@ -154,6 +154,8 @@ export function ProductoModal({ producto, productos, bodegas, onClose, onGuardad
   // Inventario → Categorías. Si quedara solo pegada al producto, convivirían
   // dos clases de categoría: las que se pueden ordenar y darles subcategorías,
   // y las que aparecen en las listas solo porque algún producto las usa.
+  const subSimilar = useMemo(() => buscarSimilar(subcategoria, subcats), [subcategoria, subcats])
+
   async function crearCategoria(nombre: string) {
     const limpio = nombre.trim()
     if (!limpio) return
@@ -371,6 +373,13 @@ export function ProductoModal({ producto, productos, bodegas, onClose, onGuardad
                       </button>
                     ))}
                   </div>
+                )}
+                {subSimilar && (
+                  <p className="mt-1.5 text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
+                    Ya existe <strong>&quot;{subSimilar}&quot;</strong>.{' '}
+                    <button type="button" onClick={() => setSubcategoria(subSimilar)}
+                      className="font-semibold underline underline-offset-2">Usar esa</button>
+                  </p>
                 )}
               </div>}
               {verSecundarios && <div className="col-span-2 relative">
