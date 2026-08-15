@@ -919,7 +919,7 @@ export async function fetchLotesActivosParaVenta(
   if (!productoIds.length || !bodegaId) return []
   const { data, error } = await supabase
     .from('lotes_inventario')
-    .select('*')
+    .select('id, producto_id, bodega_id, cantidad_inicial, cantidad_restante, costo_unitario, origen, oc_id, oc_item_id, fecha, creado_en')
     .eq('empresa_id', empresaId)
     .eq('bodega_id', bodegaId)
     .in('producto_id', productoIds)

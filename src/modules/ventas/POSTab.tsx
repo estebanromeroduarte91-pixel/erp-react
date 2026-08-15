@@ -171,6 +171,12 @@ export function POSTab() {
   // Aviso separado del error de venta: acá la venta SÍ se guardó y lo que falló
   // fue el documento tributario. Mezclarlos haría creer que no se cobró.
   const [avisoDte, setAvisoDte] = useState('')
+  const [procesandoDte, setProcesandoDte] = useState('')
+  // Las ventas nuevas pueden seguir registrándose mientras se genera el
+  // documento anterior, pero los DTE se procesan de a uno para no disparar
+  // dos envíos simultáneos sobre los mismos documentos pendientes.
+  const colaDteRef = useRef<Promise<void>>(Promise.resolve())
+  const ultimoDteRef = useRef('')
   const busRef = useRef<HTMLInputElement>(null)
 
   const metodoActual = metodoSel || metodos?.[0]?.id || ''
@@ -409,6 +415,89 @@ export function POSTab() {
     setOtSeleccionada(null)
   }
 
+  function mensajeDeError(error: unknown, fallback: string) {
+    if (error instanceof Error && error.message) return error.message
+    if (error && typeof error === 'object') {
+      const detalle = error as { message?: unknown; details?: unknown; hint?: unknown; code?: unknown }
+      const partes = [detalle.message, detalle.details, detalle.hint]
+        .filter(v => typeof v === 'string' && v.trim())
+        .map(String)
+      if (partes.length) return partes.join(' — ')
+      if (detalle.code) return `${fallback} (${String(detalle.code)})`
+    }
+    return fallback
+  }
+
+  type DocumentoPendiente = {
+    venta: Venta
+    tipo: 'boleta' | 'factura'
+    clienteRut: string
+    clienteNombre: string
+    metodoPago: string
+    items: VentaItem[]
+  }
+
+  async function procesarDocumentoTributario(p: DocumentoPendiente) {
+    const avisosDocumento: string[] = []
+    let emitido: { folio: number; tipo_dte: number } | null = null
+    try {
+      emitido = await emitirDte.mutateAsync({
+        tipo_dte: p.tipo === 'factura' ? TIPO_DTE.factura : TIPO_DTE.boleta,
+        venta_id: p.venta.id,
+        receptor: p.clienteRut
+          ? { rut: p.clienteRut, razon_social: p.clienteNombre || undefined }
+          : undefined,
+        // Se usan las líneas originales: `venta.items` ya contiene el precio
+        // con descuento y volver a aplicarlo cobraría el descuento dos veces.
+        items: p.items.map(it => ({
+          nombre: it.producto_nombre,
+          ...lineaParaDte(it.precio_iva, it.cantidad, lineTotal(it)),
+        })),
+      })
+    } catch (error) {
+      avisosDocumento.push(`no se pudo emitir el documento: ${mensajeDeError(error, 'error desconocido')}`)
+    }
+
+    if (emitido) {
+      try {
+        const pdf = await imprimirDte.mutateAsync({
+          folio: emitido.folio,
+          tipo_dte: emitido.tipo_dte,
+          forma_pago: p.metodoPago,
+        })
+        abrirPdfBase64(pdf.pdf_base64, true)
+      } catch (error) {
+        avisosDocumento.push(`se emitió el folio ${emitido.folio}, pero no se pudo abrir la impresión: ${mensajeDeError(error, 'error desconocido')}`)
+      }
+
+      try {
+        await enviarDte.mutateAsync()
+      } catch (error) {
+        // El documento queda generado y el cron o el siguiente disparo vuelve
+        // a intentar el envío, sin gastar otro folio ni duplicar la venta.
+        avisosDocumento.push(`el folio ${emitido.folio} quedó pendiente de envío al SII: ${mensajeDeError(error, 'error desconocido')}`)
+      }
+    }
+
+    if (avisosDocumento.length) {
+      setAvisoDte(`La venta ${p.venta.numero} se guardó correctamente, pero ${avisosDocumento.join(' ')}`)
+    }
+  }
+
+  function encolarDocumentoTributario(p: DocumentoPendiente) {
+    ultimoDteRef.current = p.venta.id
+    setProcesandoDte(`Venta ${p.venta.numero} registrada. Generando ${p.tipo}…`)
+    colaDteRef.current = colaDteRef.current
+      .catch(() => undefined)
+      .then(() => procesarDocumentoTributario(p))
+      .catch(error => {
+        setAvisoDte(`La venta ${p.venta.numero} se guardó correctamente, pero no se pudo procesar el documento: ${mensajeDeError(error, 'error desconocido')}`)
+      })
+      .finally(() => {
+        if (ultimoDteRef.current === p.venta.id) setProcesandoDte('')
+      })
+  }
+
   async function confirmarVenta() {
     if (!metodoActual || !items.length) return
     if (bloquearPorStock) {
@@ -419,8 +508,6 @@ export function POSTab() {
     setAvisoDte('')
     setGuardando(true)
     try {
-      const nextNum = await incrementarContador.mutateAsync()
-      const numero = 'VTA-' + String(nextNum).padStart(5, '0')
       const bodegaId = cajaAbierta?.bodegaId
 
       // Costeo FIFO: congela el costo real de cada línea al momento de la venta,
@@ -437,9 +524,15 @@ export function POSTab() {
           .filter(it => it.producto_id && it.producto_id !== 'ot-servicio' && !it.producto_id.startsWith('rep-'))
           .map(it => it.producto_id!),
       )]
-      const lotesRelevantes = empresaId && bodegaId
-        ? await fetchLotesActivosParaVenta(empresaId, productosDelCarrito, bodegaId)
-        : []
+      // Son operaciones independientes: ejecutarlas juntas evita una vuelta
+      // de red completa antes de comenzar la transacción de la venta.
+      const [nextNum, lotesRelevantes] = await Promise.all([
+        incrementarContador.mutateAsync(),
+        empresaId && bodegaId
+          ? fetchLotesActivosParaVenta(empresaId, productosDelCarrito, bodegaId)
+          : Promise.resolve([] as LoteInventario[]),
+      ])
+      const numero = 'VTA-' + String(nextNum).padStart(5, '0')
 
       const restantePorLote = new Map<string, number>()
       const cantidadRestante = (l: LoteInventario) => restantePorLote.get(l.id) ?? l.cantidad_restante
@@ -530,57 +623,18 @@ export function POSTab() {
       // medias — o se guarda todo, o no se guarda nada.
       await confirmarVentaMutation.mutateAsync({ venta, movimiento: mov, ajustesStock: ajustes, lotes: loteUpdates, orden })
 
-      // Documento tributario. Va DESPUÉS de la venta y en su propio try: la
-      // venta ya está cobrada y guardada, así que un problema del SII o de
-      // SimpleAPI no puede deshacerla ni dejar al cliente esperando en la caja.
-      // Si falla, el documento queda pendiente y se reintenta después.
+      // Desde este punto la venta ya está confirmada. El DTE continúa en una
+      // cola separada: emitir, imprimir o enviar al SII nunca debe mantener el
+      // POS bloqueado ni impedir que se comience la siguiente venta.
       if (tipoDoc !== 'ticket') {
-        const avisosDocumento: string[] = []
-        let emitido: { folio: number; tipo_dte: number } | null = null
-        try {
-          emitido = await emitirDte.mutateAsync({
-            tipo_dte: tipoDoc === 'factura' ? TIPO_DTE.factura : TIPO_DTE.boleta,
-            venta_id: venta.id,
-            receptor: clienteRut.trim()
-              ? { rut: clienteRut.trim(), razon_social: cliente.trim() || undefined }
-              : undefined,
-            // Se usan las líneas del carrito y no `venta.items`: ahí el precio
-            // ya viene con el descuento aplicado, y volver a descontarlo sobre
-            // ese valor lo cobraría dos veces en la boleta.
-            items: items.map(it => ({
-              nombre: it.producto_nombre,
-              ...lineaParaDte(it.precio_iva, it.cantidad, lineTotal(it)),
-            })),
-          })
-        } catch (e) {
-          avisosDocumento.push(`no se pudo emitir el documento: ${(e as Error).message}`)
-        }
-
-        if (emitido) {
-          try {
-            const pdf = await imprimirDte.mutateAsync({
-              folio: emitido.folio,
-              tipo_dte: emitido.tipo_dte,
-              forma_pago: metodoActual,
-            })
-            abrirPdfBase64(pdf.pdf_base64, true)
-          } catch (e) {
-            avisosDocumento.push(`se emitió el folio ${emitido.folio}, pero no se pudo abrir la impresión: ${(e as Error).message}`)
-          }
-
-          try {
-            await enviarDte.mutateAsync()
-          } catch (e) {
-            // El DTE ya existe y queda con estado `generado`; el cron o el
-            // próximo disparo volverán a intentar enviarlo sin gastar otro
-            // folio ni duplicar la venta.
-            avisosDocumento.push(`el folio ${emitido.folio} quedó pendiente de envío al SII: ${(e as Error).message}`)
-          }
-        }
-
-        if (avisosDocumento.length) {
-          setAvisoDte(`La venta ${venta.numero} se guardó correctamente, pero ${avisosDocumento.join(' ')}`)
-        }
+        encolarDocumentoTributario({
+          venta,
+          tipo: tipoDoc,
+          clienteRut: clienteRut.trim(),
+          clienteNombre: cliente.trim(),
+          metodoPago: metodoActual,
+          items: [...items],
+        })
       }
 
       if (otSeleccionada) setOtSeleccionada(null)
@@ -591,7 +645,7 @@ export function POSTab() {
       setClienteEmail('')
       setBusqueda('')
     } catch (error) {
-      setVentaError(error instanceof Error ? error.message : 'No se pudo confirmar la venta.')
+      setVentaError(mensajeDeError(error, 'No se pudo confirmar la venta.'))
     } finally {
       setGuardando(false)
     }
@@ -1152,6 +1206,12 @@ export function POSTab() {
           )}
           {ventaError && !bloquearPorStock && (
             <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{ventaError}</div>
+          )}
+          {procesandoDte && (
+            <div className="text-xs text-blue-800 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 flex items-center gap-2">
+              <span className="w-3 h-3 rounded-full border-2 border-blue-200 border-t-blue-600 animate-spin flex-shrink-0" />
+              <span>{procesandoDte}</span>
+            </div>
           )}
           {/* Ámbar y no rojo, a propósito: la plata entró y la venta quedó
               registrada. Lo que falta es el documento, y eso se resuelve
