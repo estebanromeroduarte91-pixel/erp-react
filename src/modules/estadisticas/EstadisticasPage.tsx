@@ -78,7 +78,7 @@ function HBar({ label, value, total, color, onClick }: { label: string; value: n
 }
 
 // Collapsible desglose section
-function Desglose({ entries, total, color, label, onSelect }: { entries: [string, number][]; total: number; color: string; label: string; onSelect?: (name: string) => void }) {
+function Desglose({ entries, total, color, label, nota, onSelect }: { entries: [string, number][]; total: number; color: string; label: string; nota?: string; onSelect?: (name: string) => void }) {
   const [open, setOpen] = useState(false)
   if (!entries.length) return null
   return (
@@ -94,7 +94,8 @@ function Desglose({ entries, total, color, label, onSelect }: { entries: [string
       </button>
       {open && (
         <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid #f1f5f9' }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 8 }}>Por {label}</div>
+          <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 2 }}>Por {label}</div>
+          {nota && <div style={{ fontSize: 10, color: '#9ca3af', marginBottom: 8 }}>{nota}</div>}
           {entries.map(([name, val]) => (
             <HBar key={name} label={name} value={val} total={total} color={color} onClick={onSelect ? () => onSelect(name) : undefined} />
           ))}
@@ -183,6 +184,12 @@ export function EstadisticasPage() {
   const last6 = useMemo(() => getLast6(), [])
   const range = useMemo(() => getRange(tab, from, to), [tab, from, to])
   const range6 = useMemo(() => ({ from: `${last6[0].key}-01`, to: today() }), [last6])
+  // El gráfico de la tarjeta muestra seis meses y el desglose el período
+  // elegido. Sin decirlo, parecen dos cifras contradictorias de lo mismo.
+  const notaPeriodo = useMemo(
+    () => range.from === range.to ? range.from : `${range.from} al ${range.to}`,
+    [range],
+  )
   const queryRange = useMemo(() => ({
     from: range.from < range6.from ? range.from : range6.from,
     to: range.to > range6.to ? range.to : range6.to,
@@ -283,17 +290,18 @@ export function EstadisticasPage() {
     const topProds = Object.values(prodMap).sort((a, b) => b.qty - a.qty).slice(0, 5)
     const maxQty = Math.max(...topProds.map(p => p.qty), 1)
 
-    const gastos6 = (gastos ?? []).filter(g => g.fecha >= range6.from && g.fecha <= range6.to)
-    const ocs6 = (ocs ?? []).filter(o => ['recibida', 'confirmada'].includes(o.estado) && o.fecha >= range6.from && o.fecha <= range6.to)
-
-    // Los desgloses pertenecen al mismo rango de seis meses que sus gráficos.
+    // Los desgloses siguen el PERÍODO ELEGIDO, no los seis meses del gráfico.
+    // Antes estaban fijos en seis meses: se cambiaba a "7 días" arriba y estos
+    // números no se movían, así que parecía que el filtro no funcionaba.
+    // El gráfico de barras sí se queda en seis meses — para eso está, y su
+    // título lo dice.
     const catMap: Record<string, number> = {}
-    gastos6.forEach(g => { catMap[g.categoria || 'Sin categoría'] = (catMap[g.categoria || 'Sin categoría'] || 0) + (+g.monto || 0) })
+    gastosArr.forEach(g => { catMap[g.categoria || 'Sin categoría'] = (catMap[g.categoria || 'Sin categoría'] || 0) + (+g.monto || 0) })
     const catSorted = Object.entries(catMap).sort((a, b) => b[1] - a[1])
 
     // Compras por proveedor
     const provMap: Record<string, number> = {}
-    ocs6.forEach(o => { provMap[o.proveedor_nombre || 'Sin proveedor'] = (provMap[o.proveedor_nombre || 'Sin proveedor'] || 0) + (+o.total || 0) })
+    ocsArr.forEach(o => { provMap[o.proveedor_nombre || 'Sin proveedor'] = (provMap[o.proveedor_nombre || 'Sin proveedor'] || 0) + (+o.total || 0) })
     const provSorted = Object.entries(provMap).sort((a, b) => b[1] - a[1])
 
     // Últimos 6 meses (totales globales, no filtrados por rango)
@@ -315,10 +323,11 @@ export function EstadisticasPage() {
       bSales, maxBSales, bUtil, topProds, maxQty, catSorted, provSorted,
       meses6, maxMG, maxMC, maxMO,
       cntVentas: resumen.cantidadVentas,
-      gastos6,
-      ocs6,
-      totalGastos6: gastos6.reduce((s, g) => s + (+g.monto || 0), 0),
-      totalCompras6: ocs6.reduce((s, o) => s + (+o.total || 0), 0),
+      // Totales del PERÍODO, que son los que corresponden a los desgloses.
+      totalGastosPeriodo: gastosArr.reduce((s, g) => s + (+g.monto || 0), 0),
+      totalComprasPeriodo: ocsArr.reduce((s, o) => s + (+o.total || 0), 0),
+      gastosPeriodo: gastosArr,
+      ocsPeriodo: ocsArr,
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ventas, gastos, ordenes, ocs, costosProductos, bodegas, range, range6, last6])
@@ -471,7 +480,7 @@ export function EstadisticasPage() {
               </div>
             ))}
           </div>
-          <Desglose entries={stats.catSorted} total={stats.totalGastos6} color="#ef4444" label="categoría"
+          <Desglose entries={stats.catSorted} total={stats.totalGastosPeriodo} color="#ef4444" label="categoría" nota={notaPeriodo}
             onSelect={nombre => setDetalle({ tipo: 'gastos', nombre })} />
         </div>
 
@@ -493,7 +502,7 @@ export function EstadisticasPage() {
               </div>
             ))}
           </div>
-          <Desglose entries={stats.provSorted} total={stats.totalCompras6} color="#2563eb" label="proveedor"
+          <Desglose entries={stats.provSorted} total={stats.totalComprasPeriodo} color="#2563eb" label="proveedor" nota={notaPeriodo}
             onSelect={nombre => setDetalle({ tipo: 'compras', nombre })} />
         </div>
 
@@ -527,12 +536,12 @@ export function EstadisticasPage() {
         <DetalleDesglose
           tipo={detalle.tipo}
           nombre={detalle.nombre}
-          range={range6}
+          range={range}
           gastos={detalle.tipo === 'gastos'
-            ? stats.gastos6.filter(g => (g.categoria || 'Sin categoría') === detalle.nombre)
+            ? stats.gastosPeriodo.filter(g => (g.categoria || 'Sin categoría') === detalle.nombre)
             : []}
           compras={detalle.tipo === 'compras'
-            ? stats.ocs6.filter(o => (o.proveedor_nombre || 'Sin proveedor') === detalle.nombre)
+            ? stats.ocsPeriodo.filter(o => (o.proveedor_nombre || 'Sin proveedor') === detalle.nombre)
             : []}
           onClose={() => setDetalle(null)}
         />
