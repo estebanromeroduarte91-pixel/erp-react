@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { useGuardarProducto, useCategorias } from '@/lib/queries'
+import { useGuardarProducto, useCategorias, useGuardarCategorias } from '@/lib/queries'
 import type { Producto, Bodega } from '@/types'
 
 interface Props {
@@ -7,6 +7,20 @@ interface Props {
   productos: Producto[]
   bodegas: Bodega[]
   onClose: () => void
+  /**
+   * Se llama con el producto ya guardado. Lo usa el POS para meterlo al
+   * carrito enseguida: si hubiera que buscarlo de nuevo después de crearlo,
+   * la mitad de la ventaja de crearlo desde la caja se pierde.
+   */
+  onGuardado?: (producto: Producto) => void
+  /** Nombre con el que abre el formulario (lo que se tipeó en el buscador). */
+  nombreInicial?: string
+  /**
+   * Modo caja: deja a la vista solo lo imprescindible y pliega el resto.
+   * Con un cliente esperando, un formulario largo se completa a medias o no se
+   * completa; los campos siguen estando, solo dejan de estorbar.
+   */
+  compacto?: boolean
 }
 
 function uid() { return Math.random().toString(36).slice(2) + Date.now().toString(36) }
@@ -17,12 +31,12 @@ function nextSku(productos: Producto[]): string {
   return String(max % 2 === 0 ? max + 2 : max + 1)
 }
 
-export function ProductoModal({ producto, productos, bodegas, onClose }: Props) {
+export function ProductoModal({ producto, productos, bodegas, onClose, onGuardado, nombreInicial, compacto = false }: Props) {
   const guardar = useGuardarProducto()
   const isEditing = !!producto
 
   const [tipo, setTipo] = useState<'producto' | 'servicio'>(producto?.tipo ?? 'producto')
-  const [nombre, setNombre] = useState(producto?.nombre ?? '')
+  const [nombre, setNombre] = useState(producto?.nombre ?? nombreInicial ?? '')
   const [sku, setSku] = useState(() => producto?.sku ?? (isEditing ? '' : nextSku(productos)))
   const [unidad, setUnidad] = useState(producto?.unidad ?? 'unidad')
   const [precioCompra, setPrecioCompra] = useState(String(producto?.precio_compra ?? ''))
@@ -34,6 +48,10 @@ export function ProductoModal({ producto, productos, bodegas, onClose }: Props) 
   const [subcategoria, setSubcategoria] = useState(producto?.subcategoria ?? '')
   const [venderOnline, setVenderOnline] = useState(producto?.vender_online === true)
   const [categoriaOpen, setCategoriaOpen] = useState(false)
+  const [catQuery, setCatQuery] = useState('')
+  // En modo caja arranca plegado; fuera de la caja no aplica.
+  const [masOpciones, setMasOpciones] = useState(false)
+  const verSecundarios = !compacto || masOpciones
   const [subcategoriaOpen, setSubcategoriaOpen] = useState(false)
   const [enlace, setEnlace] = useState(producto?.enlace ?? '')
   const [enlaceOpen, setEnlaceOpen] = useState(false)
@@ -50,6 +68,7 @@ export function ProductoModal({ producto, productos, bodegas, onClose }: Props) 
   // categorías sueltas que ya tengan productos pero no estén en la lista curada,
   // para no perder ninguna por no haberla registrado ahí.
   const { data: categoriasCuradas = [] } = useCategorias()
+  const guardarCategorias = useGuardarCategorias()
   const cats = useMemo(() => {
     const deProductos = new Set(productos.map((p) => p.categoria).filter(Boolean) as string[])
     const deCuradas = new Set(categoriasCuradas.map((c) => c.nombre))
@@ -72,6 +91,25 @@ export function ProductoModal({ producto, productos, bodegas, onClose }: Props) 
     return base.slice(0, 8)
   }, [enlaces, enlace])
 
+  // Se filtra por lo escrito para que la lista no tape lo que se está
+  // tipeando, y se detecta si es una categoría que todavía no existe.
+  const conteoPorCat = useMemo(() => {
+    const m: Record<string, number> = {}
+    productos.forEach(p => {
+      if (p.categoria) m[p.categoria] = (m[p.categoria] ?? 0) + 1
+    })
+    return m
+  }, [productos])
+
+  const catsFiltradas = useMemo(() => {
+    const q = catQuery.trim().toLowerCase()
+    return q ? cats.filter(c => c.toLowerCase().includes(q)) : cats
+  }, [cats, catQuery])
+  const categoriaNueva = useMemo(() => {
+    const q = catQuery.trim()
+    return !!q && !cats.some(c => c.toLowerCase() === q.toLowerCase())
+  }, [cats, catQuery])
+
   // Subcategorías sugeridas: las de la categoría curada que coincide con lo
   // escrito (si existe), si no, las que ya usan otros productos de esa categoría.
   const subcats = useMemo(() => {
@@ -84,8 +122,35 @@ export function ProductoModal({ producto, productos, bodegas, onClose }: Props) 
     return [...new Set(deProductos)].sort()
   }, [categoria, categoriasCuradas, productos])
 
+  // Crear la categoría la agrega también a la lista curada de
+  // Inventario → Categorías. Si quedara solo pegada al producto, convivirían
+  // dos clases de categoría: las que se pueden ordenar y darles subcategorías,
+  // y las que aparecen en las listas solo porque algún producto las usa.
+  async function crearCategoria(nombre: string) {
+    const limpio = nombre.trim()
+    if (!limpio) return
+    setCategoria(limpio)
+    setSubcategoria('')
+    setCategoriaOpen(false)
+    const yaEsta = categoriasCuradas.some(c => c.nombre.toLowerCase() === limpio.toLowerCase())
+    if (yaEsta) return
+    try {
+      await guardarCategorias.mutateAsync([
+        ...categoriasCuradas,
+        { id: uid(), nombre: limpio, subcategorias: [] },
+      ])
+    } catch {
+      // Que falle el alta en la lista curada no puede impedir guardar el
+      // producto: la categoría igual queda registrada en él.
+    }
+  }
+
   async function handleGuardar() {
     if (!nombre.trim()) { setError('El nombre es obligatorio'); return }
+    // El precio de venta sí es obligatorio: sin él la venta saldría en $0.
+    // El costo NO lo es, por decisión de producto — pero se avisa abajo,
+    // porque sin costo el margen y el costo de lo vendido quedan mal.
+    if (!(+precioVenta > 0)) { setError('El precio de venta es obligatorio'); return }
     if (sku.trim()) {
       const dup = productos.find((p) => p.sku?.toLowerCase() === sku.toLowerCase() && p.id !== producto?.id)
       if (dup) { setError(`SKU "${sku}" ya está en uso por "${dup.nombre}"`); return }
@@ -114,6 +179,7 @@ export function ProductoModal({ producto, productos, bodegas, onClose }: Props) 
 
     try {
       await guardar.mutateAsync(prod)
+      onGuardado?.(prod)
       onClose()
     } catch (e) {
       setError((e as Error).message || 'No se pudo guardar el producto')
@@ -169,8 +235,8 @@ export function ProductoModal({ producto, productos, bodegas, onClose }: Props) 
               <div className="col-span-2">
                 <Field label="Nombre *" value={nombre} onChange={setNombre} placeholder="Ej: Pantalla iPhone 14" />
               </div>
-              <Field label="SKU / Código" value={sku} onChange={setSku} placeholder="Ej: PAN-IP14" />
-              <div>
+              {verSecundarios && <Field label="SKU / Código" value={sku} onChange={setSku} placeholder="Ej: PAN-IP14" />}
+              {verSecundarios && <div>
                 <label className="text-xs font-medium text-gray-600 mb-1 block">Unidad</label>
                 <select value={unidad} onChange={(e) => setUnidad(e.target.value)}
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
@@ -178,32 +244,58 @@ export function ProductoModal({ producto, productos, bodegas, onClose }: Props) 
                     <option key={u} value={u}>{u}</option>
                   ))}
                 </select>
-              </div>
+              </div>}
               <div className="relative">
                 <label className="text-xs font-medium text-gray-600 mb-1 block">Categoría</label>
-                <input value={categoria} onChange={(e) => { setCategoria(e.target.value); setCategoriaOpen(true) }}
-                  onFocus={() => setCategoriaOpen(true)}
-                  onBlur={() => setTimeout(() => setCategoriaOpen(false), 150)}
-                  placeholder="Ej: Pantallas"
-                  className="w-full border border-gray-200 rounded-lg pl-3 pr-9 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
-                <button type="button" tabIndex={-1} aria-label="Mostrar categorías"
-                  onMouseDown={e => { e.preventDefault(); setCategoriaOpen(v => !v) }}
-                  className="absolute right-1 top-6 w-8 h-8 flex items-center justify-center text-gray-400">
-                  <svg className={`w-4 h-4 transition ${categoriaOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" d="m6 9 6 6 6-6" /></svg>
+                {/* Selector, no caja de texto: antes parecía cerrado y nadie
+                    intentaba escribir una categoría nueva. El buscador va
+                    adentro para que el campo de arriba muestre solo lo elegido
+                    y no se confunda "lo que busco" con "lo que voy a guardar". */}
+                <button type="button"
+                  onClick={() => { setCategoriaOpen(v => !v); setCatQuery('') }}
+                  className="w-full flex items-center justify-between gap-2 border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 hover:border-gray-300 transition text-left">
+                  <span className={categoria ? 'text-gray-900' : 'text-gray-400'}>
+                    {categoria || 'Seleccionar categoría'}
+                  </span>
+                  <svg className={`w-4 h-4 text-gray-400 flex-shrink-0 transition ${categoriaOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" d="m6 9 6 6 6-6" /></svg>
                 </button>
-                {categoriaOpen && cats.length > 0 && (
-                  <div className="absolute left-0 right-0 z-40 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-52 overflow-y-auto">
-                    {cats.map(c => (
-                      <button key={c} type="button"
-                        onMouseDown={() => { setCategoria(c); setSubcategoria(''); setCategoriaOpen(false) }}
-                        className={`w-full text-left px-3.5 py-2.5 text-sm hover:bg-blue-50 hover:text-blue-700 transition ${c === categoria ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-700'}`}>
-                        {c}
-                      </button>
-                    ))}
-                  </div>
+                {categoriaOpen && (
+                  <>
+                    <div className="fixed inset-0 z-30" onClick={() => setCategoriaOpen(false)} />
+                    <div className="absolute left-0 right-0 z-40 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+                      <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-100 bg-gray-50">
+                        <svg className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="11" cy="11" r="7" /><path strokeLinecap="round" d="M21 21l-6-6" /></svg>
+                        <input autoFocus value={catQuery} onChange={e => setCatQuery(e.target.value)}
+                          placeholder="Buscar categoría…"
+                          className="w-full bg-transparent text-sm focus:outline-none" />
+                      </div>
+                      <div className="max-h-48 overflow-y-auto">
+                        {catsFiltradas.map(c => (
+                          <button key={c} type="button"
+                            onClick={() => { setCategoria(c); setSubcategoria(''); setCategoriaOpen(false) }}
+                            className={`w-full flex items-center justify-between px-3.5 py-2.5 text-sm hover:bg-blue-50 hover:text-blue-700 transition ${c === categoria ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-700'}`}>
+                            <span>{c}</span>
+                            {/* El conteo distingue la categoría buena de un
+                                tipeo: "Accesorios 142" contra "Accesorio 3". */}
+                            <span className="text-[10px] text-gray-400">{conteoPorCat[c] ?? 0}</span>
+                          </button>
+                        ))}
+                        {catsFiltradas.length === 0 && !categoriaNueva && (
+                          <p className="px-3.5 py-4 text-xs text-gray-400 text-center">Ninguna categoría coincide</p>
+                        )}
+                      </div>
+                      {categoriaNueva && (
+                        <button type="button" onClick={() => void crearCategoria(catQuery)}
+                          className="w-full flex items-center gap-2 px-3.5 py-2.5 text-sm font-semibold text-blue-700 bg-blue-50 border-t border-blue-100 hover:bg-blue-100 transition">
+                          <span className="font-bold">+</span>
+                          <span>Crear categoría &quot;{catQuery.trim()}&quot;</span>
+                        </button>
+                      )}
+                    </div>
+                  </>
                 )}
               </div>
-              <div className="relative">
+              {verSecundarios && <div className="relative">
                 <label className="text-xs font-medium text-gray-600 mb-1 block">Subcategoría</label>
                 <input value={subcategoria} onChange={(e) => { setSubcategoria(e.target.value); setSubcategoriaOpen(true) }}
                   onFocus={() => setSubcategoriaOpen(true)}
@@ -228,8 +320,8 @@ export function ProductoModal({ producto, productos, bodegas, onClose }: Props) 
                     ))}
                   </div>
                 )}
-              </div>
-              <div className="col-span-2 relative">
+              </div>}
+              {verSecundarios && <div className="col-span-2 relative">
                 <label className="text-xs font-medium text-gray-600 mb-1 block">Enlace (opcional)</label>
                 <input value={enlace}
                   onChange={(e) => setEnlace(e.target.value)}
@@ -253,18 +345,18 @@ export function ProductoModal({ producto, productos, bodegas, onClose }: Props) 
                   Se usa en <strong>Kits / Equipos</strong> para armar automáticamente las variantes de color.
                   Déjalo vacío para desenlazarlo.
                 </p>
-              </div>
-              <div className="col-span-2">
+              </div>}
+              {verSecundarios && <div className="col-span-2">
                 <label className="text-xs font-medium text-gray-600 mb-1 block">Descripción</label>
                 <textarea value={descripcion} onChange={(e) => setDescripcion(e.target.value)}
                   rows={2} placeholder="Descripción opcional..."
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400 resize-none" />
-              </div>
+              </div>}
 
               {/* El stock que se publica es el de la bodega desde la que se
                   despacha lo online, no el total: no se puede ofrecer algo que
                   está en la otra sucursal. */}
-              {!esServicio && (
+              {!esServicio && verSecundarios && (
                 <div className="col-span-2">
                   <label className="flex items-start gap-2.5 cursor-pointer rounded-lg border border-gray-200 px-3 py-2.5 hover:border-gray-300 transition">
                     <input type="checkbox" checked={venderOnline}
@@ -289,8 +381,24 @@ export function ProductoModal({ producto, productos, bodegas, onClose }: Props) 
             <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Precios</h4>
             <div className="grid grid-cols-2 gap-3">
               <Field label="Costo neto ($)" type="number" value={precioCompra} onChange={setPrecioCompra} placeholder="0" />
-              <Field label="Precio de venta con IVA ($)" type="number" value={precioVenta} onChange={setPrecioVenta} placeholder="0" />
+              <Field label="Precio de venta con IVA ($) *" type="number" value={precioVenta} onChange={setPrecioVenta} placeholder="0" />
             </div>
+            {/* El margen en vivo evita el error de comparar un precio con IVA
+                contra un costo neto, que infla el margen en 19 puntos. */}
+            {+precioVenta > 0 && +precioCompra > 0 && (() => {
+              const neto = Math.round(+precioVenta / 1.19)
+              const pct = neto > 0 ? Math.round((neto - +precioCompra) / neto * 100) : 0
+              return (
+                <p className={`mt-2 text-xs font-semibold rounded-lg px-3 py-2 ${pct < 0 ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>
+                  Margen {pct}% · precio neto ${neto.toLocaleString('es-CL')}
+                </p>
+              )
+            })()}
+            {+precioVenta > 0 && !(+precioCompra > 0) && (
+              <p className="mt-2 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                Sin costo, este producto va a figurar con 100% de margen y no va a sumar al costo de lo vendido. Podés completarlo después desde Inventario.
+              </p>
+            )}
           </section>
 
           {/* Stock — solo productos */}
@@ -330,13 +438,19 @@ export function ProductoModal({ producto, productos, bodegas, onClose }: Props) 
 
         {/* Footer */}
         <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 bg-gray-50 rounded-b-none md:rounded-b-2xl" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
+          {compacto && !masOpciones && (
+            <button onClick={() => setMasOpciones(true)}
+              className="mr-auto text-sm font-medium text-blue-600 hover:underline">
+              Más opciones
+            </button>
+          )}
           <button onClick={onClose}
             className="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-100 transition">
             Cancelar
           </button>
           <button onClick={handleGuardar} disabled={guardando}
             className="px-5 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition">
-            {guardando ? 'Guardando…' : isEditing ? 'Guardar cambios' : 'Crear producto'}
+            {guardando ? 'Guardando…' : isEditing ? 'Guardar cambios' : compacto ? 'Crear y agregar' : 'Crear producto'}
           </button>
         </div>
       </div>

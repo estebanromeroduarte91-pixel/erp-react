@@ -1,6 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { TIPO_DTE, abrirPdfBase64, lineaParaDte } from '@/lib/dte'
-import { useProductos, useBuscarProductos, useVentasEnRango, useConfirmarVenta, useMetodosPago, useCajaSesiones, useCajas, useGuardarCajaSesiones, useIncrementarContadorVenta, useOrdenesLite, useUserProfiles, useUserCargoMap, useCargos, fetchLotesActivosParaVenta, useClientes, useBuscarClientes, useCrearCliente, useVentasConfig, CARGOS_DEFAULT, useEmitirDte, useImprimirDte, useEnviarDte } from '@/lib/queries'
+import { ProductoModal } from '@/modules/inventario/ProductoModal'
+import { useProductos, useBuscarProductos, useBodegas, useVentasEnRango, useConfirmarVenta, useMetodosPago, useCajaSesiones, useCajas, useGuardarCajaSesiones, useIncrementarContadorVenta, useOrdenesLite, useUserProfiles, useUserCargoMap, useCargos, fetchLotesActivosParaVenta, useClientes, useBuscarClientes, useCrearCliente, useVentasConfig, CARGOS_DEFAULT, useEmitirDte, useImprimirDte, useEnviarDte } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 
 import { useAnchorRect, fixedDropdownStyle } from '@/lib/useAnchorRect'
@@ -45,6 +46,10 @@ function lineNeto(it: VentaItem) {
 export function POSTab() {
   const { nombre: nombreUsuario, branchId, empresaId } = useAuth()
   const { data: productos } = useProductos()
+  const { data: bodegasTodas = [] } = useBodegas()
+  // Crear el producto sin salir de la caja: si hay que ir a Inventario y
+  // volver, se pierde el carrito y el cliente espera.
+  const [crearProdOpen, setCrearProdOpen] = useState(false)
   // Solo se usan para los totales del día de la caja abierta (totalesHoy), así
   // que se piden solo las de hoy: antes useVentas() bajaba la tabla completa de
   // ventas (con el join de venta_items) cada vez que se abría el POS.
@@ -849,8 +854,21 @@ export function POSTab() {
               value={busqueda}
               onChange={e => setBusqueda(e.target.value)}
               placeholder="Buscar producto por nombre o SKU..."
-              className="w-full pl-9 pr-3 py-2 text-base md:text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:border-blue-400"
+              className="w-full pl-9 pr-12 py-2 text-base md:text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:border-blue-400"
             />
+            {/* Crear un producto sin salir de la caja. Va acá, dentro de la
+                barra, y no como un cartel debajo: está siempre a mano y no
+                depende de que la búsqueda no encuentre nada. */}
+            <button
+              onClick={() => setCrearProdOpen(true)}
+              title="Crear un producto nuevo"
+              aria-label="Crear un producto nuevo"
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14m7-7H5" />
+              </svg>
+            </button>
           </div>
           {resultados.length > 0 && (
             <ul className="mt-2 border border-gray-100 rounded-lg overflow-hidden shadow-sm">
@@ -1237,6 +1255,18 @@ export function POSTab() {
               </div>
             )}
       </MobileSheet>
+
+      {crearProdOpen && (
+        <ProductoModal
+          producto={null}
+          productos={productos ?? []}
+          bodegas={bodegasTodas}
+          nombreInicial={busqueda.trim()}
+          compacto
+          onGuardado={p => { agregarProducto(p); setBusqueda('') }}
+          onClose={() => setCrearProdOpen(false)}
+        />
+      )}
     </div>
   )
 }
