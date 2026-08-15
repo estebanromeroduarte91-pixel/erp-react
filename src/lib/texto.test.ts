@@ -58,3 +58,19 @@ describe('buscarSimilar', () => {
     expect(buscarSimilar('   ', existentes)).toBeUndefined()
   })
 })
+
+// El bloqueo de clientes por RUT vive en ClientesTab.tsx (usa soloRutDigits
+// directo, no buscarSimilar), pero el criterio que motiva el diseño se deja
+// fijado acá: nombre parecido AVISA, RUT igual BLOQUEA. Son reglas distintas
+// porque identifican cosas distintas — dos personas pueden llamarse igual sin
+// ser la misma, dos RUT iguales sí son la misma persona o empresa.
+describe('criterio nombre vs RUT (documentación de la regla)', () => {
+  it('dos personas con el mismo nombre no son necesariamente la misma', () => {
+    // buscarSimilar por nombre solo avisa — nunca debe usarse para bloquear
+    // un alta de cliente, a diferencia de categorías/proveedores donde el
+    // nombre SÍ identifica la entidad.
+    expect(esCasiIgual('Juan Pérez', 'Juan Pérez')).toBe(true) // mismo string: coincide
+    // pero eso no implica que sean la misma persona — la decisión de bloquear
+    // se toma por RUT en la pantalla de clientes, no por esta función.
+  })
+})

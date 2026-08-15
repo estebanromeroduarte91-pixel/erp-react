@@ -125,6 +125,7 @@ export function ProveedoresTab() {
           campos={CAMPOS_PROVEEDOR}
           datos={editando as Record<string, string> | null}
           nombresExistentes={(proveedores ?? []).map(p => p.nombre).filter(Boolean) as string[]}
+          contactosExistentes={proveedores ?? []}
           onClose={() => setModalOpen(false)}
           onGuardar={async (datos) => {
             const lista2 = proveedores ?? []

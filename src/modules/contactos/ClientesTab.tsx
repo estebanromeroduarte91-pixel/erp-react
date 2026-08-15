@@ -267,7 +267,8 @@ export function ClientesTab() {
         <DetailPanel cliente={seleccionado} stats={stats} esAdmin={esAdmin} onEditar={() => abrirEditar(seleccionado)} onEliminar={() => eliminar(seleccionado)} />
         {modalOpen && (
           <ContactoModal titulo="cliente" campos={CAMPOS_CLIENTE} datos={editando as unknown as Record<string,string>|null}
-            onClose={() => setModalOpen(false)} onGuardar={guardarCliente} />
+            onClose={() => setModalOpen(false)} onGuardar={guardarCliente}
+            contactosExistentes={clientes ?? []} />
         )}
       </div>
     )
@@ -351,7 +352,8 @@ export function ClientesTab() {
         <ContactoModal titulo="cliente" campos={CAMPOS_CLIENTE}
           datos={editando as unknown as Record<string,string>|null}
           onClose={() => setModalOpen(false)}
-          onGuardar={guardarCliente} />
+          onGuardar={guardarCliente}
+          contactosExistentes={clientes ?? []} />
       )}
 
       {importModal && (
@@ -691,7 +693,7 @@ const CAMPOS_CLIENTE = [
 
 interface Campo { key: string; label: string; placeholder?: string; type?: string; required?: boolean }
 
-function ContactoModal({ titulo, campos, datos, onClose, onGuardar, nombresExistentes }: {
+function ContactoModal({ titulo, campos, datos, onClose, onGuardar, nombresExistentes, contactosExistentes }: {
   titulo: string
   campos: Campo[]
   datos: Record<string, string> | null
@@ -704,6 +706,12 @@ function ContactoModal({ titulo, campos, datos, onClose, onGuardar, nombresExist
    * entre los dos sin que nadie lo note.
    */
   nombresExistentes?: string[]
+  /**
+   * Contactos ya registrados, para bloquear por RUT y no por nombre. Dos
+   * personas o empresas distintas pueden llamarse exactamente igual; lo que no
+   * puede repetirse es el RUT, que identifica de verdad a quién se factura.
+   */
+  contactosExistentes?: { rut?: string; nombre?: string; apellido?: string; razon_social?: string }[]
 }) {
   const [form, setForm] = useState<Record<string, string>>(() => {
     const init: Record<string, string> = {}
@@ -717,6 +725,7 @@ function ContactoModal({ titulo, campos, datos, onClose, onGuardar, nombresExist
   async function handleGuardar() {
     const req = campos.find(c => c.required && !form[c.key]?.trim())
     if (req) { setError(`${req.label.replace(' *', '')} es obligatorio`); return }
+    if (rutDuplicado) { setError(`Ese RUT ya está registrado a nombre de ${nombreDuplicado}.`); return }
     setError(''); setGuardando(true)
     await onGuardar(form)
     setGuardando(false); onClose()
@@ -727,6 +736,18 @@ function ContactoModal({ titulo, campos, datos, onClose, onGuardar, nombresExist
   const similar = !isEditing && nombresExistentes
     ? buscarSimilar(form.nombre ?? '', nombresExistentes)
     : undefined
+
+  // RUT: acá NO se avisa, se BLOQUEA. Dos personas pueden llamarse igual sin
+  // ser la misma; dos RUT iguales sí son la misma persona o empresa, así que
+  // dejarlo pasar directamente ensucia las listas con el mismo contacto dos
+  // veces.
+  const rutEscrito = soloRutDigits(form.rut ?? '')
+  const rutDuplicado = !isEditing && rutEscrito && contactosExistentes
+    ? contactosExistentes.find(c => c.rut && soloRutDigits(c.rut) === rutEscrito)
+    : undefined
+  const nombreDuplicado = rutDuplicado
+    ? [rutDuplicado.nombre, rutDuplicado.apellido].filter(Boolean).join(' ') || rutDuplicado.razon_social || 'otro contacto'
+    : ''
 
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40 p-4">
@@ -757,6 +778,14 @@ function ContactoModal({ titulo, campos, datos, onClose, onGuardar, nombresExist
               {c.key === 'nombre' && similar && (
                 <p className="mt-1.5 text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
                   Ya existe <strong>&quot;{similar}&quot;</strong>. Revisá que no sea el mismo.
+                </p>
+              )}
+              {/* RUT: se bloquea, no se sugiere nada más — dos personas
+                  pueden llamarse igual, pero el mismo RUT es el mismo
+                  contacto: dejarlo pasar duplica al cliente en las listas. */}
+              {c.key === 'rut' && rutDuplicado && (
+                <p className="mt-1.5 text-[11px] text-red-700 bg-red-50 border border-red-200 rounded-lg px-2.5 py-1.5 font-medium">
+                  Ese RUT ya está registrado a nombre de {nombreDuplicado}.
                 </p>
               )}
             </div>
