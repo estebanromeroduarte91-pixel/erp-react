@@ -1,5 +1,6 @@
 import { useState, useId } from 'react'
-import { useCajas, useGuardarCajas, useMetodosPago, useGuardarMetodosPago, useBodegas, useVentasConfig, useGuardarVentasConfig } from '@/lib/queries'
+import { useCajas, useGuardarCajas, useMetodosPago, useGuardarMetodosPago, useBodegas, useVentasConfig, useGuardarVentasConfig, contarVentasConMetodo } from '@/lib/queries'
+import { useAuth } from '@/context/AuthContext'
 import { Spinner } from '@/components/shared/Spinner'
 import type { Caja, MetodoPago } from '@/types'
 
@@ -33,6 +34,7 @@ function MetodoIcon({ icon }: { icon: string }) {
 }
 
 export function VentasConfigTab() {
+  const { empresaId } = useAuth()
   const { data: cajas, isLoading: loadingCajas } = useCajas()
   const { data: metodos, isLoading: loadingMetodos } = useMetodosPago()
   const { data: ventasConfig, isLoading: loadingVentasConfig } = useVentasConfig()
@@ -67,7 +69,15 @@ export function VentasConfigTab() {
   async function eliminarMetodo(id: string) {
     const lista = metodos ?? []
     if (lista.length <= 1) return
-    if (!confirm('¿Eliminar este método de pago?')) return
+    // Si ya hay ventas con este método, borrarlo las deja apuntando a un id
+    // que no existe en ningún lado, y todas esas ventas pasan a mostrar
+    // "Método eliminado" en vez del nombre real — de forma permanente, porque
+    // esas ventas ya están cerradas y no se pueden editar.
+    const enUso = empresaId ? await contarVentasConMetodo(empresaId, id) : 0
+    const aviso = enUso > 0
+      ? `Este método tiene ${enUso} venta${enUso === 1 ? '' : 's'} registrada${enUso === 1 ? '' : 's'}. Si lo eliminas, esas ventas van a mostrar "Método eliminado" en vez del nombre real, y no se puede deshacer. ¿Eliminar igual?`
+      : '¿Eliminar este método de pago?'
+    if (!confirm(aviso)) return
     await guardarMetodos.mutateAsync(lista.filter(m => m.id !== id))
   }
 

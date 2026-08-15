@@ -1,6 +1,7 @@
 import { useState, useMemo, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useVentasResumen, useVentasPaginadas, useVentaPorId, useAnularVenta, useMetodosPago, useVentasRealtime, useDteDeVenta } from '@/lib/queries'
+import { nombreMetodoPago } from '@/lib/metodoPago'
 import { useAuth } from '@/context/AuthContext'
 import { Spinner } from '@/components/shared/Spinner'
 import { fechaLocal } from '@/lib/fecha'
@@ -115,11 +116,11 @@ export function VentasListTab() {
     setDetalle(ventaAbrir.data)
   }
 
-  const mpMap = useMemo(() => {
-    const m: Record<string, string> = {}
-    ;(metodos ?? []).forEach(mp => { m[mp.id] = mp.label })
-    return m
-  }, [metodos])
+  // Traducción de id de método de pago a nombre visible. Compartida con
+  // Dashboard y Estadísticas: antes cada pantalla lo hacía a su manera, y una
+  // venta cuyo método de pago se había borrado mostraba el id interno tal cual
+  // ("mpt7zej50ss1s") en vez de algo legible.
+  const mp = (id: string | undefined) => nombreMetodoPago(id, metodos ?? [])
 
   const historico = resumen.data?.historico ?? { count: 0, total: 0, utilidad: 0 }
   const totalVentas = resumen.data?.periodo.total_iva ?? 0
@@ -167,7 +168,7 @@ export function VentasListTab() {
           folio: dte.folio,
           tipo_dte: dte.tipo_dte,
           regenerar: true,
-          forma_pago: mpMap[v.metodo_pago] ?? v.metodo_pago ?? '',
+          forma_pago: mp(v.metodo_pago),
         },
       })
       if (error) throw new Error(await extraerMensajeError(error, 'No se pudo abrir la boleta'))
@@ -268,7 +269,7 @@ export function VentasListTab() {
                 return (
                   <div key={k}>
                     <div className="flex justify-between items-center mb-1">
-                      <span className="text-sm font-semibold text-gray-700">{mpMap[k] ?? k}</span>
+                      <span className="text-sm font-semibold text-gray-700">{mp(k)}</span>
                       <div className="flex items-center gap-3">
                         <span className="text-xs text-gray-400">{count} venta{count !== 1 ? 's' : ''} · {pct}%</span>
                         <span className="text-sm font-bold text-gray-900">{fmt(total)}</span>
@@ -354,7 +355,7 @@ export function VentasListTab() {
                     </span>
                   </div>
                   <p className="text-xs text-gray-400 mt-0.5">
-                    {mpMap[v.metodo_pago] ?? v.metodo_pago ?? '—'} · {v.tipo_doc ?? 'boleta'} · {v.fecha}
+                    {mp(v.metodo_pago)} · {v.tipo_doc ?? 'boleta'} · {v.fecha}
                   </p>
                 </div>
               ))}
@@ -380,7 +381,7 @@ export function VentasListTab() {
                       <td className="px-4 py-3 font-mono text-xs font-semibold text-blue-600">{v.numero}</td>
                       <td className="px-4 py-3 text-gray-600 text-xs">{v.fecha}</td>
                       <td className="px-4 py-3 text-gray-800 font-medium">{v.cliente}</td>
-                      <td className="px-4 py-3 text-gray-500 text-xs">{mpMap[v.metodo_pago] ?? v.metodo_pago ?? '—'}</td>
+                      <td className="px-4 py-3 text-gray-500 text-xs">{mp(v.metodo_pago)}</td>
                       <td className="px-4 py-3 text-xs text-gray-400 capitalize">{v.tipo_doc ?? 'boleta'}</td>
                       <td className="px-4 py-3 text-right">
                         <span className={`font-semibold ${v.estado === 'anulada' ? 'line-through text-gray-400' : 'text-gray-900'}`}>
@@ -440,7 +441,7 @@ export function VentasListTab() {
               <div className="bg-gray-50 rounded-xl p-4 space-y-1.5 text-sm">
                 <div className="flex justify-between text-gray-600">
                   <span>Método de pago</span>
-                  <span className="font-medium">{mpMap[detalle.metodo_pago] ?? detalle.metodo_pago}</span>
+                  <span className="font-medium">{mp(detalle.metodo_pago)}</span>
                 </div>
                 <div className="flex justify-between text-gray-600">
                   <span>Documento</span>

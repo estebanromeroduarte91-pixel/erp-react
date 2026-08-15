@@ -1297,6 +1297,22 @@ export function useMetodosPago() {
   })
 }
 
+// Antes de borrar un método de pago desde Configuración, hay que saber si
+// alguna venta ya lo usa: si se borra igual, esa venta queda apuntando a un id
+// que no existe en ningún lado, y cada pantalla que traduce el id a un nombre
+// termina mostrando el id crudo — es justo lo que le pasó a un id borrado hace
+// tiempo. Se usa `count: 'exact', head: true` para no traer ninguna fila,
+// solo el número.
+export async function contarVentasConMetodo(empresaId: string, metodoId: string): Promise<number> {
+  const { count, error } = await supabase
+    .from('ventas')
+    .select('id', { count: 'exact', head: true })
+    .eq('empresa_id', empresaId)
+    .eq('metodo_pago', metodoId)
+  if (error) throw error
+  return count ?? 0
+}
+
 export interface VentasConfig {
   permitirVentasSinStock: boolean
 }
@@ -1549,8 +1565,13 @@ export function useVentasResumen(desde: string | null, hasta: string | null, bra
   return useQuery({
     queryKey: ['ventas-resumen', empresaId, desde, hasta, branchId],
     queryFn: async () => {
+      // `empresaId` ya es `impersonatedEmpresaId || empresaId` (AuthContext).
+      // Sin mandarlo, la función resolvía la empresa por auth.uid() y un
+      // platform admin impersonando veía SU PROPIA empresa en vez de la
+      // impersonada. El servidor solo honra este valor si quien llama es
+      // platform admin; para cualquier otro usuario se ignora.
       const { data, error } = await supabase.rpc('fn_ventas_resumen', {
-        p_desde: desde, p_hasta: hasta, p_branch_id: branchId,
+        p_desde: desde, p_hasta: hasta, p_branch_id: branchId, p_empresa_id: empresaId,
       })
       if (error) throw error
       return data as VentasResumen

@@ -2,6 +2,7 @@ import { useMemo, useState, useRef } from 'react'
 import { useVentasEnRango, useGastosEnRango, useOrdenesEntregadasEnRango, useBodegas, useOCsEnRango, useCostosProductos, useMetodosPago } from '@/lib/queries'
 import { distribuirGastosPorSucursal } from '@/lib/gastos'
 import { calcularCostoVentas, calcularResumenOperacional, fechaEfectivaOC, filtrarVentasPagadas, periodoAnteriorEquivalente, restarDias, MARGEN_OC_DIAS, type RangoComparacion } from '@/lib/metricas'
+import { nombreMetodoPago } from '@/lib/metodoPago'
 import { Spinner } from '@/components/shared/Spinner'
 import { useIsMobile } from '@/lib/useIsMobile'
 import { fechaLocal } from '@/lib/fecha'
@@ -289,11 +290,10 @@ export function EstadisticasPage() {
   // Dashboard, incluida la capitalización de los métodos por defecto, que se
   // guardan con id en minúscula ("efectivo", "transfer").
   const { data: metodosPago = [] } = useMetodosPago()
-  const nombreMetodo = useMemo(() => {
-    const porId: Record<string, string> = {}
-    metodosPago.forEach(mp => { porId[mp.id] = mp.label })
-    return (id: string) => porId[id] || (id ? id.charAt(0).toUpperCase() + id.slice(1) : '—')
-  }, [metodosPago])
+  // Mismo criterio que Ventas y Dashboard: si el id ya no está en la lista
+  // (el método se borró), no se expone tal cual — quedaría un "mpt7zej50ss1s"
+  // ilegible en la tarjeta.
+  const nombreMetodo = useMemo(() => (id: string) => nombreMetodoPago(id, metodosPago), [metodosPago])
   const productosSinCosto = useMemo(() => [...new Set((ventas ?? []).flatMap(v => (v.items ?? [])
     .filter(item => item.costo_total == null && item.producto_id)
     .map(item => item.producto_id!)))], [ventas])

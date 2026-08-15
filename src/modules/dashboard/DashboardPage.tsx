@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useVentasEnRango, useUltimasVentas, useGastosEnRango, useBodegas, useMetodosPago, useOCsEnRango, useCostosProductos } from '@/lib/queries'
 import { distribuirGastosPorSucursal } from '@/lib/gastos'
 import { calcularCostoVentas, calcularResumenOperacional, fechaEfectivaOC, filtrarVentasPagadas, periodoAnteriorEquivalente, restarDias, MARGEN_OC_DIAS } from '@/lib/metricas'
+import { nombreMetodoPago } from '@/lib/metodoPago'
 import { Spinner } from '@/components/shared/Spinner'
 import { useIsMobile } from '@/lib/useIsMobile'
 import { fechaLocal } from '@/lib/fecha'
@@ -397,12 +398,10 @@ export function DashboardPage() {
       .sort((a, b) => (b.fecha ?? '').localeCompare(a.fecha ?? ''))
   }, [ventas, sucDetalle, desde, hasta, bodegas])
 
-  const mpById = useMemo(() => {
-    const m: Record<string, string> = {}
-    metodos.forEach(mp => { m[mp.id] = mp.label })
-    return m
-  }, [metodos])
-  const getMpLabel = (id: string) => mpById[id] || (id ? id.charAt(0).toUpperCase() + id.slice(1) : '—')
+  // Mismo criterio que Ventas y Estadísticas: si el método de pago de una
+  // venta ya no existe (se borró desde Configuración), no se expone el id
+  // interno crudo.
+  const getMpLabel = (id: string) => nombreMetodoPago(id, metodos)
 
   const drillVentas = useMemo(() => {
     if (!expandedMp) return []
