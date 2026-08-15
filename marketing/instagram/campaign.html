@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Campaña Instagram Pixit</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: #dfe3ea; font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #101218; }
+    body { display: grid; gap: 48px; padding: 48px; width: max-content; }
+    .frame { position: relative; overflow: hidden; isolation: isolate; background: #f8fafc; }
+    .feed { width: 1080px; height: 1350px; }
+    .reel { width: 1080px; height: 1920px; }
+    .generated-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: -3; opacity: .5; }
+    .wash { position: absolute; inset: 0; z-index: -2; background: linear-gradient(145deg, rgba(255,255,255,.96) 0%, rgba(255,255,255,.91) 50%, rgba(243,247,255,.68) 100%); }
+    .grid { position: absolute; inset: 0; z-index: -1; opacity: .19; background-image: linear-gradient(#3157e81a 1px, transparent 1px), linear-gradient(90deg, #3157e81a 1px, transparent 1px); background-size: 72px 72px; mask-image: linear-gradient(to bottom, transparent, #000 25%, #000 85%, transparent); }
+    .content { position: absolute; inset: 0; padding: 58px 66px 60px; display: flex; flex-direction: column; }
+    .brand { height: 50px; width: auto; object-fit: contain; object-position: left center; }
+    .topline { display: flex; align-items: center; justify-content: space-between; min-height: 56px; }
+    .slide-num { font-size: 19px; font-weight: 750; color: #758095; letter-spacing: .08em; }
+    .eyebrow { margin-top: 60px; color: #3157e8; font-size: 21px; line-height: 1; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+    h1 { margin: 21px 0 0; max-width: 900px; font-size: 78px; line-height: .98; letter-spacing: -.055em; font-weight: 840; }
+    h1 .blue { color: #3157e8; }
+    .sub { margin: 28px 0 0; max-width: 850px; font-size: 29px; line-height: 1.28; color: #526074; font-weight: 500; }
+    .spacer { flex: 1; min-height: 24px; }
+    .footer { margin-top: 30px; display: flex; align-items: center; justify-content: space-between; }
+    .cta { display: inline-flex; align-items: center; gap: 13px; padding: 18px 26px; border-radius: 999px; color: white; background: #101218; font-size: 23px; line-height: 1; font-weight: 760; box-shadow: 0 16px 40px rgba(16,18,24,.14); }
+    .cta b { color: #86a0ff; font-size: 28px; }
+    .url { color: #5f6b7d; font-size: 20px; font-weight: 700; letter-spacing: .01em; }
+    .browser { width: 100%; border-radius: 28px; overflow: hidden; background: white; border: 1px solid rgba(120,135,165,.24); box-shadow: 0 34px 90px rgba(32,48,82,.18); }
+    .browser-bar { height: 44px; background: #f3f5f9; display: flex; align-items: center; gap: 9px; padding: 0 18px; border-bottom: 1px solid #e4e8ef; }
+    .dot { width: 11px; height: 11px; border-radius: 999px; background: #c7cfdd; }
+    .dot:nth-child(1) { background: #ff7676; } .dot:nth-child(2) { background: #ffc85a; } .dot:nth-child(3) { background: #5fd18c; }
+    .screen-crop { height: 335px; overflow: hidden; position: relative; background: white; }
+    .screen-crop img { display: block; width: 100%; height: auto; }
+    .screen-crop.fade::after { content: ""; position: absolute; inset: 52% 0 0; background: linear-gradient(transparent, rgba(255,255,255,.98) 88%); }
+    .screen-crop.privacy img { filter: blur(1.7px); transform: scale(1.008); }
+    .screen-crop.privacy::after { content: ""; position: absolute; z-index: 2; inset: 44% 0 0; background: linear-gradient(transparent 0%, rgba(255,255,255,.98) 18%, #fff 35%); }
+    .feature-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-top: 18px; }
+    .mini { padding: 18px; background: rgba(255,255,255,.92); border: 1px solid #e3e8f0; border-radius: 18px; font-size: 18px; color: #465267; font-weight: 650; }
+    .mini strong { display: block; color: #101218; font-size: 22px; margin-bottom: 5px; }
+    .icon { width: 54px; height: 54px; border-radius: 17px; background: #e9eeff; color: #3157e8; display: grid; place-items: center; font-size: 27px; font-weight: 850; margin-bottom: 20px; }
+    .mock-panel { background: rgba(255,255,255,.95); border: 1px solid #e1e6ef; border-radius: 28px; padding: 30px; box-shadow: 0 32px 90px rgba(32,48,82,.16); }
+    .mock-title { display: flex; align-items: center; justify-content: space-between; font-size: 23px; font-weight: 780; margin-bottom: 24px; }
+    .pill { padding: 9px 14px; border-radius: 999px; font-size: 16px; color: #18743d; background: #dff9e8; font-weight: 760; }
+    .check-row { display: flex; align-items: center; gap: 16px; padding: 17px 0; border-top: 1px solid #edf0f5; font-size: 21px; color: #354156; }
+    .check { width: 31px; height: 31px; display: grid; place-items: center; border-radius: 10px; color: white; background: #3157e8; font-size: 18px; font-weight: 850; }
+    .quote { display: grid; grid-template-columns: 1fr 240px; gap: 20px; align-items: center; }
+    .quote-lines { display: grid; gap: 15px; }
+    .line { height: 16px; border-radius: 999px; background: #e9edf4; }
+    .line.short { width: 62%; } .line.medium { width: 82%; }
+    .approve { height: 148px; border-radius: 23px; display: grid; place-items: center; text-align: center; color: #16763e; background: #e0fae9; font-size: 21px; font-weight: 800; }
+    .mail { display: grid; gap: 14px; }
+    .mail-item { padding: 19px 22px; border-radius: 18px; display: flex; gap: 18px; align-items: center; background: #f7f9fc; border: 1px solid #e8ecf3; }
+    .mail-ico { width: 48px; height: 48px; border-radius: 15px; display: grid; place-items: center; background: #e9eeff; color: #3157e8; font-size: 23px; font-weight: 850; }
+    .mail-copy strong { display: block; font-size: 20px; margin-bottom: 4px; }
+    .mail-copy span { color: #6d788a; font-size: 17px; }
+    .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .metric { background: white; border: 1px solid #e2e7ef; border-radius: 23px; padding: 23px; box-shadow: 0 18px 50px rgba(32,48,82,.09); }
+    .metric label { display: block; color: #8791a2; text-transform: uppercase; font-size: 14px; font-weight: 760; letter-spacing: .06em; }
+    .metric strong { display: block; margin-top: 11px; font-size: 30px; letter-spacing: -.03em; }
+    .metric em { display: block; color: #1a9850; font-size: 15px; margin-top: 7px; font-style: normal; font-weight: 750; }
+    .modules { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
+    .module { display: flex; align-items: center; gap: 16px; padding: 20px; border-radius: 20px; border: 1px solid #e2e7ef; background: rgba(255,255,255,.94); font-size: 22px; font-weight: 730; }
+    .module span { width: 43px; height: 43px; border-radius: 13px; display: grid; place-items: center; color: #3157e8; background: #e9eeff; }
+    .collage { display: grid; grid-template-columns: 1.15fr .85fr; gap: 17px; }
+    .collage .browser { height: 370px; }
+    .collage .browser:nth-child(2) { margin-top: 42px; }
+    .collage .screen-crop { height: 326px; }
+    .reel .content { padding: 82px 72px 88px; }
+    .reel .eyebrow { margin-top: 120px; font-size: 24px; }
+    .reel h1 { font-size: 92px; max-width: 900px; }
+    .reel .sub { font-size: 32px; max-width: 820px; }
+    .reel .browser { border-radius: 34px; }
+    .reel .screen-crop { height: 500px; }
+    .reel .screen-crop img { width: 1180px; max-width: none; transform: translateX(-90px); }
+    .reel-tag { display: inline-flex; align-items: center; align-self: flex-start; gap: 11px; margin-top: 28px; padding: 14px 20px; border-radius: 999px; background: #3157e8; color: white; font-size: 20px; font-weight: 800; }
+    .play { width: 33px; height: 33px; border-radius: 50%; display: grid; place-items: center; color: #3157e8; background: white; font-size: 15px; padding-left: 2px; }
+    .timeline { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-top: 20px; }
+    .step { position: relative; padding: 23px 13px; border-radius: 17px; text-align: center; color: #596579; background: white; border: 1px solid #e2e7ef; font-size: 16px; font-weight: 720; }
+    .step::before { content: attr(data-n); display: block; margin: 0 auto 10px; width: 31px; height: 31px; line-height: 31px; border-radius: 50%; background: #e9eeff; color: #3157e8; }
+  </style>
+</head>
+<body>
+  <section class="frame feed" data-file="01-papel-whatsapp">
+    <img class="generated-bg" src="assets/pixit-campaign-background.png" alt="" /><div class="wash"></div><div class="grid"></div>
+    <div class="content">
+      <div class="topline"><img class="brand" src="../../public/logo-pixit.png" /><span class="slide-num">01 / 09</span></div>
+      <div class="eyebrow">Ordena tu servicio técnico</div>
+      <h1>Deja el papel y <span class="blue">WhatsApp</span> atrás.</h1>
+      <p class="sub">Centraliza órdenes, clientes, equipos y estados en un solo lugar.</p>
+      <div class="spacer"></div>
+      <div class="browser"><div class="browser-bar"><i class="dot"></i><i class="dot"></i><i class="dot"></i></div><div class="screen-crop"><img src="assets/ordenes-sanitized.png" /></div></div>
+      <div class="footer"><span class="cta">Agenda una demo <b>→</b></span><span class="url">pixit.cl</span></div>
+    </div>
+  </section>
+
+  <section class="frame feed" data-file="02-orden-digital">
+    <img class="generated-bg" src="assets/pixit-campaign-background.png" alt="" /><div class="wash"></div><div class="grid"></div>
+    <div class="content">
+      <div class="topline"><img class="brand" src="../../public/logo-pixit.png" /><span class="slide-num">02 / 09</span></div>
+      <div class="eyebrow">Órdenes de trabajo</div>
+      <h1>Cada equipo, una <span class="blue">orden digital.</span></h1>
+      <p class="sub">Estado, cliente, equipo, trabajo solicitado y repuestos siempre conectados.</p>
+      <div class="spacer"></div>
+      <div class="browser"><div class="browser-bar"><i class="dot"></i><i class="dot"></i><i class="dot"></i></div><div class="screen-crop"><img src="assets/ordenes-sanitized.png" /></div></div>
+      <div class="feature-row"><div class="mini"><strong>Encuentra</strong>cualquier OT</div><div class="mini"><strong>Separa</strong>por sucursal</div><div class="mini"><strong>Controla</strong>cada estado</div></div>
+      <div class="footer"><span class="cta">Conoce Pixit <b>→</b></span><span class="url">pixit.cl</span></div>
+    </div>
+  </section>
+
+  <section class="frame feed" data-file="03-fotos-checklists">
+    <img class="generated-bg" src="assets/pixit-campaign-background.png" alt="" /><div class="wash"></div><div class="grid"></div>
+    <div class="content">
+      <div class="topline"><img class="brand" src="../../public/logo-pixit.png" /><span class="slide-num">03 / 09</span></div>
+      <div class="eyebrow">Recepción protegida</div>
+      <h1>Fotos y checklists <span class="blue">desde el ingreso.</span></h1>
+      <p class="sub">Deja respaldo del estado físico del equipo antes de comenzar el trabajo.</p>
+      <div class="spacer"></div>
+      <div class="mock-panel">
+        <div class="mock-title"><span>Orden #3818 · Recepción</span><span class="pill">✓ Completo</span></div>
+        <div class="check-row"><span class="check">✓</span><span>Checklist de ingreso registrado</span></div>
+        <div class="check-row"><span class="check">4</span><span>Fotografías del equipo guardadas</span></div>
+        <div class="check-row"><span class="check">✓</span><span>Estado físico documentado</span></div>
+      </div>
+      <div class="footer"><span class="cta">Protege tu taller <b>→</b></span><span class="url">pixit.cl</span></div>
+    </div>
+  </section>
+
+  <section class="frame feed" data-file="04-stock-sucursales">
+    <img class="generated-bg" src="assets/pixit-campaign-background.png" alt="" /><div class="wash"></div><div class="grid"></div>
+    <div class="content">
+      <div class="topline"><img class="brand" src="../../public/logo-pixit.png" /><span class="slide-num">04 / 09</span></div>
+      <div class="eyebrow">Inventario multissucursal</div>
+      <h1>El stock correcto, en el <span class="blue">lugar correcto.</span></h1>
+      <p class="sub">Consulta existencias, costos y precios por sucursal desde una sola pantalla.</p>
+      <div class="spacer"></div>
+      <div class="browser"><div class="browser-bar"><i class="dot"></i><i class="dot"></i><i class="dot"></i></div><div class="screen-crop"><img src="assets/inventario-sanitized.png" /></div></div>
+      <div class="footer"><span class="cta">Controla tu inventario <b>→</b></span><span class="url">pixit.cl</span></div>
+    </div>
+  </section>
+
+  <section class="frame feed" data-file="05-pos-inventario">
+    <img class="generated-bg" src="assets/pixit-campaign-background.png" alt="" /><div class="wash"></div><div class="grid"></div>
+    <div class="content">
+      <div class="topline"><img class="brand" src="../../public/logo-pixit.png" /><span class="slide-num">05 / 09</span></div>
+      <div class="eyebrow">Punto de venta conectado</div>
+      <h1>Vende y actualiza inventario en <span class="blue">un paso.</span></h1>
+      <p class="sub">Vincula la OT, cobra y registra la salida de stock sin duplicar trabajo.</p>
+      <div class="spacer"></div>
+      <div class="browser"><div class="browser-bar"><i class="dot"></i><i class="dot"></i><i class="dot"></i></div><div class="screen-crop"><img src="assets/pos-sanitized.png" /></div></div>
+      <div class="footer"><span class="cta">Vende con más control <b>→</b></span><span class="url">pixit.cl</span></div>
+    </div>
+  </section>
+
+  <section class="frame feed" data-file="06-cotizaciones">
+    <img class="generated-bg" src="assets/pixit-campaign-background.png" alt="" /><div class="wash"></div><div class="grid"></div>
+    <div class="content">
+      <div class="topline"><img class="brand" src="../../public/logo-pixit.png" /><span class="slide-num">06 / 09</span></div>
+      <div class="eyebrow">Cotizaciones y aprobación</div>
+      <h1>Aprueba trabajos sin llamadas <span class="blue">interminables.</span></h1>
+      <p class="sub">Envía el presupuesto, registra la respuesta y conserva la trazabilidad.</p>
+      <div class="spacer"></div>
+      <div class="mock-panel quote"><div class="quote-lines"><div class="mock-title"><span>Cotización #COT-1048</span></div><div class="line"></div><div class="line medium"></div><div class="line short"></div><div class="line"></div></div><div class="approve">✓<br />Aprobada por<br />el cliente</div></div>
+      <div class="feature-row"><div class="mini"><strong>Envía</strong>por email</div><div class="mini"><strong>Comparte</strong>por WhatsApp</div><div class="mini"><strong>Registra</strong>la aprobación</div></div>
+      <div class="footer"><span class="cta">Acelera tus aprobaciones <b>→</b></span><span class="url">pixit.cl</span></div>
+    </div>
+  </section>
+
+  <section class="frame feed" data-file="07-notificaciones">
+    <img class="generated-bg" src="assets/pixit-campaign-background.png" alt="" /><div class="wash"></div><div class="grid"></div>
+    <div class="content">
+      <div class="topline"><img class="brand" src="../../public/logo-pixit.png" /><span class="slide-num">07 / 09</span></div>
+      <div class="eyebrow">Comunicación automática</div>
+      <h1>Tu cliente sabe cuándo su equipo está <span class="blue">listo.</span></h1>
+      <p class="sub">Mantén una atención profesional desde el ingreso hasta la entrega.</p>
+      <div class="spacer"></div>
+      <div class="mock-panel mail"><div class="mail-item"><div class="mail-ico">01</div><div class="mail-copy"><strong>Equipo recibido</strong><span>La orden fue registrada correctamente.</span></div></div><div class="mail-item"><div class="mail-ico">02</div><div class="mail-copy"><strong>Presupuesto disponible</strong><span>El cliente puede revisar la propuesta.</span></div></div><div class="mail-item"><div class="mail-ico">03</div><div class="mail-copy"><strong>Equipo listo para retirar</strong><span>Aviso enviado automáticamente.</span></div></div></div>
+      <div class="footer"><span class="cta">Mejora la experiencia <b>→</b></span><span class="url">pixit.cl</span></div>
+    </div>
+  </section>
+
+  <section class="frame feed" data-file="08-estadisticas">
+    <img class="generated-bg" src="assets/pixit-campaign-background.png" alt="" /><div class="wash"></div><div class="grid"></div>
+    <div class="content">
+      <div class="topline"><img class="brand" src="../../public/logo-pixit.png" /><span class="slide-num">08 / 09</span></div>
+      <div class="eyebrow">Información para decidir</div>
+      <h1>Decide con números, no con <span class="blue">suposiciones.</span></h1>
+      <p class="sub">Ventas, costos, transacciones y sucursales disponibles rápidamente.</p>
+      <div class="spacer"></div>
+      <div class="metrics"><div class="metric"><label>Ventas brutas</label><strong>$3.240.000</strong><em>datos de ejemplo</em></div><div class="metric"><label>Ventas netas</label><strong>$2.722.689</strong><em>sin IVA · ejemplo</em></div><div class="metric"><label>Transacciones</label><strong>36</strong><em>ejemplo del mes</em></div></div>
+      <div class="browser" style="margin-top:17px"><div class="browser-bar"><i class="dot"></i><i class="dot"></i><i class="dot"></i></div><div class="screen-crop fade"><img src="../../public/app-screenshot.png" /></div></div>
+      <div class="footer"><span class="cta">Conoce tus resultados <b>→</b></span><span class="url">pixit.cl</span></div>
+    </div>
+  </section>
+
+  <section class="frame feed" data-file="09-todo-en-uno">
+    <img class="generated-bg" src="assets/pixit-campaign-background.png" alt="" /><div class="wash"></div><div class="grid"></div>
+    <div class="content">
+      <div class="topline"><img class="brand" src="../../public/logo-pixit.png" /><span class="slide-num">09 / 09</span></div>
+      <div class="eyebrow">Pixit para servicios técnicos</div>
+      <h1>Un solo sistema para <span class="blue">todo tu taller.</span></h1>
+      <p class="sub">Menos desorden. Más control. Una mejor experiencia para tu cliente.</p>
+      <div class="spacer"></div>
+      <div class="modules"><div class="module"><span>OT</span>Órdenes de trabajo</div><div class="module"><span>POS</span>Ventas y caja</div><div class="module"><span>ST</span>Inventario y sucursales</div><div class="module"><span>CT</span>Cotizaciones</div><div class="module"><span>OC</span>Compras y proveedores</div><div class="module"><span>BI</span>Estadísticas</div></div>
+      <div class="footer"><span class="cta">Agenda una demo <b>→</b></span><span class="url">pixit.cl</span></div>
+    </div>
+  </section>
+
+  <section class="frame reel" data-file="reel-01-crear-orden">
+    <img class="generated-bg" src="assets/pixit-campaign-background.png" alt="" /><div class="wash"></div><div class="grid"></div>
+    <div class="content">
+      <div class="topline"><img class="brand" src="../../public/logo-pixit.png" /><span class="slide-num">REEL · 15 S</span></div>
+      <div class="eyebrow">Mira Pixit en acción</div>
+      <h1>Así se crea una <span class="blue">orden de trabajo.</span></h1>
+      <p class="sub">Cliente, equipo y recepción registrados en pocos pasos.</p>
+      <div class="reel-tag"><span class="play">▶</span> Ver demostración</div>
+      <div class="spacer"></div>
+      <div class="browser"><div class="browser-bar"><i class="dot"></i><i class="dot"></i><i class="dot"></i></div><div class="screen-crop"><img src="assets/ordenes-sanitized.png" /></div></div>
+      <div class="footer"><span class="cta">Agenda una demo <b>→</b></span><span class="url">pixit.cl</span></div>
+    </div>
+  </section>
+
+  <section class="frame reel" data-file="reel-02-ingreso-entrega">
+    <img class="generated-bg" src="assets/pixit-campaign-background.png" alt="" /><div class="wash"></div><div class="grid"></div>
+    <div class="content">
+      <div class="topline"><img class="brand" src="../../public/logo-pixit.png" /><span class="slide-num">REEL · 20 S</span></div>
+      <div class="eyebrow">Flujo completo del taller</div>
+      <h1>Del ingreso a la <span class="blue">entrega.</span></h1>
+      <p class="sub">Cada cambio de estado queda ordenado y disponible para tu equipo.</p>
+      <div class="reel-tag"><span class="play">▶</span> Flujo de una OT</div>
+      <div class="spacer"></div>
+      <div class="timeline"><div class="step" data-n="1">Chequeo</div><div class="step" data-n="2">Reparación</div><div class="step" data-n="3">Listo</div><div class="step" data-n="4">Entregado</div></div>
+      <div class="browser" style="margin-top:22px"><div class="browser-bar"><i class="dot"></i><i class="dot"></i><i class="dot"></i></div><div class="screen-crop"><img src="assets/ordenes-sanitized.png" /></div></div>
+      <div class="footer"><span class="cta">Ordena tu operación <b>→</b></span><span class="url">pixit.cl</span></div>
+    </div>
+  </section>
+
+  <section class="frame reel" data-file="reel-03-ventas-sucursal">
+    <img class="generated-bg" src="assets/pixit-campaign-background.png" alt="" /><div class="wash"></div><div class="grid"></div>
+    <div class="content">
+      <div class="topline"><img class="brand" src="../../public/logo-pixit.png" /><span class="slide-num">REEL · 15 S</span></div>
+      <div class="eyebrow">Estadísticas multissucursal</div>
+      <h1>¿Cuánto vendió cada <span class="blue">sucursal?</span></h1>
+      <p class="sub">Compara resultados y revisa el negocio desde cualquier lugar.</p>
+      <div class="reel-tag"><span class="play">▶</span> Resumen en tiempo real</div>
+      <div class="spacer"></div>
+      <div class="metrics"><div class="metric"><label>Sucursal 01</label><strong>62%</strong><em>datos de ejemplo</em></div><div class="metric"><label>Sucursal 02</label><strong>38%</strong><em>datos de ejemplo</em></div><div class="metric"><label>Periodo</label><strong>Mes</strong><em>filtro activo</em></div></div>
+      <div class="browser" style="margin-top:22px"><div class="browser-bar"><i class="dot"></i><i class="dot"></i><i class="dot"></i></div><div class="screen-crop fade"><img src="../../public/app-screenshot.png" /></div></div>
+      <div class="footer"><span class="cta">Conoce tus números <b>→</b></span><span class="url">pixit.cl</span></div>
+    </div>
+  </section>
+</body>
+</html>
