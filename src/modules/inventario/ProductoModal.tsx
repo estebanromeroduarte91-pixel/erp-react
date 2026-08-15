@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useGuardarProducto, useCategorias, useGuardarCategorias } from '@/lib/queries'
 import type { Producto, Bodega } from '@/types'
 
@@ -49,6 +50,27 @@ export function ProductoModal({ producto, productos, bodegas, onClose, onGuardad
   const [venderOnline, setVenderOnline] = useState(producto?.vender_online === true)
   const [categoriaOpen, setCategoriaOpen] = useState(false)
   const [catQuery, setCatQuery] = useState('')
+  // El desplegable se dibuja en una capa aparte anclada al campo: dentro del
+  // modal quedaba recortado por el contenedor con scroll, y se veía la lista
+  // cortada a la mitad.
+  const catBtnRef = useRef<HTMLButtonElement>(null)
+  const [catPos, setCatPos] = useState<{ left: number; width: number; top?: number; bottom?: number } | null>(null)
+
+  function abrirCategorias() {
+    const r = catBtnRef.current?.getBoundingClientRect()
+    if (r) {
+      const alto = 300
+      // Si no entra abajo, se abre hacia arriba en vez de salirse de la
+      // pantalla. La medición se hace acá y no en el render: leer
+      // `window.innerHeight` mientras se renderiza es una lectura impura.
+      const haciaArriba = r.bottom + alto > window.innerHeight && r.top > alto
+      setCatPos(haciaArriba
+        ? { left: r.left, width: r.width, bottom: window.innerHeight - r.top + 4 }
+        : { left: r.left, width: r.width, top: r.bottom + 4 })
+    }
+    setCatQuery('')
+    setCategoriaOpen(true)
+  }
   // En modo caja arranca plegado; fuera de la caja no aplica.
   const [masOpciones, setMasOpciones] = useState(false)
   const verSecundarios = !compacto || masOpciones
@@ -251,18 +273,21 @@ export function ProductoModal({ producto, productos, bodegas, onClose, onGuardad
                     intentaba escribir una categoría nueva. El buscador va
                     adentro para que el campo de arriba muestre solo lo elegido
                     y no se confunda "lo que busco" con "lo que voy a guardar". */}
-                <button type="button"
-                  onClick={() => { setCategoriaOpen(v => !v); setCatQuery('') }}
+                <button type="button" ref={catBtnRef}
+                  onClick={() => categoriaOpen ? setCategoriaOpen(false) : abrirCategorias()}
                   className="w-full flex items-center justify-between gap-2 border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 hover:border-gray-300 transition text-left">
                   <span className={categoria ? 'text-gray-900' : 'text-gray-400'}>
                     {categoria || 'Seleccionar categoría'}
                   </span>
                   <svg className={`w-4 h-4 text-gray-400 flex-shrink-0 transition ${categoriaOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" d="m6 9 6 6 6-6" /></svg>
                 </button>
-                {categoriaOpen && (
+                {categoriaOpen && catPos && createPortal(
                   <>
-                    <div className="fixed inset-0 z-30" onClick={() => setCategoriaOpen(false)} />
-                    <div className="absolute left-0 right-0 z-40 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+                    <div className="fixed inset-0 z-[60]" onClick={() => setCategoriaOpen(false)} />
+                    <div
+                      className="fixed z-[61] bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden"
+                      style={{ left: catPos.left, width: catPos.width, top: catPos.top, bottom: catPos.bottom }}
+                    >
                       <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-100 bg-gray-50">
                         <svg className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="11" cy="11" r="7" /><path strokeLinecap="round" d="M21 21l-6-6" /></svg>
                         <input autoFocus value={catQuery} onChange={e => setCatQuery(e.target.value)}
@@ -292,7 +317,8 @@ export function ProductoModal({ producto, productos, bodegas, onClose, onGuardad
                         </button>
                       )}
                     </div>
-                  </>
+                  </>,
+                  document.body,
                 )}
               </div>
               {verSecundarios && <div className="relative">
