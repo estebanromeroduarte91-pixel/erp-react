@@ -225,7 +225,10 @@ export function TallerPage() {
       await eliminarOrden.mutateAsync(ordenAEliminar.id)
       setOrdenAEliminar(null)
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'No se pudo eliminar la orden. Intenta de nuevo.')
+      const mensaje = e && typeof e === 'object' && 'message' in e && typeof e.message === 'string'
+        ? e.message
+        : 'No se pudo eliminar la orden. Intenta de nuevo.'
+      alert(mensaje)
     } finally {
       setEliminando(false)
     }
