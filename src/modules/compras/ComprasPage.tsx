@@ -1083,7 +1083,7 @@ export function ComprasPage() {
       const q = search.toLowerCase()
       base = base.filter(o => (o.numero ?? '').toLowerCase().includes(q) || (o.proveedor_nombre ?? '').toLowerCase().includes(q))
     }
-    return [...base].reverse()
+    return [...base].sort((a, b) => (b.fecha ?? '').localeCompare(a.fecha ?? '') || (b.numero ?? '').localeCompare(a.numero ?? ''))
   })()
 
   async function handleSaveOC(data: Partial<OC> & { id?: string }) {

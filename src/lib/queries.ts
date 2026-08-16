@@ -2697,6 +2697,7 @@ export function useOCs() {
           .from('ocs')
           .select('*')
           .eq('empresa_id', empresaId!)
+          .order('numero', { ascending: true })
           .range(from, from + PAGE - 1)
         if (error) throw error
         filas.push(...(data ?? []))
