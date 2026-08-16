@@ -1,5 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import webpush from 'https://esm.sh/web-push@3.6.7'
+import { empresaPermitida } from '../_shared/impersonacion.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -30,25 +31,29 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
 
-    // La empresa sale del perfil del usuario autenticado — nunca del body.
+    // La empresa sale del perfil del usuario autenticado — nunca directo del
+    // body. La única excepción es un platform admin impersonando desde el
+    // Panel Pixit, y solo si empresaPermitida confirma que es platform admin
+    // de verdad (no basta con que el body lo pida).
     const { data: profile } = await supabase
       .from('user_profiles')
       .select('empresa_id')
       .eq('id', userData.user.id)
       .maybeSingle()
-    const empresaId = profile?.empresa_id
-    if (!empresaId) {
+    if (!profile?.empresa_id) {
       return new Response(JSON.stringify({ ok: false, error: 'Usuario sin empresa' }), {
         status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    const { title, body, url } = await req.json()
+    const { title, body, url, empresa_id: empresaSolicitada } = await req.json()
     if (!title) {
       return new Response(JSON.stringify({ ok: false, error: 'Faltan parámetros' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
+
+    const { empresaId } = await empresaPermitida(supabase, userData.user.id, profile.empresa_id as string, empresaSolicitada)
 
     webpush.setVapidDetails(
       Deno.env.get('VAPID_SUBJECT')!.trim(),

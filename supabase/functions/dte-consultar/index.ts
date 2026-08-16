@@ -10,6 +10,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { consultarSobreBoleta, crearSesionBoletaSii } from "../_shared/sii-boleta.ts";
+import { empresaPermitida } from "../_shared/impersonacion.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -41,7 +42,7 @@ function secretosIguales(a: string, b: string): boolean {
 
 type Alcance = { todas: true } | { todas: false; empresaId: string };
 
-async function alcanceAutorizado(req: Request): Promise<Alcance | null> {
+async function alcanceAutorizado(req: Request, empresaSolicitada?: string): Promise<Alcance | null> {
   const tokenCron = req.headers.get("x-cron-token") ?? "";
   if (CRON_TOKEN && tokenCron && secretosIguales(tokenCron, CRON_TOKEN)) return { todas: true };
 
@@ -60,7 +61,9 @@ async function alcanceAutorizado(req: Request): Promise<Alcance | null> {
   const { data: perfil } = await admin
     .from("user_profiles").select("empresa_id, activo").eq("id", data.user.id).maybeSingle();
   if (!perfil?.empresa_id || perfil.activo === false) return null;
-  return { todas: false, empresaId: String(perfil.empresa_id) };
+
+  const { empresaId } = await empresaPermitida(admin, data.user.id, perfil.empresa_id as string, empresaSolicitada);
+  return { todas: false, empresaId };
 }
 
 const rutSii = (v: string) => {
@@ -90,7 +93,14 @@ function interpretar(texto: string): "aceptado" | "rechazado" | null {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ ok: false, error: "Método no permitido" }, 405);
-  const alcance = await alcanceAutorizado(req);
+
+  let empresaSolicitada: string | undefined;
+  try {
+    const cuerpo = await req.json();
+    empresaSolicitada = typeof cuerpo?.empresa_id === "string" ? cuerpo.empresa_id : undefined;
+  } catch { /* sin cuerpo, comportamiento normal */ }
+
+  const alcance = await alcanceAutorizado(req, empresaSolicitada);
   if (!alcance) return json({ ok: false, error: "No autorizado" }, 401);
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);

@@ -15,7 +15,9 @@ export async function notifyNuevoEquipo(empresaId: string, data: NuevoEquipoData
     const partes = [data.cliente, data.modelo, data.falla, data.sucursal].filter(Boolean)
     await supabase.functions.invoke('send-push-notification', {
       body: {
-        empresaId,
+        // empresa_id: empresa impersonada (Panel Pixit). La Edge Function la
+        // ignora salvo que quien llama sea realmente platform admin.
+        empresa_id: empresaId,
         title: `Nueva orden #OT-${String(data.num).padStart(4, '0')}`,
         body: partes.join(' — '),
         url: '/#/taller',

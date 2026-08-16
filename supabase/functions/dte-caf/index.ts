@@ -10,6 +10,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { XMLParser } from "https://esm.sh/fast-xml-parser@4.5.0";
+import { empresaPermitida } from "../_shared/impersonacion.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -39,7 +40,7 @@ const TIPOS_SOPORTADOS: Record<number, string> = {
   56: "Nota de débito",
 };
 
-async function identificar(req: Request) {
+async function identificar(req: Request, empresaSolicitada?: string) {
   const cabecera = req.headers.get("Authorization") ?? "";
   const jwt = cabecera.replace("Bearer ", "").trim();
   if (!jwt || jwt === ANON_KEY) return null;
@@ -53,25 +54,35 @@ async function identificar(req: Request) {
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
   const { data: perfil } = await admin
     .from("user_profiles").select("empresa_id, role, activo").eq("id", data.user.id).maybeSingle();
+  if (!perfil?.empresa_id || perfil.activo === false) return null;
 
-  if (!perfil?.empresa_id || perfil.activo === false || perfil.role !== "admin") return null;
-  return { empresaId: perfil.empresa_id as string };
+  const { empresaId, impersonando } = await empresaPermitida(
+    admin, data.user.id, perfil.empresa_id as string, empresaSolicitada,
+  );
+  // Un platform admin impersonando no tiene por qué tener rol "admin" en la
+  // empresa del cliente, así que el chequeo se omite SOLO en esa rama.
+  if (!impersonando && perfil.role !== "admin") return null;
+  return { empresaId };
 }
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ ok: false, error: "Método no permitido" }, 405);
 
-  const quien = await identificar(req);
-  if (!quien) return json({ ok: false, error: "Solo un administrador de la empresa puede cargar folios" }, 401);
-
   let archivo: File | null = null;
+  let empresaSolicitada: string | undefined;
   try {
     const form = await req.formData();
     archivo = form.get("caf") as File | null;
+    const eid = form.get("empresa_id");
+    empresaSolicitada = typeof eid === "string" ? eid : undefined;
   } catch {
     return json({ ok: false, error: "Se esperaba un formulario con el archivo CAF" }, 400);
   }
+
+  const quien = await identificar(req, empresaSolicitada);
+  if (!quien) return json({ ok: false, error: "Solo un administrador de la empresa puede cargar folios" }, 401);
+
   if (!archivo) return json({ ok: false, error: "Falta el archivo CAF" }, 400);
   if (archivo.size > 256 * 1024) return json({ ok: false, error: "El archivo es demasiado grande para ser un CAF" }, 400);
 

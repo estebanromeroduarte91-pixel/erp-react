@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useEmailDomain, useGuardarEmailDomain } from '@/lib/queries'
 import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/context/AuthContext'
 import { Spinner } from '@/components/shared/Spinner'
 import type { EmailDomain, DominioRecord } from '@/types'
 
@@ -21,6 +22,7 @@ const REC_STATUS: Record<string, { color: string; label: string }> = {
 }
 
 export function DominioTab() {
+  const { empresaId } = useAuth()
   const { data: saved, isLoading } = useEmailDomain()
   const guardarDomain = useGuardarEmailDomain()
 
@@ -48,7 +50,7 @@ export function DominioTab() {
     if (!d || !d.includes('.')) { showToast('Ingresa un dominio válido (ej: empresa.cl)', 'err'); return }
     setLoading('crear')
     try {
-      const { data: res, error } = await supabase.functions.invoke('manage-domain', { body: { action: 'create', domain: d } })
+      const { data: res, error } = await supabase.functions.invoke('manage-domain', { body: { action: 'create', domain: d, empresa_id: empresaId } })
       if (error || !res?.ok) { showToast('Error: ' + (res?.error ?? error?.message ?? 'No se pudo crear el dominio'), 'err'); return }
       const updated: EmailDomain = {
         domain: res.name,
@@ -70,7 +72,7 @@ export function DominioTab() {
     if (!domain.domainId) return
     setLoading('check')
     try {
-      const { data: res, error } = await supabase.functions.invoke('manage-domain', { body: { action: 'verify', domainId: domain.domainId } })
+      const { data: res, error } = await supabase.functions.invoke('manage-domain', { body: { action: 'verify', domainId: domain.domainId, empresa_id: empresaId } })
       if (error || !res?.ok) { showToast('Error: ' + (res?.error ?? error?.message ?? 'No se pudo comprobar'), 'err'); return }
       const updated = { ...domain, status: res.status, records: res.records ?? domain.records }
       await guardarDomain.mutateAsync(updated)

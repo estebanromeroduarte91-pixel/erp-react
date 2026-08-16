@@ -12,6 +12,7 @@
 // emisor es la empresa.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { empresaPermitida } from "../_shared/impersonacion.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -47,6 +48,10 @@ interface ItemEntrada {
 interface Entrada {
   tipo_dte: number
   venta_id?: string
+  // Empresa que se está impersonando desde el Panel Pixit. Se ignora por
+  // completo salvo que quien llama sea platform admin (empresaPermitida) —
+  // ver supabase/functions/_shared/impersonacion.ts.
+  empresa_id?: string
   receptor?: {
     rut?: string; razon_social?: string; direccion?: string
     comuna?: string; giro?: string; contacto?: string
@@ -59,7 +64,7 @@ const rutSii = (v: string) => {
   return limpio.length < 2 ? limpio : `${limpio.slice(0, -1)}-${limpio.slice(-1)}`;
 };
 
-async function identificar(req: Request) {
+async function identificar(req: Request, empresaSolicitada?: string) {
   const cabecera = req.headers.get("Authorization") ?? "";
   const jwt = cabecera.replace("Bearer ", "").trim();
   if (!jwt || jwt === ANON_KEY) return null;
@@ -75,9 +80,16 @@ async function identificar(req: Request) {
     .from("user_profiles").select("empresa_id, role, activo").eq("id", data.user.id).maybeSingle();
 
   if (!perfil?.empresa_id || perfil.activo === false) return null;
-  // Emitir es una tarea de mostrador: la hace quien vende.
-  if (!["admin", "encargado", "vendedor"].includes(String(perfil.role))) return null;
-  return { empresaId: perfil.empresa_id as string };
+
+  const { empresaId, impersonando } = await empresaPermitida(
+    admin, data.user.id, perfil.empresa_id as string, empresaSolicitada,
+  );
+  // Emitir es una tarea de mostrador: la hace quien vende. Un platform admin
+  // impersonando no tiene por qué tener ese rol en la empresa del cliente, así
+  // que el chequeo se omite SOLO en esa rama (mismo criterio que
+  // fn_confirmar_venta, migración 49).
+  if (!impersonando && !["admin", "encargado", "vendedor"].includes(String(perfil.role))) return null;
+  return { empresaId };
 }
 
 // En una BOLETA los precios que se muestran ya incluyen IVA — es el precio que
@@ -127,15 +139,16 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ ok: false, error: "Método no permitido" }, 405);
 
-  const quien = await identificar(req);
-  if (!quien) return json({ ok: false, error: "No autorizado" }, 401);
-
   let entrada: Entrada;
   try {
     entrada = await req.json();
   } catch {
     return json({ ok: false, error: "Cuerpo inválido" }, 400);
   }
+
+  const quien = await identificar(req, entrada?.empresa_id);
+  if (!quien) return json({ ok: false, error: "No autorizado" }, 401);
+
   if (!entrada?.tipo_dte) return json({ ok: false, error: "Falta el tipo de documento" }, 400);
   if (!entrada?.items?.length) return json({ ok: false, error: "El documento no tiene líneas de detalle" }, 400);
 

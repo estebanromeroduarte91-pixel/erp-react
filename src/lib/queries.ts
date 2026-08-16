@@ -2367,6 +2367,9 @@ export function useSubirCertificadoDte() {
       const form = new FormData()
       form.append('certificado', archivo)
       form.append('clave', clave)
+      // Empresa impersonada (Panel Pixit). La Edge Function la ignora salvo
+      // que quien llama sea realmente platform admin.
+      if (empresaId) form.append('empresa_id', empresaId)
       const { data, error } = await supabase.functions.invoke('dte-certificado', { body: form })
       if (error) throw new Error(await extraerMensajeError(error, 'No se pudo cargar el certificado'))
       return data as { rut_firmante: string; vence_el: string; emitido_para: string }
@@ -2411,6 +2414,7 @@ export function useSubirCafDte() {
     mutationFn: async (archivo: File) => {
       const form = new FormData()
       form.append('caf', archivo)
+      if (empresaId) form.append('empresa_id', empresaId)
       const { data, error } = await supabase.functions.invoke('dte-caf', { body: form })
       if (error) throw new Error(await extraerMensajeError(error, 'No se pudo cargar el CAF'))
       return data as { documento: string; ambiente: string; folio_desde: number; folio_hasta: number; cantidad: number }
@@ -2465,6 +2469,7 @@ export function useDteDeVenta(ventaId?: string) {
 }
 
 export function useEmitirDte() {
+  const { empresaId } = useAuth()
   return useMutation({
     mutationFn: async (datos: {
       tipo_dte: number
@@ -2472,7 +2477,11 @@ export function useEmitirDte() {
       receptor?: ReceptorDte
       items: ItemDte[]
     }) => {
-      const { data, error } = await supabase.functions.invoke('dte-emitir', { body: datos })
+      // empresa_id: empresa impersonada (Panel Pixit). La Edge Function la
+      // ignora salvo que quien llama sea realmente platform admin — sin esto,
+      // un platform admin impersonando emitía boletas con los datos
+      // tributarios de SU PROPIA empresa en vez de la del cliente.
+      const { data, error } = await supabase.functions.invoke('dte-emitir', { body: { ...datos, empresa_id: empresaId } })
       if (error) throw new Error(await extraerMensajeError(error, 'No se pudo emitir el documento'))
       return data as { folio: number; tipo_dte: number; neto: number; iva: number; total: number }
     },
@@ -2480,9 +2489,10 @@ export function useEmitirDte() {
 }
 
 export function useImprimirDte() {
+  const { empresaId } = useAuth()
   return useMutation({
     mutationFn: async (datos: { folio: number; tipo_dte: number; forma_pago?: string }) => {
-      const { data, error } = await supabase.functions.invoke('dte-imprimir', { body: datos })
+      const { data, error } = await supabase.functions.invoke('dte-imprimir', { body: { ...datos, empresa_id: empresaId } })
       if (error) throw new Error(await extraerMensajeError(error, 'No se pudo imprimir el documento'))
       return data as { pdf_base64: string }
     },
@@ -2519,14 +2529,15 @@ export function useDteDocumentos(limite = 20) {
 }
 
 // Disparo manual del mismo proceso que ejecuta el cron. La Edge Function
-// limita la operación a la empresa de la sesión; el navegador nunca puede
-// enviar documentos de otro contribuyente.
+// limita la operación a la empresa de la sesión (o a la impersonada, si quien
+// llama es platform admin); el navegador nunca puede enviar documentos de un
+// contribuyente que no sea ese.
 export function useEnviarDte() {
   const { empresaId } = useAuth()
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async () => {
-      const { data, error } = await supabase.functions.invoke('dte-enviar', { body: {} })
+      const { data, error } = await supabase.functions.invoke('dte-enviar', { body: { empresa_id: empresaId } })
       if (error) throw new Error(await extraerMensajeError(error, 'No se pudo enviar la boleta al SII'))
       const fallo = errorEnResultadosDte(data)
       if (fallo) throw new Error(fallo)
@@ -2541,7 +2552,7 @@ export function useConsultarDte() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async () => {
-      const { data, error } = await supabase.functions.invoke('dte-consultar', { body: {} })
+      const { data, error } = await supabase.functions.invoke('dte-consultar', { body: { empresa_id: empresaId } })
       if (error) throw new Error(await extraerMensajeError(error, 'No se pudo consultar la respuesta del SII'))
       const fallo = errorEnResultadosDte(data)
       if (fallo) throw new Error(fallo)

@@ -29,8 +29,9 @@ function notifySendResult(detail: EmailSendResultEventDetail, options?: SendEmai
 }
 
 // La Edge Function resuelve canal, remitente y Reply-To desde la empresa de la
-// sesión. El navegador solo manda el destinatario y el contenido: así nadie
-// puede falsificar un From arbitrario manipulando la petición.
+// sesión (o la impersonada, si quien llama es platform admin — ver
+// supabase/functions/_shared/impersonacion.ts). El navegador nunca puede
+// falsificar un From arbitrario ni mandar en nombre de una empresa ajena.
 export async function sendEmail(
   empresaId: string,
   to: string,
@@ -39,12 +40,8 @@ export async function sendEmail(
   options?: SendEmailOptions,
 ): Promise<SendEmailResult> {
   try {
-    // empresaId se conserva en la firma para que todos los llamados existentes
-    // sigan siendo explícitos respecto de su tenant. No se transmite: el
-    // servidor obtiene la empresa desde el JWT y evita suplantaciones.
-    void empresaId
     const { data, error } = await supabase.functions.invoke('send-email', {
-      body: { to, subject, html: bodyHtml },
+      body: { to, subject, html: bodyHtml, empresa_id: empresaId },
     })
     if (error) {
       const result = { ok: false, error: await extraerMensajeError(error, 'No se pudo enviar') }

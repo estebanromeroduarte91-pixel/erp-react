@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { empresaPermitida } from "../_shared/impersonacion.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -154,7 +155,7 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const { to, subject, html } = body;
+    const { to, subject, html, empresa_id: empresaSolicitada } = body;
     if (!to || !subject) {
       return new Response(
         JSON.stringify({ ok: false, error: "Faltan parámetros: to, subject" }),
@@ -162,19 +163,21 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 2) Resolver la empresa del usuario autenticado (nunca desde el body)
+    // 2) Resolver la empresa del usuario autenticado. La única excepción es
+    // un platform admin impersonando desde el Panel Pixit — empresaPermitida
+    // solo la honra si confirma que es platform admin de verdad.
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
     const { data: profile } = await admin
       .from("user_profiles")
       .select("empresa_id")
       .eq("id", userData.user.id)
       .maybeSingle();
-    const empresaId = profile?.empresa_id;
-    if (!empresaId) {
+    if (!profile?.empresa_id) {
       return new Response(JSON.stringify({ ok: false, error: "Usuario sin empresa" }), {
         status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    const { empresaId } = await empresaPermitida(admin, userData.user.id, profile.empresa_id as string, empresaSolicitada);
 
     // 3) Límite simple: máx 60 correos por empresa por hora
     const haceUnaHora = new Date(Date.now() - 60 * 60 * 1000).toISOString();

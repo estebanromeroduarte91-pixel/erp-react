@@ -34,7 +34,7 @@ const PERIODO_LABEL: Record<Periodo, string> = {
 }
 
 export function VentasListTab() {
-  const { esAdmin, branchId: userBranchId } = useAuth()
+  const { esAdmin, branchId: userBranchId, empresaId } = useAuth()
   const { data: metodos } = useMetodosPago()
   const anularVenta = useAnularVenta()
   // Ventas creadas/anuladas desde otro equipo o sucursal aparecen sin recargar.
@@ -169,6 +169,7 @@ export function VentasListTab() {
           tipo_dte: dte.tipo_dte,
           regenerar: true,
           forma_pago: mp(v.metodo_pago),
+          empresa_id: empresaId,
         },
       })
       if (error) throw new Error(await extraerMensajeError(error, 'No se pudo abrir la boleta'))

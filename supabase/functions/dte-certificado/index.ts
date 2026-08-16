@@ -13,6 +13,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import forge from "https://esm.sh/node-forge@1.3.1";
+import { empresaPermitida } from "../_shared/impersonacion.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -35,7 +36,7 @@ interface Identidad { empresaId: string; userId: string }
 
 // Solo un admin de la empresa puede cargar el certificado. La anon key es
 // pública y no vale como sesión, así que se rechaza explícitamente.
-async function identificar(req: Request): Promise<Identidad | null> {
+async function identificar(req: Request, empresaSolicitada?: string): Promise<Identidad | null> {
   const cabecera = req.headers.get("Authorization") ?? "";
   const jwt = cabecera.replace("Bearer ", "").trim();
   if (!jwt || jwt === ANON_KEY) return null;
@@ -55,9 +56,15 @@ async function identificar(req: Request): Promise<Identidad | null> {
 
   if (!perfil?.empresa_id) return null;
   if (perfil.activo === false) return null;
-  if (perfil.role !== "admin") return null;
 
-  return { empresaId: perfil.empresa_id, userId: data.user.id };
+  const { empresaId, impersonando } = await empresaPermitida(
+    admin, data.user.id, perfil.empresa_id as string, empresaSolicitada,
+  );
+  // Un platform admin impersonando no tiene por qué tener rol "admin" en la
+  // empresa del cliente, así que el chequeo se omite SOLO en esa rama.
+  if (!impersonando && perfil.role !== "admin") return null;
+
+  return { empresaId, userId: data.user.id };
 }
 
 interface DatosCertificado { rut: string; venceEl: string; emitidoPara: string }
@@ -89,18 +96,21 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ ok: false, error: "Método no permitido" }, 405);
 
-  const quien = await identificar(req);
-  if (!quien) return json({ ok: false, error: "Solo un administrador de la empresa puede cargar el certificado" }, 401);
-
   let archivo: File | null = null;
   let clave = "";
+  let empresaSolicitada: string | undefined;
   try {
     const form = await req.formData();
     archivo = form.get("certificado") as File | null;
     clave = String(form.get("clave") ?? "");
+    const eid = form.get("empresa_id");
+    empresaSolicitada = typeof eid === "string" ? eid : undefined;
   } catch {
     return json({ ok: false, error: "Se esperaba un formulario con el archivo y la clave" }, 400);
   }
+
+  const quien = await identificar(req, empresaSolicitada);
+  if (!quien) return json({ ok: false, error: "Solo un administrador de la empresa puede cargar el certificado" }, 401);
 
   if (!archivo) return json({ ok: false, error: "Falta el archivo del certificado" }, 400);
   if (!clave) return json({ ok: false, error: "Falta la clave del certificado" }, 400);

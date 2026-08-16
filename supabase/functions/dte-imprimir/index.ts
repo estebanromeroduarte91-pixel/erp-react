@@ -14,6 +14,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type RGB } from "https://esm.sh/pdf-lib@1.17.1";
 import { XMLParser } from "https://esm.sh/fast-xml-parser@5.2.5";
+import { empresaPermitida } from "../_shared/impersonacion.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -239,7 +240,7 @@ function json(body: unknown, status = 200) {
   });
 }
 
-async function identificar(req: Request) {
+async function identificar(req: Request, empresaSolicitada?: string) {
   const cabecera = req.headers.get("Authorization") ?? "";
   const jwt = cabecera.replace("Bearer ", "").trim();
   if (!jwt || jwt === ANON_KEY) return null;
@@ -254,18 +255,21 @@ async function identificar(req: Request) {
   const { data: perfil } = await admin
     .from("user_profiles").select("empresa_id, activo, nombre").eq("id", data.user.id).maybeSingle();
   if (!perfil?.empresa_id || perfil.activo === false) return null;
-  return { empresaId: perfil.empresa_id as string, nombre: String(perfil.nombre ?? "") };
+
+  const { empresaId } = await empresaPermitida(admin, data.user.id, perfil.empresa_id as string, empresaSolicitada);
+  return { empresaId, nombre: String(perfil.nombre ?? "") };
 }
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ ok: false, error: "Método no permitido" }, 405);
 
-  const quien = await identificar(req);
+  let entrada: { folio?: number; tipo_dte?: number; venta_id?: string; regenerar?: boolean; forma_pago?: string; empresa_id?: string };
+  try { entrada = await req.json(); } catch { return json({ ok: false, error: "Cuerpo inválido" }, 400); }
+
+  const quien = await identificar(req, entrada?.empresa_id);
   if (!quien) return json({ ok: false, error: "No autorizado" }, 401);
 
-  let entrada: { folio?: number; tipo_dte?: number; venta_id?: string; regenerar?: boolean; forma_pago?: string };
-  try { entrada = await req.json(); } catch { return json({ ok: false, error: "Cuerpo inválido" }, 400); }
   if ((!entrada?.folio || !entrada?.tipo_dte) && !entrada?.venta_id) {
     return json({ ok: false, error: "Falta identificar el documento o la venta" }, 400);
   }

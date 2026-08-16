@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { empresaPermitida } from "../_shared/impersonacion.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -36,10 +37,13 @@ Deno.serve(async (req) => {
       .select("empresa_id")
       .eq("id", userData.user.id)
       .maybeSingle();
-    const empresaId = profile?.empresa_id;
-    if (!empresaId) return json({ ok: false, error: "Usuario sin empresa" }, 403);
+    if (!profile?.empresa_id) return json({ ok: false, error: "Usuario sin empresa" }, 403);
 
-    const { action, domain, domainId } = await req.json();
+    const { action, domain, domainId, empresa_id: empresaSolicitada } = await req.json();
+    // Un platform admin impersonando desde el Panel Pixit administra el
+    // dominio del cliente que está mirando, no el suyo propio — ver
+    // supabase/functions/_shared/impersonacion.ts.
+    const { empresaId } = await empresaPermitida(admin, userData.user.id, profile.empresa_id as string, empresaSolicitada);
     const resendKey = Deno.env.get("RESEND_API_KEY");
     if (!resendKey) return json({ ok: false, error: "RESEND_API_KEY no configurada en el servidor" }, 400);
     const headers = { "Authorization": `Bearer ${resendKey}`, "Content-Type": "application/json" };
