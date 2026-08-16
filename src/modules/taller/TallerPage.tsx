@@ -221,9 +221,14 @@ export function TallerPage() {
   async function confirmarEliminar() {
     if (!ordenAEliminar || !esAdmin) return
     setEliminando(true)
-    await eliminarOrden.mutateAsync(ordenAEliminar.id)
-    setEliminando(false)
-    setOrdenAEliminar(null)
+    try {
+      await eliminarOrden.mutateAsync(ordenAEliminar.id)
+      setOrdenAEliminar(null)
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'No se pudo eliminar la orden. Intenta de nuevo.')
+    } finally {
+      setEliminando(false)
+    }
   }
 
   async function confirmarReabrir() {
