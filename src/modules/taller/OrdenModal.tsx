@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { formatRut } from '@/lib/rut'
-import { useCrearOrden, useActualizarOrden, useClientes, useBuscarClientes, useCrearCliente, useActualizarCliente, useBuscarProductos, useChecklist, useEquipos, useUserProfiles, useMsgTemplates, useSeguimientoConfig, useBodegas } from '@/lib/queries'
+import { useCrearOrden, useActualizarOrden, useClientes, useBuscarClientes, useCrearCliente, useActualizarCliente, useBuscarProductos, useChecklist, useEquipos, useUserProfiles, useMsgTemplates, useSeguimientoConfig, useBodegas, useTerminos } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { capFirst, capWords } from '@/lib/formatters'
@@ -66,6 +66,7 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
   const { data: usuarios = [] } = useUserProfiles()
   const { data: msgTemplates } = useMsgTemplates()
   const { data: segCfg } = useSeguimientoConfig()
+  const { data: terminos } = useTerminos()
   const { data: bodegas = [] } = useBodegas()
   const usuariosActivos = usuarios.filter(u => u.activo)
 
@@ -508,6 +509,7 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
           branchTel: branch?.tel,
           branchEmail: branch?.email,
           fotos,
+          terminos,
         })
         void sendEmail(empresaId, form.email, `Orden de trabajo #OT-${String(num).padStart(4, '0')}`, html)
       }

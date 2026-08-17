@@ -210,6 +210,7 @@ interface IngresoEmailData {
   branchTel?: string
   branchEmail?: string
   fotos?: string[]
+  terminos?: string
 }
 
 export function buildEmailIngreso(d: IngresoEmailData): string {
@@ -220,6 +221,12 @@ export function buildEmailIngreso(d: IngresoEmailData): string {
           ${chunk(d.fotos, 2).map(row => `<tr>${row.map(src => `<td style="width:50%;padding:4px"><a href="${src}" target="_blank" style="display:block"><img src="${src}" width="240" style="width:100%;border-radius:8px;border:1px solid #e5e7eb;display:block"></a></td>`).join('')}</tr>`).join('')}
         </table>
         <p style="font-size:11px;color:#9ca3af;margin:10px 0 0">Toca una foto para verla en tamaño completo.</p>
+      </div>` : ''
+
+  const terminosHtml = d.terminos?.trim()
+    ? `<div style="background:#f8fafc;border-radius:12px;padding:16px 18px;margin-bottom:20px;border:1px solid #eef0f5">
+        ${secIcon('Términos y condiciones')}
+        <p style="font-size:12px;color:#6b7280;line-height:1.6;margin:0;white-space:pre-line">${msgToHtml(d.terminos.trim())}</p>
       </div>` : ''
 
   const body = `
@@ -246,6 +253,8 @@ export function buildEmailIngreso(d: IngresoEmailData): string {
     </div>
 
     ${fotosHtml}
+
+    ${terminosHtml}
 
     <div style="background:#f0f4ff;border-left:3px solid #3656e6;border-radius:0 10px 10px 0;padding:12px 16px;margin:4px 0 24px">
       <p style="font-size:13px;color:#374151;line-height:1.6;margin:0"><strong>Nota:</strong> Cualquier trabajo adicional será consultado contigo antes de realizarlo.</p>

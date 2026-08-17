@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { useOrdenesLite, useOrdenPorNum, useActualizarOrden, useMsgTemplates, useSeguimientoConfig, useChecklist, useEquipos, useBuscarProductos, useBodegas, useTraslados } from '@/lib/queries'
+import { useOrdenesLite, useOrdenPorNum, useActualizarOrden, useMsgTemplates, useSeguimientoConfig, useChecklist, useEquipos, useBuscarProductos, useBodegas, useTraslados, useTerminos } from '@/lib/queries'
 import { DerivarModal } from './DerivarModal'
 import { useAuth } from '@/context/AuthContext'
 import { sendEmail, buildEmailIngreso, buildEmailAprobacion, buildEmailInspeccion, buildEmailListo, puedeResponderCorreo } from '@/lib/email'
@@ -46,6 +46,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
   const actualizarOrden = useActualizarOrden()
   const { data: msgTemplates } = useMsgTemplates()
   const { data: segCfg } = useSeguimientoConfig()
+  const { data: terminos } = useTerminos()
 
   const { data: checklistPorCategoria } = useChecklist()
   const { data: equipos = [] } = useEquipos()
@@ -332,6 +333,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
           branchTel: branch?.tel,
           branchEmail: branch?.email,
           fotos: orden.photosIngreso,
+          terminos,
         })
       } else {
         // Reparación u otro estado intermedio
