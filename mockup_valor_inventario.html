@@ -56,6 +56,13 @@
   .donut-seg { transition: opacity .12s ease, stroke-width .12s ease; cursor: default; }
   .donut-wrap:hover .donut-seg { opacity: .35; }
   .donut-seg:hover { opacity: 1 !important; }
+
+  /* ── Clickeables (tiles y filas de sucursal) ── */
+  .clickable { cursor: pointer; transition: box-shadow .15s ease, border-color .15s ease; }
+  .clickable:hover { box-shadow: 0 2px 10px rgba(11,11,11,0.06); border-color: var(--gray-300) !important; }
+
+  /* ── Filas dentro del modal (categorías / subcategorías) ── */
+  .cat-row.clickable:hover .cat-nombre { text-decoration: underline; }
 </style>
 </head>
 <body class="min-h-screen">
@@ -127,7 +134,7 @@
 
     <!-- ── Tiles por sucursal ── -->
     <div class="grid grid-cols-2 gap-4 mb-4">
-      <div class="bg-white rounded-2xl p-4 flex items-center gap-4" style="border:1px solid var(--gray-200)">
+      <div class="clickable bg-white rounded-2xl p-4 flex items-center gap-4" style="border:1px solid var(--gray-200)" onclick="abrirModal('los-dominicos')">
         <div class="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style="background:var(--series-1-tint)">
           <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="var(--series-1)" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6"/>
@@ -147,7 +154,7 @@
           </div>
         </div>
       </div>
-      <div class="bg-white rounded-2xl p-4 flex items-center gap-4" style="border:1px solid var(--gray-200)">
+      <div class="clickable bg-white rounded-2xl p-4 flex items-center gap-4" style="border:1px solid var(--gray-200)" onclick="abrirModal('la-dehesa')">
         <div class="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style="background:var(--series-2-tint)">
           <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="var(--series-2)" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6"/>
@@ -174,7 +181,7 @@
       <p class="text-xs font-semibold uppercase tracking-wide mb-5" style="color:var(--gray-400)">Ranking por sucursal</p>
       <div class="space-y-4">
 
-        <div class="bar-row bar-hover relative">
+        <div class="clickable bar-row bar-hover relative" onclick="abrirModal('los-dominicos')">
           <span class="text-sm font-medium truncate" style="color:var(--gray-700)">Los Dominicos</span>
           <div class="bar-track">
             <div class="bar-fill" style="width:100%;background:var(--series-1)"></div>
@@ -183,7 +190,7 @@
           <span class="text-sm font-semibold tabular text-right" style="color:var(--gray-800)">$1.894.011</span>
         </div>
 
-        <div class="bar-row bar-hover relative">
+        <div class="clickable bar-row bar-hover relative" onclick="abrirModal('la-dehesa')">
           <span class="text-sm font-medium truncate" style="color:var(--gray-700)">La Dehesa</span>
           <div class="bar-track">
             <div class="bar-fill" style="width:43.3%;background:var(--series-2)"></div>
@@ -196,5 +203,140 @@
     </div>
 
   </div>
+
+  <!-- ── Modal: desglose por categoría / subcategoría ── -->
+  <div id="modal-overlay" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4"
+       style="background:rgba(11,11,11,0.45)" onclick="if(event.target===this) cerrarModal()">
+    <div class="bg-white rounded-2xl w-full max-w-lg flex flex-col" style="border:1px solid var(--gray-200);max-height:85vh">
+      <div class="flex items-start justify-between px-6 py-4" style="border-bottom:1px solid var(--gray-100)">
+        <div>
+          <h3 id="modal-titulo" class="text-base font-bold" style="color:var(--gray-800)"></h3>
+          <p id="modal-total" class="text-xs mt-0.5 tabular" style="color:var(--gray-400)"></p>
+        </div>
+        <button onclick="cerrarModal()" class="p-1 -mr-1 -mt-1" style="color:var(--gray-400)">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      <div id="modal-breadcrumb" class="px-6 pt-4 text-xs font-semibold uppercase tracking-wide"></div>
+      <div id="modal-contenido" class="px-6 py-4 overflow-y-auto"></div>
+    </div>
+  </div>
+
+  <script>
+    // Datos de ejemplo solo para el mockup — la implementación real agrupa
+    // por producto.categoria / producto.subcategoria dentro de la sucursal.
+    const DATOS = {
+      'los-dominicos': {
+        nombre: 'Los Dominicos', total: 1894011, color: 'var(--series-1)',
+        categorias: [
+          { nombre: 'Repuestos iPhone', valor: 980000, sub: [
+            { nombre: 'iPhone 13', valor: 350000 },
+            { nombre: 'iPhone 12', valor: 280000 },
+            { nombre: 'iPhone 11', valor: 200000 },
+            { nombre: 'iPhone 14', valor: 150000 },
+          ]},
+          { nombre: 'Repuestos MacBook', valor: 520000, sub: [
+            { nombre: 'MacBook Air', valor: 300000 },
+            { nombre: 'MacBook Pro', valor: 220000 },
+          ]},
+          { nombre: 'Repuestos iPad', valor: 260000, sub: [
+            { nombre: 'iPad Air', valor: 160000 },
+            { nombre: 'iPad Pro', valor: 100000 },
+          ]},
+          { nombre: 'Accesorios', valor: 134011, sub: [
+            { nombre: 'Cables', valor: 60000 },
+            { nombre: 'Cargadores', valor: 45011 },
+            { nombre: 'Otros', valor: 29000 },
+          ]},
+        ],
+      },
+      'la-dehesa': {
+        nombre: 'La Dehesa', total: 819957, color: 'var(--series-2)',
+        categorias: [
+          { nombre: 'Repuestos iPhone', valor: 420000, sub: [
+            { nombre: 'iPhone 13', valor: 180000 },
+            { nombre: 'iPhone 12', valor: 140000 },
+            { nombre: 'iPhone 11', valor: 100000 },
+          ]},
+          { nombre: 'Repuestos MacBook', valor: 250000, sub: [
+            { nombre: 'MacBook Air', valor: 150000 },
+            { nombre: 'MacBook Pro', valor: 100000 },
+          ]},
+          { nombre: 'Accesorios', valor: 149957, sub: [
+            { nombre: 'Cables', valor: 70000 },
+            { nombre: 'Cargadores', valor: 50000 },
+            { nombre: 'Otros', valor: 29957 },
+          ]},
+        ],
+      },
+    };
+
+    let estado = { sucursal: null, categoria: null };
+
+    function fmt(n) { return '$' + Math.round(n).toLocaleString('es-CL'); }
+
+    function abrirModal(id) {
+      estado = { sucursal: id, categoria: null };
+      document.getElementById('modal-overlay').classList.remove('hidden');
+      render();
+    }
+    function cerrarModal() {
+      document.getElementById('modal-overlay').classList.add('hidden');
+    }
+    function verCategoria(nombre) {
+      estado.categoria = nombre;
+      render();
+    }
+    function volverACategorias() {
+      estado.categoria = null;
+      render();
+    }
+
+    function filaHtml(nombre, valor, base, color, clickable, onclickAttr) {
+      const pct = base > 0 ? (valor / base * 100) : 0;
+      return `
+        <div class="cat-row ${clickable ? 'clickable' : ''} mb-4" ${clickable ? `onclick="${onclickAttr}"` : ''}>
+          <div class="flex items-center justify-between mb-1.5 text-sm">
+            <span class="cat-nombre font-medium flex items-center gap-1" style="color:var(--gray-700)">
+              ${nombre}
+              ${clickable ? '<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="var(--gray-400)" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 18l6-6-6-6"/></svg>' : ''}
+            </span>
+            <span class="font-semibold tabular" style="color:var(--gray-800)">${fmt(valor)} <span style="color:var(--gray-400);font-weight:500">· ${pct.toFixed(1)}%</span></span>
+          </div>
+          <div class="bar-track">
+            <div class="bar-fill" style="width:${Math.max(2, pct)}%;background:${color}"></div>
+          </div>
+        </div>`;
+    }
+
+    function render() {
+      const suc = DATOS[estado.sucursal];
+      document.getElementById('modal-titulo').textContent = suc.nombre;
+
+      const cont = document.getElementById('modal-contenido');
+      const bc = document.getElementById('modal-breadcrumb');
+
+      if (!estado.categoria) {
+        document.getElementById('modal-total').textContent = fmt(suc.total) + ' invertidos en esta sucursal';
+        bc.innerHTML = `<span style="color:var(--gray-400)">Categorías</span>`;
+        cont.innerHTML = suc.categorias.map(c =>
+          filaHtml(c.nombre, c.valor, suc.total, suc.color, c.sub.length > 0, `verCategoria('${c.nombre}')`)
+        ).join('');
+      } else {
+        const cat = suc.categorias.find(c => c.nombre === estado.categoria);
+        document.getElementById('modal-total').textContent = fmt(cat.valor) + ' invertidos en ' + cat.nombre;
+        bc.innerHTML = `
+          <button onclick="volverACategorias()" class="inline-flex items-center gap-1" style="color:var(--series-1)">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+            Categorías
+          </button>
+          <span style="color:var(--gray-300)"> / </span>
+          <span style="color:var(--gray-700)">${cat.nombre}</span>`;
+        cont.innerHTML = cat.sub.map(s => filaHtml(s.nombre, s.valor, cat.valor, suc.color, false)).join('');
+      }
+    }
+  </script>
 </body>
 </html>
