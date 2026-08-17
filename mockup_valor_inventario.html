@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mockup — Valor de inventario</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  :root {
+    --primary: #3656e6;
+    --primary-dark: #2f4dd6;
+    --primary-light: #ecefff;
+    --gray-50: #f6f7f9;
+    --gray-100: #eceef2;
+    --gray-200: #dfe2e8;
+    --gray-300: #c9cdd5;
+    --gray-400: #a2a8b4;
+    --gray-500: #646c7a;
+    --gray-600: #3c4350;
+    --gray-700: #2a3040;
+    --gray-800: #15181f;
+    /* Rojo + verde, a pedido. Un rojo y un verde de saturación/luz PARECIDAS
+       (tipo semáforo puro) le fallan al daltonismo rojo-verde — es justo el
+       eje que no distinguen. Se separaron por luminosidad (rojo bien oscuro,
+       verde medio) para que la diferencia sobreviva incluso en esa condición.
+       Validado: CVD (deutan) ΔE 17.5, normal-vision 29.2, contraste >=3:1. */
+    --series-1: #8f2f2f;
+    --series-1-tint: #f5e6e6;
+    --series-2: #5a9c3f;
+    --series-2-tint: #e8f0e2;
+  }
+  body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--gray-50); color: var(--gray-800); }
+  .tabular { font-variant-numeric: tabular-nums; }
+
+  /* ── Barras ── */
+  .bar-row { display: grid; grid-template-columns: 160px 1fr 96px; align-items: center; gap: 14px; }
+  .bar-track { position: relative; height: 10px; background: var(--gray-100); border-radius: 999px; overflow: hidden; }
+  .bar-fill { position: absolute; inset: 0; border-radius: 999px; transition: filter .15s ease; }
+  .bar-row:hover .bar-fill { filter: brightness(1.08); }
+  .bar-row:hover .bar-track { outline: 2px solid rgba(11,11,11,0.06); outline-offset: 2px; }
+
+  /* ── Tooltip ── */
+  .tt {
+    position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+    background: var(--gray-800); color: #fff; font-size: 11px; line-height: 1.4;
+    padding: 6px 9px; border-radius: 8px; white-space: nowrap; pointer-events: none;
+    opacity: 0; transition: opacity .12s ease; z-index: 20;
+  }
+  .tt::after {
+    content: ""; position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+    border: 5px solid transparent; border-top-color: var(--gray-800);
+  }
+  .bar-hover:hover .tt { opacity: 1; }
+
+  /* ── Donut ── */
+  .donut-seg { transition: opacity .12s ease, stroke-width .12s ease; cursor: default; }
+  .donut-wrap:hover .donut-seg { opacity: .35; }
+  .donut-seg:hover { opacity: 1 !important; }
+</style>
+</head>
+<body class="min-h-screen">
+  <div class="max-w-5xl mx-auto px-4 md:px-8 py-10">
+
+    <!-- ── Chrome de referencia (contexto, no interactivo) ── -->
+    <div class="flex items-center justify-between mb-5">
+      <h2 class="text-xl font-bold" style="color:var(--gray-800)">Inventario</h2>
+    </div>
+    <div class="hidden md:flex gap-2 mb-7">
+      <button class="px-4 py-2 rounded-full text-sm font-medium" style="background:var(--gray-100);color:var(--gray-500)">Productos</button>
+      <button class="px-4 py-2 rounded-full text-sm font-medium" style="background:var(--gray-100);color:var(--gray-500)">Categorías</button>
+      <button class="px-4 py-2 rounded-full text-sm font-medium" style="background:var(--gray-100);color:var(--gray-500)">Bodegas / Sucursales</button>
+      <button class="px-4 py-2 rounded-full text-sm font-medium" style="background:var(--gray-100);color:var(--gray-500)">Movimientos</button>
+      <button class="px-4 py-2 rounded-full text-sm font-medium" style="background:var(--gray-100);color:var(--gray-500)">Toma de inventario</button>
+      <button class="px-4 py-2 rounded-full text-sm font-semibold text-white" style="background:var(--primary)">Valor de inventario</button>
+    </div>
+
+    <!-- ── Fila superior: hero total + donut de participación ── -->
+    <div class="grid md:grid-cols-5 gap-4 mb-4">
+
+      <!-- Hero total -->
+      <div class="md:col-span-3 bg-white rounded-2xl p-6 flex flex-col justify-center" style="border:1px solid var(--gray-200)">
+        <div class="flex items-center gap-3 mb-3">
+          <div class="w-9 h-9 rounded-xl flex items-center justify-center" style="background:var(--series-1-tint)">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="var(--series-1)" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M20 7L12 3 4 7m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+            </svg>
+          </div>
+          <p class="text-xs font-semibold uppercase tracking-wide" style="color:var(--gray-400)">Total invertido en inventario</p>
+        </div>
+        <p class="text-4xl font-bold tabular" style="color:var(--gray-800)">$2.713.968</p>
+        <p class="text-xs mt-3 leading-relaxed" style="color:var(--gray-400)">
+          Costo real de lo que queda en stock (costeo FIFO por lote; el precio de compra actual solo se
+          usa como respaldo para el stock que no tiene un lote asociado).
+        </p>
+      </div>
+
+      <!-- Donut de participación -->
+      <div class="md:col-span-2 bg-white rounded-2xl p-6 flex items-center gap-5" style="border:1px solid var(--gray-200)">
+        <div class="donut-wrap relative shrink-0" style="width:104px;height:104px">
+          <svg viewBox="0 0 36 36" width="104" height="104" style="transform:rotate(-90deg)">
+            <circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--gray-100)" stroke-width="4.5"/>
+            <!-- Los Dominicos 69.8% -->
+            <circle class="donut-seg" cx="18" cy="18" r="15.9" fill="none" stroke="var(--series-1)" stroke-width="4.5"
+                    stroke-dasharray="69.8 100" stroke-dashoffset="0" stroke-linecap="butt"/>
+            <!-- La Dehesa 30.2% -->
+            <circle class="donut-seg" cx="18" cy="18" r="15.9" fill="none" stroke="var(--series-2)" stroke-width="4.5"
+                    stroke-dasharray="30.2 100" stroke-dashoffset="-69.8" stroke-linecap="butt"/>
+          </svg>
+          <div class="absolute inset-0 flex flex-col items-center justify-center">
+            <span class="text-[10px] font-semibold" style="color:var(--gray-400)">2 sucursales</span>
+          </div>
+        </div>
+        <div class="flex-1 space-y-2.5 text-sm">
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:var(--series-1)"></span>
+            <span class="flex-1 truncate" style="color:var(--gray-700)">Los Dominicos</span>
+            <span class="font-semibold tabular" style="color:var(--gray-800)">69,8%</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:var(--series-2)"></span>
+            <span class="flex-1 truncate" style="color:var(--gray-700)">La Dehesa</span>
+            <span class="font-semibold tabular" style="color:var(--gray-800)">30,2%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Tiles por sucursal ── -->
+    <div class="grid grid-cols-2 gap-4 mb-4">
+      <div class="bg-white rounded-2xl p-4 flex items-center gap-4" style="border:1px solid var(--gray-200)">
+        <div class="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style="background:var(--series-1-tint)">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="var(--series-1)" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6"/>
+          </svg>
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-baseline justify-between gap-2">
+            <p class="text-sm font-semibold truncate" style="color:var(--gray-700)">Los Dominicos</p>
+            <p class="text-xs font-semibold tabular shrink-0" style="color:var(--gray-400)">69,8%</p>
+          </div>
+          <p class="text-xl font-bold tabular leading-tight" style="color:var(--gray-800)">$1.894.011</p>
+          <div class="flex items-center gap-1.5 mt-1">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="var(--gray-400)" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M20 7L12 3 4 7m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+            </svg>
+            <span class="text-xs tabular" style="color:var(--gray-400)">342 productos con stock</span>
+          </div>
+        </div>
+      </div>
+      <div class="bg-white rounded-2xl p-4 flex items-center gap-4" style="border:1px solid var(--gray-200)">
+        <div class="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style="background:var(--series-2-tint)">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="var(--series-2)" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6"/>
+          </svg>
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-baseline justify-between gap-2">
+            <p class="text-sm font-semibold truncate" style="color:var(--gray-700)">La Dehesa</p>
+            <p class="text-xs font-semibold tabular shrink-0" style="color:var(--gray-400)">30,2%</p>
+          </div>
+          <p class="text-xl font-bold tabular leading-tight" style="color:var(--gray-800)">$819.957</p>
+          <div class="flex items-center gap-1.5 mt-1">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="var(--gray-400)" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M20 7L12 3 4 7m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+            </svg>
+            <span class="text-xs tabular" style="color:var(--gray-400)">198 productos con stock</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Ranking en barras ── -->
+    <div class="bg-white rounded-2xl p-6" style="border:1px solid var(--gray-200)">
+      <p class="text-xs font-semibold uppercase tracking-wide mb-5" style="color:var(--gray-400)">Ranking por sucursal</p>
+      <div class="space-y-4">
+
+        <div class="bar-row bar-hover relative">
+          <span class="text-sm font-medium truncate" style="color:var(--gray-700)">Los Dominicos</span>
+          <div class="bar-track">
+            <div class="bar-fill" style="width:100%;background:var(--series-1)"></div>
+            <div class="tt" style="left:100%">$1.894.011 · 69,8% del total</div>
+          </div>
+          <span class="text-sm font-semibold tabular text-right" style="color:var(--gray-800)">$1.894.011</span>
+        </div>
+
+        <div class="bar-row bar-hover relative">
+          <span class="text-sm font-medium truncate" style="color:var(--gray-700)">La Dehesa</span>
+          <div class="bar-track">
+            <div class="bar-fill" style="width:43.3%;background:var(--series-2)"></div>
+            <div class="tt" style="left:43.3%">$819.957 · 30,2% del total</div>
+          </div>
+          <span class="text-sm font-semibold tabular text-right" style="color:var(--gray-800)">$819.957</span>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>
