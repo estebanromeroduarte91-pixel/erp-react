@@ -51,6 +51,11 @@ export interface Orden {
   fechaEstimada?: string
   repuestos?: Repuesto[]
   checkIngreso?: CheckItem[]
+  // Condición de llegada del equipo (checklist de ingreso). Columnas propias
+  // en `ordenes` — no van dentro de checkIngreso porque son propiedades
+  // extra sobre un array, y JSON.stringify descarta las que no son índices.
+  checkApagado?: boolean
+  checkMojado?: boolean
   photosIngreso?: string[]
   branchId?: string
   subestado?: string

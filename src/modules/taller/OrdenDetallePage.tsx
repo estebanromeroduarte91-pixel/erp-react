@@ -420,8 +420,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
 
   // Fija estado explícito a una función en el detalle (bloqueado si llegó apagado)
   function setEstadoDetalle(idx: number, estado: 'ok' | 'no_funciona' | 'no_probado') {
-    const cond = orden.checkIngreso as (CheckItem[] & { _apagado?: boolean }) | undefined
-    if (cond?._apagado) return
+    if (orden.checkApagado) return
     setCheckItems(prev => prev.map((c, j) => {
       if (j !== idx) return c
       const nuevo = c.estado === estado ? undefined : estado
@@ -430,11 +429,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
   }
 
   async function guardarChecklist() {
-    const cond = orden.checkIngreso as (CheckItem[] & { _apagado?: boolean; _mojado?: boolean }) | undefined
-    const checkFinal = [...checkItems] as CheckItem[] & { _apagado?: boolean; _mojado?: boolean }
-    checkFinal._apagado = cond?._apagado
-    checkFinal._mojado = cond?._mojado
-    await actualizarOrden.mutateAsync({ id: orden.id, checkIngreso: checkFinal })
+    await actualizarOrden.mutateAsync({ id: orden.id, checkIngreso: checkItems })
     setChecklistOpen(false)
   }
 
@@ -886,9 +881,8 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
           {/* ── Checklist de ingreso (colapsable) ── */}
           <div className="border-b border-gray-200">
           {checkItems.length > 0 && (() => {
-            const cond = o.checkIngreso as (CheckItem[] & { _apagado?: boolean; _mojado?: boolean }) | undefined
-            const apagado = !!cond?._apagado
-            const mojado = !!cond?._mojado
+            const apagado = !!o.checkApagado
+            const mojado = !!o.checkMojado
             const total = checkItems.length
             const resueltos = apagado ? total : checkItems.filter(c => c.estado).length
             const ninguno = !apagado && resueltos === 0

@@ -85,12 +85,8 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
   )
   const [repuestos, setRepuestos] = useState<Repuesto[]>(orden?.repuestos ?? [])
   const [checkIngreso, setCheckIngreso] = useState<CheckItem[]>(orden?.checkIngreso ?? [])
-  const [checkApagado, setCheckApagado] = useState(
-    (orden?.checkIngreso as (CheckItem[] & { _apagado?: boolean }) | undefined)?._apagado ?? false
-  )
-  const [checkMojado, setCheckMojado] = useState(
-    (orden?.checkIngreso as (CheckItem[] & { _mojado?: boolean }) | undefined)?._mojado ?? false
-  )
+  const [checkApagado, setCheckApagado] = useState(orden?.checkApagado ?? false)
+  const [checkMojado, setCheckMojado] = useState(orden?.checkMojado ?? false)
   const [fotos, setFotos] = useState<string[]>(orden?.photosIngreso ?? [])
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [error, setError] = useState('')
@@ -145,6 +141,8 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
         ...form,
         repuestos,
         checkIngreso,
+        checkApagado,
+        checkMojado,
         photosIngreso: fotos,
         branchId: userBranchId ?? defaultBranchId ?? sucursalElegida ?? undefined,
         _draft: true,
@@ -409,11 +407,6 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
     const ahora = new Date().toISOString()
     let ordenGuardada: Orden
 
-    // Adjunta flags especiales al array del checklist (igual que el ERP original)
-    const checkFinal = [...checkIngreso] as CheckItem[] & { _apagado?: boolean; _mojado?: boolean }
-    checkFinal._apagado = checkApagado
-    checkFinal._mojado = checkMojado
-
     if (draftId) {
       // Edición, o finalización de un borrador creado para el QR. Quita el flag _draft.
       // La fila SIEMPRE ya existe en la BD acá (o es la orden que se edita, o el
@@ -421,7 +414,7 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
       // nunca un insert, aunque `ordenes` (que excluye borradores) no lo contenga.
       const base = ordenes.find((o) => o.id === draftId) ?? orden ?? ({ id: draftId, num: await nextNum(), fecha: ahora } as Orden)
       const actualizada: Orden = {
-        ...base, ...form, repuestos, checkIngreso: checkFinal, photosIngreso: fotos, _draft: false,
+        ...base, ...form, repuestos, checkIngreso, checkApagado, checkMojado, photosIngreso: fotos, _draft: false,
         branchId: base.branchId ?? userBranchId ?? defaultBranchId ?? sucursalElegida ?? undefined,
         numero_boleta: base.numero_boleta || form.numero_boleta?.trim() || undefined,
       }
@@ -434,7 +427,9 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
         fecha: ahora,
         ...form,
         repuestos,
-        checkIngreso: checkFinal,
+        checkIngreso,
+        checkApagado,
+        checkMojado,
         photosIngreso: fotos,
         branchId: userBranchId ?? defaultBranchId ?? sucursalElegida ?? undefined,
         _draft: false,
