@@ -938,6 +938,22 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
 
                 {checklistOpen && (
                   <div className="border border-gray-200 border-t-0 rounded-b-xl bg-white">
+                    {/* Condición de llegada — registrada al ingreso, se muestra siempre. */}
+                    <div className="flex items-center gap-1.5 px-4 py-2 border-b border-gray-50">
+                      <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mr-0.5">Llegó:</span>
+                      {!apagado && !mojado && (
+                        <span className="text-[10px] font-bold text-green-700 bg-green-50 px-2 py-0.5 rounded-full">Enciende</span>
+                      )}
+                      {apagado && (
+                        <span className="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">Apagado</span>
+                      )}
+                      {mojado && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+                          <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 2.5s6 6.5 6 10.5a6 6 0 11-12 0c0-4 6-10.5 6-10.5z" /></svg>
+                          Mojado
+                        </span>
+                      )}
+                    </div>
                     {apagado && (
                       <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border-b border-amber-100 px-4 py-2">
                         <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
