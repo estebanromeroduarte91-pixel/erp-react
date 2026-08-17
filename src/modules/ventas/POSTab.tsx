@@ -498,6 +498,22 @@ export function POSTab() {
       })
   }
 
+  // "Sin doc." en el POS: la venta no lleva ningún documento tributario, pero
+  // el cliente igual se lleva un respaldo. Mismo PDF que una boleta, sin
+  // folio ni envío al SII — no compite con la cola de emisión de verdad.
+  async function imprimirComprobante(venta: Venta, metodoPago: string) {
+    ultimoDteRef.current = venta.id
+    setProcesandoDte(`Venta ${venta.numero} registrada. Generando comprobante…`)
+    try {
+      const pdf = await imprimirDte.mutateAsync({ comprobante: true, venta_id: venta.id, forma_pago: metodoPago })
+      abrirPdfBase64(pdf.pdf_base64, true)
+    } catch (error) {
+      setAvisoDte(`La venta ${venta.numero} se guardó correctamente, pero no se pudo generar el comprobante: ${mensajeDeError(error, 'error desconocido')}`)
+    } finally {
+      if (ultimoDteRef.current === venta.id) setProcesandoDte('')
+    }
+  }
+
   async function confirmarVenta() {
     if (!metodoActual || !items.length) return
     if (bloquearPorStock) {
@@ -635,6 +651,8 @@ export function POSTab() {
           metodoPago: metodoActual,
           items: [...items],
         })
+      } else {
+        void imprimirComprobante(venta, metodoActual)
       }
 
       if (otSeleccionada) setOtSeleccionada(null)

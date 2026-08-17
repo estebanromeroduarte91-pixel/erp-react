@@ -70,14 +70,20 @@ function codificarBase64(bytes: Uint8Array): string {
   return btoa(bin);
 }
 
-async function pdfBoletaModerna(
-  xmlBytes: ArrayBuffer,
-  config: ConfigBoleta,
-  resolucion: number,
-  fechaResolucion: string,
-  ejecutivo: string,
-  formaPago: string,
-): Promise<Uint8Array> {
+type DatosImpresion = {
+  id: Record<string, unknown>
+  emisor: Record<string, unknown>
+  receptor: Record<string, unknown>
+  totales: Record<string, unknown>
+  detalles: Record<string, unknown>[]
+  marcaTiempo?: string
+}
+
+// Extrae de un DTE ya timbrado y firmado los datos que la plantilla necesita
+// para dibujarse. Separado de pdfBoletaModerna para que el "comprobante"
+// (venta sin documento tributario, ver más abajo) pueda reusar exactamente
+// la misma plantilla sin tener que fabricar un XML falso.
+function datosDesdeXmlDte(xmlBytes: ArrayBuffer): DatosImpresion {
   const xml = new TextDecoder("iso-8859-1").decode(xmlBytes);
   const parser = new XMLParser({ ignoreAttributes: false, removeNSPrefix: true, trimValues: true });
   const parsed = parser.parse(xml);
@@ -86,11 +92,28 @@ async function pdfBoletaModerna(
   const encabezado = documento?.Encabezado;
   if (!encabezado) throw new Error("El XML no contiene un DTE imprimible");
 
-  const id = encabezado.IdDoc ?? {};
-  const emisor = encabezado.Emisor ?? {};
-  const receptor = encabezado.Receptor ?? {};
-  const totales = encabezado.Totales ?? {};
-  const detalles = aLista<Record<string, unknown>>(documento.Detalle);
+  return {
+    id: encabezado.IdDoc ?? {},
+    emisor: encabezado.Emisor ?? {},
+    receptor: encabezado.Receptor ?? {},
+    totales: encabezado.Totales ?? {},
+    detalles: aLista<Record<string, unknown>>(documento.Detalle),
+    marcaTiempo: seguro(documento.TmstFirma ?? documento.TED?.DD?.TSTED),
+  };
+}
+
+async function pdfBoletaModerna(
+  datos: DatosImpresion,
+  config: ConfigBoleta,
+  resolucion: number,
+  fechaResolucion: string,
+  ejecutivo: string,
+  formaPago: string,
+  // Venta con "Sin doc." en el POS: es un respaldo para el cliente, NO un
+  // documento tributario. Misma plantilla visual, sin folio ni timbre del SII.
+  comprobante = false,
+): Promise<Uint8Array> {
+  const { id, emisor, receptor, totales, detalles } = datos;
 
   const pdf = await PDFDocument.create();
   const normal = await pdf.embedFont(StandardFonts.Helvetica);
@@ -100,7 +123,11 @@ async function pdfBoletaModerna(
   const contenido = ancho - margen * 2;
   const nombreAncho = contenido - 65;
   const altoDetalles = detalles.reduce((s, d) => s + Math.max(18, lineas(String(d.NmbItem ?? d.DscItem ?? "Item"), normal, 7.4, nombreAncho).length * 9 + 7), 0);
-  const mostrarReceptor = seguro(receptor.RUTRecep) && seguro(receptor.RUTRecep) !== "66666666-6";
+  // Un comprobante no tiene RUT de receptor (no es un dato exigido para un
+  // respaldo interno): se muestra el nombre del cliente en vez del par RUT.
+  const mostrarReceptor = comprobante
+    ? !!seguro(receptor.RznSocRecep) && seguro(receptor.RznSocRecep) !== "Cliente genérico"
+    : !!seguro(receptor.RUTRecep) && seguro(receptor.RUTRecep) !== "66666666-6";
   const mostrarLogo = config.boletaMostrarLogo !== false && !!config.logoUrl;
   const alto = Math.max(400, 330 + altoDetalles + (mostrarLogo ? 35 : 0) + (mostrarReceptor ? 25 : 0));
   const page = pdf.addPage([ancho, alto]);
@@ -141,7 +168,10 @@ async function pdfBoletaModerna(
   }
   page.drawRectangle({ x: margen, y: y - 2, width: contenido, height: 2.5, color: acento });
   y -= 19;
-  centrado(Number(id.TipoDTE) === 41 ? "BOLETA EXENTA ELECTRÓNICA" : "BOLETA ELECTRÓNICA", negrita, 8.5, y);
+  centrado(
+    comprobante ? "COMPROBANTE DE VENTA" : (Number(id.TipoDTE) === 41 ? "BOLETA EXENTA ELECTRÓNICA" : "BOLETA ELECTRÓNICA"),
+    negrita, 8.5, y,
+  );
   y -= 25;
   centrado(`N° ${seguro(id.Folio)}`, negrita, 20, y, acento);
   y -= 18;
@@ -160,7 +190,7 @@ async function pdfBoletaModerna(
   y -= 15;
   page.drawText("FECHA", { x: margen, y, size: 6.5, font: negrita, color: gris });
   page.drawText(seguro(id.FchEmis), { x: margen, y: y - 11, size: 8, font: normal });
-  const marcaTiempo = seguro(documento.TmstFirma ?? documento.TED?.DD?.TSTED);
+  const marcaTiempo = seguro(datos.marcaTiempo);
   const hora = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(marcaTiempo)
     ? marcaTiempo.slice(11, 16)
     : new Date().toLocaleTimeString("es-CL", { timeZone: "America/Santiago", hour: "2-digit", minute: "2-digit" });
@@ -172,7 +202,10 @@ async function pdfBoletaModerna(
   if (mostrarReceptor) {
     page.drawText("CLIENTE", { x: margen, y, size: 6.5, font: negrita, color: gris });
     y -= 10;
-    page.drawText(`${seguro(receptor.RznSocRecep)} · ${seguro(receptor.RUTRecep)}`, { x: margen, y, size: 7.5, font: normal });
+    const lineaCliente = comprobante
+      ? seguro(receptor.RznSocRecep)
+      : `${seguro(receptor.RznSocRecep)} · ${seguro(receptor.RUTRecep)}`;
+    page.drawText(lineaCliente, { x: margen, y, size: 7.5, font: normal });
     y -= 15;
   }
 
@@ -217,12 +250,19 @@ async function pdfBoletaModerna(
   centrado(config.boletaPie || "Gracias por preferirnos", negrita, 8, y);
   y -= 12;
   if (config.boletaContacto) { centrado(config.boletaContacto, normal, 7, y, gris); y -= 11; }
-  const anoResolucion = fechaResolucion ? String(fechaResolucion).slice(0, 4) : "";
-  centrado(`Res. SII N° ${resolucion} ${anoResolucion ? `de ${anoResolucion}` : ""}`, normal, 6.4, y, gris);
-  y -= 10;
-  centrado("Verifique documento en www.sii.cl", normal, 6.4, y, gris);
+  if (comprobante) {
+    // Sin folio ni timbre: es un respaldo interno, no algo que el SII pueda
+    // verificar. Decirlo explícito es lo que evita que se confunda con una
+    // boleta real.
+    centrado("Comprobante interno — no es documento tributario", normal, 6.4, y, gris);
+  } else {
+    const anoResolucion = fechaResolucion ? String(fechaResolucion).slice(0, 4) : "";
+    centrado(`Res. SII N° ${resolucion} ${anoResolucion ? `de ${anoResolucion}` : ""}`, normal, 6.4, y, gris);
+    y -= 10;
+    centrado("Verifique documento en www.sii.cl", normal, 6.4, y, gris);
+  }
 
-  pdf.setTitle(`Boleta electrónica ${seguro(id.Folio)}`);
+  pdf.setTitle(comprobante ? `Comprobante de venta ${seguro(id.Folio)}` : `Boleta electrónica ${seguro(id.Folio)}`);
   pdf.setProducer("Pixit ERP");
   return await pdf.save();
 }
@@ -264,17 +304,75 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ ok: false, error: "Método no permitido" }, 405);
 
-  let entrada: { folio?: number; tipo_dte?: number; venta_id?: string; regenerar?: boolean; forma_pago?: string; empresa_id?: string };
+  let entrada: {
+    folio?: number; tipo_dte?: number; venta_id?: string; regenerar?: boolean
+    forma_pago?: string; empresa_id?: string; comprobante?: boolean
+  };
   try { entrada = await req.json(); } catch { return json({ ok: false, error: "Cuerpo inválido" }, 400); }
 
   const quien = await identificar(req, entrada?.empresa_id);
   if (!quien) return json({ ok: false, error: "No autorizado" }, 401);
 
+  const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+
+  // Venta con "Sin doc." en el POS: no hay ningún dte_documentos que buscar
+  // (nunca se emitió nada). Se arma el mismo PDF a partir de la venta ya
+  // guardada, marcado como comprobante interno. No pasa por SimpleAPI ni
+  // gasta folio — por eso vive en una rama completamente aparte.
+  if (entrada.comprobante) {
+    if (!entrada.venta_id) return json({ ok: false, error: "Falta la venta" }, 400);
+
+    const { data: venta } = await admin
+      .from("ventas").select("numero, fecha, cliente, metodo_pago, total, total_iva")
+      .eq("id", entrada.venta_id).eq("empresa_id", quien.empresaId).maybeSingle();
+    if (!venta) return json({ ok: false, error: "No existe esa venta" }, 404);
+
+    const { data: items } = await admin
+      .from("venta_items").select("producto_nombre, cantidad, precio_iva")
+      .eq("venta_id", entrada.venta_id).eq("empresa_id", quien.empresaId);
+
+    const { data: datosTrib } = await admin
+      .from("empresas").select("rut, razon_social, giro, direccion_origen, comuna_origen")
+      .eq("id", quien.empresaId).maybeSingle();
+
+    const { data: filaConfig } = await admin
+      .from("erp_data").select("datos")
+      .eq("empresa_id", quien.empresaId).eq("clave", "tp_seg_config").maybeSingle();
+    let config: ConfigBoleta = {};
+    if (filaConfig?.datos && typeof filaConfig.datos === "object") config = filaConfig.datos as ConfigBoleta;
+    else if (typeof filaConfig?.datos === "string") {
+      try { config = JSON.parse(filaConfig.datos); } catch { /* configuración antigua inválida */ }
+    }
+
+    const datos: DatosImpresion = {
+      id: { Folio: venta.numero, FchEmis: venta.fecha },
+      emisor: {
+        RUTEmisor: datosTrib?.rut ?? "",
+        RznSocEmisor: datosTrib?.razon_social ?? "",
+        GiroEmisor: datosTrib?.giro ?? "",
+        DirOrigen: datosTrib?.direccion_origen ?? "",
+        CmnaOrigen: datosTrib?.comuna_origen ?? "",
+      },
+      receptor: { RznSocRecep: venta.cliente ?? "" },
+      totales: { MntNeto: venta.total, IVA: venta.total_iva - venta.total, MntTotal: venta.total_iva },
+      detalles: (items ?? []).map((it) => ({
+        NmbItem: it.producto_nombre,
+        QtyItem: it.cantidad,
+        MontoItem: Math.round(Number(it.precio_iva) * Number(it.cantidad)),
+      })),
+    };
+
+    try {
+      const bytes = await pdfBoletaModerna(datos, config, 0, "", quien.nombre, entrada.forma_pago ?? venta.metodo_pago ?? "", true);
+      return json({ ok: true, pdf_base64: codificarBase64(bytes), desde_cache: false, plantilla: "comprobante" });
+    } catch (e) {
+      return json({ ok: false, error: `No se pudo construir el comprobante: ${(e as Error).message}` }, 500);
+    }
+  }
+
   if ((!entrada?.folio || !entrada?.tipo_dte) && !entrada?.venta_id) {
     return json({ ok: false, error: "Falta identificar el documento o la venta" }, 400);
   }
-
-  const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
   // El filtro por empresa es lo que impide que alguien pida la boleta de otro
   // taller pasando un folio cualquiera.
@@ -329,7 +427,7 @@ Deno.serve(async (req) => {
   if ((doc.tipo_dte === 39 || doc.tipo_dte === 41) && config.boletaEstilo !== "clasica") {
     try {
       const bytes = await pdfBoletaModerna(
-        xmlBytes,
+        datosDesdeXmlDte(xmlBytes),
         config,
         empresa?.numero_resolucion ?? 0,
         empresa?.fecha_resolucion ?? "",

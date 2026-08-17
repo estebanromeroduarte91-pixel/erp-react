@@ -2491,7 +2491,13 @@ export function useEmitirDte() {
 export function useImprimirDte() {
   const { empresaId } = useAuth()
   return useMutation({
-    mutationFn: async (datos: { folio: number; tipo_dte: number; forma_pago?: string }) => {
+    mutationFn: async (
+      datos:
+        | { folio: number; tipo_dte: number; forma_pago?: string }
+        // Venta con "Sin doc.": arma el mismo PDF desde la venta ya guardada,
+        // sin folio ni SimpleAPI — ver comentario en dte-imprimir/index.ts.
+        | { comprobante: true; venta_id: string; forma_pago?: string },
+    ) => {
       const { data, error } = await supabase.functions.invoke('dte-imprimir', { body: { ...datos, empresa_id: empresaId } })
       if (error) throw new Error(await extraerMensajeError(error, 'No se pudo imprimir el documento'))
       return data as { pdf_base64: string }
