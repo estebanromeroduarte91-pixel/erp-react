@@ -100,6 +100,13 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
   // un borrador la primera vez que se pide el QR para que las fotos tengan dónde llegar.
   const [draftId, setDraftId] = useState<string | null>(orden?.id ?? null)
   const [creandoBorrador, setCreandoBorrador] = useState(false)
+  const [sucursalElegida, setSucursalElegida] = useState('')
+  // Ni la sesión (admin sin sucursal fija) ni la pantalla de origen (mobile no
+  // tiene selector de sucursal; en desktop se puede abrir "Nueva orden" antes
+  // de entrar a una) resuelven sola la sucursal cuando hay más de una — sin
+  // esto la orden se guardaba con branch_id null y quedaba invisible en el
+  // flujo normal (que siempre filtra por sucursal para un admin).
+  const necesitaSucursal = !orden && bodegas.length > 1 && !userBranchId && !defaultBranchId
 
   // Suscripción directa al draft para sincronizar fotos del iPhone vía QR.
   // useOrdenes filtra _draft, por eso se usa una suscripción propia aquí.
@@ -125,6 +132,7 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
     // Sin cliente/modelo el borrador quedaría vacío y el QR mostraría datos en blanco.
     if (!clienteSeleccionado) { setError('Selecciona o crea un cliente antes de pedir el QR'); return null }
     if (!form.modelo.trim()) { setError('Ingresa el equipo / modelo antes de pedir el QR'); return null }
+    if (necesitaSucursal && !sucursalElegida) { setError('Elige la sucursal para esta orden'); return null }
     setError('')
     setCreandoBorrador(true)
     try {
@@ -137,7 +145,7 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
         repuestos,
         checkIngreso,
         photosIngreso: fotos,
-        branchId: userBranchId ?? defaultBranchId ?? undefined,
+        branchId: userBranchId ?? defaultBranchId ?? sucursalElegida ?? undefined,
         _draft: true,
       }
       await crearOrden.mutateAsync(draft)
@@ -392,6 +400,7 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
   async function handleGuardar() {
     if (!clienteSeleccionado) { setError('Selecciona o crea un cliente'); return }
     if (!form.modelo.trim()) { setError('El equipo / modelo es requerido'); return }
+    if (necesitaSucursal && !sucursalElegida) { setError('Elige la sucursal para esta orden'); return }
     setError('')
     setGuardando(true)
 
@@ -412,7 +421,7 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
       const base = ordenes.find((o) => o.id === draftId) ?? orden ?? ({ id: draftId, num: await nextNum(), fecha: ahora } as Orden)
       const actualizada: Orden = {
         ...base, ...form, repuestos, checkIngreso: checkFinal, photosIngreso: fotos, _draft: false,
-        branchId: base.branchId ?? userBranchId ?? defaultBranchId ?? undefined,
+        branchId: base.branchId ?? userBranchId ?? defaultBranchId ?? sucursalElegida ?? undefined,
         numero_boleta: base.numero_boleta || form.numero_boleta?.trim() || undefined,
       }
       await actualizarOrden.mutateAsync(actualizada)
@@ -426,7 +435,7 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
         repuestos,
         checkIngreso: checkFinal,
         photosIngreso: fotos,
-        branchId: userBranchId ?? defaultBranchId ?? undefined,
+        branchId: userBranchId ?? defaultBranchId ?? sucursalElegida ?? undefined,
         _draft: false,
       }
       await crearOrden.mutateAsync(nuevaOrden)
@@ -535,6 +544,22 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
 
         {/* Body */}
         <div className="overflow-y-auto px-6 py-4 space-y-5">
+
+          {necesitaSucursal && (
+            <section>
+              <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Sucursal</h4>
+              <select
+                value={sucursalElegida}
+                onChange={(e) => setSucursalElegida(e.target.value)}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
+              >
+                <option value="">Elige la sucursal…</option>
+                {bodegas.map((b) => (
+                  <option key={b.id} value={b.id}>{b.nombre ?? b.name}</option>
+                ))}
+              </select>
+            </section>
+          )}
 
           {/* ── Cliente ── */}
           <section>

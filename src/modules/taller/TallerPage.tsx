@@ -458,7 +458,19 @@ export function TallerPage() {
           </div>
           <button
             id="tour-taller-btn-nueva-orden"
-            onClick={abrirNueva}
+            onClick={() => {
+              // Sin esto, un admin de una empresa multi-sucursal podía crear
+              // una orden desde la pantalla de "elegir sucursal" (antes de
+              // entrar a una): quedaba con branch_id null, invisible en el
+              // flujo normal (que exige estar dentro de una sucursal para
+              // listar sus órdenes). Con una sola sucursal no hay ambigüedad,
+              // así que no hace falta el aviso.
+              if (esAdmin && !selectedBranchId && bodegas.length > 1) {
+                alert('Elige una sucursal antes de crear una orden.')
+                return
+              }
+              abrirNueva()
+            }}
             className="inline-flex items-center gap-2 bg-blue-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 transition"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
