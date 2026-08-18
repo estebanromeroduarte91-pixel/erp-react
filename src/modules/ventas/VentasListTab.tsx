@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { useVentasResumen, useVentasPaginadas, useVentaPorId, useAnularVenta, useMetodosPago, useVentasRealtime, useDteDeVenta } from '@/lib/queries'
+import { useVentasResumen, useVentasPaginadas, useVentaPorId, useAnularVenta, useActualizarMetodoPago, useMetodosPago, useVentasRealtime, useDteDeVenta } from '@/lib/queries'
 import { nombreMetodoPago } from '@/lib/metodoPago'
 import { useAuth } from '@/context/AuthContext'
 import { Spinner } from '@/components/shared/Spinner'
@@ -37,6 +37,7 @@ export function VentasListTab() {
   const { esAdmin, branchId: userBranchId, empresaId } = useAuth()
   const { data: metodos } = useMetodosPago()
   const anularVenta = useAnularVenta()
+  const actualizarMetodoPago = useActualizarMetodoPago()
   // Ventas creadas/anuladas desde otro equipo o sucursal aparecen sin recargar.
   useVentasRealtime()
 
@@ -54,6 +55,9 @@ export function VentasListTab() {
   const [detalle, setDetalle] = useState<Venta | null>(null)
   const [imprimiendo, setImprimiendo] = useState(false)
   const [errorImpresion, setErrorImpresion] = useState('')
+  // Edición del método de pago dentro del detalle. `null` = no se está editando.
+  const [editandoMetodo, setEditandoMetodo] = useState<string | null>(null)
+  const [errorMetodo, setErrorMetodo] = useState('')
   const desdeRef = useRef<HTMLInputElement>(null)
   const hastaRef = useRef<HTMLInputElement>(null)
   const dteDeVenta = useDteDeVenta(detalle?.id)
@@ -140,6 +144,8 @@ export function VentasListTab() {
 
   function abrirDetalle(v: Venta) {
     setErrorImpresion('')
+    setEditandoMetodo(null)
+    setErrorMetodo('')
     setDetalle(v)
   }
 
@@ -147,6 +153,18 @@ export function VentasListTab() {
     if (!esAdmin) return
     if (!confirm(`¿Anular la venta ${v.numero}?`)) return
     await anularVenta.mutateAsync(v.id)
+  }
+
+  async function guardarMetodoPago(v: Venta, metodoPago: string) {
+    if (!esAdmin || v.estado !== 'pagada') return
+    setErrorMetodo('')
+    try {
+      await actualizarMetodoPago.mutateAsync({ id: v.id, metodoPago })
+      setDetalle({ ...v, metodo_pago: metodoPago })
+      setEditandoMetodo(null)
+    } catch (e) {
+      setErrorMetodo(e instanceof Error ? e.message : 'No se pudo cambiar el método de pago')
+    }
   }
 
   async function imprimirBoleta(v: Venta) {
@@ -440,10 +458,52 @@ export function VentasListTab() {
             </div>
             <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
               <div className="bg-gray-50 rounded-xl p-4 space-y-1.5 text-sm">
-                <div className="flex justify-between text-gray-600">
-                  <span>Método de pago</span>
-                  <span className="font-medium">{mp(detalle.metodo_pago)}</span>
+                <div className="flex justify-between items-center text-gray-600 gap-3">
+                  <span className="flex-shrink-0">Método de pago</span>
+                  {editandoMetodo === null ? (
+                    <span className="flex items-center gap-2 min-w-0">
+                      <span className="font-medium truncate">{mp(detalle.metodo_pago)}</span>
+                      {esAdmin && detalle.estado === 'pagada' && (
+                        <button
+                          onClick={() => setEditandoMetodo(detalle.metodo_pago ?? '')}
+                          className="text-xs text-blue-600 hover:underline font-medium flex-shrink-0"
+                        >
+                          Cambiar
+                        </button>
+                      )}
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-2 min-w-0">
+                      <select
+                        value={editandoMetodo}
+                        onChange={e => setEditandoMetodo(e.target.value)}
+                        disabled={actualizarMetodoPago.isPending}
+                        className="px-2 py-1 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:border-blue-400 min-w-0"
+                      >
+                        {(metodos ?? []).map(m => (
+                          <option key={m.id} value={m.id}>{m.label}</option>
+                        ))}
+                      </select>
+                      <button
+                        onClick={() => void guardarMetodoPago(detalle, editandoMetodo)}
+                        disabled={actualizarMetodoPago.isPending || !editandoMetodo || editandoMetodo === detalle.metodo_pago}
+                        className="text-xs text-blue-600 hover:underline font-medium disabled:opacity-40 disabled:no-underline flex-shrink-0"
+                      >
+                        {actualizarMetodoPago.isPending ? 'Guardando…' : 'Guardar'}
+                      </button>
+                      <button
+                        onClick={() => { setEditandoMetodo(null); setErrorMetodo('') }}
+                        disabled={actualizarMetodoPago.isPending}
+                        className="text-xs text-gray-400 hover:text-gray-600 flex-shrink-0"
+                      >
+                        Cancelar
+                      </button>
+                    </span>
+                  )}
                 </div>
+                {errorMetodo && (
+                  <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-2.5 py-1.5">{errorMetodo}</p>
+                )}
                 <div className="flex justify-between text-gray-600">
                   <span>Documento</span>
                   <span className="font-medium capitalize">{detalle.tipo_doc ?? 'boleta'}</span>

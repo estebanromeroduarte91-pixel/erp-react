@@ -1713,6 +1713,36 @@ export function useAnularVenta() {
   })
 }
 
+// Corregir el método de pago de una venta ya confirmada (RPC, migración 52).
+// No toca montos ni stock: es el único campo de una venta cerrada que se
+// puede arreglar sin anularla y rehacerla.
+export function useActualizarMetodoPago() {
+  const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, metodoPago }: { id: string; metodoPago: string }) => {
+      const { error } = await supabase.rpc('fn_actualizar_metodo_pago', {
+        p_venta_id: id, p_metodo_pago: metodoPago, p_empresa_id: empresaId,
+      })
+      if (error) throw error
+    },
+    onMutate: async ({ id, metodoPago }) => {
+      await qc.cancelQueries({ queryKey: ['ventas', empresaId] })
+      const prev = qc.getQueryData<Venta[]>(['ventas', empresaId])
+      qc.setQueryData<Venta[]>(['ventas', empresaId], (old = []) =>
+        old.map((v) => (v.id === id ? { ...v, metodo_pago: metodoPago } : v)))
+      return { prev }
+    },
+    onError: (_e, _vars, ctx) => { if (ctx?.prev) qc.setQueryData(['ventas', empresaId], ctx.prev) },
+    onSuccess: () => {
+      // El resumen agrupa por método de pago, así que hay que rehacerlo.
+      void qc.invalidateQueries({ queryKey: ['ventas-resumen', empresaId] })
+      void qc.invalidateQueries({ queryKey: ['ventas-paginadas', empresaId] })
+      void qc.invalidateQueries({ queryKey: ['ventas', empresaId] })
+    },
+  })
+}
+
 export function useCajas() {
   const { empresaId } = useAuth()
   return useQuery({
