@@ -602,7 +602,10 @@ export function POSTab() {
         })),
         total: totalNeto,
         total_iva: totalIva,
-        fecha_creacion: today(),
+        // Marca de tiempo real, no solo la fecha: `today()` guardaba
+        // 'YYYY-MM-DD', que la columna timestamptz interpretaba como
+        // medianoche, dejando todas las ventas del día empatadas y sin hora.
+        fecha_creacion: new Date().toISOString(),
       }
       // Movimiento de inventario: salida por venta
       const prodsSalida = venta.items.filter(it => it.producto_id && it.producto_id !== 'ot-servicio' && !it.producto_id.startsWith('rep-'))

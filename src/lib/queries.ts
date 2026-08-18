@@ -1477,6 +1477,7 @@ export function useUltimasVentas(limite = 5) {
         .eq('empresa_id', empresaId!)
         .eq('estado', 'pagada')
         .order('fecha', { ascending: false })
+        .order('numero', { ascending: false })
         .limit(limite)
       if (error) throw error
       return (data ?? []).map(hidratarVenta)
@@ -1546,6 +1547,7 @@ export function useBuscarVentas(termino: string) {
         .eq('empresa_id', empresaId!)
         .or(`numero.ilike.%${term}%,cliente.ilike.%${term}%`)
         .order('fecha', { ascending: false })
+        .order('numero', { ascending: false })
         .limit(5)
       if (error) throw error
       return (data ?? []).map(hidratarVenta)
@@ -1607,6 +1609,7 @@ export function useVentasPaginadas(p: VentasPaginadasParams) {
         .select(VENTA_COLS, { count: 'exact' })
         .eq('empresa_id', empresaId!)
         .order('fecha', { ascending: false })
+        .order('numero', { ascending: false })
         .range(from, to)
       if (p.estado) q = q.eq('estado', p.estado)
       if (p.desde) q = q.gte('fecha', p.desde)
