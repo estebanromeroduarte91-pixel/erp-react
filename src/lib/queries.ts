@@ -1563,6 +1563,11 @@ export interface VentasResumen {
   historico: { count: number; total: number; utilidad: number }
   periodo: { count: number; total_iva: number; total_neto: number; utilidad: number }
   metodos: { metodo: string; total: number; count: number }[]
+  // Desglose por sucursal del período (migración 53). `branch_id` puede venir
+  // null: son las ventas que quedaron sin sucursal asignada. El nombre se
+  // resuelve en el cliente contra `bodegas`, porque `ventas.branch_nombre`
+  // está vacío en buena parte de los datos reales.
+  sucursales?: { branch_id: string | null; total_iva: number; total_neto: number; count: number; utilidad: number }[]
 }
 
 export function useVentasResumen(desde: string | null, hasta: string | null, branchId: string | null) {

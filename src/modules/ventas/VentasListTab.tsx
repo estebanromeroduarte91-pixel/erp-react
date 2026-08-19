@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { useVentasResumen, useVentasPaginadas, useVentaPorId, useAnularVenta, useActualizarMetodoPago, useMetodosPago, useVentasRealtime, useDteDeVenta } from '@/lib/queries'
+import { useVentasResumen, useVentasPaginadas, useVentaPorId, useAnularVenta, useActualizarMetodoPago, useMetodosPago, useVentasRealtime, useDteDeVenta, useBodegas } from '@/lib/queries'
 import { nombreMetodoPago } from '@/lib/metodoPago'
 import { useAuth } from '@/context/AuthContext'
 import { Spinner } from '@/components/shared/Spinner'
@@ -29,6 +29,10 @@ function rangoDePeriodo(periodo: Periodo, desde: string, hasta: string): [string
   return [null, null]
 }
 
+// Mismos colores que las tarjetas de sucursal del Dashboard, para que una
+// sucursal se vea del mismo color en las dos pantallas.
+const SUC_COLORS = ['#378ADD', '#1D9E75', '#7F77DD', '#D85A30', '#BA7517', '#64748b']
+
 const PERIODO_LABEL: Record<Periodo, string> = {
   hoy: 'Hoy', mes: 'Este mes', año: 'Este año', todo: 'Todo el tiempo', rango: 'Rango',
 }
@@ -38,6 +42,7 @@ export function VentasListTab() {
   const { data: metodos } = useMetodosPago()
   const anularVenta = useAnularVenta()
   const actualizarMetodoPago = useActualizarMetodoPago()
+  const { data: bodegas } = useBodegas()
   // Ventas creadas/anuladas desde otro equipo o sucursal aparecen sin recargar.
   useVentasRealtime()
 
@@ -132,6 +137,33 @@ export function VentasListTab() {
   const utilidad = resumen.data?.periodo.utilidad ?? 0
   const cantPeriodo = resumen.data?.periodo.count ?? 0
   const metodosSorted = resumen.data?.metodos ?? []
+
+  // Tarjetas por sucursal: el servidor agrega los montos (migración 53) y acá
+  // solo se resuelve el nombre contra `bodegas` y se calcula la participación.
+  // Se ocultan cuando la empresa tiene una sola sucursal o ninguna: la tarjeta
+  // repetiría exactamente el KPI de arriba.
+  const sucursales = useMemo(() => {
+    const filas = resumen.data?.sucursales ?? []
+    if (filas.length === 0) return []
+    const orden = new Map((bodegas ?? []).map((b, i) => [b.id, i]))
+    const total = filas.reduce((acc, f) => acc + (+f.total_iva || 0), 0) || 1
+    return filas.map(f => {
+      const bodega = (bodegas ?? []).find(b => b.id === f.branch_id)
+      const idx = f.branch_id ? orden.get(f.branch_id) : undefined
+      return {
+        id: f.branch_id ?? 'sin-sucursal',
+        nombre: bodega?.nombre ?? bodega?.name ?? (f.branch_id ? 'Sucursal eliminada' : 'Sin sucursal asignada'),
+        total: +f.total_iva || 0,
+        neto: +f.total_neto || 0,
+        count: +f.count || 0,
+        utilidad: +f.utilidad || 0,
+        part: Math.round((+f.total_iva || 0) / total * 100),
+        color: idx === undefined ? '#64748b' : (SUC_COLORS[idx] ?? '#64748b'),
+      }
+    })
+  }, [resumen.data, bodegas])
+
+  const mostrarSucursales = sucursales.length > 1
 
   function cambiarFiltro(fn: () => void) {
     fn()
@@ -274,6 +306,49 @@ export function VentasListTab() {
           <p className="text-xs text-gray-400 mt-1">Neto − costo productos</p>
         </div>
       </div>
+
+      {/* Ventas por sucursal — mismas tarjetas que el Dashboard */}
+      {mostrarSucursales && (
+        <div>
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">
+            Ventas por sucursal — {PERIODO_LABEL[periodo]}
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {sucursales.map(s => (
+              <div key={s.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <div className="h-1" style={{ background: s.color }} />
+                <div className="p-4">
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <span className="text-sm font-semibold text-gray-900 truncate">{s.nombre}</span>
+                    <span className="text-xs text-gray-400 flex-shrink-0">{s.part}%</span>
+                  </div>
+                  <p className="text-2xl font-extrabold text-gray-900 mb-3">{fmt(s.total)}</p>
+                  <div className="grid grid-cols-3 gap-2 border-t border-gray-100 pt-3">
+                    <div>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-0.5">Neto</p>
+                      <p className="text-xs text-gray-600">{fmt(s.neto)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-0.5">Ventas</p>
+                      <p className="text-xs text-gray-600">{s.count}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-0.5">Participación</p>
+                      <p className="text-xs text-gray-600">{s.part}%</p>
+                    </div>
+                  </div>
+                  <div className={`mt-3 px-2.5 py-1.5 rounded-lg flex items-center justify-between ${s.utilidad >= 0 ? 'bg-emerald-50' : 'bg-red-50'}`}>
+                    <span className="text-xs text-gray-500">Resultado</span>
+                    <span className={`text-sm font-bold ${s.utilidad >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                      {s.utilidad >= 0 ? '+' : ''}{fmt(s.utilidad)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* 2-col: Métodos de pago | Resumen histórico */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
