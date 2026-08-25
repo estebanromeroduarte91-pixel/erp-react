@@ -98,6 +98,20 @@ export function ReportesTab() {
   }), { unidades: 0, neto: 0, margen: 0 }), [rentabilidad.data])
   const kpis = seccion === 'rentabilidad' ? totalesRentabilidad : totales
   const margenPct = kpis.neto ? Math.round(kpis.margen / kpis.neto * 100) : 0
+  const filasRentabilidad = useMemo(() => {
+    if (agrupacion === 'categoria') {
+      return (serie.data?.series ?? []).map(s => {
+        const unidades = s.unidades.reduce((a, b) => a + (+b || 0), 0)
+        const neto = s.neto.reduce((a, b) => a + (+b || 0), 0)
+        const margen = s.margen.reduce((a, b) => a + (+b || 0), 0)
+        return { id: s.clave, nombre: s.nombre, unidades, neto, costo: neto - margen, margen }
+      })
+    }
+    return (rentabilidad.data?.filas ?? []).map(f => ({
+      id: f.producto_id, nombre: f.nombre, unidades: +f.unidades || 0,
+      neto: +f.neto || 0, costo: +f.costo || 0, margen: +f.margen || 0,
+    }))
+  }, [agrupacion, serie.data, rentabilidad.data])
 
   // La tabla conserva todas las series. El gráfico usa como máximo seis y les
   // asigna colores únicos; así una categoría séptima no reutiliza un color.
@@ -285,10 +299,7 @@ export function ReportesTab() {
 
       {seccion === 'rentabilidad' && rentabilidad.isLoading && <div className="py-12"><Spinner /></div>}
       {seccion === 'rentabilidad' && !rentabilidad.isLoading && (
-        <TablaRentabilidad filas={(rentabilidad.data?.filas ?? []).map(f => ({
-          id: f.producto_id, nombre: f.nombre, unidades: +f.unidades || 0, neto: +f.neto || 0,
-          costo: +f.costo || 0, margen: +f.margen || 0,
-        }))} />
+        <TablaRentabilidad filas={filasRentabilidad} agrupacion={agrupacion} />
       )}
 
       {/* ── Serie en el tiempo ── */}
@@ -399,8 +410,9 @@ function NavegacionBI({ seccion, secciones, onChange }: {
   )
 }
 
-function TablaRentabilidad({ filas }: {
+function TablaRentabilidad({ filas, agrupacion }: {
   filas: { id: string; nombre: string; unidades: number; neto: number; costo: number; margen: number }[]
+  agrupacion: Agrupacion
 }) {
   const ordenadas = [...filas].sort((a, b) => b.margen - a.margen)
   const perdidas = ordenadas.filter(f => f.margen < 0)
@@ -410,8 +422,8 @@ function TablaRentabilidad({ filas }: {
       <div className="bg-white rounded-xl border border-gray-200 p-4">
         <div className="flex items-baseline justify-between gap-3 mb-3">
           <div>
-            <h3 className="text-sm font-extrabold text-gray-900 m-0">Rentabilidad por producto</h3>
-            <p className="text-[11px] text-gray-400 mt-1 mb-0">Cuántos salieron y cuánto margen bruto dejaron.</p>
+            <h3 className="text-sm font-extrabold text-gray-900 m-0">Rentabilidad por {agrupacion === 'producto' ? 'producto' : 'categoría'}</h3>
+            <p className="text-[11px] text-gray-400 mt-1 mb-0">{agrupacion === 'producto' ? 'Cuántos salieron y cuánto margen bruto dejaron.' : 'Venta, costo y margen bruto consolidado por categoría.'}</p>
           </div>
           <span className={`text-sm font-extrabold tabular-nums ${margenTotal >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
             {clp(margenTotal)}
@@ -420,7 +432,7 @@ function TablaRentabilidad({ filas }: {
         <div className="overflow-x-auto">
           <table className="w-full text-[13px] border-collapse">
             <thead><tr className="border-b border-gray-200">
-              <th className={TH_L}>Producto</th><th className={TH_R}>Unid.</th><th className={TH_R}>Venta neta</th>
+              <th className={TH_L}>{agrupacion === 'producto' ? 'Producto' : 'Categoría'}</th><th className={TH_R}>Unid.</th><th className={TH_R}>Venta neta</th>
               <th className={TH_R}>Costo vendido</th><th className={TH_R}>Margen bruto</th><th className={TH_R}>Margen %</th>
             </tr></thead>
             <tbody>{ordenadas.map(f => {
@@ -438,13 +450,13 @@ function TablaRentabilidad({ filas }: {
         </div>
       </div>
       <div className="bg-white rounded-xl border border-gray-200 p-4">
-        <h3 className="text-sm font-extrabold text-gray-900 m-0">Productos con pérdida</h3>
+        <h3 className="text-sm font-extrabold text-gray-900 m-0">{agrupacion === 'producto' ? 'Productos' : 'Categorías'} con pérdida</h3>
         <p className="text-[11px] text-gray-400 mt-1 mb-3">Prioridad de revisión de costo, precio o descuento.</p>
         {perdidas.length === 0 ? (
-          <p className="text-sm text-gray-400 py-6 text-center m-0">No hay productos con margen negativo en la selección.</p>
+          <p className="text-sm text-gray-400 py-6 text-center m-0">No hay {agrupacion === 'producto' ? 'productos' : 'categorías'} con margen negativo en la selección.</p>
         ) : (
           <div className="overflow-x-auto"><table className="w-full text-[13px] border-collapse">
-            <thead><tr className="border-b border-gray-200"><th className={TH_L}>Producto</th><th className={TH_R}>Unid.</th><th className={TH_R}>Pérdida</th><th className={TH_R}>Margen</th></tr></thead>
+            <thead><tr className="border-b border-gray-200"><th className={TH_L}>{agrupacion === 'producto' ? 'Producto' : 'Categoría'}</th><th className={TH_R}>Unid.</th><th className={TH_R}>Pérdida</th><th className={TH_R}>Margen</th></tr></thead>
             <tbody>{perdidas.map(f => <tr key={f.id} className="border-b border-gray-50 last:border-0">
               <td className="py-2.5 px-2 font-semibold text-gray-900">{f.nombre}</td>
               <td className="py-2.5 px-2 text-right tabular-nums text-gray-600">{uds(f.unidades)}</td>
