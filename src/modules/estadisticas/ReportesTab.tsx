@@ -24,6 +24,7 @@ const MET_LABEL: Record<Metrica, string> = {
   unidades: 'Unidades vendidas', neto: 'Venta neta', margen: 'Margen',
 }
 const PERIODO_LABEL: Record<Periodo, string> = {
+  mes: 'Este mes',
   '6m': 'Últimos 6 meses', '12m': 'Últimos 12 meses', '24m': 'Últimos 24 meses',
   'año': 'Este año', 'anterior': 'Año anterior', 'todo': 'Todo el histórico',
 }
