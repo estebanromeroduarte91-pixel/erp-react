@@ -131,6 +131,20 @@
   tbody tr:last-child td{border-bottom:0}
   td.nom{color:var(--ink); font-weight:600}
   .swrow{display:inline-block; width:9px; height:9px; border-radius:3px; margin-right:8px; vertical-align:middle}
+  /* matriz producto × mes */
+  #pivot{font-size:12.5px}
+  #pivot th:first-child,#pivot td:first-child{
+    position:sticky; left:0; background:var(--card); z-index:1; min-width:210px;
+  }
+  #pivot th.tot,#pivot td.tot{border-left:1px solid var(--border); font-weight:700; color:var(--ink)}
+  #pivot tbody tr{cursor:pointer}
+  #pivot tbody tr:hover td{background:#fafafb}
+  #pivot tbody tr:hover td:first-child{background:#fafafb}
+  #pivot tr.total td{border-top:1px solid var(--border); font-weight:800; color:var(--ink); background:#fbfbfd}
+  #pivot tr.total td:first-child{background:#fbfbfd}
+  #pivot td.cero{color:#c7c7cc}
+  .pin{display:inline-block; width:7px; height:7px; border-radius:2px; margin-right:7px; vertical-align:middle}
+  .pin.off{background:transparent; box-shadow:inset 0 0 0 1px #dcdce0}
   .oculto{display:none}
   .nota{font-size:11px; color:var(--muted); margin:16px 0 0; line-height:1.6}
 </style>
@@ -143,7 +157,7 @@
   <div class="filtros">
     <label class="campo"><span>Período</span>
       <select id="f-periodo">
-        <option>Últimas 12 semanas</option><option>Este mes</option><option>Este año</option><option>Rango personalizado…</option>
+        <option>Últimos 12 meses</option><option>Últimos 6 meses</option><option>Este año</option><option>Año anterior</option><option>Rango personalizado…</option>
       </select>
     </label>
     <label class="campo"><span>Sucursal</span>
@@ -204,7 +218,7 @@
     <div class="card pad">
       <div class="head">
         <h2 id="t-serie"></h2>
-        <span class="hint">Comparado con las 12 semanas anteriores</span>
+        <span class="hint">Comparado con los 12 meses anteriores</span>
       </div>
       <div class="plot" id="plot-serie">
         <svg id="svg-serie" viewBox="0 0 900 300" role="img" aria-labelledby="t-serie"></svg>
@@ -217,13 +231,25 @@
 
   <div class="row dos">
     <div class="card pad">
-      <div class="head"><h2 id="t-rank"></h2><span class="hint">Total del período</span></div>
+      <div class="head"><h2 id="t-rank"></h2><span class="hint">Unidades del período</span></div>
       <div class="plot"><svg id="svg-rank" viewBox="0 0 520 250" role="img" aria-labelledby="t-rank"></svg></div>
     </div>
     <div class="card pad">
       <div class="head"><h2>Detalle</h2><span class="hint">Ordenado por el valor medido</span></div>
       <div style="overflow-x:auto"><table id="tabla-det"></table></div>
     </div>
+  </div>
+
+  <div class="card pad" style="margin-bottom:14px">
+    <div class="head">
+      <h2>Todos los productos vendidos por mes</h2>
+      <span class="hint">Unidades · responde a los mismos filtros de arriba</span>
+    </div>
+    <p style="font-size:11.5px; color:var(--muted); margin:6px 0 12px">
+      Toca una fila para sumarla o sacarla del reporte de arriba.
+    </p>
+    <div style="overflow-x:auto"><table id="pivot"></table></div>
+    <button class="btn" id="expandir" style="margin-top:12px; width:100%"></button>
   </div>
 
   <p class="nota">
@@ -234,7 +260,9 @@
 </div>
 
 <script>
-const SEM = ['S1','S2','S3','S4','S5','S6','S7','S8','S9','S10','S11','S12'];
+// Eje temporal en MESES: es la unidad con la que se lee un negocio de taller
+// (arriendo, metas, comparación contra el año pasado). La semana daba ruido.
+const SEM = ['Sep','Oct','Nov','Dic','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago'];
 const MAX_SERIES = 6;                       // tope de líneas dibujables
 const SLOTS = ['#2a78d6','#eb6834','#1baf7a','#eda100','#e87ba4','#008300']; // paleta validada
 const CATS = [
@@ -274,7 +302,7 @@ let semilla = 7;
 const rnd = () => (semilla = (semilla*1103515245 + 12345) % 2147483648) / 2147483648;
 const PROD = BASE.map(([n,sku,cat,pv,co,med],k)=>({
   id:'p'+k, n, sku, cat, pv, co,
-  u: SEM.map((_,i)=> Math.max(1, Math.round(med*(0.72+rnd()*0.5) + med*0.035*i)))
+  u: SEM.map((_,i)=> Math.max(1, Math.round(med*4.3*(0.78+rnd()*0.42) + med*0.14*i)))
 }));
 const catHex = c => (CATS.find(x=>x.n===c)||{}).hex || '#8e8e93';
 
@@ -291,7 +319,7 @@ function tomarSlot(id){
 }
 const colorDe = id => asignados.get(id) || null;
 
-let st = {m:'u', g:'prod', v:'graf', sel:new Set(), q:'', pcat:'', abierto:false};
+let st = {m:'u', g:'prod', v:'graf', sel:new Set(), q:'', pcat:'', abierto:false, todo:false};
 ['p0','p4','p10','p11'].forEach(id=>{ st.sel.add(id); tomarSlot(id); });
 
 const clp = n => '$'+n.toLocaleString('es-CL');
@@ -408,7 +436,7 @@ function serieChart(){
     r.addEventListener('mouseenter',e=>{
       const i=+e.target.dataset.i, box=document.getElementById('plot-serie').getBoundingClientRect(), sb=svg.getBoundingClientRect();
       cross.setAttribute('x1',x(i)); cross.setAttribute('x2',x(i)); cross.setAttribute('opacity','.5');
-      tip.innerHTML = `<h4>Semana ${i+1}</h4>`+S.map(s=>
+      tip.innerHTML = `<h4>${SEM[i]}</h4>`+S.map(s=>
         `<div class="lin"><span><i class="sw" style="background:${s.hex}"></i>${s.n}</span><b class="num">${fmtV(s.d[i])}</b></div>`).join('');
       tip.style.opacity=1;
       tip.style.left = Math.min(sb.width*(x(i)/W)+14, box.width-190)+'px';
@@ -427,7 +455,38 @@ function serieChart(){
 }
 
 // Ranking y tabla incluyen TODO lo seleccionado, tenga color o no.
+// El ranking va SIEMPRE en unidades, no en la métrica elegida: responde "qué se
+// mueve más", que es una pregunta de cantidad. El dinero ya está en los tiles y
+// en la tabla de detalle.
 function filas(){
+  const act = activos();
+  if(st.g==='cat'){
+    return CATS.filter(c=>act.some(p=>p.cat===c.n)).map(c=>({
+      n:c.n, hex:c.hex, t:act.filter(p=>p.cat===c.n).reduce((s,p)=>s+totU(p),0)
+    })).sort((a,b)=>b.t-a.t);
+  }
+  return act.map(p=>({n:p.n, hex:colorDe(p.id)||'#c7c7cc', t:totU(p)})).sort((a,b)=>b.t-a.t);
+}
+const fmtU = v => Math.round(v).toLocaleString('es-CL')+' u.';
+
+function rankChart(){
+  const S = filas(), svg=document.getElementById('svg-rank'), W=520, bh=26, gap=12, L=6;
+  document.getElementById('t-rank').textContent = (st.g==='cat' ? 'Por categoría' : 'Por producto')+' · cantidad';
+  const H = Math.max(80, S.length*(bh+gap));
+  svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
+  const max = Math.max(1,...S.map(s=>s.t)), bw = W-210;
+  svg.innerHTML = S.map((s,i)=>{
+    const yy=i*(bh+gap), w=Math.max(3,(s.t/max)*bw);
+    return `<text x="${L}" y="${yy+16}" font-size="12" font-weight="600" fill="var(--ink)">${s.n.length>24?s.n.slice(0,23)+'…':s.n}</text>
+      <rect x="${L}" y="${yy+21}" width="${bw}" height="7" rx="3.5" fill="var(--border-soft)"/>
+      <rect x="${L}" y="${yy+21}" width="${w}" height="7" rx="3.5" fill="${s.hex}"><title>${s.n}: ${fmtU(s.t)}</title></rect>
+      <text x="${W-6}" y="${yy+16}" text-anchor="end" font-size="12" font-weight="700" fill="var(--ink)" font-family="JetBrains Mono,monospace">${fmtU(s.t)}</text>`;
+  }).join('');
+}
+
+// El ranking va en unidades; esta tabla va en la métrica elegida. Si las dos
+// mostraran lo mismo, una de las dos sobra.
+function filasMetrica(){
   const act = activos();
   if(st.g==='cat'){
     return CATS.filter(c=>act.some(p=>p.cat===c.n)).map(c=>({
@@ -437,31 +496,40 @@ function filas(){
   return act.map(p=>({n:p.n, hex:colorDe(p.id)||'#c7c7cc', t:SEM.reduce((a,_,i)=>a+val(p,i),0)})).sort((a,b)=>b.t-a.t);
 }
 
-function rankChart(){
-  const S = filas(), svg=document.getElementById('svg-rank'), W=520, bh=26, gap=12, L=6;
-  document.getElementById('t-rank').textContent = st.g==='cat' ? 'Por categoría' : 'Por producto';
-  const H = Math.max(80, S.length*(bh+gap));
-  svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
-  const max = Math.max(1,...S.map(s=>s.t)), bw = W-210;
-  svg.innerHTML = S.map((s,i)=>{
-    const yy=i*(bh+gap), w=Math.max(3,(s.t/max)*bw);
-    return `<text x="${L}" y="${yy+16}" font-size="12" font-weight="600" fill="var(--ink)">${s.n.length>24?s.n.slice(0,23)+'…':s.n}</text>
-      <rect x="${L}" y="${yy+21}" width="${bw}" height="7" rx="3.5" fill="var(--border-soft)"/>
-      <rect x="${L}" y="${yy+21}" width="${w}" height="7" rx="3.5" fill="${s.hex}"><title>${s.n}: ${fmtV(s.t)}</title></rect>
-      <text x="${W-6}" y="${yy+16}" text-anchor="end" font-size="12" font-weight="700" fill="var(--ink)" font-family="JetBrains Mono,monospace">${fmtV(s.t)}</text>`;
-  }).join('');
-}
-
 function tablaDet(){
-  const S = filas(), tot = S.reduce((a,b)=>a+b.t,0)||1;
+  const S = filasMetrica(), tot = S.reduce((a,b)=>a+b.t,0)||1;
   document.getElementById('tabla-det').innerHTML =
     `<thead><tr><th>${st.g==='cat'?'Categoría':'Producto'}</th><th class="r">${MET[st.m]}</th><th class="r">Part.</th></tr></thead><tbody>`+
     S.map(s=>`<tr><td class="nom"><span class="swrow" style="background:${s.hex}"></span>${s.n}</td>
       <td class="r num">${fmtV(s.t)}</td><td class="r num">${Math.round(s.t/tot*100)}%</td></tr>`).join('')+'</tbody>';
 }
 
+// Matriz producto × mes de TODO lo vendido, no solo lo seleccionado. Es la vista
+// que responde "qué se movió este mes" sin tener que elegir nada antes.
+function pivot(){
+  const orden = [...PROD].sort((a,b)=>totU(b)-totU(a));
+  const vis = st.todo ? orden : orden.slice(0,8);
+  const totMes = SEM.map((_,i)=>orden.reduce((a,p)=>a+p.u[i],0));
+  const cab = '<thead><tr><th>Producto</th>'+SEM.map(m=>`<th class="r">${m}</th>`).join('')+
+    '<th class="r tot">Total</th></tr></thead>';
+  const cuerpo = vis.map(p=>{
+    const c = colorDe(p.id), dentro = st.sel.has(p.id);
+    return `<tr data-fila="${p.id}" title="${dentro?'Quitar del':'Agregar al'} reporte">
+      <td class="nom"><span class="pin ${dentro?'':'off'}" style="background:${c||(dentro?'var(--muted)':'transparent')}"></span>${p.n}</td>`+
+      p.u.map(v=>`<td class="r num${v?'':' cero'}">${v||'—'}</td>`).join('')+
+      `<td class="r num tot">${totU(p).toLocaleString('es-CL')}</td></tr>`;
+  }).join('');
+  const pie = `<tr class="total"><td>Total ${orden.length} productos</td>`+
+    totMes.map(v=>`<td class="r num">${v.toLocaleString('es-CL')}</td>`).join('')+
+    `<td class="r num tot">${totMes.reduce((a,b)=>a+b,0).toLocaleString('es-CL')}</td></tr>`;
+  document.getElementById('pivot').innerHTML = cab+'<tbody>'+cuerpo+pie+'</tbody>';
+  document.getElementById('expandir').textContent = st.todo
+    ? 'Mostrar solo los 8 más vendidos'
+    : `Ver los ${orden.length} productos con ventas`;
+}
+
 function render(){
-  chips(); picker(); tiles(); serieChart(); rankChart(); tablaDet();
+  chips(); picker(); tiles(); serieChart(); rankChart(); tablaDet(); pivot();
   const tabla = st.v==='tab';
   document.getElementById('svg-serie').classList.toggle('oculto',tabla);
   document.getElementById('leyenda').classList.toggle('oculto',tabla);
@@ -474,6 +542,9 @@ function alternar(id){
 }
 
 document.addEventListener('click',e=>{
+  if(e.target.closest('#expandir')){ st.todo=!st.todo; pivot(); return; }
+  const f=e.target.closest('[data-fila]');
+  if(f){ alternar(f.dataset.fila); render(); return; }
   const q=e.target.closest('[data-quitar]');
   if(q){ alternar(q.dataset.quitar); render(); return; }
   if(e.target.closest('#abrir-picker')){ st.abierto=true; render(); document.getElementById('buscar').focus(); return; }

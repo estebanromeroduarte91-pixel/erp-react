@@ -1751,6 +1751,89 @@ export function useActualizarMetodoPago() {
   })
 }
 
+// ── Reportes (Estadísticas → Reportes, migración 54) ─────────────
+// El servidor agrega y devuelve las TRES métricas por serie, así cambiar de
+// métrica en pantalla no vuelve a consultar. `empresaId` va siempre porque ya
+// es la empresa impersonada; el servidor solo lo honra si quien llama es
+// platform admin de verdad.
+
+export interface ReporteSerie {
+  meses: string[]
+  series: { clave: string; nombre: string; total_u: number; unidades: number[]; neto: number[]; margen: number[] }[]
+  totales: { unidades: number; neto: number; margen: number }
+}
+
+export function useReporteSerie(p: {
+  desde: string; hasta: string; agrupacion: 'producto' | 'categoria'
+  productoIds: string[]; branchId: string | null
+}) {
+  const { empresaId } = useAuth()
+  // Sin productos elegidos no hay nada que graficar: se evita la consulta.
+  const habilitado = !!empresaId && (p.agrupacion === 'categoria' || p.productoIds.length > 0)
+  return useQuery({
+    queryKey: ['reporte-serie', empresaId, p.desde, p.hasta, p.agrupacion, p.productoIds.join(','), p.branchId],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('fn_reporte_serie', {
+        p_desde: p.desde, p_hasta: p.hasta, p_agrupacion: p.agrupacion,
+        p_producto_ids: p.productoIds.length ? p.productoIds : null,
+        p_branch_id: p.branchId, p_empresa_id: empresaId,
+      })
+      if (error) throw error
+      return data as ReporteSerie
+    },
+    enabled: habilitado,
+    placeholderData: keepPreviousData,
+  })
+}
+
+export interface ReporteMatriz {
+  meses: string[]
+  filas: { producto_id: string; nombre: string; sku: string; total: number; meses: number[] }[]
+  total_por_mes: number[]
+  productos_total: number
+}
+
+export function useReporteMatriz(p: { desde: string; hasta: string; branchId: string | null; limite: number }) {
+  const { empresaId } = useAuth()
+  return useQuery({
+    queryKey: ['reporte-matriz', empresaId, p.desde, p.hasta, p.branchId, p.limite],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('fn_reporte_matriz', {
+        p_desde: p.desde, p_hasta: p.hasta, p_branch_id: p.branchId,
+        p_limite: p.limite, p_offset: 0, p_empresa_id: empresaId,
+      })
+      if (error) throw error
+      return data as ReporteMatriz
+    },
+    enabled: !!empresaId,
+    placeholderData: keepPreviousData,
+  })
+}
+
+export interface ProductoBuscado { id: string; nombre: string; sku: string; categoria: string; unidades: number }
+
+export function useBuscarProductosReporte(p: {
+  q: string; categoria: string; desde: string; hasta: string; branchId: string | null; activo: boolean
+}) {
+  const { empresaId } = useAuth()
+  return useQuery({
+    queryKey: ['reporte-productos', empresaId, p.q, p.categoria, p.desde, p.hasta, p.branchId],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('fn_reporte_buscar_productos', {
+        p_q: p.q || null, p_categoria: p.categoria || null,
+        p_desde: p.desde, p_hasta: p.hasta, p_branch_id: p.branchId,
+        p_limite: 40, p_empresa_id: empresaId,
+      })
+      if (error) throw error
+      return data as { productos: ProductoBuscado[]; coinciden: number }
+    },
+    // Solo consulta con el selector abierto: no tiene sentido traer el catálogo
+    // mientras nadie lo está mirando.
+    enabled: !!empresaId && p.activo,
+    placeholderData: keepPreviousData,
+  })
+}
+
 export function useCajas() {
   const { empresaId } = useAuth()
   return useQuery({

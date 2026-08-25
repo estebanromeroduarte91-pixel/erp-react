@@ -1,7 +1,7 @@
 import { Suspense } from 'react'
 import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
-import { usePuedeUsarModulo } from '@/lib/queries'
+import { useCargos, usePuedeUsarModulo } from '@/lib/queries'
 import { Login } from '@/modules/auth/Login'
 import { ResetPassword } from '@/modules/auth/ResetPassword'
 import { TrialExpirado } from '@/modules/auth/TrialExpirado'
@@ -33,6 +33,15 @@ const PixitAdminPage = lazyWithReload(() => import('@/modules/pixitadmin/PixitAd
 // La página de marketing solo la ve un visitante sin sesión en "/" — cualquier
 // usuario ya logueado la descargaba igual porque estaba importada estática.
 const LandingPage = lazyWithReload(() => import('@/modules/landing/LandingPage').then(m => ({ default: m.LandingPage })))
+
+function EstadisticasProtegidas() {
+  const { esAdmin, cargoId, rol } = useAuth()
+  const cargos = useCargos()
+  if (esAdmin) return <EstadisticasPage />
+  if (cargos.isLoading) return <div className="py-12"><Spinner /></div>
+  const cargo = cargos.data?.find(c => c.id === (cargoId ?? rol))
+  return cargo?.permisos.estadisticas ? <EstadisticasPage /> : <Navigate to="/taller" replace />
+}
 
 function AppRoutes() {
   const location = useLocation()
@@ -97,7 +106,7 @@ function AppRoutes() {
             <Route path="/ventas"        element={<VentasPage />} />
             <Route path="/contactos"     element={<ContactosPage />} />
             <Route path="/contabilidad"  element={puedeGastos ? <ContabilidadPage /> : <ModuloBloqueado nombre="Gastos" />} />
-            <Route path="/estadisticas"  element={<EstadisticasPage />} />
+            <Route path="/estadisticas"  element={<EstadisticasProtegidas />} />
             <Route path="/config"        element={<ConfigPage />} />
             <Route path="/compras"       element={puedeCompras ? <ComprasPage /> : <ModuloBloqueado nombre="Compras" />} />
             <Route path="/buscar"        element={<BuscarPage />} />

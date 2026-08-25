@@ -93,11 +93,15 @@ const OP_ITEMS: SectionItem[] = [
 // ── Sección "Administración" ───────────────────────────────────
 const ADMIN_ITEMS: SectionItem[] = [
   {
-    type: 'single',
+    type: 'group',
     item: {
-      to: '/estadisticas',
+      id: 'estadisticas',
       label: 'Estadísticas',
       icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>,
+      sub: [
+        { to: '/estadisticas', label: 'Resumen', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg> },
+        { to: '/estadisticas?tab=reportes', label: 'Reportes', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-6"/><path d="M22 20H2"/></svg> },
+      ],
     },
   },
   {
@@ -300,6 +304,10 @@ export function Sidebar() {
     if (si.type === 'group') {
       const id = (si.item as NavGroup).id
       if (id === 'contabilidad') return !!permisos.compras
+      // Estadísticas pasó de item suelto a grupo (Resumen + Reportes). Las dos
+      // pestañas viven bajo el MISMO permiso: admin entra por la rama de arriba,
+      // encargado por su cargo, técnico y vendedor quedan fuera.
+      if (id === 'estadisticas') return !!permisos.estadisticas
       return false
     }
     return false
