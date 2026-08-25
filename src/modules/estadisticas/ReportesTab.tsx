@@ -1,11 +1,12 @@
 import { useState, useMemo, useRef, useCallback } from 'react'
 import {
   useReporteSerie, useReporteMatriz, useBuscarProductosReporte,
-  useCategorias, useBodegas,
+  useReporteRentabilidad, useCategorias, useBodegas,
 } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { Spinner } from '@/components/shared/Spinner'
 import { escalaGrafico, rangoPeriodo, etiquetaMes, type Periodo } from '@/lib/reportes'
+import { ResumenTab } from './ResumenTab'
 
 // Paleta categórica validada con el script de dataviz del proyecto: pasa el
 // chequeo de daltonismo en claro y oscuro (peor par adyacente ΔE 9.1 protan).
@@ -16,6 +17,7 @@ const GRIS = '#c7c7cc'
 
 type Metrica = 'unidades' | 'neto' | 'margen'
 type Agrupacion = 'producto' | 'categoria'
+type SeccionReporte = 'ventas' | 'rentabilidad' | 'gastos' | 'compras' | 'operacion'
 
 const MET_LABEL: Record<Metrica, string> = {
   unidades: 'Unidades vendidas', neto: 'Venta neta', margen: 'Margen',
@@ -44,6 +46,7 @@ export function ReportesTab() {
   const [q, setQ] = useState('')
   const [catFiltro, setCatFiltro] = useState('')
   const [limiteMatriz, setLimiteMatriz] = useState(8)
+  const [seccion, setSeccion] = useState<SeccionReporte>('ventas')
 
   const { desde, hasta } = useMemo(() => rangoPeriodo(periodo), [periodo])
 
@@ -83,10 +86,17 @@ export function ReportesTab() {
   const serie = useReporteSerie({ desde, hasta, agrupacion, productoIds: seleccion, branchId })
   const matriz = useReporteMatriz({ desde, hasta, branchId, limite: limiteMatriz })
   const busqueda = useBuscarProductosReporte({ q, categoria: catFiltro, desde, hasta, branchId, activo: pickerAbierto })
+  const rentabilidad = useReporteRentabilidad({ desde, hasta, branchId, activo: seccion === 'rentabilidad' })
 
   const meses = serie.data?.meses ?? []
   const totales = serie.data?.totales ?? { unidades: 0, neto: 0, margen: 0 }
-  const margenPct = totales.neto ? Math.round(totales.margen / totales.neto * 100) : 0
+  const totalesRentabilidad = useMemo(() => (rentabilidad.data?.filas ?? []).reduce((acc, f) => ({
+    unidades: acc.unidades + (+f.unidades || 0),
+    neto: acc.neto + (+f.neto || 0),
+    margen: acc.margen + (+f.margen || 0),
+  }), { unidades: 0, neto: 0, margen: 0 }), [rentabilidad.data])
+  const kpis = seccion === 'rentabilidad' ? totalesRentabilidad : totales
+  const margenPct = kpis.neto ? Math.round(kpis.margen / kpis.neto * 100) : 0
 
   // La tabla conserva todas las series. El gráfico usa como máximo seis y les
   // asigna colores únicos; así una categoría séptima no reutiliza un color.
@@ -104,8 +114,43 @@ export function ReportesTab() {
   const fueraGrafico = Math.max(0, seriesTodas.length - MAX_SERIES)
   const fmt = (v: number) => metrica === 'unidades' ? uds(v) : clp(v)
 
+  const SECCIONES: { id: SeccionReporte; label: string }[] = [
+    { id: 'ventas', label: 'Ventas' },
+    { id: 'rentabilidad', label: 'Rentabilidad' },
+    { id: 'gastos', label: 'Gastos' },
+    { id: 'compras', label: 'Compras' },
+    { id: 'operacion', label: 'Operación' },
+  ]
+
+  const cambiarSeccion = (id: SeccionReporte) => {
+    setSeccion(id)
+    if (id === 'rentabilidad') setMetrica('margen')
+  }
+
+  if (seccion === 'gastos' || seccion === 'compras' || seccion === 'operacion') {
+    return (
+      <div className="flex flex-col gap-4 pb-8">
+        <NavegacionBI seccion={seccion} secciones={SECCIONES} onChange={cambiarSeccion} />
+        <ResumenTab seccion={seccion} mostrarEncabezado={false} />
+      </div>
+    )
+  }
+
   return (
     <div className="flex flex-col gap-4 pb-8">
+      <NavegacionBI seccion={seccion} secciones={SECCIONES} onChange={cambiarSeccion} />
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-lg font-extrabold text-gray-900 m-0">
+            {seccion === 'ventas' ? 'Análisis de ventas' : 'Rentabilidad de productos'}
+          </h2>
+          <p className="text-xs text-gray-500 mt-1 mb-0">
+            {seccion === 'ventas'
+              ? 'Evolución, participación y detalle por producto o categoría.'
+              : 'Unidades, venta neta y margen bruto generado. El margen no descuenta gastos operacionales.'}
+          </p>
+        </div>
+      </div>
       {/* ── Filtros ── */}
       <div className="flex flex-wrap gap-2.5 items-end">
         <Campo label="Período">
@@ -206,11 +251,19 @@ export function ReportesTab() {
 
       {/* ── Tiles ── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Tile label="Unidades vendidas" valor={uds(totales.unidades)} />
-        <Tile label="Venta neta" valor={clp(totales.neto)} />
-        <Tile label="Margen" valor={clp(totales.margen)} />
+        <Tile label="Unidades vendidas" valor={uds(kpis.unidades)} />
+        <Tile label="Venta neta" valor={clp(kpis.neto)} />
+        <Tile label="Margen bruto" valor={clp(kpis.margen)} />
         <Tile label="Margen %" valor={`${margenPct}%`} />
       </div>
+
+      {seccion === 'rentabilidad' && rentabilidad.isLoading && <div className="py-12"><Spinner /></div>}
+      {seccion === 'rentabilidad' && !rentabilidad.isLoading && (
+        <TablaRentabilidad filas={(rentabilidad.data?.filas ?? []).map(f => ({
+          id: f.producto_id, nombre: f.nombre, unidades: +f.unidades || 0, neto: +f.neto || 0,
+          costo: +f.costo || 0, margen: +f.margen || 0,
+        }))} />
+      )}
 
       {/* ── Serie en el tiempo ── */}
       <div className="bg-white rounded-xl border border-gray-200 p-4">
@@ -301,8 +354,88 @@ export function ReportesTab() {
 
 // ── Piezas ────────────────────────────────────────────────────────
 
+function NavegacionBI({ seccion, secciones, onChange }: {
+  seccion: SeccionReporte
+  secciones: { id: SeccionReporte; label: string }[]
+  onChange: (id: SeccionReporte) => void
+}) {
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl p-1.5 flex gap-1 overflow-x-auto">
+      {secciones.map(item => (
+        <button key={item.id} type="button" onClick={() => onChange(item.id)} aria-pressed={seccion === item.id}
+          className={`shrink-0 px-3.5 py-2 rounded-lg text-xs font-bold transition ${seccion === item.id
+            ? 'bg-gray-900 text-white shadow-sm'
+            : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'}`}>
+          {item.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function TablaRentabilidad({ filas }: {
+  filas: { id: string; nombre: string; unidades: number; neto: number; costo: number; margen: number }[]
+}) {
+  const ordenadas = [...filas].sort((a, b) => b.margen - a.margen)
+  const perdidas = ordenadas.filter(f => f.margen < 0)
+  const margenTotal = ordenadas.reduce((s, f) => s + f.margen, 0)
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="bg-white rounded-xl border border-gray-200 p-4">
+        <div className="flex items-baseline justify-between gap-3 mb-3">
+          <div>
+            <h3 className="text-sm font-extrabold text-gray-900 m-0">Rentabilidad por producto</h3>
+            <p className="text-[11px] text-gray-400 mt-1 mb-0">Cuántos salieron y cuánto margen bruto dejaron.</p>
+          </div>
+          <span className={`text-sm font-extrabold tabular-nums ${margenTotal >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+            {clp(margenTotal)}
+          </span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-[13px] border-collapse">
+            <thead><tr className="border-b border-gray-200">
+              <th className={TH_L}>Producto</th><th className={TH_R}>Unid.</th><th className={TH_R}>Venta neta</th>
+              <th className={TH_R}>Costo vendido</th><th className={TH_R}>Margen bruto</th><th className={TH_R}>Margen %</th>
+            </tr></thead>
+            <tbody>{ordenadas.map(f => {
+              const pct = f.neto ? Math.round(f.margen / f.neto * 100) : 0
+              return <tr key={f.id} className="border-b border-gray-50 last:border-0">
+                <td className="py-2.5 px-2 font-semibold text-gray-900">{f.nombre}</td>
+                <td className="py-2.5 px-2 text-right tabular-nums text-gray-600">{uds(f.unidades)}</td>
+                <td className="py-2.5 px-2 text-right tabular-nums text-gray-600">{clp(f.neto)}</td>
+                <td className="py-2.5 px-2 text-right tabular-nums text-gray-600">{clp(f.costo)}</td>
+                <td className={`py-2.5 px-2 text-right tabular-nums font-bold ${f.margen >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{clp(f.margen)}</td>
+                <td className={`py-2.5 px-2 text-right tabular-nums font-bold ${pct >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{pct}%</td>
+              </tr>
+            })}</tbody>
+          </table>
+        </div>
+      </div>
+      <div className="bg-white rounded-xl border border-gray-200 p-4">
+        <h3 className="text-sm font-extrabold text-gray-900 m-0">Productos con pérdida</h3>
+        <p className="text-[11px] text-gray-400 mt-1 mb-3">Prioridad de revisión de costo, precio o descuento.</p>
+        {perdidas.length === 0 ? (
+          <p className="text-sm text-gray-400 py-6 text-center m-0">No hay productos con margen negativo en la selección.</p>
+        ) : (
+          <div className="overflow-x-auto"><table className="w-full text-[13px] border-collapse">
+            <thead><tr className="border-b border-gray-200"><th className={TH_L}>Producto</th><th className={TH_R}>Unid.</th><th className={TH_R}>Pérdida</th><th className={TH_R}>Margen</th></tr></thead>
+            <tbody>{perdidas.map(f => <tr key={f.id} className="border-b border-gray-50 last:border-0">
+              <td className="py-2.5 px-2 font-semibold text-gray-900">{f.nombre}</td>
+              <td className="py-2.5 px-2 text-right tabular-nums text-gray-600">{uds(f.unidades)}</td>
+              <td className="py-2.5 px-2 text-right tabular-nums font-bold text-red-600">{clp(f.margen)}</td>
+              <td className="py-2.5 px-2 text-right tabular-nums font-bold text-red-600">{f.neto ? Math.round(f.margen / f.neto * 100) : 0}%</td>
+            </tr>)}</tbody>
+          </table></div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 const SELECT = 'text-sm text-gray-900 bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 cursor-pointer focus:outline-none focus:border-blue-400'
 const LBL = 'text-[10px] font-extrabold tracking-wide uppercase text-gray-400 mb-2'
+const TH_L = 'text-left text-[10px] font-extrabold uppercase tracking-wide text-gray-400 pb-2 px-2'
+const TH_R = 'text-right text-[10px] font-extrabold uppercase tracking-wide text-gray-400 pb-2 px-2 whitespace-nowrap'
 
 function Campo({ label, children }: { label: string; children: React.ReactNode }) {
   return (

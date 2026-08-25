@@ -16,8 +16,8 @@ export function EstadisticasPage() {
   // deja entrar acá (`permisos.estadisticas`) cubre las dos pestañas: admin
   // siempre, encargado por su cargo, técnico y vendedor no.
   const TABS: { id: Tab; label: string }[] = [
-    { id: 'resumen', label: 'Resumen' },
-    { id: 'reportes', label: 'Reportes' },
+    { id: 'resumen', label: 'Resumen ejecutivo' },
+    { id: 'reportes', label: 'Reportes BI' },
   ]
 
   return (

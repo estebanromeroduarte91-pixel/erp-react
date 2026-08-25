@@ -1834,6 +1834,35 @@ export function useBuscarProductosReporte(p: {
   })
 }
 
+export interface ReporteRentabilidadFila {
+  producto_id: string
+  nombre: string
+  sku: string
+  unidades: number
+  neto: number
+  costo: number
+  margen: number
+}
+
+export function useReporteRentabilidad(p: {
+  desde: string; hasta: string; branchId: string | null; activo: boolean
+}) {
+  const { empresaId } = useAuth()
+  return useQuery({
+    queryKey: ['reporte-rentabilidad', empresaId, p.desde, p.hasta, p.branchId],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('fn_reporte_rentabilidad', {
+        p_desde: p.desde, p_hasta: p.hasta, p_branch_id: p.branchId,
+        p_limite: 500, p_empresa_id: empresaId,
+      })
+      if (error) throw error
+      return data as { filas: ReporteRentabilidadFila[] }
+    },
+    enabled: !!empresaId && p.activo,
+    placeholderData: keepPreviousData,
+  })
+}
+
 export function useCajas() {
   const { empresaId } = useAuth()
   return useQuery({

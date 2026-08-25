@@ -233,7 +233,12 @@ const KPI_SUB: React.CSSProperties = { fontSize: 11, color: '#6b7280', marginTop
 const CT: React.CSSProperties = { fontSize: 13, fontWeight: 700, color: '#111827', marginBottom: 2, marginTop: 0 }
 const CS: React.CSSProperties = { fontSize: 11, color: '#9ca3af', marginBottom: 12, marginTop: 0 }
 
-export function ResumenTab() {
+export type SeccionResumen = 'resumen' | 'gastos' | 'compras' | 'operacion'
+
+export function ResumenTab({ seccion = 'resumen', mostrarEncabezado = true }: {
+  seccion?: SeccionResumen
+  mostrarEncabezado?: boolean
+}) {
   const [tab, setTab] = useState<Tab>('mes')
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
@@ -267,9 +272,9 @@ export function ResumenTab() {
   }), [previo, range])
 
   const queryRange = useMemo(() => ({
-    from: range.from < range6.from ? range.from : range6.from,
+    from: [range.from, range6.from, previo.desde].sort()[0],
     to: range.to > range6.to ? range.to : range6.to,
-  }), [range, range6])
+  }), [range, range6, previo])
 
   // Esta pantalla usaba useVentas(), que baja la tabla ENTERA de ventas —
   // paginando de a 1000 hasta traerlas todas— y encima con el join de
@@ -391,11 +396,11 @@ export function ResumenTab() {
       prodMap[k].qty += (+it.cantidad || 1)
       prodMap[k].revenue += (+it.subtotal || 0)
     }))
-    const topProds = Object.values(prodMap).sort((a, b) => b.qty - a.qty).slice(0, 5)
+    const topProds = Object.values(prodMap).sort((a, b) => b.qty - a.qty).slice(0, 3)
     const maxQty = Math.max(...topProds.map(p => p.qty), 1)
     // El ranking por dinero es OTRO: lo más vendido por unidades rara vez es lo
     // que más factura. Los dos importan y por eso van lado a lado.
-    const topProdsPlata = Object.values(prodMap).sort((a, b) => b.revenue - a.revenue).slice(0, 5)
+    const topProdsPlata = Object.values(prodMap).sort((a, b) => b.revenue - a.revenue).slice(0, 3)
     const maxRevenue = Math.max(...topProdsPlata.map(p => p.revenue), 1)
 
     // Los desgloses siguen el PERÍODO ELEGIDO, no los seis meses del gráfico.
@@ -406,6 +411,15 @@ export function ResumenTab() {
     const catMap: Record<string, number> = {}
     gastosArr.forEach(g => { catMap[g.categoria || 'Sin categoría'] = (catMap[g.categoria || 'Sin categoría'] || 0) + (+g.monto || 0) })
     const catSorted = Object.entries(catMap).sort((a, b) => b[1] - a[1])
+    const catPrevMap: Record<string, number> = {}
+    ;(gastos ?? []).filter(g => !!g.fecha && g.fecha >= previo.desde && g.fecha <= previo.hasta)
+      .forEach(g => {
+        const categoria = g.categoria || 'Sin categoría'
+        catPrevMap[categoria] = (catPrevMap[categoria] ?? 0) + (+g.monto || 0)
+      })
+    const catComparacion = [...new Set([...Object.keys(catMap), ...Object.keys(catPrevMap)])]
+      .map(nombre => ({ nombre, actual: catMap[nombre] ?? 0, anterior: catPrevMap[nombre] ?? 0 }))
+      .sort((a, b) => b.actual - a.actual)
 
     // Desglose de cada categoría de gasto por subcategoría: es donde viven el
     // empleado en Sueldos y Comisiones, y el canal en Publicidad. El dato ya se
@@ -447,7 +461,7 @@ export function ResumenTab() {
 
     return {
       totalVentas, ventasNetas, totalGastos, totalCompras, totalCosto, utilidad, ordenesOk, ticketProm,
-      bSales, maxBSales, bUtil, topProds, maxQty, topProdsPlata, maxRevenue, catSorted, provSorted, subPorCat, mpSorted,
+      bSales, maxBSales, bUtil, topProds, maxQty, topProdsPlata, maxRevenue, catSorted, catComparacion, provSorted, subPorCat, mpSorted,
       brutasPrev, ticketPrev, ordenesPrev,
       meses6, maxMG, maxMC, maxMO,
       cntVentas: resumen.cantidadVentas,
@@ -477,7 +491,9 @@ export function ResumenTab() {
 
       {/* Header + range selector */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', ...(isMobile ? { background: '#fff', padding: '16px 16px 12px', borderBottom: '0.5px solid #e5e7eb' } : {}) }}>
-        <h2 style={{ fontSize: isMobile ? 22 : 18, fontWeight: 800, color: '#111827', margin: 0, marginRight: 'auto' }}>Resumen</h2>
+        {mostrarEncabezado && <h2 style={{ fontSize: isMobile ? 22 : 18, fontWeight: 800, color: '#111827', margin: 0, marginRight: 'auto' }}>
+          {seccion === 'resumen' ? 'Resumen ejecutivo' : seccion === 'gastos' ? 'Gastos' : seccion === 'compras' ? 'Compras' : 'Operación'}
+        </h2>}
         <div style={{ display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none' }}>
           {TABS.map(t => (
             <button
@@ -529,7 +545,7 @@ export function ResumenTab() {
       </div>
 
       {/* KPIs — cuánto vendí, cuánto me quedó, cuánto trabajé, a qué precio */}
-      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 12 }}>
+      {(seccion === 'resumen' || seccion === 'operacion') && <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 12 }}>
         <div style={CARD}>
           <p style={KPI_LAB}>Ventas con IVA</p>
           <p style={KPI_VAL}>{fmt(stats.totalVentas)}</p>
@@ -553,10 +569,10 @@ export function ResumenTab() {
           <p style={KPI_SUB}>Con IVA</p>
           <Delta actual={stats.ticketProm} previo={stats.ticketPrev} />
         </div>
-      </div>
+      </div>}
 
       {/* De dónde vino la plata */}
-      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
+      {seccion === 'resumen' && <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
 
         {/* Ventas por sucursal */}
         <div style={CARD}>
@@ -605,11 +621,11 @@ export function ResumenTab() {
             </div>
           )) : <p style={{ fontSize: 11, color: '#9ca3af', textAlign: 'center', padding: '12px 0' }}>Sin ventas en el período</p>}
         </div>
-      </div>
+      </div>}
 
       {/* Métodos de pago — estaba solo en el Dashboard. Va a todo el ancho:
           es una lista corta y sola en una grilla de tres dejaba dos huecos. */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
+      {seccion === 'resumen' && <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
         <div style={CARD}>
           <p style={CT}>Métodos de pago</p>
           <p style={CS}>Monto con IVA</p>
@@ -617,13 +633,13 @@ export function ResumenTab() {
             <HBar key={nombre} label={nombre} value={val} total={stats.totalVentas} color={COLORES[i] ?? '#64748b'} />
           )) : <p style={{ fontSize: 11, color: '#9ca3af', textAlign: 'center', padding: '12px 0' }}>Sin ventas en el período</p>}
         </div>
-      </div>
+      </div>}
 
       {/* Tendencia y desgloses — el gráfico son 6 meses, el detalle el período */}
-      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: seccion === 'resumen' && !isMobile ? 'repeat(3, 1fr)' : '1fr', gap: 12 }}>
 
         {/* Gastos por mes */}
-        <div style={CARD}>
+        {(seccion === 'resumen' || seccion === 'gastos') && <div style={CARD}>
           <p style={CT}>Gastos por mes</p>
           <p style={CS}>Últimos 6 meses</p>
           <MiniBarChart
@@ -640,12 +656,46 @@ export function ResumenTab() {
               </div>
             ))}
           </div>
-          <Desglose entries={stats.catSorted} total={stats.totalGastosPeriodo} color="#ef4444" label="categoría" nota={notaPeriodo} sub={stats.subPorCat}
-            onSelect={nombre => setDetalle({ tipo: 'gastos', nombre })} />
-        </div>
+          {seccion === 'resumen' && (
+            <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid #f1f5f9' }}>
+              <p style={{ ...KPI_LAB, marginBottom: 7 }}>Principales categorías</p>
+              {stats.catSorted.slice(0, 3).map(([nombre, valor]) => (
+                <HBar key={nombre} label={nombre} value={valor} total={stats.totalGastosPeriodo} color="#ef4444" />
+              ))}
+            </div>
+          )}
+          {seccion === 'gastos' && <Desglose entries={stats.catSorted} total={stats.totalGastosPeriodo} color="#ef4444" label="categoría" nota={notaPeriodo} sub={stats.subPorCat}
+            onSelect={nombre => setDetalle({ tipo: 'gastos', nombre })} />}
+          {seccion === 'gastos' && stats.catComparacion.length > 0 && (
+            <div style={{ marginTop: 16, overflowX: 'auto' }}>
+              <p style={CT}>Gasto real por categoría</p>
+              <p style={CS}>Comparación con el período anterior equivalente; no usa presupuestos.</p>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                <thead><tr style={{ borderBottom: '1px solid #e5e7eb' }}>
+                  {['Categoría', 'Período actual', 'Período anterior', 'Variación', '% ventas netas'].map((h, i) => (
+                    <th key={h} style={{ padding: '8px 6px', textAlign: i ? 'right' : 'left', color: '#9ca3af', fontSize: 10, textTransform: 'uppercase', letterSpacing: '.4px' }}>{h}</th>
+                  ))}
+                </tr></thead>
+                <tbody>{stats.catComparacion.map(f => {
+                  const variacion = f.actual - f.anterior
+                  const pctVentas = stats.ventasNetas ? f.actual / stats.ventasNetas * 100 : 0
+                  return <tr key={f.nombre} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                    <td style={{ padding: '9px 6px', fontWeight: 700, color: '#374151' }}>{f.nombre}</td>
+                    <td style={{ padding: '9px 6px', textAlign: 'right', color: '#111827' }}>{fmt(f.actual)}</td>
+                    <td style={{ padding: '9px 6px', textAlign: 'right', color: '#6b7280' }}>{fmt(f.anterior)}</td>
+                    <td style={{ padding: '9px 6px', textAlign: 'right', fontWeight: 700, color: variacion > 0 ? '#dc2626' : variacion < 0 ? '#059669' : '#6b7280' }}>
+                      {variacion > 0 ? '+' : ''}{fmt(variacion)}
+                    </td>
+                    <td style={{ padding: '9px 6px', textAlign: 'right', color: '#6b7280' }}>{pctVentas.toLocaleString('es-CL', { maximumFractionDigits: 1 })}%</td>
+                  </tr>
+                })}</tbody>
+              </table>
+            </div>
+          )}
+        </div>}
 
         {/* Compras por mes */}
-        <div style={CARD}>
+        {(seccion === 'resumen' || seccion === 'compras') && <div style={CARD}>
           <p style={CT}>Compras por mes</p>
           <p style={CS}>Órdenes de compra recibidas</p>
           <MiniBarChart
@@ -662,12 +712,20 @@ export function ResumenTab() {
               </div>
             ))}
           </div>
-          <Desglose entries={stats.provSorted} total={stats.totalComprasPeriodo} color="#2563eb" label="proveedor" nota={notaPeriodo}
-            onSelect={nombre => setDetalle({ tipo: 'compras', nombre })} />
-        </div>
+          {seccion === 'resumen' && (
+            <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid #f1f5f9' }}>
+              <p style={{ ...KPI_LAB, marginBottom: 7 }}>Principales proveedores</p>
+              {stats.provSorted.slice(0, 3).map(([nombre, valor]) => (
+                <HBar key={nombre} label={nombre} value={valor} total={stats.totalComprasPeriodo} color="#2563eb" />
+              ))}
+            </div>
+          )}
+          {seccion === 'compras' && <Desglose entries={stats.provSorted} total={stats.totalComprasPeriodo} color="#2563eb" label="proveedor" nota={notaPeriodo}
+            onSelect={nombre => setDetalle({ tipo: 'compras', nombre })} />}
+        </div>}
 
         {/* Órdenes completadas por mes */}
-        <div style={CARD}>
+        {(seccion === 'resumen' || seccion === 'operacion') && <div style={CARD}>
           <p style={CT}>Órdenes completadas</p>
           <p style={CS}>Reparaciones entregadas por mes</p>
           <MiniBarChart
@@ -690,7 +748,7 @@ export function ResumenTab() {
               <div style={{ fontSize: 16, fontWeight: 800, color: '#92400e' }}>{fmt(stats.ticketProm)}</div>
             </div>
           )}
-        </div>
+        </div>}
       </div>
       {detalle && (
         <DetalleDesglose
