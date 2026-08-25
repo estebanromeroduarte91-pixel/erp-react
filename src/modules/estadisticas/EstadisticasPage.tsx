@@ -22,14 +22,14 @@ export function EstadisticasPage() {
 
   return (
     <div className="h-full flex flex-col overflow-y-auto">
-      <div className="flex items-center gap-1.5 px-1 pt-1 pb-3">
+      <div className="flex items-center gap-2 px-1 pt-1 pb-3">
         {TABS.map(t => (
           <button
             key={t.id}
             onClick={() => setSearchParams(t.id === 'resumen' ? {} : { tab: t.id })}
             aria-pressed={tab === t.id}
-            className={`px-3.5 py-1.5 text-sm font-semibold rounded-lg transition ${
-              tab === t.id ? 'bg-gray-900 text-white' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'
+            className={`px-4 py-2 text-sm font-semibold rounded-full transition ${
+              tab === t.id ? 'bg-blue-600 text-white shadow-sm' : 'bg-gray-100 text-gray-500 hover:text-gray-900 hover:bg-gray-200'
             }`}
           >
             {t.label}
