@@ -146,13 +146,16 @@ export function ValorInventarioTab() {
 
   // Segmentos del donut: circunferencia de un círculo r=15.9 en un viewBox de
   // 36×36 ≈ 100 unidades, así el % se usa directo en stroke-dasharray.
-  let acumulado = 0
-  const segmentos = filas.map((f) => {
+  const segmentos = filas.reduce<{
+    acumulado: number
+    filas: Array<FilaSucursal & { pct: number; offset: number }>
+  }>((estado, f) => {
     const pct = total > 0 ? (f.valor / total) * 100 : 0
-    const seg = { ...f, pct, offset: -acumulado }
-    acumulado += pct
-    return seg
-  })
+    return {
+      acumulado: estado.acumulado + pct,
+      filas: [...estado.filas, { ...f, pct, offset: -estado.acumulado }],
+    }
+  }, { acumulado: 0, filas: [] }).filas
 
   const filaSucursalAbierta = modalSucursal ? filas.find((f) => f.id === modalSucursal) : undefined
   const categoriasAbiertas = modalSucursal ? detallePorSucursal.get(modalSucursal) : undefined

@@ -207,23 +207,23 @@ export function ReportesTab() {
       </div>
       {/* ── Filtros ── */}
       <div className="flex flex-wrap gap-2.5 items-end">
-        <Campo label="Medir">
+        {seccion === 'ventas' && <Campo label="Medir">
           <Seg valor={metrica} onChange={setMetrica} opciones={[
             ['unidades', 'Unidades'], ['neto', 'Venta neta'], ['margen', 'Margen'],
           ]} />
-        </Campo>
+        </Campo>}
         <Campo label="Agrupar por">
           <Seg valor={agrupacion} onChange={setAgrupacion} opciones={[
             ['producto', 'Producto'], ['categoria', 'Categoría'],
           ]} />
         </Campo>
-        <div className="ml-auto flex gap-2 items-end">
+        {seccion === 'ventas' && <div className="ml-auto flex gap-2 items-end">
           <Seg valor={vista} onChange={setVista} opciones={[['grafico', 'Gráfico'], ['tabla', 'Tabla']]} />
-        </div>
+        </div>}
       </div>
 
       {/* ── Selector de productos ── */}
-      <div className="bg-white rounded-xl border border-gray-200 p-4">
+      {seccion === 'ventas' && <div className="bg-white rounded-xl border border-gray-200 p-4">
         <p className={LBL}>
           Productos en el reporte · {seleccion.length === 0 ? 'ninguno' : `${seleccion.length} seleccionado${seleccion.length > 1 ? 's' : ''}`}
         </p>
@@ -288,7 +288,7 @@ export function ReportesTab() {
             </div>
           </div>
         )}
-      </div>
+      </div>}
 
       {/* ── Tiles ── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -300,11 +300,11 @@ export function ReportesTab() {
 
       {seccion === 'rentabilidad' && rentabilidad.isLoading && <div className="py-12"><Spinner /></div>}
       {seccion === 'rentabilidad' && !rentabilidad.isLoading && (
-        <TablaRentabilidad filas={filasRentabilidad} agrupacion={agrupacion} />
+        <TablaRentabilidad key={agrupacion} filas={filasRentabilidad} agrupacion={agrupacion} />
       )}
 
       {/* ── Serie en el tiempo ── */}
-      <div className="bg-white rounded-xl border border-gray-200 p-4">
+      {seccion === 'ventas' && <div className="bg-white rounded-xl border border-gray-200 p-4">
         <div className="flex items-baseline justify-between gap-3 mb-1">
           <h3 className="text-sm font-extrabold text-gray-900 m-0">{MET_LABEL[metrica]} en el tiempo</h3>
           <span className="text-[11px] text-gray-400">{PERIODO_LABEL[periodo]}</span>
@@ -322,10 +322,10 @@ export function ReportesTab() {
             ? <Lineas series={seriesGrafico} meses={meses} fmt={fmt} esDinero={metrica !== 'unidades'} />
             : <TablaSerie series={seriesTodas} meses={meses} fmt={fmt} />
         )}
-      </div>
+      </div>}
 
       {/* ── Ranking + detalle ── */}
-      {seriesTodas.length > 0 && (
+      {seccion === 'ventas' && seriesTodas.length > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           <div className="bg-white rounded-xl border border-gray-200 p-4">
             <div className="flex items-baseline justify-between gap-3 mb-3">
@@ -359,7 +359,7 @@ export function ReportesTab() {
       )}
 
       {/* ── Matriz producto × mes ── */}
-      <div className="bg-white rounded-xl border border-gray-200 p-4">
+      {seccion === 'ventas' && <div className="bg-white rounded-xl border border-gray-200 p-4">
         <div className="flex items-baseline justify-between gap-3 mb-1">
           <h3 className="text-sm font-extrabold text-gray-900 m-0">Todos los productos vendidos por mes</h3>
           <span className="text-[11px] text-gray-400">Unidades · responde a los mismos filtros</span>
@@ -385,7 +385,7 @@ export function ReportesTab() {
             )}
           </>
         )}
-      </div>
+      </div>}
     </div>
   )
 }
@@ -415,20 +415,39 @@ function TablaRentabilidad({ filas, agrupacion }: {
   filas: { id: string; nombre: string; unidades: number; neto: number; costo: number; margen: number }[]
   agrupacion: Agrupacion
 }) {
+  const [busqueda, setBusqueda] = useState('')
+  const [mostrarTodos, setMostrarTodos] = useState(false)
   const ordenadas = [...filas].sort((a, b) => b.margen - a.margen)
-  const perdidas = ordenadas.filter(f => f.margen < 0)
   const margenTotal = ordenadas.reduce((s, f) => s + f.margen, 0)
+  const termino = busqueda.trim().toLocaleLowerCase('es-CL')
+  const filtradas = termino
+    ? ordenadas.filter(f => f.nombre.toLocaleLowerCase('es-CL').includes(termino))
+    : ordenadas
+  const visibles = mostrarTodos || termino ? filtradas : filtradas.slice(0, 8)
+
   return (
-    <div className="flex flex-col gap-3">
-      <div className="bg-white rounded-xl border border-gray-200 p-4">
-        <div className="flex items-baseline justify-between gap-3 mb-3">
+    <div className="bg-white rounded-xl border border-gray-200 p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
           <div>
             <h3 className="text-sm font-extrabold text-gray-900 m-0">Rentabilidad por {agrupacion === 'producto' ? 'producto' : 'categoría'}</h3>
             <p className="text-[11px] text-gray-400 mt-1 mb-0">{agrupacion === 'producto' ? 'Cuántos salieron y cuánto margen bruto dejaron.' : 'Venta, costo y margen bruto consolidado por categoría.'}</p>
           </div>
-          <span className={`text-sm font-extrabold tabular-nums ${margenTotal >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-            {clp(margenTotal)}
-          </span>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+            <input
+              type="search"
+              value={busqueda}
+              onChange={e => {
+                setBusqueda(e.target.value)
+                setMostrarTodos(false)
+              }}
+              placeholder={`Buscar ${agrupacion === 'producto' ? 'producto' : 'categoría'}…`}
+              aria-label={`Buscar por ${agrupacion === 'producto' ? 'producto' : 'categoría'}`}
+              className="w-full sm:w-64 text-sm px-3 py-2 border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-blue-500"
+            />
+            <span className={`text-sm font-extrabold tabular-nums text-right ${margenTotal >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+              {clp(margenTotal)}
+            </span>
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-[13px] border-collapse">
@@ -436,7 +455,7 @@ function TablaRentabilidad({ filas, agrupacion }: {
               <th className={TH_L}>{agrupacion === 'producto' ? 'Producto' : 'Categoría'}</th><th className={TH_R}>Unid.</th><th className={TH_R}>Venta neta</th>
               <th className={TH_R}>Costo vendido</th><th className={TH_R}>Margen bruto</th><th className={TH_R}>Margen %</th>
             </tr></thead>
-            <tbody>{ordenadas.map(f => {
+            <tbody>{visibles.map(f => {
               const pct = f.neto ? Math.round(f.margen / f.neto * 100) : 0
               return <tr key={f.id} className="border-b border-gray-50 last:border-0">
                 <td className="py-2.5 px-2 font-semibold text-gray-900">{f.nombre}</td>
@@ -449,24 +468,18 @@ function TablaRentabilidad({ filas, agrupacion }: {
             })}</tbody>
           </table>
         </div>
-      </div>
-      <div className="bg-white rounded-xl border border-gray-200 p-4">
-        <h3 className="text-sm font-extrabold text-gray-900 m-0">{agrupacion === 'producto' ? 'Productos' : 'Categorías'} con pérdida</h3>
-        <p className="text-[11px] text-gray-400 mt-1 mb-3">Prioridad de revisión de costo, precio o descuento.</p>
-        {perdidas.length === 0 ? (
-          <p className="text-sm text-gray-400 py-6 text-center m-0">No hay {agrupacion === 'producto' ? 'productos' : 'categorías'} con margen negativo en la selección.</p>
-        ) : (
-          <div className="overflow-x-auto"><table className="w-full text-[13px] border-collapse">
-            <thead><tr className="border-b border-gray-200"><th className={TH_L}>{agrupacion === 'producto' ? 'Producto' : 'Categoría'}</th><th className={TH_R}>Unid.</th><th className={TH_R}>Pérdida</th><th className={TH_R}>Margen</th></tr></thead>
-            <tbody>{perdidas.map(f => <tr key={f.id} className="border-b border-gray-50 last:border-0">
-              <td className="py-2.5 px-2 font-semibold text-gray-900">{f.nombre}</td>
-              <td className="py-2.5 px-2 text-right tabular-nums text-gray-600">{uds(f.unidades)}</td>
-              <td className="py-2.5 px-2 text-right tabular-nums font-bold text-red-600">{clp(f.margen)}</td>
-              <td className="py-2.5 px-2 text-right tabular-nums font-bold text-red-600">{f.neto ? Math.round(f.margen / f.neto * 100) : 0}%</td>
-            </tr>)}</tbody>
-          </table></div>
+        {filtradas.length === 0 && (
+          <p className="text-sm text-gray-400 py-8 text-center m-0">No hay resultados para “{busqueda.trim()}”.</p>
         )}
-      </div>
+        {!termino && filtradas.length > 8 && (
+          <button
+            type="button"
+            onClick={() => setMostrarTodos(v => !v)}
+            className="mt-3 w-full px-4 py-2 border border-gray-200 rounded-lg text-xs font-bold text-blue-600 hover:bg-blue-50 transition"
+          >
+            {mostrarTodos ? 'Mostrar sólo los primeros 8' : `Ver todos (${filtradas.length})`}
+          </button>
+        )}
     </div>
   )
 }
