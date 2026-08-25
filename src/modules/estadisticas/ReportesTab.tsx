@@ -7,6 +7,7 @@ import { useAuth } from '@/context/AuthContext'
 import { Spinner } from '@/components/shared/Spinner'
 import { escalaGrafico, rangoPeriodo, etiquetaMes, type Periodo } from '@/lib/reportes'
 import { ResumenTab } from './ResumenTab'
+import { VistaGeneralBI } from './VistaGeneralBI'
 
 // Paleta categórica validada con el script de dataviz del proyecto: pasa el
 // chequeo de daltonismo en claro y oscuro (peor par adyacente ΔE 9.1 protan).
@@ -17,7 +18,7 @@ const GRIS = '#c7c7cc'
 
 type Metrica = 'unidades' | 'neto' | 'margen'
 type Agrupacion = 'producto' | 'categoria'
-type SeccionReporte = 'ventas' | 'rentabilidad' | 'gastos' | 'compras' | 'operacion'
+type SeccionReporte = 'general' | 'ventas' | 'rentabilidad' | 'gastos' | 'compras' | 'operacion'
 
 const MET_LABEL: Record<Metrica, string> = {
   unidades: 'Unidades vendidas', neto: 'Venta neta', margen: 'Margen',
@@ -46,7 +47,7 @@ export function ReportesTab() {
   const [q, setQ] = useState('')
   const [catFiltro, setCatFiltro] = useState('')
   const [limiteMatriz, setLimiteMatriz] = useState(8)
-  const [seccion, setSeccion] = useState<SeccionReporte>('ventas')
+  const [seccion, setSeccion] = useState<SeccionReporte>('general')
 
   const { desde, hasta } = useMemo(() => rangoPeriodo(periodo), [periodo])
 
@@ -115,6 +116,7 @@ export function ReportesTab() {
   const fmt = (v: number) => metrica === 'unidades' ? uds(v) : clp(v)
 
   const SECCIONES: { id: SeccionReporte; label: string }[] = [
+    { id: 'general', label: 'Vista general' },
     { id: 'ventas', label: 'Ventas' },
     { id: 'rentabilidad', label: 'Rentabilidad' },
     { id: 'gastos', label: 'Gastos' },
@@ -127,17 +129,54 @@ export function ReportesTab() {
     if (id === 'rentabilidad') setMetrica('margen')
   }
 
+  if (seccion === 'general') {
+    return (
+      <div className="flex flex-col gap-4 pb-8">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-extrabold text-gray-900 m-0">Reportes BI</h2>
+            <p className="text-xs text-gray-400 mt-1 mb-0">Análisis ejecutivo y detalle de la operación.</p>
+          </div>
+          <div className="flex flex-wrap gap-2.5 items-end">
+            <Campo label="Período"><select value={periodo} onChange={e => setPeriodo(e.target.value as Periodo)} className={SELECT}>
+              {(Object.keys(PERIODO_LABEL) as Periodo[]).map(p => <option key={p} value={p}>{PERIODO_LABEL[p]}</option>)}
+            </select></Campo>
+            {!branchPropio && (bodegas ?? []).length > 1 && <Campo label="Sucursal"><select value={sucursal} onChange={e => setSucursal(e.target.value)} className={SELECT}>
+              <option value="">Todas</option>{(bodegas ?? []).map(b => <option key={b.id} value={b.id}>{b.nombre ?? b.name}</option>)}
+            </select></Campo>}
+          </div>
+        </div>
+        <NavegacionBI seccion={seccion} secciones={SECCIONES} onChange={cambiarSeccion} />
+        <VistaGeneralBI desde={desde} hasta={hasta} branchId={branchId} />
+      </div>
+    )
+  }
+
   if (seccion === 'gastos' || seccion === 'compras' || seccion === 'operacion') {
     return (
       <div className="flex flex-col gap-4 pb-8">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div><h2 className="text-xl font-extrabold text-gray-900 m-0">Reportes BI</h2><p className="text-xs text-gray-400 mt-1 mb-0">Análisis ejecutivo y detalle de la operación.</p></div>
+          <div className="flex flex-wrap gap-2.5 items-end">
+            <Campo label="Período"><select value={periodo} onChange={e => setPeriodo(e.target.value as Periodo)} className={SELECT}>{(Object.keys(PERIODO_LABEL) as Periodo[]).map(p => <option key={p} value={p}>{PERIODO_LABEL[p]}</option>)}</select></Campo>
+            {!branchPropio && (bodegas ?? []).length > 1 && <Campo label="Sucursal"><select value={sucursal} onChange={e => setSucursal(e.target.value)} className={SELECT}><option value="">Todas</option>{(bodegas ?? []).map(b => <option key={b.id} value={b.id}>{b.nombre ?? b.name}</option>)}</select></Campo>}
+          </div>
+        </div>
         <NavegacionBI seccion={seccion} secciones={SECCIONES} onChange={cambiarSeccion} />
-        <ResumenTab seccion={seccion} mostrarEncabezado={false} />
+        <ResumenTab seccion={seccion} mostrarEncabezado={false} mostrarFiltros={false} rangoExterno={{ from: desde, to: hasta }} branchId={branchId} />
       </div>
     )
   }
 
   return (
     <div className="flex flex-col gap-4 pb-8">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div><h2 className="text-xl font-extrabold text-gray-900 m-0">Reportes BI</h2><p className="text-xs text-gray-400 mt-1 mb-0">Análisis ejecutivo y detalle de la operación.</p></div>
+        <div className="flex flex-wrap gap-2.5 items-end">
+          <Campo label="Período"><select value={periodo} onChange={e => setPeriodo(e.target.value as Periodo)} className={SELECT}>{(Object.keys(PERIODO_LABEL) as Periodo[]).map(p => <option key={p} value={p}>{PERIODO_LABEL[p]}</option>)}</select></Campo>
+          {!branchPropio && (bodegas ?? []).length > 1 && <Campo label="Sucursal"><select value={sucursal} onChange={e => setSucursal(e.target.value)} className={SELECT}><option value="">Todas</option>{(bodegas ?? []).map(b => <option key={b.id} value={b.id}>{b.nombre ?? b.name}</option>)}</select></Campo>}
+        </div>
+      </div>
       <NavegacionBI seccion={seccion} secciones={SECCIONES} onChange={cambiarSeccion} />
       <div className="flex items-start justify-between gap-4">
         <div>
@@ -153,19 +192,6 @@ export function ReportesTab() {
       </div>
       {/* ── Filtros ── */}
       <div className="flex flex-wrap gap-2.5 items-end">
-        <Campo label="Período">
-          <select value={periodo} onChange={e => setPeriodo(e.target.value as Periodo)} className={SELECT}>
-            {(Object.keys(PERIODO_LABEL) as Periodo[]).map(p => <option key={p} value={p}>{PERIODO_LABEL[p]}</option>)}
-          </select>
-        </Campo>
-        {!branchPropio && (bodegas ?? []).length > 1 && (
-          <Campo label="Sucursal">
-            <select value={sucursal} onChange={e => setSucursal(e.target.value)} className={SELECT}>
-              <option value="">Todas</option>
-              {(bodegas ?? []).map(b => <option key={b.id} value={b.id}>{b.nombre ?? b.name}</option>)}
-            </select>
-          </Campo>
-        )}
         <Campo label="Medir">
           <Seg valor={metrica} onChange={setMetrica} opciones={[
             ['unidades', 'Unidades'], ['neto', 'Venta neta'], ['margen', 'Margen'],
@@ -360,12 +386,12 @@ function NavegacionBI({ seccion, secciones, onChange }: {
   onChange: (id: SeccionReporte) => void
 }) {
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-1.5 flex gap-1 overflow-x-auto">
+    <div className="flex gap-1 overflow-x-auto border-b border-gray-200">
       {secciones.map(item => (
         <button key={item.id} type="button" onClick={() => onChange(item.id)} aria-pressed={seccion === item.id}
-          className={`shrink-0 px-3.5 py-2 rounded-lg text-xs font-bold transition ${seccion === item.id
-            ? 'bg-gray-900 text-white shadow-sm'
-            : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'}`}>
+          className={`shrink-0 px-3.5 py-2.5 border-b-2 text-xs font-bold transition ${seccion === item.id
+            ? 'border-blue-600 text-blue-600'
+            : 'border-transparent text-gray-500 hover:text-gray-900'}`}>
           {item.label}
         </button>
       ))}

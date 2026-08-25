@@ -235,9 +235,12 @@ const CS: React.CSSProperties = { fontSize: 11, color: '#9ca3af', marginBottom: 
 
 export type SeccionResumen = 'resumen' | 'gastos' | 'compras' | 'operacion'
 
-export function ResumenTab({ seccion = 'resumen', mostrarEncabezado = true }: {
+export function ResumenTab({ seccion = 'resumen', mostrarEncabezado = true, mostrarFiltros = true, rangoExterno, branchId = null }: {
   seccion?: SeccionResumen
   mostrarEncabezado?: boolean
+  mostrarFiltros?: boolean
+  rangoExterno?: { from: string; to: string }
+  branchId?: string | null
 }) {
   const [tab, setTab] = useState<Tab>('mes')
   const [from, setFrom] = useState('')
@@ -247,7 +250,8 @@ export function ResumenTab({ seccion = 'resumen', mostrarEncabezado = true }: {
   const toRef = useRef<HTMLInputElement>(null)
 
   const last6 = useMemo(() => getLast6(), [])
-  const range = useMemo(() => getRange(tab, from, to), [tab, from, to])
+  const rangoInterno = useMemo(() => getRange(tab, from, to), [tab, from, to])
+  const range = rangoExterno ?? rangoInterno
   const range6 = useMemo(() => ({ from: `${last6[0].key}-01`, to: today() }), [last6])
   // El gráfico de la tarjeta muestra seis meses y el desglose el período
   // elegido. Sin decirlo, parecen dos cifras contradictorias de lo mismo.
@@ -307,11 +311,11 @@ export function ResumenTab({ seccion = 'resumen', mostrarEncabezado = true }: {
   const inRange = (f?: string) => !!f && f >= range.from && f <= range.to
 
   const stats = useMemo(() => {
-    const ventasArr = filtrarVentasPagadas(ventas ?? []).filter(v => inRange(v.fecha))
-    const gastosArr = (gastos ?? []).filter(g => inRange(g.fecha))
-    const ocsArr = (ocs ?? []).filter(o => ['recibida', 'confirmada'].includes(o.estado) && inRange(fechaEfectivaOC(o)))
+    const ventasArr = filtrarVentasPagadas(ventas ?? []).filter(v => inRange(v.fecha) && (!branchId || v.branchId === branchId))
+    const gastosArr = (gastos ?? []).filter(g => inRange(g.fecha) && (!branchId || g.bodega_id === branchId))
+    const ocsArr = (ocs ?? []).filter(o => ['recibida', 'confirmada'].includes(o.estado) && inRange(fechaEfectivaOC(o)) && (!branchId || o.bodega_id === branchId))
     const fechaEntrega = (o: { deliveredAt?: string; fecha: string }) => o.deliveredAt?.slice(0, 10) || o.fecha
-    const ordeArr = (ordenes ?? []).filter(o => inRange(fechaEntrega(o)))
+    const ordeArr = (ordenes ?? []).filter(o => inRange(fechaEntrega(o)) && (!branchId || o.branchId === branchId))
 
     const prodCostoMap = new Map(costosProductos.map(p => [p.id, p.precio_compra]))
     const resumen = calcularResumenOperacional(ventasArr, gastosArr, prodCostoMap)
@@ -370,13 +374,13 @@ export function ResumenTab({ seccion = 'resumen', mostrarEncabezado = true }: {
 
     // Comparación con el período anterior.
     const ventasPrev = filtrarVentasPagadas(ventas ?? [])
-      .filter(v => !!v.fecha && v.fecha >= previo.desde && v.fecha <= previo.hasta)
+      .filter(v => !!v.fecha && v.fecha >= previo.desde && v.fecha <= previo.hasta && (!branchId || v.branchId === branchId))
     const brutasPrev = ventasPrev.reduce((s, v) => s + (+v.total_iva || 0), 0)
     const cantPrev = ventasPrev.length
     const ticketPrev = cantPrev > 0 ? Math.round(brutasPrev / cantPrev) : 0
     const ordenesPrev = (ordenes ?? []).filter(o => {
       const f = fechaEntrega(o)
-      return f >= previo.desde && f <= previo.hasta
+      return f >= previo.desde && f <= previo.hasta && (!branchId || o.branchId === branchId)
     }).length
 
     // Métodos de pago del período (esto solo existía en el Dashboard).
@@ -412,7 +416,7 @@ export function ResumenTab({ seccion = 'resumen', mostrarEncabezado = true }: {
     gastosArr.forEach(g => { catMap[g.categoria || 'Sin categoría'] = (catMap[g.categoria || 'Sin categoría'] || 0) + (+g.monto || 0) })
     const catSorted = Object.entries(catMap).sort((a, b) => b[1] - a[1])
     const catPrevMap: Record<string, number> = {}
-    ;(gastos ?? []).filter(g => !!g.fecha && g.fecha >= previo.desde && g.fecha <= previo.hasta)
+    ;(gastos ?? []).filter(g => !!g.fecha && g.fecha >= previo.desde && g.fecha <= previo.hasta && (!branchId || g.bodega_id === branchId))
       .forEach(g => {
         const categoria = g.categoria || 'Sin categoría'
         catPrevMap[categoria] = (catPrevMap[categoria] ?? 0) + (+g.monto || 0)
@@ -446,9 +450,9 @@ export function ResumenTab({ seccion = 'resumen', mostrarEncabezado = true }: {
     const provSorted = Object.entries(provMap).sort((a, b) => b[1] - a[1])
 
     // Últimos 6 meses (totales globales, no filtrados por rango)
-    const gastosAll = gastos ?? []
-    const ocsAll = ocs ?? []
-    const ordeAll = ordenes ?? []
+    const gastosAll = (gastos ?? []).filter(g => !branchId || g.bodega_id === branchId)
+    const ocsAll = (ocs ?? []).filter(o => !branchId || o.bodega_id === branchId)
+    const ordeAll = (ordenes ?? []).filter(o => !branchId || o.branchId === branchId)
     const meses6 = last6.map(m => ({
       ...m,
       gastos: gastosAll.filter(g => g.fecha?.startsWith(m.key)).reduce((s, g) => s + (+g.monto || 0), 0),
@@ -472,7 +476,7 @@ export function ResumenTab({ seccion = 'resumen', mostrarEncabezado = true }: {
       ocsPeriodo: ocsArr,
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ventas, gastos, ordenes, ocs, costosProductos, bodegas, range, range6, last6, previo, nombreMetodo])
+  }, [ventas, gastos, ordenes, ocs, costosProductos, bodegas, range, range6, last6, previo, nombreMetodo, branchId])
 
   const isMobile = useIsMobile()
 
@@ -490,11 +494,11 @@ export function ResumenTab({ seccion = 'resumen', mostrarEncabezado = true }: {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12, ...(isMobile ? { padding: '0 0 8px' } : {}) }}>
 
       {/* Header + range selector */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', ...(isMobile ? { background: '#fff', padding: '16px 16px 12px', borderBottom: '0.5px solid #e5e7eb' } : {}) }}>
+      {(mostrarEncabezado || mostrarFiltros) && <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', ...(isMobile ? { background: '#fff', padding: '16px 16px 12px', borderBottom: '0.5px solid #e5e7eb' } : {}) }}>
         {mostrarEncabezado && <h2 style={{ fontSize: isMobile ? 22 : 18, fontWeight: 800, color: '#111827', margin: 0, marginRight: 'auto' }}>
           {seccion === 'resumen' ? 'Resumen ejecutivo' : seccion === 'gastos' ? 'Gastos' : seccion === 'compras' ? 'Compras' : 'Operación'}
         </h2>}
-        <div style={{ display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none' }}>
+        {mostrarFiltros && <div style={{ display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none' }}>
           {TABS.map(t => (
             <button
               key={t.id}
@@ -506,8 +510,8 @@ export function ResumenTab({ seccion = 'resumen', mostrarEncabezado = true }: {
               }}
             >{t.label}</button>
           ))}
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, ...(isMobile ? { width: '100%' } : {}) }}>
+        </div>}
+        {mostrarFiltros && <div style={{ display: 'flex', alignItems: 'center', gap: 6, ...(isMobile ? { width: '100%' } : {}) }}>
           <div
             style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 6, background: tab === 'custom' && from ? '#eff6ff' : '#f9fafb', border: `1px solid ${tab === 'custom' && from ? '#93c5fd' : '#e5e7eb'}`, borderRadius: 8, padding: '8px 11px', cursor: 'pointer', flex: isMobile ? 1 : 'none' }}
           >
@@ -541,8 +545,8 @@ export function ResumenTab({ seccion = 'resumen', mostrarEncabezado = true }: {
               style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0, border: 'none', cursor: 'pointer' }}
             />
           </div>
-        </div>
-      </div>
+        </div>}
+      </div>}
 
       {/* KPIs — cuánto vendí, cuánto me quedó, cuánto trabajé, a qué precio */}
       {(seccion === 'resumen' || seccion === 'operacion') && <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 12 }}>
