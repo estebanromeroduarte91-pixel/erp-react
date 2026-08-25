@@ -19,6 +19,13 @@ describe('rangoPeriodo', () => {
     })
   })
 
+  it('inicia un rango personalizado con el mes actual', () => {
+    expect(rangoPeriodo('rango', new Date(2026, 7, 25, 12))).toEqual({
+      desde: '2026-08-01',
+      hasta: '2026-08-25',
+    })
+  })
+
   const hoy = new Date(2026, 7, 25) // 25 de agosto de 2026, hora local
 
   it('12 meses incluye el mes actual y once hacia atrás', () => {

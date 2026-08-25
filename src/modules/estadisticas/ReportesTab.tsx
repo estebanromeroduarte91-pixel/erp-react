@@ -26,7 +26,7 @@ const MET_LABEL: Record<Metrica, string> = {
 const PERIODO_LABEL: Record<Periodo, string> = {
   mes: 'Este mes',
   '6m': 'Últimos 6 meses', '12m': 'Últimos 12 meses', '24m': 'Últimos 24 meses',
-  'año': 'Este año', 'anterior': 'Año anterior', 'todo': 'Todo el histórico',
+  'año': 'Este año', 'anterior': 'Año anterior', 'todo': 'Todo el histórico', 'rango': 'Rango de fechas',
 }
 
 const clp = (n: number) => '$' + Math.round(n).toLocaleString('es-CL')
@@ -37,7 +37,10 @@ export function ReportesTab() {
   const { data: categorias } = useCategorias()
   const { data: bodegas } = useBodegas()
 
-  const [periodo, setPeriodo] = useState<Periodo>('12m')
+  const rangoMesActual = useMemo(() => rangoPeriodo('mes'), [])
+  const [periodo, setPeriodo] = useState<Periodo>('mes')
+  const [desdePersonalizado, setDesdePersonalizado] = useState(rangoMesActual.desde)
+  const [hastaPersonalizado, setHastaPersonalizado] = useState(rangoMesActual.hasta)
   const [metrica, setMetrica] = useState<Metrica>('unidades')
   const [agrupacion, setAgrupacion] = useState<Agrupacion>('producto')
   const [vista, setVista] = useState<'grafico' | 'tabla'>('grafico')
@@ -50,7 +53,14 @@ export function ReportesTab() {
   const [limiteMatriz, setLimiteMatriz] = useState(8)
   const [seccion, setSeccion] = useState<SeccionReporte>('general')
 
-  const { desde, hasta } = useMemo(() => rangoPeriodo(periodo), [periodo])
+  const { desde, hasta } = useMemo(() => {
+    if (periodo !== 'rango') return rangoPeriodo(periodo)
+    // Los límites de los inputs evitan normalmente un rango invertido. Esta
+    // normalización mantiene además las consultas válidas mientras se edita.
+    return desdePersonalizado <= hastaPersonalizado
+      ? { desde: desdePersonalizado, hasta: hastaPersonalizado }
+      : { desde: hastaPersonalizado, hasta: desdePersonalizado }
+  }, [periodo, desdePersonalizado, hastaPersonalizado])
 
   // El staff con sucursal asignada queda acotado a la suya. El servidor lo
   // vuelve a aplicar por su cuenta (migración 54): si el filtro viviera solo
@@ -144,6 +154,29 @@ export function ReportesTab() {
     if (id === 'rentabilidad') setMetrica('margen')
   }
 
+  const camposRango = periodo === 'rango' && (
+    <>
+      <Campo label="Desde">
+        <input
+          type="date"
+          value={desdePersonalizado}
+          max={hastaPersonalizado}
+          onChange={e => setDesdePersonalizado(e.target.value)}
+          className={SELECT}
+        />
+      </Campo>
+      <Campo label="Hasta">
+        <input
+          type="date"
+          value={hastaPersonalizado}
+          min={desdePersonalizado}
+          onChange={e => setHastaPersonalizado(e.target.value)}
+          className={SELECT}
+        />
+      </Campo>
+    </>
+  )
+
   if (seccion === 'general') {
     return (
       <div className="flex flex-col gap-4 pb-8">
@@ -156,6 +189,7 @@ export function ReportesTab() {
             <Campo label="Período"><select value={periodo} onChange={e => setPeriodo(e.target.value as Periodo)} className={SELECT}>
               {(Object.keys(PERIODO_LABEL) as Periodo[]).map(p => <option key={p} value={p}>{PERIODO_LABEL[p]}</option>)}
             </select></Campo>
+            {camposRango}
             {!branchPropio && (bodegas ?? []).length > 1 && <Campo label="Sucursal"><select value={sucursal} onChange={e => setSucursal(e.target.value)} className={SELECT}>
               <option value="">Todas</option>{(bodegas ?? []).map(b => <option key={b.id} value={b.id}>{b.nombre ?? b.name}</option>)}
             </select></Campo>}
@@ -174,6 +208,7 @@ export function ReportesTab() {
           <div><h2 className="text-xl font-extrabold text-gray-900 m-0">Reportes BI</h2><p className="text-xs text-gray-400 mt-1 mb-0">Análisis ejecutivo y detalle de la operación.</p></div>
           <div className="flex flex-wrap gap-2.5 items-end">
             <Campo label="Período"><select value={periodo} onChange={e => setPeriodo(e.target.value as Periodo)} className={SELECT}>{(Object.keys(PERIODO_LABEL) as Periodo[]).map(p => <option key={p} value={p}>{PERIODO_LABEL[p]}</option>)}</select></Campo>
+            {camposRango}
             {!branchPropio && (bodegas ?? []).length > 1 && <Campo label="Sucursal"><select value={sucursal} onChange={e => setSucursal(e.target.value)} className={SELECT}><option value="">Todas</option>{(bodegas ?? []).map(b => <option key={b.id} value={b.id}>{b.nombre ?? b.name}</option>)}</select></Campo>}
           </div>
         </div>
@@ -189,6 +224,7 @@ export function ReportesTab() {
         <div><h2 className="text-xl font-extrabold text-gray-900 m-0">Reportes BI</h2><p className="text-xs text-gray-400 mt-1 mb-0">Análisis ejecutivo y detalle de la operación.</p></div>
         <div className="flex flex-wrap gap-2.5 items-end">
           <Campo label="Período"><select value={periodo} onChange={e => setPeriodo(e.target.value as Periodo)} className={SELECT}>{(Object.keys(PERIODO_LABEL) as Periodo[]).map(p => <option key={p} value={p}>{PERIODO_LABEL[p]}</option>)}</select></Campo>
+          {camposRango}
           {!branchPropio && (bodegas ?? []).length > 1 && <Campo label="Sucursal"><select value={sucursal} onChange={e => setSucursal(e.target.value)} className={SELECT}><option value="">Todas</option>{(bodegas ?? []).map(b => <option key={b.id} value={b.id}>{b.nombre ?? b.name}</option>)}</select></Campo>}
         </div>
       </div>

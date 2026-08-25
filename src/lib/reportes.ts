@@ -3,7 +3,7 @@
 // fechas interpretadas en UTC (las ventas guardaban 'YYYY-MM-DD', que la
 // columna timestamptz leía como medianoche UTC y en Chile retrocedía un día).
 
-export type Periodo = 'mes' | '6m' | '12m' | '24m' | 'año' | 'anterior' | 'todo'
+export type Periodo = 'mes' | '6m' | '12m' | '24m' | 'año' | 'anterior' | 'todo' | 'rango'
 
 export const MESES_CORTOS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
 
@@ -14,6 +14,9 @@ export function ymd(d: Date): string {
 /** Rango del período, en fechas locales. `hoy` se inyecta para poder probarlo. */
 export function rangoPeriodo(p: Periodo, hoy: Date = new Date()): { desde: string; hasta: string } {
   if (p === 'mes') return { desde: `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-01`, hasta: ymd(hoy) }
+  // El rango personalizado se completa en la interfaz. Si todavía no tiene
+  // fechas, parte en el mes actual para no consultar un período inesperado.
+  if (p === 'rango') return { desde: `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-01`, hasta: ymd(hoy) }
   if (p === 'año') return { desde: `${hoy.getFullYear()}-01-01`, hasta: ymd(hoy) }
   if (p === 'anterior') return { desde: `${hoy.getFullYear() - 1}-01-01`, hasta: `${hoy.getFullYear() - 1}-12-31` }
   // 'todo' manda una fecha deliberadamente antigua: el servidor la acota a la
