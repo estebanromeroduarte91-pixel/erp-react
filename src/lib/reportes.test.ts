@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { rangoPeriodo, etiquetaMes, escalaGrafico, ymd } from './reportes'
+import { coincideBusqueda, rangoPeriodo, etiquetaMes, escalaGrafico, ymd } from './reportes'
 
 describe('etiquetaMes', () => {
   it('no retrocede de mes al parsear (la trampa de UTC)', () => {
@@ -8,6 +8,18 @@ describe('etiquetaMes', () => {
     expect(etiquetaMes('2026-08-01')).toBe('Ago')
     expect(etiquetaMes('2026-01-01')).toBe('Ene')
     expect(etiquetaMes('2026-12-01')).toBe('Dic')
+  })
+})
+
+describe('coincideBusqueda', () => {
+  it('ignora tildes, mayúsculas y acepta fragmentos', () => {
+    expect(coincideBusqueda('Lámina Hidrogel', 'lamina')).toBe(true)
+    expect(coincideBusqueda('Lámina Hidrogel', 'HIDRO')).toBe(true)
+  })
+
+  it('acepta varios términos aunque se escriban en otro orden', () => {
+    expect(coincideBusqueda('Lámina Hidrogel iPhone 15', 'iphone lam')).toBe(true)
+    expect(coincideBusqueda('Lámina Hidrogel iPhone 15', 'samsung lamina')).toBe(false)
   })
 })
 

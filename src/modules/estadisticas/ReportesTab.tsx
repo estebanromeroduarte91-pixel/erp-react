@@ -5,7 +5,7 @@ import {
 } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { Spinner } from '@/components/shared/Spinner'
-import { escalaGrafico, rangoPeriodo, etiquetaMes, type Periodo } from '@/lib/reportes'
+import { coincideBusqueda, escalaGrafico, rangoPeriodo, etiquetaMes, type Periodo } from '@/lib/reportes'
 import { ResumenTab } from './ResumenTab'
 import { VistaGeneralBI } from './VistaGeneralBI'
 
@@ -455,9 +455,9 @@ function TablaRentabilidad({ filas, agrupacion }: {
   const [mostrarTodos, setMostrarTodos] = useState(false)
   const ordenadas = [...filas].sort((a, b) => b.margen - a.margen)
   const margenTotal = ordenadas.reduce((s, f) => s + f.margen, 0)
-  const termino = busqueda.trim().toLocaleLowerCase('es-CL')
+  const termino = busqueda.trim()
   const filtradas = termino
-    ? ordenadas.filter(f => f.nombre.toLocaleLowerCase('es-CL').includes(termino))
+    ? ordenadas.filter(f => coincideBusqueda(f.nombre, termino))
     : ordenadas
   const visibles = mostrarTodos || termino ? filtradas : filtradas.slice(0, 8)
 

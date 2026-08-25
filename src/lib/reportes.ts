@@ -35,6 +35,22 @@ export function etiquetaMes(iso: string): string {
   return MESES_CORTOS[m - 1] ?? iso.slice(5, 7)
 }
 
+/**
+ * Búsqueda humana tolerante: ignora tildes, mayúsculas, espacios repetidos y
+ * el orden de las palabras. Cada término puede ser sólo una parte del nombre.
+ */
+export function coincideBusqueda(texto: string, consulta: string): boolean {
+  const normalizar = (valor: string) => valor
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('es-CL')
+    .trim()
+    .replace(/\s+/g, ' ')
+  const contenido = normalizar(texto)
+  const terminos = normalizar(consulta).split(' ').filter(Boolean)
+  return terminos.every(termino => contenido.includes(termino))
+}
+
 /** Escala de cuatro intervalos que siempre incluye cero y todos los valores. */
 export function escalaGrafico(valores: number[]): { min: number; max: number; paso: number } {
   const finitos = valores.filter(Number.isFinite)
