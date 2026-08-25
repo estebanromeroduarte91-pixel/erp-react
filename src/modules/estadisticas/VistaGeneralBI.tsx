@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
-import { useVentasEnRango, useGastosEnRango, useBodegas, useCostosProductos } from '@/lib/queries'
-import { calcularResumenOperacional, filtrarVentasPagadas, periodoAnteriorEquivalente } from '@/lib/metricas'
+import { useVentasResumen, useGastosEnRango, useBodegas, useReporteSerie, useReporteRentabilidad } from '@/lib/queries'
+import { periodoAnteriorEquivalente } from '@/lib/metricas'
 import { Spinner } from '@/components/shared/Spinner'
 
 const clp = (n: number) => '$' + Math.round(n).toLocaleString('es-CL')
@@ -12,54 +12,59 @@ export function VistaGeneralBI({ desde, hasta, branchId }: {
 }) {
   const anterior = useMemo(() => periodoAnteriorEquivalente('rango', desde, hasta), [desde, hasta])
   const inicioConsulta = anterior.desde < desde ? anterior.desde : desde
-  const ventas = useVentasEnRango(inicioConsulta, hasta)
+  const ventas = useVentasResumen(desde, hasta, branchId)
+  const ventasAnteriores = useVentasResumen(anterior.desde, anterior.hasta, branchId)
   const gastos = useGastosEnRango(inicioConsulta, hasta)
   const { data: bodegas = [] } = useBodegas()
-
-  const ventasBase = useMemo(() => filtrarVentasPagadas(ventas.data ?? []), [ventas.data])
-  const ventasActuales = useMemo(() => ventasBase.filter(v => v.fecha >= desde && v.fecha <= hasta && (!branchId || v.branchId === branchId)), [ventasBase, desde, hasta, branchId])
-  const productosSinCosto = useMemo(() => [...new Set(ventasActuales.flatMap(v => (v.items ?? [])
-    .filter(i => i.costo_total == null && i.producto_id)
-    .map(i => i.producto_id!)))], [ventasActuales])
-  const costos = useCostosProductos(productosSinCosto)
+  const serie = useReporteSerie({ desde, hasta, agrupacion: 'categoria', productoIds: [], branchId })
+  const rentabilidad = useReporteRentabilidad({ desde, hasta, branchId, activo: true })
 
   const data = useMemo(() => {
-    const mapaCostos = new Map((costos.data ?? []).map(p => [p.id, p.precio_compra]))
     const gastosActuales = (gastos.data ?? []).filter(g => g.fecha >= desde && g.fecha <= hasta && (!branchId || g.bodega_id === branchId))
-    const actual = calcularResumenOperacional(ventasActuales, gastosActuales, mapaCostos)
-    const ventasPrevias = ventasBase.filter(v => v.fecha >= anterior.desde && v.fecha <= anterior.hasta && (!branchId || v.branchId === branchId))
     const gastosPrevios = (gastos.data ?? []).filter(g => g.fecha >= anterior.desde && g.fecha <= anterior.hasta && (!branchId || g.bodega_id === branchId))
-    const previo = calcularResumenOperacional(ventasPrevias, gastosPrevios, mapaCostos)
+    const periodo = ventas.data?.periodo ?? { count: 0, total_iva: 0, total_neto: 0, utilidad: 0 }
+    const periodoPrevio = ventasAnteriores.data?.periodo ?? { count: 0, total_iva: 0, total_neto: 0, utilidad: 0 }
+    const totalGastos = gastosActuales.reduce((s, g) => s + (+g.monto || 0), 0)
+    const totalGastosPrevios = gastosPrevios.reduce((s, g) => s + (+g.monto || 0), 0)
+    const actual = {
+      ventasBrutas: +periodo.total_iva || 0,
+      ventasNetas: +periodo.total_neto || 0,
+      costoVentas: (+periodo.total_neto || 0) - (+periodo.utilidad || 0),
+      gastos: totalGastos,
+      resultadoOperacional: (+periodo.utilidad || 0) - totalGastos,
+      cantidadVentas: +periodo.count || 0,
+    }
+    const previo = {
+      ventasBrutas: +periodoPrevio.total_iva || 0,
+      ventasNetas: +periodoPrevio.total_neto || 0,
+      costoVentas: (+periodoPrevio.total_neto || 0) - (+periodoPrevio.utilidad || 0),
+      gastos: totalGastosPrevios,
+      resultadoOperacional: (+periodoPrevio.utilidad || 0) - totalGastosPrevios,
+      cantidadVentas: +periodoPrevio.count || 0,
+    }
 
-    const porSucursal = bodegas.map(b => {
-      const filas = ventasActuales.filter(v => v.branchId === b.id)
-      const neto = filas.reduce((s, v) => s + (+v.total || 0), 0)
-      return { id: b.id, nombre: b.nombre ?? b.name ?? 'Sin nombre', neto, cantidad: filas.length }
-    }).filter(b => b.neto > 0).sort((a, b) => b.neto - a.neto)
+    const nombresBodegas = new Map(bodegas.map(b => [b.id, b.nombre ?? b.name ?? 'Sin nombre']))
+    const porSucursal = (ventas.data?.sucursales ?? []).map(s => ({
+      id: s.branch_id || 'sin-sucursal',
+      nombre: s.branch_id ? (nombresBodegas.get(s.branch_id) ?? 'Sucursal') : 'Sin sucursal',
+      neto: +s.total_neto || 0,
+      cantidad: +s.count || 0,
+    })).filter(b => b.neto > 0).sort((a, b) => b.neto - a.neto)
 
-    const productos = new Map<string, { id: string; nombre: string; unidades: number; neto: number; costo: number }>()
-    ventasActuales.forEach(v => (v.items ?? []).forEach(i => {
-      const id = i.producto_id || `sn:${i.producto_nombre || 'Sin nombre'}`
-      const fila = productos.get(id) ?? { id, nombre: i.producto_nombre || 'Sin nombre', unidades: 0, neto: 0, costo: 0 }
-      const cantidad = +i.cantidad || 0
-      fila.unidades += cantidad
-      fila.neto += +i.subtotal || 0
-      fila.costo += i.costo_total == null ? cantidad * (mapaCostos.get(i.producto_id || '') ?? 0) : +i.costo_total
-      productos.set(id, fila)
+    const topProductos = (rentabilidad.data?.filas ?? []).slice(0, 5).map(p => ({
+      id: p.producto_id, nombre: p.nombre, unidades: +p.unidades || 0,
+      neto: +p.neto || 0, costo: +p.costo || 0, margen: +p.margen || 0,
     }))
-    const topProductos = [...productos.values()].map(p => ({ ...p, margen: p.neto - p.costo }))
-      .sort((a, b) => b.margen - a.margen).slice(0, 5)
 
-    const meses = new Map<string, number>()
-    ventasActuales.forEach(v => {
-      const mes = v.fecha.slice(0, 7)
-      meses.set(mes, (meses.get(mes) ?? 0) + (+v.total || 0))
-    })
+    const meses = (serie.data?.meses ?? []).map((mes, i) => [
+      mes.slice(0, 7),
+      (serie.data?.series ?? []).reduce((s, categoria) => s + (+categoria.neto[i] || 0), 0),
+    ] as [string, number])
 
-    return { actual, previo, porSucursal, topProductos, meses: [...meses.entries()].sort(([a], [b]) => a.localeCompare(b)) }
-  }, [costos.data, gastos.data, ventasActuales, ventasBase, desde, hasta, branchId, anterior, bodegas])
+    return { actual, previo, porSucursal, topProductos, meses }
+  }, [gastos.data, ventas.data, ventasAnteriores.data, rentabilidad.data, serie.data, desde, hasta, branchId, anterior, bodegas])
 
-  if (ventas.isLoading || gastos.isLoading || costos.isLoading) return <div className="py-16"><Spinner /></div>
+  if (ventas.isLoading || ventasAnteriores.isLoading || gastos.isLoading || serie.isLoading || rentabilidad.isLoading) return <div className="py-16"><Spinner /></div>
 
   const margenBruto = data.actual.ventasNetas - data.actual.costoVentas
   const margenPct = data.actual.ventasNetas ? margenBruto / data.actual.ventasNetas * 100 : 0
