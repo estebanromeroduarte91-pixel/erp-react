@@ -1863,6 +1863,33 @@ export function useReporteRentabilidad(p: {
   })
 }
 
+export interface ReporteSucursalFila {
+  branch_id: string | null
+  total_iva: number
+  total_neto: number
+  transacciones: number
+  costo: number
+  margen_bruto: number
+}
+
+export function useReporteSucursales(p: {
+  desde: string; hasta: string; branchId: string | null
+}) {
+  const { empresaId } = useAuth()
+  return useQuery({
+    queryKey: ['reporte-sucursales', empresaId, p.desde, p.hasta, p.branchId],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('fn_reporte_sucursales', {
+        p_desde: p.desde, p_hasta: p.hasta, p_branch_id: p.branchId, p_empresa_id: empresaId,
+      })
+      if (error) throw error
+      return data as { filas: ReporteSucursalFila[] }
+    },
+    enabled: !!empresaId,
+    placeholderData: keepPreviousData,
+  })
+}
+
 export function useCajas() {
   const { empresaId } = useAuth()
   return useQuery({

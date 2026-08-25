@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { useVentasResumen, useGastosEnRango, useBodegas, useReporteSerie, useReporteRentabilidad } from '@/lib/queries'
+import { useVentasResumen, useGastosEnRango, useBodegas, useReporteSerie, useReporteRentabilidad, useReporteSucursales } from '@/lib/queries'
 import { periodoAnteriorEquivalente } from '@/lib/metricas'
 import { Spinner } from '@/components/shared/Spinner'
 
@@ -18,6 +18,7 @@ export function VistaGeneralBI({ desde, hasta, branchId }: {
   const { data: bodegas = [] } = useBodegas()
   const serie = useReporteSerie({ desde, hasta, agrupacion: 'categoria', productoIds: [], branchId })
   const rentabilidad = useReporteRentabilidad({ desde, hasta, branchId, activo: true })
+  const sucursales = useReporteSucursales({ desde, hasta, branchId })
 
   const data = useMemo(() => {
     const gastosActuales = (gastos.data ?? []).filter(g => g.fecha >= desde && g.fecha <= hasta && (!branchId || g.bodega_id === branchId))
@@ -44,11 +45,11 @@ export function VistaGeneralBI({ desde, hasta, branchId }: {
     }
 
     const nombresBodegas = new Map(bodegas.map(b => [b.id, b.nombre ?? b.name ?? 'Sin nombre']))
-    const porSucursal = (ventas.data?.sucursales ?? []).map(s => ({
+    const porSucursal = (sucursales.data?.filas ?? []).map(s => ({
       id: s.branch_id || 'sin-sucursal',
       nombre: s.branch_id ? (nombresBodegas.get(s.branch_id) ?? 'Sucursal') : 'Sin sucursal',
       neto: +s.total_neto || 0,
-      cantidad: +s.count || 0,
+      cantidad: +s.transacciones || 0,
     })).filter(b => b.neto > 0).sort((a, b) => b.neto - a.neto)
 
     const topProductos = (rentabilidad.data?.filas ?? []).slice(0, 5).map(p => ({
@@ -62,9 +63,9 @@ export function VistaGeneralBI({ desde, hasta, branchId }: {
     ] as [string, number])
 
     return { actual, previo, porSucursal, topProductos, meses }
-  }, [gastos.data, ventas.data, ventasAnteriores.data, rentabilidad.data, serie.data, desde, hasta, branchId, anterior, bodegas])
+  }, [gastos.data, ventas.data, ventasAnteriores.data, rentabilidad.data, serie.data, sucursales.data, desde, hasta, branchId, anterior, bodegas])
 
-  if (ventas.isLoading || ventasAnteriores.isLoading || gastos.isLoading || serie.isLoading || rentabilidad.isLoading) return <div className="py-16"><Spinner /></div>
+  if (ventas.isLoading || ventasAnteriores.isLoading || gastos.isLoading || serie.isLoading || rentabilidad.isLoading || sucursales.isLoading) return <div className="py-16"><Spinner /></div>
 
   const margenBruto = data.actual.ventasNetas - data.actual.costoVentas
   const margenPct = data.actual.ventasNetas ? margenBruto / data.actual.ventasNetas * 100 : 0
