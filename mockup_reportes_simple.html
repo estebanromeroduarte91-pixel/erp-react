@@ -1,0 +1,288 @@
+<title>Catálogo de Reportes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f2f2f7;--card:#fff;--line:#e2e2e7;--line2:#eeeef2;
+    --ink:#1c1c1e;--ink2:#4a4a4f;--muted:#86868b;
+    --accent:#2a78d6;--accent-bg:#f0f6fd;
+    --pos:#15803d;--neg:#c0392b;--grid:#eeeef2;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:'Manrope',system-ui,-apple-system,sans-serif;font-size:13px;-webkit-font-smoothing:antialiased}
+  .n{font-family:'JetBrains Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums}
+  .wrap{max-width:1200px;margin:0 auto;padding:20px 20px 56px}
+  .top{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+  .crumb{font-size:10.5px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--muted);margin:0}
+  h1{font-size:19px;font-weight:800;margin:2px 0 0}
+
+  .cols{display:grid;grid-template-columns:1fr;gap:14px}
+  @media(min-width:900px){.cols{grid-template-columns:216px 1fr;align-items:start}}
+
+  /* catálogo de reportes */
+  .cat{background:var(--card);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .cat h2{font-size:10px;font-weight:800;letter-spacing:.7px;text-transform:uppercase;color:var(--muted);
+    margin:0;padding:11px 13px 9px;border-bottom:1px solid var(--line2)}
+  .cat button{display:block;width:100%;text-align:left;font-family:inherit;font-size:12.5px;font-weight:600;
+    color:var(--ink2);background:none;border:0;border-left:2px solid transparent;
+    padding:9px 13px;cursor:pointer;border-bottom:1px solid var(--line2)}
+  .cat button:last-child{border-bottom:0}
+  .cat button:hover{background:#fafafc;color:var(--ink)}
+  .cat button[aria-pressed="true"]{background:var(--accent-bg);border-left-color:var(--accent);color:var(--accent);font-weight:700}
+  button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+
+  /* documento */
+  .doc{background:var(--card);border:1px solid var(--line);border-radius:8px}
+  .cab{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;padding:15px 18px;border-bottom:1px solid var(--line)}
+  .cab h3{font-size:15px;font-weight:800;margin:0}
+  .meta{font-size:11px;color:var(--muted);margin:4px 0 0}
+  .ctrl{margin-left:auto;display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+  select{font-family:inherit;font-size:12px;color:var(--ink);background:var(--card);
+    border:1px solid var(--line);border-radius:5px;padding:5px 8px;cursor:pointer}
+  .btn{font-family:inherit;font-size:11.5px;font-weight:700;padding:6px 11px;border-radius:5px;
+    border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+
+  /* banda de cifras */
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));border-bottom:1px solid var(--line)}
+  .kpi{padding:13px 18px;border-right:1px solid var(--line2)}
+  .kpi:last-child{border-right:0}
+  .kpi .l{font-size:9.5px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);margin:0}
+  .kpi .v{font-size:20px;font-weight:800;margin:4px 0 0;letter-spacing:-.4px}
+  .kpi .d{font-size:10.5px;margin:3px 0 0;color:var(--muted)}
+  .kpi .d.up{color:var(--pos)}.kpi .d.down{color:var(--neg)}
+
+  .obs{padding:10px 18px;border-bottom:1px solid var(--line);background:#fbfbfd;
+    font-size:12px;color:var(--ink2);line-height:1.5}
+  .obs b{font-weight:700;color:var(--ink)}
+  .obs .et{font-size:9.5px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);margin-right:8px}
+
+  .plot{padding:16px 18px 6px}
+  svg{display:block;width:100%;height:auto}
+
+  .tw{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th{font-size:9.5px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);
+    text-align:left;padding:9px 14px;background:#fafafc;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+  th.r,td.r{text-align:right}
+  td{padding:8px 14px;border-bottom:1px solid var(--line2);color:var(--ink2)}
+  td.nom{color:var(--ink);font-weight:600}
+  tbody tr:hover td{background:#fafafc}
+  tr.tot td{border-top:1px solid var(--line);border-bottom:0;background:#fafafc;font-weight:800;color:var(--ink)}
+  .neg{color:var(--neg)}.pos{color:var(--pos)}
+
+  .buscador{padding:12px 18px;border-bottom:1px solid var(--line);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .buscador input{flex:1 1 240px;font-family:inherit;font-size:12.5px;padding:6px 10px;
+    border:1px solid var(--line);border-radius:5px;background:var(--card);color:var(--ink)}
+  .buscador .chips{display:flex;gap:5px;flex-wrap:wrap}
+  .buscador .chips button{font-family:inherit;font-size:11.5px;font-weight:600;padding:4px 9px;
+    border-radius:4px;border:1px solid var(--line);background:var(--card);color:var(--ink2);cursor:pointer}
+  .buscador .chips button[aria-pressed="true"]{border-color:var(--accent);color:var(--accent);background:var(--accent-bg)}
+  .pie{font-size:10.5px;color:var(--muted);padding:11px 18px;border-top:1px solid var(--line);line-height:1.6}
+</style>
+
+<div class="wrap">
+  <div class="top">
+    <div><p class="crumb">Administración · Estadísticas</p><h1>Reportes</h1></div>
+  </div>
+
+  <div class="cols">
+    <nav class="cat">
+      <h2>Reportes disponibles</h2>
+      <div id="cat"></div>
+    </nav>
+    <section class="doc" id="doc"></section>
+  </div>
+</div>
+
+<script>
+const MESES=['Sep','Oct','Nov','Dic','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago'];
+const TOTAL_MES=[132,177,139,133,155,151,145,141,117,25,53,95];   // reales de tu base
+const AZUL='#2a78d6', ROJO='#c0392b';
+
+const P=[
+ {n:'Lámina Hidrogel',                  sku:'1374', cat:'Accesorios', u:15, neto:104930, costo:41972,
+  s:[0,0,0,0,0,0,0,0,0,0,8,7]},
+ {n:'Cambio de pantalla iPhone',        sku:'—',    cat:'Servicios',  u:11, neto:989900, costo:593940,
+  s:[1,2,1,0,1,1,2,1,1,0,1,0]},
+ {n:'Cable Hoco X37 USB-A a Lightning', sku:'1198', cat:'Accesorios', u:6,  neto:35940,  costo:14376,
+  s:[0,0,0,0,0,0,0,0,0,0,1,5]},
+ {n:'Cable Hoco X37 USB-A a Tipo C',    sku:'1200', cat:'Accesorios', u:5,  neto:29950,  costo:11980,
+  s:[0,0,0,0,0,0,0,0,0,0,1,4]},
+ {n:'Mantenimiento MacBook',            sku:'2032', cat:'Servicios',  u:4,  neto:159960, costo:31992,
+  s:[0,0,0,0,0,0,0,0,0,0,3,1]},
+ {n:'Cambio Glass iPhone 11',           sku:'—',    cat:'Servicios',  u:3,  neto:149970, costo:89982,
+  s:[0,1,0,0,1,0,0,0,0,0,1,0]},
+ {n:'iPhone 11 Pro Max Batería',        sku:'—',    cat:'Repuestos',  u:3,  neto:104970, costo:59983,
+  s:[0,0,1,0,0,1,0,0,0,0,1,0]},
+ {n:'Revisión',                         sku:'—',    cat:'Servicios',  u:3,  neto:29970,  costo:2997,
+  s:[1,0,0,0,1,0,0,0,0,0,1,0]},
+ {n:'Cable HOCO X51 Tipo C 100W 2m',    sku:'1352', cat:'Accesorios', u:3,  neto:38970,  costo:19485,
+  s:[0,0,0,0,0,0,0,0,0,0,2,1]},
+ {n:'iPhone 14 Pantalla Original',      sku:'—',    cat:'Repuestos',  u:3,  neto:449970, costo:359976,
+  s:[0,0,1,0,0,0,1,0,0,0,1,0]},
+];
+P.forEach(p=>{p.margen=p.neto-p.costo; p.pct=Math.round(p.margen/p.neto*100)});
+
+const clp=n=>'$'+Math.round(n).toLocaleString('es-CL');
+const num=n=>Math.round(n).toLocaleString('es-CL');
+
+const REPORTES=[
+ {id:'prod',  t:'Ventas por producto'},
+ {id:'rent',  t:'Rentabilidad'},
+ {id:'evo',   t:'Evolución mensual'},
+ {id:'ficha', t:'Ficha de producto'},
+ {id:'matriz',t:'Detalle por mes'},
+];
+let act='prod', sel='Lámina Hidrogel';
+
+function barras(filas, fmt, color=AZUL){
+  const W=860, alto=24, gap=11, bw=W-300;
+  const H=filas.length*(alto+gap); const max=Math.max(1,...filas.map(f=>f.v));
+  return `<svg viewBox="0 0 ${W} ${H}" role="img">`+filas.map((f,i)=>{
+    const y=i*(alto+gap), w=Math.max(2,(f.v/max)*bw);
+    return `<text x="0" y="${y+11}" font-size="12" font-weight="600" fill="var(--ink)">${f.n}</text>
+      <rect x="0" y="${y+16}" width="${bw}" height="6" rx="3" fill="var(--line2)"/>
+      <rect x="0" y="${y+16}" width="${w}" height="6" rx="3" fill="${color}"/>
+      <text x="${W}" y="${y+11}" text-anchor="end" font-size="12" font-weight="700" fill="var(--ink)"
+        font-family="JetBrains Mono,monospace">${fmt(f.v)}</text>`;}).join('')+`</svg>`;
+}
+
+function linea(datos, etiquetas, marcar=-1){
+  const W=860,H=210,L=46,R=12,T=12,B=26, iw=W-L-R, ih=H-T-B;
+  const crudo=Math.max(1,...datos)*1.06, b=crudo/4;
+  const e=Math.pow(10,Math.floor(Math.log10(b)));
+  const paso=([1,1.5,2,2.5,3,4,5,6,8,10].find(f=>b<=f*e)??10)*e, max=paso*4;
+  const x=i=>L+(iw*i)/Math.max(1,datos.length-1), y=v=>T+ih-(v/max)*ih;
+  let g='';
+  for(let k=0;k<=4;k++){const gy=T+ih-(ih*k/4);
+    g+=`<line x1="${L}" y1="${gy}" x2="${L+iw}" y2="${gy}" stroke="var(--grid)" stroke-width="1"/>
+        <text x="${L-8}" y="${gy+4}" text-anchor="end" font-size="9.5" fill="var(--muted)"
+          font-family="JetBrains Mono,monospace">${num(max*k/4)}</text>`;}
+  let p=`<path d="M${x(0)} ${T+ih} `+datos.map((v,i)=>'L'+x(i)+' '+y(v)).join(' ')+
+        ` L${x(datos.length-1)} ${T+ih} Z" fill="${AZUL}" opacity=".06"/>
+        <path d="${datos.map((v,i)=>(i?'L':'M')+x(i)+' '+y(v)).join(' ')}" fill="none"
+          stroke="${AZUL}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+  datos.forEach((v,i)=>{const m=i===marcar;
+    p+=`<circle cx="${x(i)}" cy="${y(v)}" r="${m?5:3.5}" fill="${m?ROJO:AZUL}" stroke="#fff" stroke-width="1.8"><title>${etiquetas[i]}: ${num(v)}</title></circle>`;
+    if(m) p+=`<text x="${x(i)}" y="${y(v)-11}" text-anchor="middle" font-size="11" font-weight="800" fill="${ROJO}">${num(v)}</text>`;});
+  etiquetas.forEach((m,i)=>{p+=`<text x="${x(i)}" y="${H-8}" text-anchor="middle" font-size="9.5"
+    fill="${i===marcar?ROJO:'var(--muted)'}" font-weight="${i===marcar?700:400}">${m}</text>`;});
+  return `<svg viewBox="0 0 ${W} ${H}" role="img">${g}${p}</svg>`;
+}
+
+const kpi=(l,v,d,cls='')=>`<div class="kpi"><p class="l">${l}</p><p class="v n">${v}</p>
+  <p class="d ${cls}">${d}</p></div>`;
+const obs=txt=>`<div class="obs"><span class="et">Observación</span>${txt}</div>`;
+const cab=(t,meta,extra='')=>`<div class="cab"><div><h3>${t}</h3><p class="meta">${meta}</p></div>
+  <div class="ctrl">
+    <select><option>Últimos 12 meses</option><option>Últimos 24 meses</option><option>Este año</option><option>Todo el histórico</option></select>
+    <select><option>Todas las sucursales</option><option>Los Dominicos</option><option>La Dehesa</option></select>
+    ${extra}<button class="btn">Exportar</button></div></div>`;
+
+function tabla(cols, filas, total){
+  return `<div class="tw"><table><thead><tr>${cols.map((c,i)=>`<th class="${i?'r':''}">${c}</th>`).join('')}</tr></thead>
+    <tbody>${filas.map(f=>`<tr><td class="nom">${f[0]}</td>${f.slice(1).map(c=>`<td class="r n">${c}</td>`).join('')}</tr>`).join('')}
+    ${total?`<tr class="tot"><td>${total[0]}</td>${total.slice(1).map(c=>`<td class="r n">${c}</td>`).join('')}</tr>`:''}
+    </tbody></table></div>`;
+}
+const PIE='Período: septiembre 2025 – agosto 2026 · Sucursal: todas · Ventas pagadas, excluye anuladas · Generado el 25/08/2026 14:20';
+
+function render(){
+  document.getElementById('cat').innerHTML=REPORTES.map(r=>
+    `<button data-r="${r.id}" aria-pressed="${act===r.id}">${r.t}</button>`).join('');
+  const D=document.getElementById('doc');
+  const totU=P.reduce((s,p)=>s+p.u,0), totN=P.reduce((s,p)=>s+p.neto,0), totM=P.reduce((s,p)=>s+p.margen,0);
+
+  if(act==='prod'){
+    const o=[...P].sort((a,b)=>b.u-a.u);
+    D.innerHTML=cab('Ventas por producto','Unidades vendidas, ordenadas de mayor a menor')
+      +`<div class="kpis">${kpi('Unidades',num(totU),'10 productos con venta')}
+        ${kpi('Venta neta',clp(totN),'+14,2% vs. período anterior','up')}
+        ${kpi('Margen',clp(totM),'+9,4% vs. período anterior','up')}
+        ${kpi('Ticket promedio',clp(totN/totU),'por unidad')}</div>`
+      +obs(`<b>Lámina Hidrogel</b> concentra el ${Math.round(15/totU*100)}% de las unidades. Los nueve productos
+        restantes suman ${totU-15}: la venta está repartida y ningún artículo domina el período.`)
+      +`<div class="plot">${barras(o.slice(0,6).map(p=>({n:p.n,v:p.u})),v=>num(v)+' u.')}</div>`
+      +tabla(['Producto','SKU','Categoría','Unidades','Venta neta','Margen'],
+        o.map(p=>[p.n,p.sku,p.cat,num(p.u),clp(p.neto),clp(p.margen)]),
+        ['Total',' ',' ',num(totU),clp(totN),clp(totM)])
+      +`<p class="pie">${PIE}</p>`;
+  }
+
+  if(act==='rent'){
+    const o=[...P].sort((a,b)=>b.margen-a.margen);
+    D.innerHTML=cab('Rentabilidad','Margen bruto por producto: venta neta menos costo')
+      +`<div class="kpis">${kpi('Margen bruto',clp(totM),'sobre '+clp(totN)+' de venta')}
+        ${kpi('Margen %',Math.round(totM/totN*100)+'%','−1,6 pts vs. período anterior','down')}
+        ${kpi('Costo vendido',clp(totN-totM),'')}
+        ${kpi('Mayor aporte',clp(o[0].margen),o[0].n)}</div>`
+      +obs(`<b>${o[0].n}</b> aporta ${clp(o[0].margen)} con ${o[0].u} unidades, mientras que
+        <b>Lámina Hidrogel</b> vende 15 y aporta ${clp(62958)}. El producto más vendido no es el más rentable.`)
+      +`<div class="plot">${barras(o.slice(0,6).map(p=>({n:p.n,v:p.margen})),clp)}</div>`
+      +tabla(['Producto','Unidades','Venta neta','Costo','Margen','Margen %'],
+        o.map(p=>[p.n,num(p.u),clp(p.neto),clp(p.costo),clp(p.margen),p.pct+'%']),
+        ['Total',num(totU),clp(totN),clp(totN-totM),clp(totM),Math.round(totM/totN*100)+'%'])
+      +`<p class="pie">${PIE}</p>`;
+  }
+
+  if(act==='evo'){
+    const prom=Math.round(TOTAL_MES.slice(0,9).reduce((a,b)=>a+b,0)/9);
+    D.innerHTML=cab('Evolución mensual','Unidades vendidas por mes')
+      +`<div class="kpis">${kpi('Total período',num(TOTAL_MES.reduce((a,b)=>a+b,0)),'12 meses')}
+        ${kpi('Promedio mensual',num(TOTAL_MES.reduce((a,b)=>a+b,0)/12),'')}
+        ${kpi('Mes más alto',num(177),'Octubre')}
+        ${kpi('Mes más bajo',num(25),'Junio','down')}</div>`
+      +obs(`<b>Junio registra 25 unidades</b> frente a un promedio de ${prom} en los nueve meses previos
+        — una caída del <b class="neg">${Math.round((1-25/prom)*100)}%</b>. Julio (53) y agosto (95) recuperan
+        parcialmente. Conviene verificar si corresponde a menor actividad o a ventas sin registrar.`)
+      +`<div class="plot">${linea(TOTAL_MES,MESES,9)}</div>`
+      +tabla(['Mes','Unidades','Variación vs. mes anterior','Desviación vs. promedio'],
+        MESES.map((m,i)=>[m,num(TOTAL_MES[i]),
+          i?((TOTAL_MES[i]>=TOTAL_MES[i-1]?'+':'')+Math.round((TOTAL_MES[i]/TOTAL_MES[i-1]-1)*100)+'%'):'—',
+          (TOTAL_MES[i]>=prom?'+':'')+Math.round((TOTAL_MES[i]/prom-1)*100)+'%']),
+        ['Total',num(TOTAL_MES.reduce((a,b)=>a+b,0)),' ',' '])
+      +`<p class="pie">${PIE}</p>`;
+  }
+
+  if(act==='ficha'){
+    const p=P.find(x=>x.n===sel)||P[0], meses=p.s.filter(v=>v>0).length;
+    D.innerHTML=cab('Ficha de producto','Comportamiento mensual de un artículo')
+      +`<div class="buscador"><input type="search" placeholder="Buscar producto por nombre o SKU…" autocomplete="off">
+        <div class="chips">${P.slice(0,5).map(x=>
+          `<button data-p="${x.n}" aria-pressed="${x.n===p.n}">${x.n}</button>`).join('')}</div></div>`
+      +`<div class="kpis">${kpi('Unidades',num(p.u),p.sku!=='—'?'SKU '+p.sku:'sin SKU')}
+        ${kpi('Venta neta',clp(p.neto),p.cat)}
+        ${kpi('Margen',clp(p.margen),p.pct+'% sobre la venta')}
+        ${kpi('Meses con venta',meses+' de 12','')}</div>`
+      +obs(meses<=2
+        ? `Registra ventas solo en los últimos ${meses} meses. El artículo se incorporó al catálogo en julio,
+           de modo que la ausencia previa refleja la carga del catálogo y no una caída de demanda.`
+        : `Registra ventas en ${meses} de los 12 meses, distribuidas de forma pareja y sin concentración estacional.`)
+      +`<div class="plot">${linea(p.s,MESES)}</div>`
+      +tabla(['Mes','Unidades','Venta neta estimada'],
+        MESES.map((m,i)=>[m,p.s[i]?num(p.s[i]):'—',p.s[i]?clp(p.s[i]*(p.neto/p.u)):'—']),
+        ['Total',num(p.u),clp(p.neto)])
+      +`<p class="pie">${PIE}</p>`;
+  }
+
+  if(act==='matriz'){
+    const o=[...P].sort((a,b)=>b.u-a.u);
+    const totMes=MESES.map((_,i)=>o.reduce((s,p)=>s+p.s[i],0));
+    D.innerHTML=cab('Detalle por mes','Unidades por producto y mes')
+      +obs(`Los productos del catálogo concentran sus ventas en <b>julio y agosto</b>: se incorporaron
+        recientemente. Los meses anteriores corresponden a servicios registrados sin artículo asociado.`)
+      +tabla(['Producto',...MESES,'Total'],
+        o.map(p=>[p.n,...p.s.map(v=>v||'—'),num(p.u)]),
+        ['Total',...totMes.map(v=>num(v)),num(o.reduce((s,p)=>s+p.u,0))])
+      +`<p class="pie">${PIE}</p>`;
+  }
+}
+
+document.addEventListener('click',e=>{
+  const r=e.target.closest('[data-r]'); if(r){act=r.dataset.r;render();return;}
+  const p=e.target.closest('[data-p]'); if(p){sel=p.dataset.p;render();}
+});
+render();
+</script>
