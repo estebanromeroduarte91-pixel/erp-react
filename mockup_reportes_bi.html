@@ -1,0 +1,510 @@
+<title>Explorador de Ventas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f2f2f7; --card:#fff; --border:#e5e7eb; --border-soft:#f2f2f7;
+    --ink:#1c1c1e; --ink-2:#3c3c43; --muted:#8e8e93;
+    --accent:#378ADD; --accent-soft:#eaf2fb;
+    --good:#15803d; --good-bg:#dcfce7; --bad:#dc2626; --bad-bg:#fee2e2;
+    --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100; --s5:#e87ba4; --s6:#008300;
+    --grid:#ececf0;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:'Manrope',system-ui,-apple-system,sans-serif; font-size:14px;
+    -webkit-font-smoothing:antialiased;
+  }
+  .num{font-family:'JetBrains Mono',ui-monospace,monospace; font-variant-numeric:tabular-nums}
+  .wrap{max-width:1180px; margin:0 auto; padding:24px 20px 56px}
+  .crumb{font-size:11px; font-weight:700; letter-spacing:.6px; text-transform:uppercase; color:var(--muted); margin:0 0 6px}
+  h1{font-size:22px; font-weight:800; margin:0 0 2px; text-wrap:balance}
+  .sub{color:var(--ink-2); margin:0 0 20px; font-size:13px}
+  .card{background:var(--card); border:1px solid var(--border); border-radius:14px}
+  .pad{padding:16px 18px}
+  .lbl{font-size:10px; font-weight:800; letter-spacing:.7px; text-transform:uppercase; color:var(--muted); margin:0 0 8px}
+
+  /* filtros */
+  .filtros{display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end; margin-bottom:16px}
+  .campo{display:flex; flex-direction:column; gap:5px}
+  .campo>span{font-size:10px; font-weight:800; letter-spacing:.6px; text-transform:uppercase; color:var(--muted)}
+  select{
+    font-family:inherit; font-size:13px; color:var(--ink); background:var(--card);
+    border:1px solid var(--border); border-radius:9px; padding:7px 10px; cursor:pointer;
+  }
+  select:focus-visible,button:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+  .seg{display:inline-flex; background:var(--card); border:1px solid var(--border); border-radius:9px; overflow:hidden}
+  .seg button{
+    font-family:inherit; font-size:12px; font-weight:600; color:var(--ink-2);
+    background:transparent; border:0; padding:7px 12px; cursor:pointer;
+  }
+  .seg button[aria-pressed="true"]{background:var(--accent); color:#fff}
+  .exp{margin-left:auto; display:flex; gap:8px; align-items:flex-end}
+  .btn{
+    font-family:inherit; font-size:12px; font-weight:700; padding:8px 14px; border-radius:9px;
+    border:1px solid var(--border); background:var(--card); color:var(--ink); cursor:pointer;
+  }
+  .btn.primary{background:var(--ink); color:#fff; border-color:var(--ink)}
+
+  /* chips de producto */
+  .chips{display:flex; flex-wrap:wrap; gap:7px}
+  .chip{
+    display:inline-flex; align-items:center; gap:7px; font-family:inherit; font-size:12px; font-weight:600;
+    padding:6px 11px; border-radius:999px; border:1px solid var(--border);
+    background:var(--card); color:var(--ink-2); cursor:pointer;
+  }
+  .chip[aria-pressed="true"]{border-color:var(--ink); color:var(--ink); background:#fafafa}
+  .chip .dot{width:9px; height:9px; border-radius:3px; flex:0 0 auto; background:var(--muted)}
+  .chip[aria-pressed="false"] .dot{opacity:.28}
+
+  /* selector de productos */
+  .chip.quitar{padding-right:7px}
+  .chip .x{
+    display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px;
+    border-radius:50%; background:#ececf0; color:var(--ink-2); font-size:11px; line-height:1; margin-left:2px;
+  }
+  .chip.add{border-style:dashed; color:var(--accent); border-color:#c9dcf3; font-weight:700}
+  .chip.sinserie .dot{background:var(--muted)!important}
+  .picker{margin-top:14px; border:1px solid var(--border); border-radius:12px; overflow:hidden}
+  .picker.oculto{display:none}
+  .picker-top{display:flex; flex-wrap:wrap; gap:8px; padding:12px; border-bottom:1px solid var(--border-soft); background:#fbfbfd}
+  .picker-top input[type=search]{
+    flex:1 1 240px; font-family:inherit; font-size:13px; padding:8px 11px;
+    border:1px solid var(--border); border-radius:9px; background:var(--card); color:var(--ink);
+  }
+  .picker-top input[type=search]:focus-visible{outline:2px solid var(--accent); outline-offset:1px}
+  .acciones{display:flex; flex-wrap:wrap; gap:6px; padding:10px 12px; border-bottom:1px solid var(--border-soft)}
+  .acciones button{
+    font-family:inherit; font-size:11.5px; font-weight:700; color:var(--accent); background:var(--accent-soft);
+    border:0; border-radius:7px; padding:6px 10px; cursor:pointer;
+  }
+  .lista{max-height:290px; overflow-y:auto}
+  .fila{
+    display:grid; grid-template-columns:20px 1fr auto; gap:11px; align-items:center;
+    padding:9px 12px; border-bottom:1px solid var(--border-soft); cursor:pointer;
+  }
+  .fila:last-child{border-bottom:0}
+  .fila:hover{background:#fafafb}
+  .fila input{width:15px; height:15px; accent-color:var(--accent); cursor:pointer}
+  .fila .nom{display:block; font-size:13px; font-weight:600; color:var(--ink)}
+  .fila .meta{display:block; font-size:11px; color:var(--muted); margin-top:2px}
+  .fila .uds{font-size:12px; color:var(--ink-2); white-space:nowrap}
+  .picker-pie{display:flex; justify-content:space-between; align-items:center; gap:10px; padding:10px 12px; background:#fbfbfd; border-top:1px solid var(--border-soft); font-size:11.5px; color:var(--muted)}
+  .aviso{font-size:11.5px; color:var(--ink-2); background:#fff8e6; border:1px solid #f2e3b8; border-radius:9px; padding:8px 11px; margin-top:11px}
+
+  /* tiles */
+  .tiles{display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:12px; margin-bottom:16px}
+  .tile .v{font-size:25px; font-weight:800; margin:2px 0 0; letter-spacing:-.5px}
+  .delta{display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; padding:2px 7px; border-radius:6px; margin-top:8px}
+  .delta.up{background:var(--good-bg); color:var(--good)}
+  .delta.down{background:var(--bad-bg); color:var(--bad)}
+  .tile .cmp{font-size:11px; color:var(--muted); margin:6px 0 0}
+
+  /* charts */
+  .row{display:grid; grid-template-columns:1fr; gap:14px; margin-bottom:14px}
+  @media(min-width:900px){ .row.dos{grid-template-columns:1.15fr .85fr} }
+  .head{display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:2px}
+  .head h2{font-size:14px; font-weight:800; margin:0}
+  .head .hint{font-size:11px; color:var(--muted)}
+  .plot{position:relative; overflow-x:auto}
+  svg{display:block; width:100%; height:auto}
+  .leyenda{display:flex; flex-wrap:wrap; gap:14px; margin-top:12px; padding-top:12px; border-top:1px solid var(--border-soft)}
+  .leyenda i{display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--ink-2); font-style:normal}
+  .leyenda .sw{width:11px; height:3px; border-radius:2px}
+
+  .tip{
+    position:absolute; pointer-events:none; opacity:0; transition:opacity .1s;
+    background:var(--card); border:1px solid var(--border); border-radius:10px; padding:9px 11px;
+    box-shadow:0 6px 20px rgba(0,0,0,.10); font-size:12px; min-width:150px; z-index:5;
+  }
+  .tip h4{margin:0 0 6px; font-size:11px; font-weight:800; color:var(--muted); letter-spacing:.4px; text-transform:uppercase}
+  .tip .lin{display:flex; align-items:center; gap:7px; justify-content:space-between; margin-top:3px}
+  .tip .lin span{display:inline-flex; align-items:center; gap:6px; color:var(--ink-2)}
+  .tip .sw{width:9px; height:9px; border-radius:3px}
+
+  table{width:100%; border-collapse:collapse; font-size:13px}
+  th{font-size:10px; font-weight:800; letter-spacing:.6px; text-transform:uppercase; color:var(--muted); text-align:left; padding:0 10px 9px; border-bottom:1px solid var(--border)}
+  th.r,td.r{text-align:right}
+  td{padding:10px; border-bottom:1px solid var(--border-soft); color:var(--ink-2)}
+  tbody tr:last-child td{border-bottom:0}
+  td.nom{color:var(--ink); font-weight:600}
+  .swrow{display:inline-block; width:9px; height:9px; border-radius:3px; margin-right:8px; vertical-align:middle}
+  .oculto{display:none}
+  .nota{font-size:11px; color:var(--muted); margin:16px 0 0; line-height:1.6}
+</style>
+
+<div class="wrap">
+  <p class="crumb">Administración · Reportes</p>
+  <h1>Explorador de ventas</h1>
+  <p class="sub">Elige qué medir, sobre qué productos y en qué período. Todo lo de abajo responde a los mismos filtros.</p>
+
+  <div class="filtros">
+    <label class="campo"><span>Período</span>
+      <select id="f-periodo">
+        <option>Últimas 12 semanas</option><option>Este mes</option><option>Este año</option><option>Rango personalizado…</option>
+      </select>
+    </label>
+    <label class="campo"><span>Sucursal</span>
+      <select id="f-suc"><option>Todas</option><option>Los Dominicos</option><option>La Dehesa</option></select>
+    </label>
+    <label class="campo"><span>Categoría</span>
+      <select id="f-cat"><option>Todas</option><option>Repuestos iPhone</option><option>Accesorios</option><option>Micas y protección</option></select>
+    </label>
+    <div class="campo"><span>Medir</span>
+      <div class="seg" id="f-metrica">
+        <button data-m="u" aria-pressed="true">Unidades</button>
+        <button data-m="n" aria-pressed="false">Venta neta</button>
+        <button data-m="m" aria-pressed="false">Margen</button>
+      </div>
+    </div>
+    <div class="campo"><span>Agrupar por</span>
+      <div class="seg" id="f-grupo">
+        <button data-g="prod" aria-pressed="true">Producto</button>
+        <button data-g="cat" aria-pressed="false">Categoría</button>
+      </div>
+    </div>
+    <div class="exp">
+      <div class="seg" id="f-vista">
+        <button data-v="graf" aria-pressed="true">Gráfico</button>
+        <button data-v="tab" aria-pressed="false">Tabla</button>
+      </div>
+      <button class="btn">Exportar</button>
+      <button class="btn primary">Guardar reporte</button>
+    </div>
+  </div>
+
+  <div class="card pad" style="margin-bottom:16px">
+    <p class="lbl">Productos en el reporte · <span id="cuenta"></span></p>
+    <div class="chips" id="chips"></div>
+    <div id="aviso" class="aviso oculto"></div>
+
+    <div class="picker oculto" id="picker">
+      <div class="picker-top">
+        <input type="search" id="buscar" placeholder="Buscar por nombre o SKU…" autocomplete="off">
+        <select id="p-cat"><option value="">Todas las categorías</option></select>
+      </div>
+      <div class="acciones">
+        <button data-a="top">Agregar los 6 más vendidos</button>
+        <button data-a="cat">Agregar toda la categoría filtrada</button>
+        <button data-a="limpiar">Quitar todos</button>
+      </div>
+      <div class="lista" id="lista"></div>
+      <div class="picker-pie">
+        <span id="pie"></span>
+        <button class="btn primary" id="cerrar-picker" style="padding:6px 14px">Listo</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="tiles" id="tiles"></div>
+
+  <div class="row">
+    <div class="card pad">
+      <div class="head">
+        <h2 id="t-serie"></h2>
+        <span class="hint">Comparado con las 12 semanas anteriores</span>
+      </div>
+      <div class="plot" id="plot-serie">
+        <svg id="svg-serie" viewBox="0 0 900 300" role="img" aria-labelledby="t-serie"></svg>
+        <div class="tip" id="tip"></div>
+      </div>
+      <div class="leyenda" id="leyenda"></div>
+      <div id="tabla-serie" class="oculto" style="margin-top:6px"></div>
+    </div>
+  </div>
+
+  <div class="row dos">
+    <div class="card pad">
+      <div class="head"><h2 id="t-rank"></h2><span class="hint">Total del período</span></div>
+      <div class="plot"><svg id="svg-rank" viewBox="0 0 520 250" role="img" aria-labelledby="t-rank"></svg></div>
+    </div>
+    <div class="card pad">
+      <div class="head"><h2>Detalle</h2><span class="hint">Ordenado por el valor medido</span></div>
+      <div style="overflow-x:auto"><table id="tabla-det"></table></div>
+    </div>
+  </div>
+
+  <p class="nota">
+    Maqueta con datos de ejemplo. Colores validados para daltonismo con el script del proyecto
+    (peor par adyacente ΔE 9.1 protan); las series llevan etiqueta directa y vista de tabla porque
+    tres de los seis tonos quedan bajo 3:1 de contraste sobre fondo claro.
+  </p>
+</div>
+
+<script>
+const SEM = ['S1','S2','S3','S4','S5','S6','S7','S8','S9','S10','S11','S12'];
+const MAX_SERIES = 6;                       // tope de líneas dibujables
+const SLOTS = ['#2a78d6','#eb6834','#1baf7a','#eda100','#e87ba4','#008300']; // paleta validada
+const CATS = [
+  {n:'Micas y protección', hex:'#2a78d6'},
+  {n:'Repuestos iPhone',   hex:'#eb6834'},
+  {n:'Accesorios',         hex:'#1baf7a'},
+  {n:'Repuestos Samsung',  hex:'#eda100'},
+  {n:'Audio',              hex:'#e87ba4'},
+];
+// Catálogo de ejemplo. En la app real esto NO vive en el navegador: la lista se
+// busca contra el servidor a medida que escribes (son ~1.470 productos).
+const BASE = [
+  ['Mica 3D iPhone 16 Pro','MIC-1601','Micas y protección',7990,2400,30],
+  ['Mica 3D iPhone 15','MIC-1500','Micas y protección',6990,2100,24],
+  ['Mica cerámica Samsung S24','MIC-S240','Micas y protección',6490,1900,15],
+  ['Carcasa transparente iPhone 16','CAR-1600','Micas y protección',5990,1700,19],
+  ['Batería iPhone 13','BAT-1300','Repuestos iPhone',34990,18500,11],
+  ['Batería iPhone 11','BAT-1100','Repuestos iPhone',29990,15200,13],
+  ['Pantalla iPhone 12','PAN-1200','Repuestos iPhone',89990,52000,6],
+  ['Pantalla iPhone 14 Pro','PAN-1400','Repuestos iPhone',149990,92000,4],
+  ['Flex de carga iPhone 13','FLX-1300','Repuestos iPhone',18990,7400,8],
+  ['Cámara trasera iPhone 12','CAM-1200','Repuestos iPhone',44990,26000,3],
+  ['Cargador HOCO 20W','ACC-2000','Accesorios',12990,5200,18],
+  ['Cable USB-C 1m','ACC-1001','Accesorios',5990,1900,30],
+  ['Cable Lightning 2m','ACC-1002','Accesorios',7990,2600,17],
+  ['Holder HOCO PH50','ACC-1350','Accesorios',9990,3800,8],
+  ['Power bank 10.000mAh','ACC-PB10','Accesorios',22990,11000,7],
+  ['Adaptador USB-C a Jack','ACC-ADJ1','Accesorios',4990,1400,12],
+  ['Batería Samsung A54','BSA-A540','Repuestos Samsung',27990,14500,6],
+  ['Pantalla Samsung A34','PSA-A340','Repuestos Samsung',69990,41000,4],
+  ['Tapa trasera Samsung S23','TSA-S230','Repuestos Samsung',15990,6800,5],
+  ['Audífonos HOCO EW09','AUD-EW09','Audio',19990,8900,9],
+  ['Audífonos in-ear cableados','AUD-IE01','Audio',6990,2300,14],
+  ['Parlante bluetooth mini','AUD-PB01','Audio',24990,12000,5],
+];
+let semilla = 7;
+const rnd = () => (semilla = (semilla*1103515245 + 12345) % 2147483648) / 2147483648;
+const PROD = BASE.map(([n,sku,cat,pv,co,med],k)=>({
+  id:'p'+k, n, sku, cat, pv, co,
+  u: SEM.map((_,i)=> Math.max(1, Math.round(med*(0.72+rnd()*0.5) + med*0.035*i)))
+}));
+const catHex = c => (CATS.find(x=>x.n===c)||{}).hex || '#8e8e93';
+
+// El color se asigna AL AGREGAR y se queda con ese producto mientras siga en el
+// reporte. No se reparte por ranking: si un producto sube de puesto al filtrar,
+// no cambia de color. Pasado el tope, el producto entra sin color y solo suma a
+// los totales y a la tabla.
+let asignados = new Map();
+function tomarSlot(id){
+  if(asignados.has(id)) return;
+  const usados = new Set(asignados.values());
+  const libre = SLOTS.find(c=>!usados.has(c));
+  if(libre) asignados.set(id, libre);
+}
+const colorDe = id => asignados.get(id) || null;
+
+let st = {m:'u', g:'prod', v:'graf', sel:new Set(), q:'', pcat:'', abierto:false};
+['p0','p4','p10','p11'].forEach(id=>{ st.sel.add(id); tomarSlot(id); });
+
+const clp = n => '$'+n.toLocaleString('es-CL');
+const val = (p,i) => st.m==='u' ? p.u[i] : st.m==='n' ? p.u[i]*p.pv : p.u[i]*(p.pv-p.co);
+const fmtV = v => st.m==='u' ? Math.round(v).toLocaleString('es-CL') : clp(Math.round(v));
+const MET = {u:'Unidades vendidas', n:'Venta neta', m:'Margen'};
+const activos = () => PROD.filter(p=>st.sel.has(p.id));
+const totU = p => p.u.reduce((a,b)=>a+b,0);
+
+function series(){
+  const act = activos();
+  if(st.g==='cat'){
+    return CATS.filter(c=>act.some(p=>p.cat===c.n)).map(c=>({
+      k:c.n, n:c.n, hex:c.hex,
+      d:SEM.map((_,i)=>act.filter(p=>p.cat===c.n).reduce((s,p)=>s+val(p,i),0))
+    }));
+  }
+  return act.filter(p=>colorDe(p.id)).map(p=>({k:p.id, n:p.n, hex:colorDe(p.id), d:SEM.map((_,i)=>val(p,i))}));
+}
+
+function chips(){
+  const act = activos();
+  document.getElementById('chips').innerHTML =
+    act.map(p=>{
+      const c = colorDe(p.id);
+      return `<button class="chip quitar ${c?'':'sinserie'}" data-quitar="${p.id}" aria-pressed="true" title="Quitar del reporte">
+        <i class="dot" style="background:${c||'var(--muted)'}"></i>${p.n}<i class="x">×</i></button>`;
+    }).join('') +
+    `<button class="chip add" id="abrir-picker">+ Agregar productos</button>`;
+  document.getElementById('cuenta').textContent = act.length + (act.length===1?' producto':' productos');
+
+  const sinColor = act.filter(p=>!colorDe(p.id)).length;
+  const av = document.getElementById('aviso');
+  av.classList.toggle('oculto', sinColor===0 || st.g==='cat');
+  if(sinColor) av.innerHTML = `El gráfico dibuja ${MAX_SERIES} series como máximo — más líneas dejan de distinguirse.
+    <b>${sinColor} producto${sinColor>1?'s':''}</b> quedan fuera del gráfico, pero siguen contando en los totales y en la tabla.
+    Para verlos, agrúpalos por categoría o quita alguno de los que sí tienen color.`;
+}
+
+function picker(){
+  const sel = document.getElementById('p-cat');
+  if(sel.options.length===1) CATS.forEach(c=>sel.add(new Option(c.n,c.n)));
+  const q = st.q.trim().toLowerCase();
+  const vis = PROD.filter(p=>
+    (!st.pcat || p.cat===st.pcat) &&
+    (!q || p.n.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q)));
+  document.getElementById('lista').innerHTML = vis.length ? vis.map(p=>`
+    <label class="fila">
+      <input type="checkbox" data-t="${p.id}" ${st.sel.has(p.id)?'checked':''}>
+      <span><span class="nom">${p.n}</span><span class="meta">${p.sku} · ${p.cat}</span></span>
+      <span class="uds num">${totU(p)} u.</span>
+    </label>`).join('')
+    : `<p style="padding:18px 12px; color:var(--muted); font-size:13px; margin:0">Ningún producto coincide con “${st.q}”.</p>`;
+  document.getElementById('pie').textContent =
+    `Mostrando ${vis.length} de 1.470 productos · ${st.sel.size} en el reporte`;
+  document.getElementById('picker').classList.toggle('oculto', !st.abierto);
+}
+
+function tiles(){
+  const act = activos();
+  const un = act.reduce((s,p)=>s+totU(p),0);
+  const nt = act.reduce((s,p)=>s+totU(p)*p.pv,0);
+  const mg = act.reduce((s,p)=>s+totU(p)*(p.pv-p.co),0);
+  const pm = nt? Math.round(mg/nt*100):0;
+  const T = [
+    ['Unidades vendidas', un.toLocaleString('es-CL'), 11.8],
+    ['Venta neta', clp(nt), 14.2],
+    ['Margen', clp(mg), 9.4],
+    ['Margen %', pm+'%', -1.6],
+  ];
+  document.getElementById('tiles').innerHTML = T.map(([l,v,d])=>`
+    <div class="card pad tile">
+      <p class="lbl" style="margin-bottom:0">${l}</p>
+      <p class="v num">${v}</p>
+      <span class="delta ${d>=0?'up':'down'}">${d>=0?'▲':'▼'} ${Math.abs(d)}%</span>
+      <p class="cmp">vs. período anterior</p>
+    </div>`).join('');
+}
+
+function serieChart(){
+  const S = series(), svg = document.getElementById('svg-serie');
+  document.getElementById('t-serie').textContent = MET[st.m]+' en el tiempo';
+  const W=900,H=300, L=54,R=168,T=16,B=34;
+  const iw=W-L-R, ih=H-T-B;
+  const crudo = Math.max(1,...S.flatMap(s=>s.d))*1.04;
+  const bruto = crudo/4;
+  const exp = Math.pow(10, Math.floor(Math.log10(bruto)));
+  const paso = ([1,1.5,2,2.5,3,4,5,6,8,10].find(f=>bruto<=f*exp) ?? 10)*exp;
+  const max = paso*4;
+  const x = i => L + (iw*i)/(SEM.length-1);
+  const y = v => T + ih - (v/max)*ih;
+  let g='';
+  for(let k=0;k<=4;k++){
+    const gy=T+ih-(ih*k/4), gv=max*k/4;
+    g+=`<line x1="${L}" y1="${gy}" x2="${L+iw}" y2="${gy}" stroke="var(--grid)" stroke-width="1"/>
+        <text x="${L-10}" y="${gy+4}" text-anchor="end" font-size="10" fill="var(--muted)" font-family="JetBrains Mono,monospace">${st.m==='u'?gv.toLocaleString('es-CL'):'$'+Math.round(gv/1000).toLocaleString('es-CL')+'k'}</text>`;
+  }
+  SEM.forEach((s,i)=>{ g+=`<text x="${x(i)}" y="${H-12}" text-anchor="middle" font-size="10" fill="var(--muted)">${s}</text>`; });
+  const fin = S.map(s=>({s, yy:y(s.d[s.d.length-1])})).sort((a,b)=>a.yy-b.yy);
+  fin.forEach((f,i)=>{ if(i>0 && f.yy-fin[i-1].yy<15) f.yy=fin[i-1].yy+15; });
+  let p='';
+  S.forEach(s=>{
+    p += `<path d="${s.d.map((v,i)=>(i?'L':'M')+x(i)+' '+y(v)).join(' ')}" fill="none" stroke="${s.hex}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+    s.d.forEach((v,i)=>{ p += `<circle cx="${x(i)}" cy="${y(v)}" r="4" fill="${s.hex}" stroke="var(--card)" stroke-width="2"/>`; });
+  });
+  fin.forEach(f=>{
+    p += `<text x="${L+iw+12}" y="${f.yy+4}" font-size="11" font-weight="700" fill="${f.s.hex}">${f.s.n.length>20?f.s.n.slice(0,19)+'…':f.s.n}</text>`;
+  });
+  const hov = SEM.map((_,i)=>`<rect x="${x(i)-iw/22}" y="${T}" width="${iw/11}" height="${ih}" fill="transparent" data-i="${i}" style="cursor:crosshair"/>`).join('');
+  svg.innerHTML = g + `<line id="cross" x1="0" y1="${T}" x2="0" y2="${T+ih}" stroke="var(--muted)" stroke-width="1" stroke-dasharray="3 3" opacity="0"/>` + p + hov;
+
+  const tip=document.getElementById('tip'), cross=svg.querySelector('#cross');
+  svg.querySelectorAll('rect[data-i]').forEach(r=>{
+    r.addEventListener('mouseenter',e=>{
+      const i=+e.target.dataset.i, box=document.getElementById('plot-serie').getBoundingClientRect(), sb=svg.getBoundingClientRect();
+      cross.setAttribute('x1',x(i)); cross.setAttribute('x2',x(i)); cross.setAttribute('opacity','.5');
+      tip.innerHTML = `<h4>Semana ${i+1}</h4>`+S.map(s=>
+        `<div class="lin"><span><i class="sw" style="background:${s.hex}"></i>${s.n}</span><b class="num">${fmtV(s.d[i])}</b></div>`).join('');
+      tip.style.opacity=1;
+      tip.style.left = Math.min(sb.width*(x(i)/W)+14, box.width-190)+'px';
+      tip.style.top = '18px';
+    });
+  });
+  svg.addEventListener('mouseleave',()=>{ tip.style.opacity=0; cross.setAttribute('opacity','0'); });
+
+  document.getElementById('leyenda').innerHTML = S.map(s=>
+    `<i><span class="sw" style="background:${s.hex}"></span>${s.n}</i>`).join('');
+
+  document.getElementById('tabla-serie').innerHTML = '<div style="overflow-x:auto"><table><thead><tr><th>Serie</th>'+
+    SEM.map(s=>`<th class="r">${s}</th>`).join('')+'</tr></thead><tbody>'+
+    S.map(s=>`<tr><td class="nom"><span class="swrow" style="background:${s.hex}"></span>${s.n}</td>`+
+      s.d.map(v=>`<td class="r num">${fmtV(v)}</td>`).join('')+'</tr>').join('')+'</tbody></table></div>';
+}
+
+// Ranking y tabla incluyen TODO lo seleccionado, tenga color o no.
+function filas(){
+  const act = activos();
+  if(st.g==='cat'){
+    return CATS.filter(c=>act.some(p=>p.cat===c.n)).map(c=>({
+      n:c.n, hex:c.hex, t:act.filter(p=>p.cat===c.n).reduce((s,p)=>s+SEM.reduce((a,_,i)=>a+val(p,i),0),0)
+    })).sort((a,b)=>b.t-a.t);
+  }
+  return act.map(p=>({n:p.n, hex:colorDe(p.id)||'#c7c7cc', t:SEM.reduce((a,_,i)=>a+val(p,i),0)})).sort((a,b)=>b.t-a.t);
+}
+
+function rankChart(){
+  const S = filas(), svg=document.getElementById('svg-rank'), W=520, bh=26, gap=12, L=6;
+  document.getElementById('t-rank').textContent = st.g==='cat' ? 'Por categoría' : 'Por producto';
+  const H = Math.max(80, S.length*(bh+gap));
+  svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
+  const max = Math.max(1,...S.map(s=>s.t)), bw = W-210;
+  svg.innerHTML = S.map((s,i)=>{
+    const yy=i*(bh+gap), w=Math.max(3,(s.t/max)*bw);
+    return `<text x="${L}" y="${yy+16}" font-size="12" font-weight="600" fill="var(--ink)">${s.n.length>24?s.n.slice(0,23)+'…':s.n}</text>
+      <rect x="${L}" y="${yy+21}" width="${bw}" height="7" rx="3.5" fill="var(--border-soft)"/>
+      <rect x="${L}" y="${yy+21}" width="${w}" height="7" rx="3.5" fill="${s.hex}"><title>${s.n}: ${fmtV(s.t)}</title></rect>
+      <text x="${W-6}" y="${yy+16}" text-anchor="end" font-size="12" font-weight="700" fill="var(--ink)" font-family="JetBrains Mono,monospace">${fmtV(s.t)}</text>`;
+  }).join('');
+}
+
+function tablaDet(){
+  const S = filas(), tot = S.reduce((a,b)=>a+b.t,0)||1;
+  document.getElementById('tabla-det').innerHTML =
+    `<thead><tr><th>${st.g==='cat'?'Categoría':'Producto'}</th><th class="r">${MET[st.m]}</th><th class="r">Part.</th></tr></thead><tbody>`+
+    S.map(s=>`<tr><td class="nom"><span class="swrow" style="background:${s.hex}"></span>${s.n}</td>
+      <td class="r num">${fmtV(s.t)}</td><td class="r num">${Math.round(s.t/tot*100)}%</td></tr>`).join('')+'</tbody>';
+}
+
+function render(){
+  chips(); picker(); tiles(); serieChart(); rankChart(); tablaDet();
+  const tabla = st.v==='tab';
+  document.getElementById('svg-serie').classList.toggle('oculto',tabla);
+  document.getElementById('leyenda').classList.toggle('oculto',tabla);
+  document.getElementById('tabla-serie').classList.toggle('oculto',!tabla);
+}
+
+function alternar(id){
+  if(st.sel.has(id)){ st.sel.delete(id); asignados.delete(id); }
+  else { st.sel.add(id); tomarSlot(id); }
+}
+
+document.addEventListener('click',e=>{
+  const q=e.target.closest('[data-quitar]');
+  if(q){ alternar(q.dataset.quitar); render(); return; }
+  if(e.target.closest('#abrir-picker')){ st.abierto=true; render(); document.getElementById('buscar').focus(); return; }
+  if(e.target.closest('#cerrar-picker')){ st.abierto=false; render(); return; }
+  const a=e.target.closest('.acciones button');
+  if(a){
+    if(a.dataset.a==='limpiar'){ st.sel.clear(); asignados.clear(); }
+    if(a.dataset.a==='top'){
+      st.sel.clear(); asignados.clear();
+      [...PROD].sort((x,y)=>totU(y)-totU(x)).slice(0,MAX_SERIES).forEach(p=>{ st.sel.add(p.id); tomarSlot(p.id); });
+    }
+    if(a.dataset.a==='cat'){
+      PROD.filter(p=>!st.pcat || p.cat===st.pcat).forEach(p=>{ st.sel.add(p.id); tomarSlot(p.id); });
+    }
+    render(); return;
+  }
+  const b=e.target.closest('.seg button'); if(!b) return;
+  const p=b.parentElement;
+  [...p.children].forEach(x=>x.setAttribute('aria-pressed', x===b));
+  if(p.id==='f-metrica') st.m=b.dataset.m;
+  if(p.id==='f-grupo')   st.g=b.dataset.g;
+  if(p.id==='f-vista')   st.v=b.dataset.v;
+  render();
+});
+
+document.addEventListener('change',e=>{
+  if(e.target.matches('[data-t]')){ alternar(e.target.dataset.t); render(); }
+  if(e.target.id==='p-cat'){ st.pcat=e.target.value; render(); }
+});
+document.addEventListener('input',e=>{
+  if(e.target.id==='buscar'){ st.q=e.target.value; picker(); }
+});
+render();
+</script>
