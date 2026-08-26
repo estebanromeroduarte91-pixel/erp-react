@@ -106,7 +106,7 @@ function filaOrdenParcial(o: Partial<Orden>): Record<string, unknown> {
 // devuelve NO tiene esas claves como propiedades (ni siquiera `undefined`),
 // para que si alguna vez se usa como base de un guardado parcial (spread),
 // `filaOrdenParcial` no las detecte con `in` y no pise/borre esas columnas.
-const ORDEN_LITE_COLS = 'id, num, fecha, status, nombre, apellido, tel, email, rut, modelo, trabajo, branch_id, subestado, venta_id, numero_boleta, costo, presup, repuestos, delivered_at, tecnico, comision_tecnica_activa, comision_tecnica_porcentaje'
+const ORDEN_LITE_COLS = 'id, num, fecha, status, nombre, apellido, tel, email, rut, modelo, trabajo, branch_id, subestado, venta_id, numero_boleta, costo, presup, repuestos, delivered_at'
 
 export interface OrdenLista {
   id: string
@@ -120,9 +120,6 @@ export interface OrdenLista {
   rut?: string
   modelo?: string
   trabajo?: string
-  tecnico?: string
-  comisionTecnicaActiva?: boolean
-  comisionTecnicaPorcentaje?: number
   branchId?: string
   subestado?: string
   venta_id?: string
@@ -146,9 +143,6 @@ function hidratarOrdenLite(row: Record<string, unknown>): OrdenLista {
     rut: row.rut as string | undefined,
     modelo: row.modelo as string | undefined,
     trabajo: row.trabajo as string | undefined,
-    tecnico: row.tecnico as string | undefined,
-    comisionTecnicaActiva: (row.comision_tecnica_activa as boolean | undefined) ?? false,
-    comisionTecnicaPorcentaje: Number(row.comision_tecnica_porcentaje ?? 0),
     branchId: row.branch_id as string | undefined,
     subestado: row.subestado as string | undefined,
     venta_id: row.venta_id as string | undefined,

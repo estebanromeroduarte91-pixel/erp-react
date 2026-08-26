@@ -2,7 +2,7 @@ import { useState, useMemo, useRef, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { TIPO_DTE, abrirPdfBase64, lineaParaDte } from '@/lib/dte'
 import { ProductoModal } from '@/modules/inventario/ProductoModal'
-import { useProductos, useBuscarProductos, useBodegas, useVentasEnRango, useConfirmarVenta, useMetodosPago, useCajaSesiones, useCajas, useGuardarCajaSesiones, useIncrementarContadorVenta, useOrdenesLite, useUserProfiles, useUserCargoMap, useCargos, fetchLotesActivosParaVenta, useClientes, useBuscarClientes, useCrearCliente, useVentasConfig, CARGOS_DEFAULT, useEmitirDte, useImprimirDte, useEnviarDte } from '@/lib/queries'
+import { useProductos, useBuscarProductos, useBodegas, useVentasEnRango, useConfirmarVenta, useMetodosPago, useCajaSesiones, useCajas, useGuardarCajaSesiones, useIncrementarContadorVenta, useOrdenesLite, useUserProfiles, useUserCargoMap, useCargos, fetchLotesActivosParaVenta, fetchOrdenCompletaPorId, useClientes, useBuscarClientes, useCrearCliente, useVentasConfig, CARGOS_DEFAULT, useEmitirDte, useImprimirDte, useEnviarDte } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 
 import { useAnchorRect, fixedDropdownStyle } from '@/lib/useAnchorRect'
@@ -383,7 +383,7 @@ export function POSTab() {
     setItems(prev => prev.filter(i => i.id !== id))
   }
 
-  function seleccionarOT(ot: Orden) {
+  async function seleccionarOT(ot: Orden) {
     setOtSeleccionada(ot)
     setBusquedaOT('')
     setOtPanelOpen(false)
@@ -411,6 +411,19 @@ export function POSTab() {
       })
     }
     if (nuevosItems.length) setItems(nuevosItems)
+
+    // La lista de OTs es deliberadamente liviana. Solo al seleccionarla
+    // recuperamos su configuración completa (incluida la comisión), evitando
+    // que una columna nueva en la OT deje sin cargar todo el módulo Taller.
+    if (empresaId) {
+      try {
+        const completa = await fetchOrdenCompletaPorId(empresaId, ot.id)
+        if (completa) setOtSeleccionada(actual => actual?.id === ot.id ? completa : actual)
+      } catch {
+        // La venta continúa operativa con la información visible; el fetch
+        // adicional no debe bloquear el flujo de cobro.
+      }
+    }
   }
 
   function deseleccionarOT() {
@@ -930,7 +943,7 @@ export function POSTab() {
                       {otResultados.map(ot => (
                         <li key={ot.id}>
                           <button
-                            onClick={() => seleccionarOT(ot)}
+                            onClick={() => void seleccionarOT(ot)}
                             className="w-full flex items-center gap-3 px-3 py-2.5 text-sm hover:bg-blue-50 transition-colors text-left border-b border-gray-50 last:border-0"
                           >
                             <div className="flex-1 min-w-0">
