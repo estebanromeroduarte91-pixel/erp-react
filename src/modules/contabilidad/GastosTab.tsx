@@ -61,6 +61,17 @@ function fmtFecha(f: string) {
 }
 
 const METODOS = ['Efectivo', 'Transferencia', 'Tarjeta', 'Crédito', 'Cheque']
+type PeriodoGasto = 'hoy' | 'mes' | 'año' | 'rango' | 'todo'
+
+function inicioAno() { return `${today().slice(0, 4)}-01-01` }
+
+const PERIODO_GASTO_LABEL: Record<PeriodoGasto, string> = {
+  hoy: 'Hoy',
+  mes: 'Este mes',
+  año: 'Este año',
+  rango: 'Rango de fechas',
+  todo: 'Todo el histórico',
+}
 
 export function GastosTab() {
   const { data: gastos, isLoading } = useGastos()
@@ -94,6 +105,9 @@ export function GastosTab() {
   const guardarCats = useGuardarGastoCats()
   const [busqueda, setBusqueda] = useState('')
   const [filtroCat, setFiltroCat] = useState<string | null>(null)
+  const [periodo, setPeriodo] = useState<PeriodoGasto>('mes')
+  const [desdePersonalizado, setDesdePersonalizado] = useState(`${mesActual()}-01`)
+  const [hastaPersonalizado, setHastaPersonalizado] = useState(today())
   const [modalOpen, setModalOpen] = useState(false)
   const [editando, setEditando] = useState<Gasto | null>(null)
 
@@ -138,20 +152,33 @@ export function GastosTab() {
     return m
   }, [gastos])
 
+  const rango = useMemo(() => {
+    if (periodo === 'hoy') return { desde: today(), hasta: today() }
+    if (periodo === 'mes') return { desde: `${mesActual()}-01`, hasta: today() }
+    if (periodo === 'año') return { desde: inicioAno(), hasta: today() }
+    if (periodo === 'todo') return { desde: '', hasta: '' }
+    return desdePersonalizado <= hastaPersonalizado
+      ? { desde: desdePersonalizado, hasta: hastaPersonalizado }
+      : { desde: hastaPersonalizado, hasta: desdePersonalizado }
+  }, [periodo, desdePersonalizado, hastaPersonalizado])
+
+  // Una sola fuente para los KPIs, el resumen y la lista: ningún total puede
+  // incorporar gastos fuera de las fechas visibles en pantalla.
+  const gastosDelPeriodo = useMemo(() => (gastos ?? []).filter(g =>
+    (!rango.desde || g.fecha >= rango.desde) && (!rango.hasta || g.fecha <= rango.hasta)
+  ), [gastos, rango])
+
   const lista = useMemo(() => {
-    let arr = [...(gastos ?? [])].sort((a, b) => (b.fecha ?? '').localeCompare(a.fecha ?? ''))
+    let arr = [...gastosDelPeriodo].sort((a, b) => (b.fecha ?? '').localeCompare(a.fecha ?? ''))
     if (filtroCat) arr = arr.filter(g => g.categoria === filtroCat)
     if (busqueda.trim()) {
       const q = busqueda.toLowerCase()
       arr = arr.filter(g => g.descripcion.toLowerCase().includes(q) || (g.categoria ?? '').toLowerCase().includes(q))
     }
     return arr
-  }, [gastos, filtroCat, busqueda])
+  }, [gastosDelPeriodo, filtroCat, busqueda])
 
-  const totalMes = useMemo(() =>
-    (gastos ?? []).filter(g => g.fecha?.startsWith(mesActual())).reduce((s, g) => s + (+g.monto || 0), 0),
-    [gastos]
-  )
+  const totalPeriodo = useMemo(() => gastosDelPeriodo.reduce((s, g) => s + (+g.monto || 0), 0), [gastosDelPeriodo])
   const totalMostrado = lista.reduce((s, g) => s + (+g.monto || 0), 0)
 
   // Agrupar por fecha
@@ -170,7 +197,7 @@ export function GastosTab() {
   const [expandidas, setExpandidas] = useState<Set<string>>(new Set())
   const resumen = useMemo(() => {
     const q = busqueda.trim().toLowerCase()
-    const base = (gastos ?? []).filter(g => !q ||
+    const base = gastosDelPeriodo.filter(g => !q ||
       g.descripcion.toLowerCase().includes(q) ||
       (g.categoria ?? '').toLowerCase().includes(q) ||
       (g.subcategoria ?? '').toLowerCase().includes(q))
@@ -189,7 +216,7 @@ export function GastosTab() {
     return Object.entries(byCat)
       .map(([cat, d]) => ({ cat, total: d.total, subs: Object.values(d.subs).sort((a, b) => b.monto - a.monto) }))
       .sort((a, b) => b.total - a.total)
-  }, [gastos, busqueda, subcatsPorCat])
+  }, [gastosDelPeriodo, busqueda, subcatsPorCat])
 
   async function eliminar(g: Gasto) {
     if (!confirm(`¿Eliminar "${g.descripcion}"?`)) return
@@ -207,12 +234,12 @@ export function GastosTab() {
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-5">
         <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <p className="text-xs font-semibold text-gray-400 uppercase mb-1">Gasto del mes</p>
-          <p className="text-2xl font-extrabold text-gray-900">{fmt(totalMes)}</p>
+          <p className="text-xs font-semibold text-gray-400 uppercase mb-1">Gasto del período</p>
+          <p className="text-2xl font-extrabold text-gray-900">{fmt(totalPeriodo)}</p>
         </div>
         <div className="bg-white rounded-xl border border-gray-200 p-4">
           <p className="text-xs font-semibold text-gray-400 uppercase mb-1">Total registros</p>
-          <p className="text-2xl font-extrabold text-gray-900">{(gastos ?? []).length}</p>
+          <p className="text-2xl font-extrabold text-gray-900">{gastosDelPeriodo.length}</p>
         </div>
         <div className="bg-white rounded-xl border border-gray-200 p-4">
           <p className="text-xs font-semibold text-gray-400 uppercase mb-1">Mostrando</p>
@@ -222,6 +249,18 @@ export function GastosTab() {
 
       {/* Filtros */}
       <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4 flex flex-wrap gap-3 items-center">
+        <div className="flex flex-wrap gap-2 items-center">
+          <select value={periodo} onChange={e => setPeriodo(e.target.value as PeriodoGasto)}
+            className="text-sm border border-gray-200 rounded-lg bg-gray-50 px-3 py-2 focus:outline-none focus:border-blue-400">
+            {(Object.keys(PERIODO_GASTO_LABEL) as PeriodoGasto[]).map(p => <option key={p} value={p}>{PERIODO_GASTO_LABEL[p]}</option>)}
+          </select>
+          {periodo === 'rango' && <>
+            <input type="date" value={desdePersonalizado} max={hastaPersonalizado} onChange={e => setDesdePersonalizado(e.target.value)}
+              aria-label="Fecha inicial" className="text-sm border border-gray-200 rounded-lg bg-gray-50 px-3 py-2 focus:outline-none focus:border-blue-400" />
+            <input type="date" value={hastaPersonalizado} min={desdePersonalizado} onChange={e => setHastaPersonalizado(e.target.value)}
+              aria-label="Fecha final" className="text-sm border border-gray-200 rounded-lg bg-gray-50 px-3 py-2 focus:outline-none focus:border-blue-400" />
+          </>}
+        </div>
         <div className="relative flex-1 min-w-48">
           <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
             fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -245,7 +284,7 @@ export function GastosTab() {
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden mb-4">
           <div className="px-4 py-2.5 border-b border-gray-100">
             <h3 className="text-sm font-bold text-gray-800">Resumen por categoría</h3>
-            <p className="text-xs text-gray-400">Clic en una categoría para ver el desglose por subcategoría</p>
+            <p className="text-xs text-gray-400">{rango.desde && rango.hasta ? `${fmtFecha(rango.desde)} al ${fmtFecha(rango.hasta)} · ` : ''}Clic en una categoría para ver el desglose por subcategoría</p>
           </div>
           {resumen.map(r => {
             const abierta = expandidas.has(r.cat)
