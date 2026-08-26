@@ -46,6 +46,12 @@ export interface Orden {
   estadoFisico?: string
   trabajo?: string      // descripción del trabajo a realizar
   tecnico?: string
+  // Configuración y snapshot de la comisión del técnico. El monto final se
+  // congela al confirmar la venta, sobre el neto del servicio de la OT.
+  comisionTecnicaActiva?: boolean
+  comisionTecnicaPorcentaje?: number
+  comisionTecnicaBase?: number
+  comisionTecnicaMonto?: number
   presup?: string | number
   costo?: string | number
   fechaEstimada?: string

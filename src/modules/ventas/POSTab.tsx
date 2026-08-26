@@ -651,6 +651,8 @@ export function POSTab() {
         venta_id: venta.id,
         numero_boleta: numero,
         delivered_at: today(),
+        comision_tecnica_activa: otSeleccionada.comisionTecnicaActiva === true,
+        comision_tecnica_porcentaje: otSeleccionada.comisionTecnicaPorcentaje ?? 0,
       } : null
 
       // Venta + movimiento + ajuste de stock + consumo de lotes + entrega de

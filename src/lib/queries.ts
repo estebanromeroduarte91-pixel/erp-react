@@ -20,7 +20,10 @@ import type { Orden, Repuesto, Cliente, Producto, Bodega, Movimiento, Proveedor,
 const ORDEN_FIELD_MAP: Record<string, string> = {
   num: 'num', fecha: 'fecha', status: 'status', nombre: 'nombre', apellido: 'apellido', tel: 'tel', email: 'email', rut: 'rut',
   modelo: 'modelo', serie: 'serie', color: 'color', pin: 'pin', pinType: 'pin_type',
-  estadoFisico: 'estado_fisico', trabajo: 'trabajo', tecnico: 'tecnico', presup: 'presup', costo: 'costo', fechaEstimada: 'fecha_estimada',
+  estadoFisico: 'estado_fisico', trabajo: 'trabajo', tecnico: 'tecnico',
+  comisionTecnicaActiva: 'comision_tecnica_activa', comisionTecnicaPorcentaje: 'comision_tecnica_porcentaje',
+  comisionTecnicaBase: 'comision_tecnica_base', comisionTecnicaMonto: 'comision_tecnica_monto',
+  presup: 'presup', costo: 'costo', fechaEstimada: 'fecha_estimada',
   repuestos: 'repuestos', checkIngreso: 'check_ingreso', checkApagado: 'check_apagado', checkMojado: 'check_mojado',
   photosIngreso: 'photos_ingreso', branchId: 'branch_id', subestado: 'subestado',
   _draft: 'is_draft', inspeccion: 'inspeccion', photosSalida: 'photos_salida', checkSalida: 'check_salida', observSalida: 'observ_salida',
@@ -48,6 +51,10 @@ function hidratarOrden(row: Record<string, unknown>): Orden {
     estadoFisico: row.estado_fisico as string | undefined,
     trabajo: row.trabajo as string | undefined,
     tecnico: row.tecnico as string | undefined,
+    comisionTecnicaActiva: (row.comision_tecnica_activa as boolean | undefined) ?? false,
+    comisionTecnicaPorcentaje: Number(row.comision_tecnica_porcentaje ?? 0),
+    comisionTecnicaBase: row.comision_tecnica_base == null ? undefined : Number(row.comision_tecnica_base),
+    comisionTecnicaMonto: row.comision_tecnica_monto == null ? undefined : Number(row.comision_tecnica_monto),
     presup: row.presup as string | undefined,
     costo: row.costo as string | undefined,
     fechaEstimada: row.fecha_estimada as string | undefined,
@@ -99,7 +106,7 @@ function filaOrdenParcial(o: Partial<Orden>): Record<string, unknown> {
 // devuelve NO tiene esas claves como propiedades (ni siquiera `undefined`),
 // para que si alguna vez se usa como base de un guardado parcial (spread),
 // `filaOrdenParcial` no las detecte con `in` y no pise/borre esas columnas.
-const ORDEN_LITE_COLS = 'id, num, fecha, status, nombre, apellido, tel, email, rut, modelo, trabajo, branch_id, subestado, venta_id, numero_boleta, costo, presup, repuestos, delivered_at'
+const ORDEN_LITE_COLS = 'id, num, fecha, status, nombre, apellido, tel, email, rut, modelo, trabajo, branch_id, subestado, venta_id, numero_boleta, costo, presup, repuestos, delivered_at, tecnico, comision_tecnica_activa, comision_tecnica_porcentaje'
 
 export interface OrdenLista {
   id: string
@@ -113,6 +120,9 @@ export interface OrdenLista {
   rut?: string
   modelo?: string
   trabajo?: string
+  tecnico?: string
+  comisionTecnicaActiva?: boolean
+  comisionTecnicaPorcentaje?: number
   branchId?: string
   subestado?: string
   venta_id?: string
@@ -136,6 +146,9 @@ function hidratarOrdenLite(row: Record<string, unknown>): OrdenLista {
     rut: row.rut as string | undefined,
     modelo: row.modelo as string | undefined,
     trabajo: row.trabajo as string | undefined,
+    tecnico: row.tecnico as string | undefined,
+    comisionTecnicaActiva: (row.comision_tecnica_activa as boolean | undefined) ?? false,
+    comisionTecnicaPorcentaje: Number(row.comision_tecnica_porcentaje ?? 0),
     branchId: row.branch_id as string | undefined,
     subestado: row.subestado as string | undefined,
     venta_id: row.venta_id as string | undefined,
@@ -1647,7 +1660,10 @@ export interface ConfirmarVentaPayload {
   movimiento?: Movimiento | null
   ajustesStock?: AjusteStock[] | null
   lotes?: { id: string; cantidad_restante: number }[] | null
-  orden?: { id: string; status: string; venta_id: string; numero_boleta?: string; delivered_at?: string } | null
+  orden?: {
+    id: string; status: string; venta_id: string; numero_boleta?: string; delivered_at?: string
+    comision_tecnica_activa?: boolean; comision_tecnica_porcentaje?: number
+  } | null
 }
 
 export function useConfirmarVenta() {

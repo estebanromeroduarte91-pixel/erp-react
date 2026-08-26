@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { useOrdenesLite, useOrdenPorNum, useActualizarOrden, useMsgTemplates, useSeguimientoConfig, useChecklist, useEquipos, useBuscarProductos, useBodegas, useTraslados, useTerminos } from '@/lib/queries'
+import { useOrdenesLite, useOrdenPorNum, useActualizarOrden, useMsgTemplates, useSeguimientoConfig, useChecklist, useEquipos, useBuscarProductos, useBodegas, useTraslados, useTerminos, useUserProfiles } from '@/lib/queries'
 import { DerivarModal } from './DerivarModal'
 import { useAuth } from '@/context/AuthContext'
 import { sendEmail, buildEmailIngreso, buildEmailAprobacion, buildEmailInspeccion, buildEmailListo, puedeResponderCorreo } from '@/lib/email'
@@ -52,6 +52,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
   const { data: equipos = [] } = useEquipos()
   const { data: bodegas = [] } = useBodegas()
   const { data: traslados = [] } = useTraslados()
+  const { data: usuarios = [] } = useUserProfiles()
 
   const [editarOpen, setEditarOpen] = useState(false)
   const [showDerivar, setShowDerivar] = useState(false)
@@ -68,6 +69,11 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
   const [emailOkDirecto, setEmailOkDirecto] = useState(false)
   const [aprobEnviando, setAprobEnviando] = useState(false)
   const [aprobMsg, setAprobMsg] = useState<{ msg: string; type: 'ok' | 'err' } | null>(null)
+  const [tecnicoForm, setTecnicoForm] = useState('')
+  const [comisionActivaForm, setComisionActivaForm] = useState(false)
+  const [comisionPorcentajeForm, setComisionPorcentajeForm] = useState('')
+  const [guardandoTecnico, setGuardandoTecnico] = useState(false)
+  const [tecnicoSyncedId, setTecnicoSyncedId] = useState<string | null>(null)
 
   // Inspección
   const [showInspeccion, setShowInspeccion] = useState(false)
@@ -94,6 +100,16 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
   const [showQrIngreso, setShowQrIngreso] = useState(false)
   const [guardandoIngreso, setGuardandoIngreso] = useState(false)
   const fileRefIngreso = useRef<HTMLInputElement>(null)
+
+  // La tarjeta lateral permite asignar/cambiar el técnico sin abrir la edición
+  // completa. Se reinicia solo al abrir una OT distinta, no mientras se edita.
+  // Este patrón de ajuste durante render evita un frame con datos de la OT anterior.
+  if (o && tecnicoSyncedId !== o.id) {
+    setTecnicoSyncedId(o.id)
+    setTecnicoForm(o?.tecnico ?? '')
+    setComisionActivaForm(o?.comisionTecnicaActiva === true)
+    setComisionPorcentajeForm(o?.comisionTecnicaPorcentaje ? String(o.comisionTecnicaPorcentaje) : '')
+  }
 
   // Repuestos — modal con búsqueda de inventario
   const [showRepModal, setShowRepModal] = useState(false)
@@ -261,6 +277,21 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
     }
     const mostrarEmail = esListo && emailMsg && orden.email && !empresaId
     if (waMsg || mostrarEmail) setNotif({ estado, waMsg, emailMsg: mostrarEmail ? emailMsg : '' })
+  }
+
+  async function guardarTecnicoYComision() {
+    const porcentaje = Math.min(100, Math.max(0, Number(comisionPorcentajeForm) || 0))
+    setGuardandoTecnico(true)
+    try {
+      await actualizarOrden.mutateAsync({
+        id: orden.id,
+        tecnico: tecnicoForm.trim() || undefined,
+        comisionTecnicaActiva: comisionActivaForm && !!tecnicoForm.trim() && porcentaje > 0,
+        comisionTecnicaPorcentaje: porcentaje,
+      })
+    } finally {
+      setGuardandoTecnico(false)
+    }
   }
 
   async function cambiarEstado(estado: EstadoOrden) {
@@ -783,6 +814,58 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
             </div>
           )}
 
+          {/* Técnico y comisión: siempre visible para que la OT no dependa de
+              abrir el modal completo antes de poder asignar responsabilidad. */}
+          <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm space-y-3">
+            <div>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Técnico y comisión</p>
+              <p className="text-xs text-gray-500 mt-1">Asigna el responsable y define su comisión para esta reparación.</p>
+            </div>
+
+            <div>
+              <label className="text-xs font-medium text-gray-600 block mb-1.5">Técnico asignado</label>
+              <select value={tecnicoForm} onChange={e => setTecnicoForm(e.target.value)}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
+                <option value="">Asignar técnico…</option>
+                {usuarios.filter(u => u.activo).map(u => <option key={u.id} value={u.nombre}>{u.nombre}</option>)}
+              </select>
+            </div>
+
+            <label className="flex items-center justify-between gap-3 cursor-pointer">
+              <span>
+                <span className="block text-xs font-medium text-gray-700">Aplicar comisión técnica</span>
+                <span className="block text-[11px] text-gray-400 mt-0.5">Sólo sobre el neto del servicio, sin repuestos.</span>
+              </span>
+              <input type="checkbox" checked={comisionActivaForm}
+                onChange={e => setComisionActivaForm(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+            </label>
+
+            {comisionActivaForm && (
+              <div>
+                <label className="text-xs font-medium text-gray-600 block mb-1.5">Porcentaje de comisión</label>
+                <div className="relative">
+                  <input type="number" min="0" max="100" step="0.01" value={comisionPorcentajeForm}
+                    onChange={e => setComisionPorcentajeForm(e.target.value)} placeholder="Ej: 20"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 pr-9 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">%</span>
+                </div>
+              </div>
+            )}
+
+            {o.comisionTecnicaMonto != null && o.venta_id && (
+              <div className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+                Comisión registrada: <strong>${Math.round(o.comisionTecnicaMonto).toLocaleString('es-CL')}</strong>
+                {o.comisionTecnicaBase != null && <> sobre ${Math.round(o.comisionTecnicaBase).toLocaleString('es-CL')} netos.</>}
+              </div>
+            )}
+
+            <button onClick={() => void guardarTecnicoYComision()} disabled={guardandoTecnico || actualizarOrden.isPending}
+              className="w-full rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-100 disabled:opacity-60 transition">
+              {guardandoTecnico ? 'Guardando…' : 'Guardar asignación'}
+            </button>
+          </div>
+
           <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm md:mt-auto">
             <p className="text-xs text-gray-400 flex items-center gap-1">
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1212,21 +1295,14 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
             </div>
           </div>
 
-          {/* Técnico + fecha */}
-          {(o.tecnico || o.fechaEstimada) && (
+          {/* Fecha estimada: el técnico y su comisión viven junto al estado
+              físico, donde se gestiona la reparación. */}
+          {o.fechaEstimada && (
             <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm space-y-3">
-              {o.tecnico && (
-                <div>
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Técnico</p>
-                  <p className="text-sm text-gray-700">{o.tecnico}</p>
-                </div>
-              )}
-              {o.fechaEstimada && (
-                <div>
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Entrega estimada</p>
-                  <p className="text-sm text-gray-700">{fmtFecha(o.fechaEstimada)}</p>
-                </div>
-              )}
+              <div>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Entrega estimada</p>
+                <p className="text-sm text-gray-700">{fmtFecha(o.fechaEstimada)}</p>
+              </div>
             </div>
           )}
 
