@@ -3,6 +3,7 @@ import { useBodegas, useReporteRentabilidad, useReporteSerie } from '@/lib/queri
 import { useAuth } from '@/context/AuthContext'
 import { Spinner } from '@/components/shared/Spinner'
 import { coincideBusqueda, rangoPeriodo, type Periodo } from '@/lib/reportes'
+import { useIsMobile } from '@/lib/useIsMobile'
 import { ResumenTab } from './ResumenTab'
 import { VentasBI } from './VentasBI'
 import { VistaGeneralBI } from './VistaGeneralBI'
@@ -103,6 +104,7 @@ function NavegacionBI({ seccion, secciones, onChange }: { seccion: SeccionReport
 }
 
 function TablaRentabilidad({ filas, agrupacion }: { filas: { id: string; nombre: string; unidades: number; neto: number; costo: number; margen: number }[]; agrupacion: Agrupacion }) {
+  const isMobile = useIsMobile()
   const [busqueda, setBusqueda] = useState('')
   const [mostrarTodos, setMostrarTodos] = useState(false)
   const ordenadas = [...filas].sort((a, b) => b.margen - a.margen)
@@ -112,10 +114,32 @@ function TablaRentabilidad({ filas, agrupacion }: { filas: { id: string; nombre:
   const visibles = mostrarTodos || termino ? filtradas : filtradas.slice(0, 8)
   return <div className="bg-white rounded-xl border border-gray-200 p-4">
     <div className="flex flex-wrap items-start justify-between gap-3 mb-3"><div><h3 className="text-sm font-extrabold text-gray-900 m-0">Rentabilidad por {agrupacion === 'producto' ? 'producto' : 'categoría'}</h3><p className="text-[11px] text-gray-400 mt-1 mb-0">{agrupacion === 'producto' ? 'Cuántos salieron y cuánto margen bruto dejaron.' : 'Venta, costo y margen bruto consolidado por categoría.'}</p></div><div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto"><input type="search" value={busqueda} onChange={e => { setBusqueda(e.target.value); setMostrarTodos(false) }} placeholder={`Buscar ${agrupacion === 'producto' ? 'producto' : 'categoría'}…`} aria-label={`Buscar por ${agrupacion === 'producto' ? 'producto' : 'categoría'}`} className="w-full sm:w-64 text-sm px-3 py-2 border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-blue-500" /><span className={`text-sm font-extrabold tabular-nums text-right ${margenTotal >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{clp(margenTotal)}</span></div></div>
-    <div className="overflow-x-auto"><table className="w-full text-[13px] border-collapse"><thead><tr className="border-b border-gray-200"><th className={TH_L}>{agrupacion === 'producto' ? 'Producto' : 'Categoría'}</th><th className={TH_R}>Unid.</th><th className={TH_R}>Venta neta</th><th className={TH_R}>Costo vendido</th><th className={TH_R}>Margen bruto</th><th className={TH_R}>Margen %</th></tr></thead><tbody>{visibles.map(f => { const pct = f.neto ? Math.round(f.margen / f.neto * 100) : 0; return <tr key={f.id} className="border-b border-gray-50 last:border-0"><td className="py-2.5 px-2 font-semibold text-gray-900">{f.nombre}</td><td className="py-2.5 px-2 text-right tabular-nums text-gray-600">{uds(f.unidades)}</td><td className="py-2.5 px-2 text-right tabular-nums text-gray-600">{clp(f.neto)}</td><td className="py-2.5 px-2 text-right tabular-nums text-gray-600">{clp(f.costo)}</td><td className={`py-2.5 px-2 text-right tabular-nums font-bold ${f.margen >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{clp(f.margen)}</td><td className={`py-2.5 px-2 text-right tabular-nums font-bold ${pct >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{pct}%</td></tr> })}</tbody></table></div>
+    {isMobile ? <div>
+      {visibles.map(f => <RentabilidadMovil key={f.id} fila={f} />)}
+    </div> : <div className="overflow-x-auto"><table className="w-full text-[13px] border-collapse"><thead><tr className="border-b border-gray-200"><th className={TH_L}>{agrupacion === 'producto' ? 'Producto' : 'Categoría'}</th><th className={TH_R}>Unid.</th><th className={TH_R}>Venta neta</th><th className={TH_R}>Costo vendido</th><th className={TH_R}>Margen bruto</th><th className={TH_R}>Margen %</th></tr></thead><tbody>{visibles.map(f => { const pct = f.neto ? Math.round(f.margen / f.neto * 100) : 0; return <tr key={f.id} className="border-b border-gray-50 last:border-0"><td className="py-2.5 px-2 font-semibold text-gray-900">{f.nombre}</td><td className="py-2.5 px-2 text-right tabular-nums text-gray-600">{uds(f.unidades)}</td><td className="py-2.5 px-2 text-right tabular-nums text-gray-600">{clp(f.neto)}</td><td className="py-2.5 px-2 text-right tabular-nums text-gray-600">{clp(f.costo)}</td><td className={`py-2.5 px-2 text-right tabular-nums font-bold ${f.margen >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{clp(f.margen)}</td><td className={`py-2.5 px-2 text-right tabular-nums font-bold ${pct >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{pct}%</td></tr> })}</tbody></table></div>}
     {filtradas.length === 0 && <p className="text-sm text-gray-400 py-8 text-center m-0">No hay resultados para “{busqueda.trim()}”.</p>}
     {!termino && filtradas.length > 8 && <button type="button" onClick={() => setMostrarTodos(v => !v)} className="mt-3 w-full px-4 py-2 border border-gray-200 rounded-lg text-xs font-bold text-blue-600 hover:bg-blue-50 transition">{mostrarTodos ? 'Mostrar sólo los primeros 8' : `Ver todos (${filtradas.length})`}</button>}
   </div>
+}
+
+function RentabilidadMovil({ fila }: { fila: { nombre: string; unidades: number; neto: number; costo: number; margen: number } }) {
+  const pct = fila.neto ? Math.round(fila.margen / fila.neto * 100) : 0
+  const positivo = fila.margen >= 0
+  return <article className="border-t border-gray-100 py-3 first:border-t-0">
+    <div className="flex items-start justify-between gap-3">
+      <h4 className="min-w-0 flex-1 m-0 text-sm font-extrabold leading-5 text-gray-900">{fila.nombre}</h4>
+      <span className="shrink-0 pt-0.5 text-xs text-gray-500 tabular-nums">{uds(fila.unidades)} {fila.unidades === 1 ? 'unidad' : 'unidades'}</span>
+    </div>
+    <div className="grid grid-cols-3 gap-2 mt-3">
+      <DatoMovil etiqueta="Venta neta" valor={clp(fila.neto)} />
+      <DatoMovil etiqueta="Costo" valor={clp(fila.costo)} />
+      <DatoMovil etiqueta={`Margen · ${pct}%`} valor={clp(fila.margen)} positivo={positivo} />
+    </div>
+  </article>
+}
+
+function DatoMovil({ etiqueta, valor, positivo }: { etiqueta: string; valor: string; positivo?: boolean }) {
+  return <div className="min-w-0"><span className="block text-[9px] font-extrabold tracking-wide uppercase text-gray-400 truncate">{etiqueta}</span><strong className={`block mt-1 text-xs tabular-nums truncate ${positivo === undefined ? 'text-gray-600' : positivo ? 'text-emerald-600' : 'text-red-600'}`}>{valor}</strong></div>
 }
 
 const SELECT = 'text-sm text-gray-900 bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 cursor-pointer focus:outline-none focus:border-blue-400'
