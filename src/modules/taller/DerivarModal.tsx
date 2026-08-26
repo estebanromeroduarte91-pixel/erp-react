@@ -158,7 +158,7 @@ export function DerivarModal({ orden, onClose }: { orden: Orden; onClose: () => 
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <span className="w-[22px] h-[22px] rounded-full bg-blue-600 text-white flex items-center justify-center text-[11px] font-bold">1</span>
-                <span className="text-[13px] font-bold text-gray-900">Técnico externo</span>
+                <span className="text-[13px] font-bold text-gray-900">Seleccionar técnico externo</span>
               </div>
               <button onClick={() => setShowNuevoTec(v => !v)}
                 className="flex items-center gap-1 text-xs font-semibold text-blue-600 border-[1.5px] border-blue-500 rounded-lg px-2.5 py-1 hover:bg-blue-50 transition">
@@ -208,13 +208,11 @@ export function DerivarModal({ orden, onClose }: { orden: Orden; onClose: () => 
             ) : (
               /* Buscador */
               <div>
-                <div className="flex items-center border-[1.5px] border-gray-200 rounded-lg overflow-hidden h-[38px] focus-within:border-blue-400 transition">
-                  <span className="px-2.5 text-gray-400 flex items-center">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-                  </span>
-                  <input value={busqueda} onChange={e => setBusqueda(e.target.value)} autoFocus
-                    placeholder="Buscar técnico por nombre o empresa…"
-                    className="flex-1 text-base md:text-sm outline-none pr-3 bg-transparent" />
+                <div className="relative">
+                  <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                  <input value={busqueda} onChange={e => setBusqueda(e.target.value)}
+                    placeholder="Buscar por nombre o empresa…"
+                    className="h-10 w-full rounded-xl border-[1.5px] border-gray-200 bg-white py-2 pl-10 pr-3 text-base outline-none transition placeholder:text-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 md:text-sm" />
                 </div>
                 {resultados.length > 0 && (
                   <div className="border border-gray-200 rounded-lg mt-2 overflow-hidden divide-y divide-gray-50">
