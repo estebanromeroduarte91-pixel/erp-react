@@ -21,8 +21,8 @@ export function EstadisticasPage() {
   ]
 
   return (
-    <div className="h-full flex flex-col overflow-y-auto">
-      <div className="flex items-center gap-2 px-1 pt-1 pb-3">
+    <div className="h-full flex flex-col overflow-y-auto px-4 pt-3 pb-6 md:px-0 md:pt-0 md:pb-0">
+      <div className="flex items-center gap-2 px-0 pt-1 pb-3">
         {TABS.map(t => (
           <button
             key={t.id}
