@@ -460,24 +460,9 @@ export function DashboardPage() {
         color:  SUC_COLORS[i] ?? '#64748b',
       }
     })
-    const idsBodegas = new Set(bodegas.map(b => b.id))
-    const ventasSinSucursal = vPer.filter(v => !v.branchId || !idsBodegas.has(v.branchId))
-    const ventasPrevSinSucursal = vPrev.filter(v => !v.branchId || !idsBodegas.has(v.branchId))
-    if (ventasSinSucursal.length > 0 || ventasPrevSinSucursal.length > 0 || distribucionGastos.noAsignado > 0) {
-      const neto = ventasSinSucursal.reduce((s, v) => s + (+v.total || 0), 0)
-      const bruto = ventasSinSucursal.reduce((s, v) => s + (+v.total_iva || 0), 0)
-      sucursales.push({
-        id: 'sin-sucursal',
-        nombre: 'Sin sucursal / no asignado',
-        total: bruto,
-        totalPrev: ventasPrevSinSucursal.reduce((s, v) => s + (+v.total_iva || 0), 0),
-        neto,
-        count: ventasSinSucursal.length,
-        part: Math.round(bruto / totalGeneral * 100),
-        utilidad: neto - calcularCostoVentas(ventasSinSucursal, prodCostoMap) - distribucionGastos.noAsignado,
-        color: '#64748b',
-      })
-    }
+    // Los gastos generales o registros históricos sin sucursal siguen incluidos
+    // en el resultado global. No se muestran como una sucursal ficticia: esta
+    // vista compara solamente los locales que existen en el catálogo.
 
     const mpPorSuc = bodegas.map(b => {
       const bV = vPer.filter(v => v.branchId === b.id)
