@@ -123,6 +123,6 @@ const LBL = 'text-[10px] font-extrabold tracking-wide uppercase text-gray-400 mb
 const TH_L = 'text-left text-[10px] font-extrabold uppercase tracking-wide text-gray-400 pb-2 px-2'
 const TH_R = 'text-right text-[10px] font-extrabold uppercase tracking-wide text-gray-400 pb-2 px-2 whitespace-nowrap'
 
-function Campo({ label, children }: { label: string; children: React.ReactNode }) { return <div className="flex flex-col gap-1.5"><span className="text-[10px] font-extrabold tracking-wide uppercase text-gray-400">{label}</span>{children}</div> }
+function Campo({ label, children }: { label: string; children: React.ReactNode }) { return <div className="flex flex-col items-start gap-1.5"><span className="text-[10px] font-extrabold tracking-wide uppercase text-gray-400">{label}</span>{children}</div> }
 function Seg<T extends string>({ valor, onChange, opciones }: { valor: T; onChange: (v: T) => void; opciones: [T, string][] }) { return <div className="inline-flex bg-white border border-gray-200 rounded-lg overflow-hidden">{opciones.map(([v, l]) => <button key={v} onClick={() => onChange(v)} aria-pressed={valor === v} className={`text-xs font-semibold px-3 py-1.5 transition ${valor === v ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}>{l}</button>)}</div> }
 function Tile({ label, valor }: { label: string; valor: string }) { return <div className="bg-white rounded-xl border border-gray-200 p-4"><p className={LBL} style={{ marginBottom: 0 }}>{label}</p><p className="text-2xl font-extrabold text-gray-900 mt-1 tabular-nums">{valor}</p></div> }
