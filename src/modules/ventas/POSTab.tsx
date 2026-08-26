@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { TIPO_DTE, abrirPdfBase64, lineaParaDte } from '@/lib/dte'
 import { ProductoModal } from '@/modules/inventario/ProductoModal'
 import { useProductos, useBuscarProductos, useBodegas, useVentasEnRango, useConfirmarVenta, useMetodosPago, useCajaSesiones, useCajas, useGuardarCajaSesiones, useIncrementarContadorVenta, useOrdenesLite, useUserProfiles, useUserCargoMap, useCargos, fetchLotesActivosParaVenta, useClientes, useBuscarClientes, useCrearCliente, useVentasConfig, CARGOS_DEFAULT, useEmitirDte, useImprimirDte, useEnviarDte } from '@/lib/queries'
@@ -44,7 +45,9 @@ function lineNeto(it: VentaItem) {
 }
 
 export function POSTab() {
-  const { nombre: nombreUsuario, branchId, empresaId } = useAuth()
+  const { nombre: nombreUsuario, branchId, empresaId, esAdmin } = useAuth()
+  const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { data: productos } = useProductos()
   const { data: bodegasTodas = [] } = useBodegas()
   // Crear el producto sin salir de la caja: si hay que ir a Inventario y
@@ -184,11 +187,25 @@ export function POSTab() {
   // Cajas filtered by branch
   const cajasActivas = useMemo(() => {
     const todas = (cajas ?? []).filter(c => c.activa !== false)
-    if (!branchId) return todas
+    // Sólo el administrador puede cambiar el contexto de caja entre sucursales.
+    // El resto continúa limitado a la caja de su sucursal.
+    if (esAdmin || !branchId) return todas
     return todas.filter(c => !c.sucursalId || c.sucursalId === branchId)
-  }, [cajas, branchId])
+  }, [cajas, branchId, esAdmin])
 
-  const cajaParaAbrir = cajasActivas.find(c => c.id === cajaSelId) ?? cajasActivas[0]
+  const cajaIdEnUrl = searchParams.get('caja') ?? ''
+  const cajaParaAbrir = cajasActivas.find(c => c.id === cajaIdEnUrl)
+    ?? cajasActivas.find(c => c.id === cajaSelId)
+    ?? cajasActivas[0]
+
+  function seleccionarCaja(id: string) {
+    setCajaSelId(id)
+    const params = new URLSearchParams(searchParams)
+    params.set('tab', 'pos')
+    params.set('caja', id)
+    setSearchParams(params)
+    setCerrando(false)
+  }
 
   // Usuarios con acceso a ventas (POS) filtrados por sucursal de la caja seleccionada
   const usuariosPos = useMemo(() => {
@@ -206,13 +223,13 @@ export function POSTab() {
   }, [userProfiles, userCargoMap, cargosCustom, cajaParaAbrir])
 
   const sesionAbierta = useMemo(() => {
+    if (!cajaParaAbrir) return undefined
     return sesiones?.find(s =>
-      s.fecha === today() && s.estado === 'abierta' &&
-      cajasActivas.some(c => c.id === s.cajaId)
+      s.fecha === today() && s.estado === 'abierta' && s.cajaId === cajaParaAbrir.id
     )
-  }, [sesiones, cajasActivas])
+  }, [sesiones, cajaParaAbrir])
 
-  const cajaAbierta = useMemo(() => sesionAbierta ? cajas?.find(c => c.id === sesionAbierta.cajaId) : undefined, [sesionAbierta, cajas])
+  const cajaAbierta = sesionAbierta ? cajaParaAbrir : undefined
 
   // Totales del día para cierre
   const totalesHoy = useMemo(() => {
@@ -713,7 +730,7 @@ export function POSTab() {
                 <label className="text-xs font-medium text-gray-500 block mb-2">Selecciona la caja</label>
                 <div className="flex gap-2 flex-wrap">
                   {cajasActivas.map(c => (
-                    <button key={c.id} onClick={() => setCajaSelId(c.id)}
+                    <button key={c.id} onClick={() => seleccionarCaja(c.id)}
                       className={['flex items-center gap-2 px-4 py-2 rounded-xl border-2 text-sm font-medium transition',
                         (cajaParaAbrir?.id === c.id)
                           ? 'border-blue-500 bg-blue-50 text-blue-700'
@@ -842,7 +859,20 @@ export function POSTab() {
   }
 
   return (
-    <div className="flex flex-col md:flex-row gap-3 md:gap-4 min-h-[calc(100dvh-9rem)] md:h-[calc(100vh-8rem)] px-3 pt-3 md:p-0 pb-4">
+    <div className="space-y-3 px-3 pt-3 md:p-0 pb-4">
+      <div className="flex items-center justify-between gap-3 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-800">
+        <div className="flex min-w-0 items-center gap-2">
+          <IconBuildingStore size={16} stroke={1.8} className="flex-shrink-0 text-blue-600" />
+          <span className="truncate"><strong>{cajaAbierta?.nombre}</strong> · caja abierta</span>
+        </div>
+        {esAdmin && (
+          <button onClick={() => navigate('/ventas?tab=caja')}
+            className="flex-shrink-0 font-semibold text-blue-700 hover:text-blue-900">
+            Cambiar caja
+          </button>
+        )}
+      </div>
+      <div className="flex flex-col md:flex-row gap-3 md:gap-4 min-h-[calc(100dvh-11.5rem)] md:h-[calc(100vh-10.5rem)]">
       {/* Panel izquierdo: buscador + carrito */}
       <div className="flex-1 flex flex-col gap-4 min-w-0">
         {/* Buscador OT */}
@@ -1348,6 +1378,7 @@ export function POSTab() {
           onClose={() => setCrearProdOpen(false)}
         />
       )}
+      </div>
     </div>
   )
 }

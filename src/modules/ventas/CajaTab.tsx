@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useCajas, useCajaSesiones, useGuardarCajaSesiones, useVentasEnRango, useMetodosPago } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { Spinner } from '@/components/shared/Spinner'
@@ -12,7 +13,8 @@ function nowTime() {
 function fmt(n: number) { return '$' + Math.round(n).toLocaleString('es-CL') }
 
 export function CajaTab() {
-  const { nombre: nombreUsuario, branchId } = useAuth()
+  const { nombre: nombreUsuario, branchId, esAdmin } = useAuth()
+  const navigate = useNavigate()
   const { data: cajas, isLoading: cargandoCajas } = useCajas()
   const { data: sesiones, isLoading: cargandoSes } = useCajaSesiones()
   // Igual que el POS: solo se usan para los totales del día (totalesHoy).
@@ -30,9 +32,11 @@ export function CajaTab() {
 
   const cajasActivas = useMemo(() => {
     const todas = (cajas ?? []).filter(c => c.activa !== false)
-    if (!branchId) return todas
+    // El administrador puede administrar y operar cualquiera de las cajas.
+    // Los demás usuarios conservan el límite de su sucursal asignada.
+    if (esAdmin || !branchId) return todas
     return todas.filter(c => !c.sucursalId || c.sucursalId === branchId)
-  }, [cajas, branchId])
+  }, [cajas, branchId, esAdmin])
   const cajaActual = cajasActivas.find(c => c.id === cajaSelId) ?? cajasActivas[0]
 
   const sesionHoy = useMemo(() => {
@@ -284,6 +288,11 @@ export function CajaTab() {
                 <span className="text-sm font-semibold text-blue-700">Total del día ({totalesHoy._count} ventas)</span>
                 <span className="text-xl font-extrabold text-blue-700">{fmt(totalesHoy._total)}</span>
               </div>
+
+              <button onClick={() => navigate(`/ventas?tab=pos&caja=${encodeURIComponent(cajaActual.id)}`)}
+                className="w-full border border-blue-200 bg-blue-50 text-blue-700 font-semibold py-3 rounded-xl hover:bg-blue-100 transition">
+                Ir al POS de {cajaActual.nombre} →
+              </button>
 
               <button onClick={() => setCerrando(true)}
                 className="w-full bg-gray-900 text-white font-semibold py-3 rounded-xl hover:bg-gray-800 transition">
