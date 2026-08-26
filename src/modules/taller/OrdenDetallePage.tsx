@@ -674,7 +674,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
   const content = (
     <>
       {/* Topbar */}
-      <div className="flex items-center justify-between px-3 md:px-6 py-3 border-b border-gray-200 bg-white flex-shrink-0 gap-2">
+      <div className="flex items-center justify-between px-4 md:px-6 py-3.5 border-b border-gray-200 bg-white/95 flex-shrink-0 gap-2">
         <div className="flex flex-col gap-0.5">
           <span className="text-sm font-semibold text-gray-800">Orden #{o.num}</span>
           <div className="md:hidden"><EstadoBadge estado={o.status} subestado={o.subestado} /></div>
@@ -724,10 +724,10 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
       <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-auto md:overflow-hidden">
 
         {/* ── Col 1: Cliente + Equipo + Trabajo ── */}
-        <div className="w-full md:w-80 md:flex-shrink-0 border-b md:border-b-0 md:border-r border-gray-200 md:overflow-y-auto flex flex-col">
+        <div className="w-full md:w-80 md:flex-shrink-0 border-b md:border-b-0 md:border-r border-gray-200 bg-slate-50/70 p-3 md:overflow-y-auto flex flex-col gap-3">
 
           {/* Cliente */}
-          <div className="p-5 border-b border-gray-200">
+          <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">Cliente</p>
             <div className="flex items-start gap-3">
               <div className="w-9 h-9 rounded-lg bg-blue-600 text-white flex items-center justify-center text-sm font-bold flex-shrink-0">
@@ -751,7 +751,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
           </div>
 
           {/* Equipo */}
-          <div className="p-5 border-b border-gray-200">
+          <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">Equipo</p>
             <p className="font-semibold text-gray-900 text-sm">{o.modelo || '—'}</p>
             {o.color && <p className="text-xs text-gray-500 mt-1">{o.color}</p>}
@@ -769,7 +769,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
 
           {/* Trabajo */}
           {o.trabajo && (
-            <div className="p-5 border-b border-gray-200">
+            <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">Trabajo a realizar</p>
               <p className="text-sm text-gray-700 leading-relaxed">{o.trabajo}</p>
             </div>
@@ -777,13 +777,13 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
 
           {/* Estado físico */}
           {o.estadoFisico && (
-            <div className="p-5 border-b border-gray-200">
+            <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">Estado físico</p>
               <p className="text-sm text-gray-700 leading-relaxed">{o.estadoFisico}</p>
             </div>
           )}
 
-          <div className="p-5 mt-auto">
+          <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm md:mt-auto">
             <p className="text-xs text-gray-400 flex items-center gap-1">
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" />
@@ -1183,9 +1183,9 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
         </div>
 
         {/* ── Col 3: Pipeline + Acciones ── */}
-        <div className="w-full md:w-64 md:flex-shrink-0 flex flex-col md:overflow-y-auto">
+        <div className="w-full md:w-64 md:flex-shrink-0 bg-slate-50/70 p-3 flex flex-col gap-3 md:overflow-y-auto">
           {/* Pipeline vertical */}
-          <div className="p-5 border-b border-gray-200">
+          <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">Estado</p>
             <div className="flex flex-col gap-1.5">
               {PIPELINE.map((s, i) => {
@@ -1214,7 +1214,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
 
           {/* Técnico + fecha */}
           {(o.tecnico || o.fechaEstimada) && (
-            <div className="p-5 border-b border-gray-200 space-y-3">
+            <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm space-y-3">
               {o.tecnico && (
                 <div>
                   <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Técnico</p>
@@ -1231,7 +1231,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
           )}
 
           {/* Notificaciones */}
-          <div className="p-5 mt-auto space-y-2">
+          <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm md:mt-auto space-y-2">
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Notificar cliente</p>
             {o.tel ? (
               <a href={`https://wa.me/${o.tel.replace(/\D/g, '')}`} target="_blank" rel="noreferrer"
