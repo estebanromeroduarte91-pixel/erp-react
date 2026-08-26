@@ -70,7 +70,6 @@ export function MobileTabBar() {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [pwOpen, setPwOpen] = useState(false)
   const drawerRef = useRef<HTMLDivElement>(null)
-  const moreButtonRef = useRef<HTMLButtonElement>(null)
   const puedeCompras = usePuedeUsarModulo('compras')
   const puedeGastos = usePuedeUsarModulo('gastos')
 
@@ -86,11 +85,9 @@ export function MobileTabBar() {
     const previousOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     const focusables = () => Array.from(drawerRef.current?.querySelectorAll<HTMLElement>('a, button:not([disabled])') ?? [])
-    focusables()[0]?.focus()
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape') {
         setDrawerOpen(false)
-        moreButtonRef.current?.focus()
         return
       }
       if (e.key !== 'Tab') return
@@ -215,7 +212,6 @@ export function MobileTabBar() {
 
         {/* Más tab */}
         <button
-          ref={moreButtonRef}
           onClick={() => setDrawerOpen(o => !o)}
           aria-label="Más opciones"
           aria-expanded={drawerOpen}
