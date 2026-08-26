@@ -1446,7 +1446,7 @@ export function useVentasRealtime() {
 // (solo el día de hoy, para los totales de la caja abierta).
 // No mantiene Realtime propio: las mutaciones de venta invalidan el prefijo
 // ['ventas', empresaId], que alcanza a todas estas variantes.
-export function useVentasEnRango(desde: string, hasta: string) {
+export function useVentasEnRango(desde: string, hasta: string, activo = true) {
   const { empresaId } = useAuth()
   return useQuery({
     queryKey: ['ventas', empresaId, 'rango', desde, hasta],
@@ -1460,7 +1460,7 @@ export function useVentasEnRango(desde: string, hasta: string) {
       if (error) throw error
       return (data ?? []).map(hidratarVenta)
     },
-    enabled: !!empresaId && !!desde && !!hasta,
+    enabled: !!empresaId && !!desde && !!hasta && activo,
   })
 }
 
