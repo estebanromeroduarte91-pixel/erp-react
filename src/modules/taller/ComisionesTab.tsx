@@ -1,7 +1,9 @@
 import { Link } from 'react-router-dom'
 import { useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '@/context/AuthContext'
-import { useBodegas, useOrdenesLite } from '@/lib/queries'
+import { useBodegas } from '@/lib/queries'
+import { supabase } from '@/lib/supabase'
 import { Money } from '@/components/shared/Money'
 import { Spinner } from '@/components/shared/Spinner'
 
@@ -15,10 +17,37 @@ function fechaCorta(fecha?: string) {
  * órdenes; administración puede gestionar el conjunto completo desde aquí.
  */
 export function ComisionesTab() {
-  const { data: ordenes = [], isLoading } = useOrdenesLite()
   const { data: bodegas = [] } = useBodegas()
-  const { rol, session, esAdmin, esPlatformAdmin } = useAuth()
+  const { rol, session, esAdmin, esPlatformAdmin, empresaId } = useAuth()
   const puedeGestionar = esAdmin || esPlatformAdmin || rol === 'admin'
+  const { data: ordenes = [], isLoading, error } = useQuery({
+    queryKey: ['comisiones-tecnicas', empresaId, session?.user?.id, puedeGestionar],
+    enabled: !!empresaId && !!session?.user?.id,
+    queryFn: async () => {
+      let query = supabase
+        .from('ordenes')
+        .select('id, num, fecha, modelo, trabajo, tecnico, tecnico_id, branch_id, venta_id, comision_tecnica_activa, comision_tecnica_bruto, comision_tecnica_base, comision_tecnica_porcentaje, comision_tecnica_monto, comision_tecnica_pagada, comision_tecnica_pagada_at')
+        .eq('empresa_id', empresaId!)
+        .eq('is_draft', false)
+        .eq('comision_tecnica_activa', true)
+        .not('comision_tecnica_monto', 'is', null)
+        .not('venta_id', 'is', null)
+      if (!puedeGestionar) query = query.eq('tecnico_id', session!.user.id)
+      const { data, error: queryError } = await query.order('fecha', { ascending: false })
+      if (queryError) throw queryError
+      return (data ?? []).map(row => ({
+        id: row.id, num: row.num, fecha: row.fecha, modelo: row.modelo, trabajo: row.trabajo,
+        tecnico: row.tecnico, tecnicoId: row.tecnico_id, branchId: row.branch_id,
+        venta_id: row.venta_id, comisionTecnicaActiva: row.comision_tecnica_activa,
+        comisionTecnicaBruto: Number(row.comision_tecnica_bruto ?? 0),
+        comisionTecnicaBase: Number(row.comision_tecnica_base ?? 0),
+        comisionTecnicaPorcentaje: Number(row.comision_tecnica_porcentaje ?? 0),
+        comisionTecnicaMonto: Number(row.comision_tecnica_monto ?? 0),
+        comisionTecnicaPagada: Boolean(row.comision_tecnica_pagada),
+        comisionTecnicaPagadaAt: row.comision_tecnica_pagada_at,
+      }))
+    },
+  })
 
   const filas = useMemo(() => ordenes
     .filter(o => o.comisionTecnicaActiva && (o.comisionTecnicaMonto ?? 0) > 0 && o.venta_id)
@@ -31,6 +60,11 @@ export function ComisionesTab() {
   const totalPagado = filas.filter(o => o.comisionTecnicaPagada).reduce((acc, o) => acc + (o.comisionTecnicaMonto ?? 0), 0)
 
   if (isLoading) return <div className="py-16 flex justify-center"><Spinner /></div>
+  if (error) return (
+    <div className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-800">
+      No se pudieron cargar las comisiones. Falta aplicar la migración de comisiones técnicas en la base de datos.
+    </div>
+  )
 
   return (
     <div className="max-w-6xl mx-auto">
