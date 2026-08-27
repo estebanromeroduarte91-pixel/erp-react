@@ -114,7 +114,7 @@ function filaOrdenParcial(o: Partial<Orden>): Record<string, unknown> {
 // devuelve NO tiene esas claves como propiedades (ni siquiera `undefined`),
 // para que si alguna vez se usa como base de un guardado parcial (spread),
 // `filaOrdenParcial` no las detecte con `in` y no pise/borre esas columnas.
-const ORDEN_LITE_COLS = 'id, num, fecha, status, nombre, apellido, tel, email, rut, modelo, trabajo, branch_id, subestado, venta_id, numero_boleta, costo, presup, repuestos, delivered_at'
+const ORDEN_LITE_COLS = 'id, num, fecha, status, nombre, apellido, tel, email, rut, modelo, trabajo, tecnico, tecnico_id, branch_id, subestado, venta_id, numero_boleta, costo, presup, repuestos, delivered_at, comision_tecnica_activa, comision_tecnica_bruto, comision_tecnica_base, comision_tecnica_porcentaje, comision_tecnica_monto, comision_tecnica_pagada, comision_tecnica_pagada_at'
 
 export interface OrdenLista {
   id: string
@@ -128,6 +128,8 @@ export interface OrdenLista {
   rut?: string
   modelo?: string
   trabajo?: string
+  tecnico?: string
+  tecnicoId?: string
   branchId?: string
   subestado?: string
   venta_id?: string
@@ -136,6 +138,13 @@ export interface OrdenLista {
   presup?: string
   repuestos: Repuesto[]
   deliveredAt?: string
+  comisionTecnicaActiva?: boolean
+  comisionTecnicaBruto?: number
+  comisionTecnicaBase?: number
+  comisionTecnicaPorcentaje?: number
+  comisionTecnicaMonto?: number
+  comisionTecnicaPagada?: boolean
+  comisionTecnicaPagadaAt?: string
 }
 
 function hidratarOrdenLite(row: Record<string, unknown>): OrdenLista {
@@ -151,6 +160,8 @@ function hidratarOrdenLite(row: Record<string, unknown>): OrdenLista {
     rut: row.rut as string | undefined,
     modelo: row.modelo as string | undefined,
     trabajo: row.trabajo as string | undefined,
+    tecnico: row.tecnico as string | undefined,
+    tecnicoId: row.tecnico_id as string | undefined,
     branchId: row.branch_id as string | undefined,
     subestado: row.subestado as string | undefined,
     venta_id: row.venta_id as string | undefined,
@@ -159,6 +170,13 @@ function hidratarOrdenLite(row: Record<string, unknown>): OrdenLista {
     presup: row.presup as string | undefined,
     repuestos: (row.repuestos as Repuesto[]) ?? [],
     deliveredAt: row.delivered_at as string | undefined,
+    comisionTecnicaActiva: (row.comision_tecnica_activa as boolean | undefined) ?? false,
+    comisionTecnicaBruto: row.comision_tecnica_bruto == null ? undefined : Number(row.comision_tecnica_bruto),
+    comisionTecnicaBase: row.comision_tecnica_base == null ? undefined : Number(row.comision_tecnica_base),
+    comisionTecnicaPorcentaje: row.comision_tecnica_porcentaje == null ? undefined : Number(row.comision_tecnica_porcentaje),
+    comisionTecnicaMonto: row.comision_tecnica_monto == null ? undefined : Number(row.comision_tecnica_monto),
+    comisionTecnicaPagada: (row.comision_tecnica_pagada as boolean | undefined) ?? false,
+    comisionTecnicaPagadaAt: row.comision_tecnica_pagada_at as string | undefined,
   }
 }
 

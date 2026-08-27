@@ -20,10 +20,11 @@ import { MensajesTab } from '@/modules/config/MensajesTab'
 import { TerminosTab } from '@/modules/config/TerminosTab'
 import { EquiposConfigTab } from './EquiposConfigTab'
 import { HistorialImportTab } from './HistorialImportTab'
+import { ComisionesTab } from './ComisionesTab'
 import { totalOrden } from './utils'
 import type { Bodega, EstadoOrden, Orden } from '@/types'
 
-type TallerTab = 'ordenes' | 'derivados' | 'equipos' | 'settings'
+type TallerTab = 'ordenes' | 'derivados' | 'equipos' | 'comisiones' | 'settings'
 type TallerConfigTab = 'seguimiento' | 'checklist' | 'notificaciones' | 'terminos' | 'equipos-config' | 'historial'
 
 const CONFIG_TABS: { id: TallerConfigTab; label: string }[] = [
@@ -39,6 +40,7 @@ const CONFIG_TABS: { id: TallerConfigTab; label: string }[] = [
 function resolveTallerTab(param: string | null): TallerTab {
   if (param === 'derivados') return 'derivados'
   if (param === 'equipos') return 'equipos'
+  if (param === 'comisiones') return 'comisiones'
   if (param === 'settings') return 'settings'
   return 'ordenes'
 }
@@ -484,6 +486,7 @@ export function TallerPage() {
 
       {tallerTab === 'derivados' && <TrasladosTab />}
       {tallerTab === 'equipos' && <EquiposTab />}
+      {tallerTab === 'comisiones' && <ComisionesTab />}
 
       {tallerTab === 'settings' && (
         <div>

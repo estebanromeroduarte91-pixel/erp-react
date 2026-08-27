@@ -5,7 +5,7 @@ import { useCargos, usePuedeUsarModulo } from '@/lib/queries'
 import { useTour } from '@/modules/onboarding/TourContext'
 
 // ── Tipos ─────────────────────────────────────────────────────
-interface SubItem { to: string; label: string; icon: React.ReactNode; id?: string }
+interface SubItem { to: string; label: string; icon: React.ReactNode; id?: string; roles?: string[] }
 interface NavGroup {
   id: string
   label: string
@@ -49,6 +49,7 @@ const OP_ITEMS: SectionItem[] = [
         { to: '/taller', label: 'Órdenes', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="8" y="2.5" width="8" height="4" rx="1.2"/><path d="M16 4.5h2a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-13a2 2 0 0 1 2-2h2"/></svg> },
         { to: '/taller?tab=derivados', label: 'Derivados', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg> },
         { to: '/taller?tab=equipos', label: 'Equipos', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18" strokeWidth="2.5"/></svg> },
+        { to: '/taller?tab=comisiones', label: 'Comisiones', roles: ['admin', 'tecnico'], icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M15.5 9.2c-.5-.7-1.6-1.2-3-1.2-1.8 0-3 .9-3 2.1 0 3.2 6 1.2 6 4.2 0 1.2-1.2 2.1-3 2.1-1.4 0-2.6-.5-3.2-1.3"/><path d="M12 6v12"/></svg> },
         { to: '/taller?tab=settings', label: 'Configuración', id: 'tour-taller-tab-settings', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .32 1.77l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.6 1.6 0 0 0-1.77-.32 1.6 1.6 0 0 0-.97 1.47V21a2 2 0 0 1-4 0v-.09A1.6 1.6 0 0 0 9.18 19.4a1.6 1.6 0 0 0-1.77.32l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.6 1.6 0 0 0 .32-1.77 1.6 1.6 0 0 0-1.47-.97H3a2 2 0 0 1 0-4h.09A1.6 1.6 0 0 0 4.6 9.18a1.6 1.6 0 0 0-.32-1.77l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.6 1.6 0 0 0 1.77.32H9a1.6 1.6 0 0 0 .97-1.47V3a2 2 0 0 1 4 0v.09a1.6 1.6 0 0 0 .97 1.47 1.6 1.6 0 0 0 1.77-.32l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.6 1.6 0 0 0-.32 1.77V9a1.6 1.6 0 0 0 1.47.97H21a2 2 0 0 1 0 4h-.09a1.6 1.6 0 0 0-1.47.97z"/></svg> },
       ],
     },
@@ -277,7 +278,7 @@ export function Sidebar() {
   })()
 
   // Filtrar items de operación según permisos
-  const opItemsFiltrados = rol === 'admin' ? OP_ITEMS : OP_ITEMS.filter(si => {
+  const opItemsBase = rol === 'admin' ? OP_ITEMS : OP_ITEMS.filter(si => {
     if (si.type === 'single') {
       const to = (si.item as NavSingle).to
       if (to === '/dashboard') return !!permisos.dashboard
@@ -289,6 +290,11 @@ export function Sidebar() {
     if (id === 'contactos')  return !!permisos.clientes
     if (id === 'inventario') return !!permisos.inventario
     return true
+  })
+  const opItemsFiltrados = opItemsBase.map(si => {
+    if (si.type !== 'group') return si
+    const grupo = si.item as NavGroup
+    return { ...si, item: { ...grupo, sub: grupo.sub.filter(s => !s.roles || s.roles.includes(rol) || esPlatformAdmin) } }
   })
 
   // Filtrar items de administración según permisos
