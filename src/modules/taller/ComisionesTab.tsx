@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '@/context/AuthContext'
 import { useBodegas } from '@/lib/queries'
@@ -20,6 +20,7 @@ export function ComisionesTab() {
   const { data: bodegas = [] } = useBodegas()
   const { rol, session, esAdmin, esPlatformAdmin, empresaId } = useAuth()
   const puedeGestionar = esAdmin || esPlatformAdmin || rol === 'admin'
+  const [tecnicoSeleccionado, setTecnicoSeleccionado] = useState('')
   const { data: ordenes = [], isLoading, error } = useQuery({
     queryKey: ['comisiones-tecnicas', empresaId, session?.user?.id, puedeGestionar],
     enabled: !!empresaId && !!session?.user?.id,
@@ -58,6 +59,19 @@ export function ComisionesTab() {
   const pendientes = filas.filter(o => !o.comisionTecnicaPagada)
   const totalPendiente = pendientes.reduce((acc, o) => acc + (o.comisionTecnicaMonto ?? 0), 0)
   const totalPagado = filas.filter(o => o.comisionTecnicaPagada).reduce((acc, o) => acc + (o.comisionTecnicaMonto ?? 0), 0)
+  const porTecnico = useMemo(() => Object.values(filas.reduce<Record<string, {
+    id: string; nombre: string; pendientes: number; pagadas: number; total: number; ordenes: number
+  }>>((acc, orden) => {
+    const id = orden.tecnicoId || orden.tecnico || 'sin-tecnico'
+    if (!acc[id]) acc[id] = { id, nombre: orden.tecnico || 'Sin técnico asignado', pendientes: 0, pagadas: 0, total: 0, ordenes: 0 }
+    const monto = orden.comisionTecnicaMonto ?? 0
+    acc[id].total += monto
+    acc[id].ordenes += 1
+    if (orden.comisionTecnicaPagada) acc[id].pagadas += monto
+    else acc[id].pendientes += monto
+    return acc
+  }, {})).sort((a, b) => b.pendientes - a.pendientes || b.total - a.total), [filas])
+  const filasVisibles = tecnicoSeleccionado ? filas.filter(o => (o.tecnicoId || o.tecnico || 'sin-tecnico') === tecnicoSeleccionado) : filas
 
   if (isLoading) return <div className="py-16 flex justify-center"><Spinner /></div>
   if (error) return (
@@ -85,15 +99,45 @@ export function ComisionesTab() {
         </div>
       </div>
 
+      {puedeGestionar && porTecnico.length > 0 && (
+        <div className="rounded-xl border border-gray-200 bg-white overflow-hidden mb-6">
+          <div className="px-5 py-4 border-b border-gray-100">
+            <h3 className="font-semibold text-gray-900">Resumen por empleado</h3>
+            <p className="text-xs text-gray-500 mt-0.5">Montos acumulados de comisiones por técnico.</p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-px bg-gray-100">
+            {porTecnico.map(persona => (
+              <button
+                type="button"
+                key={persona.id}
+                onClick={() => setTecnicoSeleccionado(actual => actual === persona.id ? '' : persona.id)}
+                className={`bg-white p-5 text-left transition hover:bg-blue-50/50 ${tecnicoSeleccionado === persona.id ? 'ring-2 ring-inset ring-blue-500 bg-blue-50/40' : ''}`}
+              >
+                <div className="font-semibold text-gray-900 truncate">{persona.nombre}</div>
+                <div className="mt-3 flex justify-between gap-3 text-sm"><span className="text-gray-500">Pendiente</span><span className="font-semibold text-amber-700"><Money value={persona.pendientes} /></span></div>
+                <div className="mt-1.5 flex justify-between gap-3 text-sm"><span className="text-gray-500">Pagado</span><span className="font-semibold text-emerald-700"><Money value={persona.pagadas} /></span></div>
+                <div className="mt-3 pt-3 border-t border-gray-100 flex justify-between gap-3 text-xs text-gray-500"><span>{persona.ordenes} órdenes</span><span className="font-semibold text-gray-800"><Money value={persona.total} /></span></div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
         <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between gap-3">
           <div>
             <h3 className="font-semibold text-gray-900">Detalle por orden</h3>
             <p className="text-xs text-gray-500 mt-0.5">El pago se registra desde la orden y crea el gasto automáticamente.</p>
           </div>
-          <span className="text-xs text-gray-400">{filas.length} registros</span>
+          <div className="flex items-center gap-3">
+            {puedeGestionar && porTecnico.length > 1 && <select value={tecnicoSeleccionado} onChange={e => setTecnicoSeleccionado(e.target.value)} className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-700">
+              <option value="">Todos los empleados</option>
+              {porTecnico.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+            </select>}
+            <span className="text-xs text-gray-400">{filasVisibles.length} registros</span>
+          </div>
         </div>
-        {filas.length === 0 ? (
+        {filasVisibles.length === 0 ? (
           <div className="py-14 text-center text-sm text-gray-400">No hay comisiones registradas todavía.</div>
         ) : (
           <div className="overflow-x-auto">
@@ -110,7 +154,7 @@ export function ComisionesTab() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {filas.map(o => {
+                {filasVisibles.map(o => {
                   const sucursal = bodegas.find(b => b.id === o.branchId)?.nombre ?? 'Sin sucursal'
                   return <tr key={o.id} className="hover:bg-gray-50/70">
                     <td className="px-5 py-3.5">
