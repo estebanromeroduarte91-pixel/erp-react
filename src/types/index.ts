@@ -50,6 +50,7 @@ export interface Orden {
   // congela al confirmar la venta, sobre el neto del servicio de la OT.
   comisionTecnicaActiva?: boolean
   comisionTecnicaPorcentaje?: number
+  comisionTecnicaBruto?: number
   comisionTecnicaBase?: number
   comisionTecnicaMonto?: number
   presup?: string | number

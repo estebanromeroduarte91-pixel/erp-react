@@ -22,6 +22,7 @@ const ORDEN_FIELD_MAP: Record<string, string> = {
   modelo: 'modelo', serie: 'serie', color: 'color', pin: 'pin', pinType: 'pin_type',
   estadoFisico: 'estado_fisico', trabajo: 'trabajo', tecnico: 'tecnico',
   comisionTecnicaActiva: 'comision_tecnica_activa', comisionTecnicaPorcentaje: 'comision_tecnica_porcentaje',
+  comisionTecnicaBruto: 'comision_tecnica_bruto',
   comisionTecnicaBase: 'comision_tecnica_base', comisionTecnicaMonto: 'comision_tecnica_monto',
   presup: 'presup', costo: 'costo', fechaEstimada: 'fecha_estimada',
   repuestos: 'repuestos', checkIngreso: 'check_ingreso', checkApagado: 'check_apagado', checkMojado: 'check_mojado',
@@ -53,6 +54,7 @@ function hidratarOrden(row: Record<string, unknown>): Orden {
     tecnico: row.tecnico as string | undefined,
     comisionTecnicaActiva: (row.comision_tecnica_activa as boolean | undefined) ?? false,
     comisionTecnicaPorcentaje: Number(row.comision_tecnica_porcentaje ?? 0),
+    comisionTecnicaBruto: row.comision_tecnica_bruto == null ? undefined : Number(row.comision_tecnica_bruto),
     comisionTecnicaBase: row.comision_tecnica_base == null ? undefined : Number(row.comision_tecnica_base),
     comisionTecnicaMonto: row.comision_tecnica_monto == null ? undefined : Number(row.comision_tecnica_monto),
     presup: row.presup as string | undefined,
@@ -1656,7 +1658,7 @@ export interface ConfirmarVentaPayload {
   lotes?: { id: string; cantidad_restante: number }[] | null
   orden?: {
     id: string; status: string; venta_id: string; numero_boleta?: string; delivered_at?: string
-    comision_tecnica_activa?: boolean; comision_tecnica_porcentaje?: number
+    comision_tecnica_activa?: boolean; comision_tecnica_porcentaje?: number; comision_tecnica_bruto?: number
   } | null
 }
 

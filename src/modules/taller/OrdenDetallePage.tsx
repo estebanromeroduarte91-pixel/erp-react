@@ -71,6 +71,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
   const [aprobMsg, setAprobMsg] = useState<{ msg: string; type: 'ok' | 'err' } | null>(null)
   const [tecnicoForm, setTecnicoForm] = useState('')
   const [comisionActivaForm, setComisionActivaForm] = useState(false)
+  const [comisionBrutoForm, setComisionBrutoForm] = useState('')
   const [comisionPorcentajeForm, setComisionPorcentajeForm] = useState('')
   const [guardandoTecnico, setGuardandoTecnico] = useState(false)
   const [tecnicoSyncedId, setTecnicoSyncedId] = useState<string | null>(null)
@@ -108,6 +109,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
     setTecnicoSyncedId(o.id)
     setTecnicoForm(o?.tecnico ?? '')
     setComisionActivaForm(o?.comisionTecnicaActiva === true)
+    setComisionBrutoForm(o?.comisionTecnicaBruto ? String(o.comisionTecnicaBruto) : '')
     setComisionPorcentajeForm(o?.comisionTecnicaPorcentaje ? String(o.comisionTecnicaPorcentaje) : '')
   }
 
@@ -223,6 +225,10 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
 
   // Everything below uses `o` only after the early-return guards above
   const orden = o! // safe: early returns above guarantee o is defined here during render
+  const brutoComisionable = Math.max(0, Number(comisionBrutoForm) || 0)
+  const porcentajeComision = Math.min(100, Math.max(0, Number(comisionPorcentajeForm) || 0))
+  const netoComisionableEstimado = Math.round(brutoComisionable / 1.19)
+  const montoComisionEstimado = Math.round(netoComisionableEstimado * porcentajeComision / 100)
 
   function buildVars() {
     const branch = bodegas.find(b => b.id === orden.branchId)
@@ -281,12 +287,14 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
 
   async function guardarTecnicoYComision() {
     const porcentaje = Math.min(100, Math.max(0, Number(comisionPorcentajeForm) || 0))
+    const bruto = Math.max(0, Number(comisionBrutoForm) || 0)
     setGuardandoTecnico(true)
     try {
       await actualizarOrden.mutateAsync({
         id: orden.id,
         tecnico: tecnicoForm.trim() || undefined,
-        comisionTecnicaActiva: comisionActivaForm && !!tecnicoForm.trim() && porcentaje > 0,
+        comisionTecnicaActiva: comisionActivaForm && !!tecnicoForm.trim() && bruto > 0 && porcentaje > 0,
+        comisionTecnicaBruto: bruto,
         comisionTecnicaPorcentaje: porcentaje,
       })
     } finally {
@@ -834,7 +842,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
             <label className="flex items-center justify-between gap-3 cursor-pointer">
               <span>
                 <span className="block text-xs font-medium text-gray-700">Aplicar comisión técnica</span>
-                <span className="block text-[11px] text-gray-400 mt-0.5">Sólo sobre el neto del servicio, sin repuestos.</span>
+                <span className="block text-[11px] text-gray-400 mt-0.5">Ingresa el valor bruto de la parte comisionable.</span>
               </span>
               <input type="checkbox" checked={comisionActivaForm}
                 onChange={e => setComisionActivaForm(e.target.checked)}
@@ -842,13 +850,29 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
             </label>
 
             {comisionActivaForm && (
-              <div>
-                <label className="text-xs font-medium text-gray-600 block mb-1.5">Porcentaje de comisión</label>
-                <div className="relative">
-                  <input type="number" min="0" max="100" step="0.01" value={comisionPorcentajeForm}
-                    onChange={e => setComisionPorcentajeForm(e.target.value)} placeholder="Ej: 20"
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 pr-9 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">%</span>
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs font-medium text-gray-600 block mb-1.5">Monto bruto comisionable</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
+                    <input type="number" min="0" step="1" value={comisionBrutoForm}
+                      onChange={e => setComisionBrutoForm(e.target.value)} placeholder="Ej: 100000"
+                      className="w-full border border-gray-200 rounded-lg py-2 pl-7 pr-3 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+                  </div>
+                  <p className="mt-1 text-[11px] text-gray-400">Neto calculado: ${netoComisionableEstimado.toLocaleString('es-CL')}</p>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-600 block mb-1.5">Porcentaje de comisión</label>
+                  <div className="relative">
+                    <input type="number" min="0" max="100" step="0.01" value={comisionPorcentajeForm}
+                      onChange={e => setComisionPorcentajeForm(e.target.value)} placeholder="Ej: 20"
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 pr-9 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400" />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">%</span>
+                  </div>
+                </div>
+                <div className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-800 flex items-center justify-between gap-3">
+                  <span>Comisión estimada</span>
+                  <strong>${montoComisionEstimado.toLocaleString('es-CL')}</strong>
                 </div>
               </div>
             )}

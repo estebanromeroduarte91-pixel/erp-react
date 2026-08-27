@@ -666,6 +666,7 @@ export function POSTab() {
         delivered_at: today(),
         comision_tecnica_activa: otSeleccionada.comisionTecnicaActiva === true,
         comision_tecnica_porcentaje: otSeleccionada.comisionTecnicaPorcentaje ?? 0,
+        comision_tecnica_bruto: otSeleccionada.comisionTecnicaBruto ?? 0,
       } : null
 
       // Venta + movimiento + ajuste de stock + consumo de lotes + entrega de
