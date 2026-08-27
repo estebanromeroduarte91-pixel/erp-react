@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { useOrdenesLite, useOrdenPorNum, useActualizarOrden, useMsgTemplates, useSeguimientoConfig, useChecklist, useEquipos, useBuscarProductos, useBodegas, useTraslados, useTerminos, useUserProfiles } from '@/lib/queries'
+import { useOrdenesLite, useOrdenPorNum, useActualizarOrden, usePagarComisionTecnica, useMsgTemplates, useSeguimientoConfig, useChecklist, useEquipos, useBuscarProductos, useBodegas, useTraslados, useTerminos, useUserProfiles } from '@/lib/queries'
 import { DerivarModal } from './DerivarModal'
 import { useAuth } from '@/context/AuthContext'
 import { sendEmail, buildEmailIngreso, buildEmailAprobacion, buildEmailInspeccion, buildEmailListo, puedeResponderCorreo } from '@/lib/email'
@@ -35,7 +35,7 @@ function rellenarTemplate(tpl: string, vars: Record<string, string>) {
 export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onClose?: () => void } = {}) {
   const { num: numParam } = useParams<{ num: string }>()
   const num = numProp ?? numParam
-  const { empresaId, empresaNombre } = useAuth()
+  const { empresaId, empresaNombre, esAdmin } = useAuth()
   const qc = useQueryClient()
   // Órdenes livianas (misma caché que TallerPage, sin fotos/checklists) — solo
   // se usan para el número siguiente/lookup por id que necesita OrdenModal.
@@ -44,6 +44,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
   const { data: ordenes } = useOrdenesLite()
   const { data: o, isLoading } = useOrdenPorNum(num)
   const actualizarOrden = useActualizarOrden()
+  const pagarComision = usePagarComisionTecnica()
   const { data: msgTemplates } = useMsgTemplates()
   const { data: segCfg } = useSeguimientoConfig()
   const { data: terminos } = useTerminos()
@@ -70,11 +71,13 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
   const [aprobEnviando, setAprobEnviando] = useState(false)
   const [aprobMsg, setAprobMsg] = useState<{ msg: string; type: 'ok' | 'err' } | null>(null)
   const [tecnicoForm, setTecnicoForm] = useState('')
+  const [tecnicoIdForm, setTecnicoIdForm] = useState('')
   const [comisionActivaForm, setComisionActivaForm] = useState(false)
   const [comisionBrutoForm, setComisionBrutoForm] = useState('')
   const [comisionPorcentajeForm, setComisionPorcentajeForm] = useState('')
   const [guardandoTecnico, setGuardandoTecnico] = useState(false)
   const [tecnicoSyncedId, setTecnicoSyncedId] = useState<string | null>(null)
+  const [pagoComisionOpen, setPagoComisionOpen] = useState(false)
 
   // Inspección
   const [showInspeccion, setShowInspeccion] = useState(false)
@@ -108,6 +111,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
   if (o && tecnicoSyncedId !== o.id) {
     setTecnicoSyncedId(o.id)
     setTecnicoForm(o?.tecnico ?? '')
+    setTecnicoIdForm(o?.tecnicoId ?? '')
     setComisionActivaForm(o?.comisionTecnicaActiva === true)
     setComisionBrutoForm(o?.comisionTecnicaBruto ? String(o.comisionTecnicaBruto) : '')
     setComisionPorcentajeForm(o?.comisionTecnicaPorcentaje ? String(o.comisionTecnicaPorcentaje) : '')
@@ -293,6 +297,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
       await actualizarOrden.mutateAsync({
         id: orden.id,
         tecnico: tecnicoForm.trim() || undefined,
+        tecnicoId: tecnicoIdForm || undefined,
         comisionTecnicaActiva: comisionActivaForm && !!tecnicoForm.trim() && bruto > 0 && porcentaje > 0,
         comisionTecnicaBruto: bruto,
         comisionTecnicaPorcentaje: porcentaje,
@@ -832,10 +837,14 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
 
             <div>
               <label className="text-xs font-medium text-gray-600 block mb-1.5">Técnico asignado</label>
-              <select value={tecnicoForm} onChange={e => setTecnicoForm(e.target.value)}
+              <select value={tecnicoIdForm} onChange={e => {
+                const tecnico = usuarios.find(u => u.id === e.target.value)
+                setTecnicoIdForm(e.target.value)
+                setTecnicoForm(tecnico?.nombre ?? '')
+              }}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
                 <option value="">Asignar técnico…</option>
-                {usuarios.filter(u => u.activo).map(u => <option key={u.id} value={u.nombre}>{u.nombre}</option>)}
+                {usuarios.filter(u => u.activo).map(u => <option key={u.id} value={u.id}>{u.nombre}</option>)}
               </select>
             </div>
 
@@ -882,6 +891,21 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
                 Comisión registrada: <strong>${Math.round(o.comisionTecnicaMonto).toLocaleString('es-CL')}</strong>
                 {o.comisionTecnicaBase != null && <> sobre ${Math.round(o.comisionTecnicaBase).toLocaleString('es-CL')} netos.</>}
               </div>
+            )}
+
+            {o.comisionTecnicaMonto != null && o.venta_id && (
+              o.comisionTecnicaPagada ? (
+                <div className="rounded-lg bg-green-50 px-3 py-2 text-xs text-green-800 border border-green-100">
+                  Comisión pagada{ o.comisionTecnicaPagadaAt ? ` el ${fmtFecha(o.comisionTecnicaPagadaAt)}` : '' }. El gasto quedó registrado en Comisiones.
+                </div>
+              ) : esAdmin ? (
+                <button type="button" onClick={() => setPagoComisionOpen(true)}
+                  className="w-full rounded-lg bg-green-600 px-3 py-2 text-xs font-semibold text-white hover:bg-green-700 transition">
+                  Marcar comisión como pagada
+                </button>
+              ) : (
+                <p className="text-[11px] text-amber-700 rounded-lg bg-amber-50 px-3 py-2">Pendiente de pago por administración.</p>
+              )
             )}
 
             <button onClick={() => void guardarTecnicoYComision()} disabled={guardandoTecnico || actualizarOrden.isPending}
@@ -1842,6 +1866,18 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
     document.body,
   ) : null
 
+  const pagoComisionEl = pagoComisionOpen ? (
+    <PagoComisionModal
+      tecnico={orden.tecnico ?? 'Técnico asignado'}
+      monto={orden.comisionTecnicaMonto ?? 0}
+      onClose={() => setPagoComisionOpen(false)}
+      onConfirm={async ({ fecha, metodo }) => {
+        await pagarComision.mutateAsync({ ordenId: orden.id, fecha, metodo })
+        setPagoComisionOpen(false)
+      }}
+    />
+  ) : null
+
   if (onClose) {
     return (
       <>
@@ -1866,6 +1902,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
           document.body,
         )}
         {lightboxEl}
+        {pagoComisionEl}
       </>
     )
   }
@@ -1876,6 +1913,50 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
         {content}
       </div>
       {lightboxEl}
+      {pagoComisionEl}
     </>
+  )
+}
+
+function PagoComisionModal({ tecnico, monto, onClose, onConfirm }: {
+  tecnico: string
+  monto: number
+  onClose: () => void
+  onConfirm: (data: { fecha: string; metodo: string }) => Promise<void>
+}) {
+  const [fecha, setFecha] = useState(() => new Date().toISOString().slice(0, 10))
+  const [metodo, setMetodo] = useState('Transferencia')
+  const [guardando, setGuardando] = useState(false)
+  const [error, setError] = useState('')
+
+  async function confirmar() {
+    setGuardando(true)
+    setError('')
+    try {
+      await onConfirm({ fecha, metodo })
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudo registrar el pago.')
+      setGuardando(false)
+    }
+  }
+
+  return createPortal(
+    <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/40 p-4" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div className="w-full max-w-sm rounded-2xl bg-white shadow-2xl overflow-hidden">
+        <div className="flex items-start justify-between px-5 pt-5 pb-4 border-b border-gray-100">
+          <div><p className="text-base font-bold text-gray-900">Registrar pago de comisión</p><p className="text-xs text-gray-500 mt-1">{tecnico}</p></div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg">×</button>
+        </div>
+        <div className="p-5 space-y-4">
+          <div className="rounded-xl bg-green-50 border border-green-100 px-4 py-3 flex justify-between items-center"><span className="text-xs font-semibold text-green-800">Monto a pagar</span><strong className="text-lg text-green-700">${Math.round(monto).toLocaleString('es-CL')}</strong></div>
+          <div><label className="block text-xs font-semibold text-gray-500 mb-1.5">Método de pago</label><select value={metodo} onChange={e => setMetodo(e.target.value)} className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm focus:outline-none focus:border-blue-400"><option>Transferencia</option><option>Efectivo</option><option>Tarjeta</option><option>Cheque</option></select></div>
+          <div><label className="block text-xs font-semibold text-gray-500 mb-1.5">Fecha de pago</label><input type="date" value={fecha} onChange={e => setFecha(e.target.value)} className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm focus:outline-none focus:border-blue-400" /></div>
+          <p className="text-[11px] leading-relaxed text-gray-500">Al confirmar, Pixit marcará la comisión como pagada y creará el gasto en la categoría Comisiones.</p>
+          {error && <p className="text-xs text-red-600 rounded-lg bg-red-50 p-2">{error}</p>}
+        </div>
+        <div className="flex justify-end gap-2 bg-gray-50 border-t border-gray-100 px-5 py-4"><button onClick={onClose} disabled={guardando} className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600">Cancelar</button><button onClick={() => void confirmar()} disabled={guardando} className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-60">{guardando ? 'Registrando…' : 'Confirmar pago'}</button></div>
+      </div>
+    </div>,
+    document.body,
   )
 }

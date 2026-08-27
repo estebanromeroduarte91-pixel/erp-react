@@ -20,10 +20,12 @@ import type { Orden, Repuesto, Cliente, Producto, Bodega, Movimiento, Proveedor,
 const ORDEN_FIELD_MAP: Record<string, string> = {
   num: 'num', fecha: 'fecha', status: 'status', nombre: 'nombre', apellido: 'apellido', tel: 'tel', email: 'email', rut: 'rut',
   modelo: 'modelo', serie: 'serie', color: 'color', pin: 'pin', pinType: 'pin_type',
-  estadoFisico: 'estado_fisico', trabajo: 'trabajo', tecnico: 'tecnico',
+  estadoFisico: 'estado_fisico', trabajo: 'trabajo', tecnico: 'tecnico', tecnicoId: 'tecnico_id',
   comisionTecnicaActiva: 'comision_tecnica_activa', comisionTecnicaPorcentaje: 'comision_tecnica_porcentaje',
   comisionTecnicaBruto: 'comision_tecnica_bruto',
   comisionTecnicaBase: 'comision_tecnica_base', comisionTecnicaMonto: 'comision_tecnica_monto',
+  comisionTecnicaPagada: 'comision_tecnica_pagada', comisionTecnicaPagadaAt: 'comision_tecnica_pagada_at',
+  comisionTecnicaGastoId: 'comision_tecnica_gasto_id',
   presup: 'presup', costo: 'costo', fechaEstimada: 'fecha_estimada',
   repuestos: 'repuestos', checkIngreso: 'check_ingreso', checkApagado: 'check_apagado', checkMojado: 'check_mojado',
   photosIngreso: 'photos_ingreso', branchId: 'branch_id', subestado: 'subestado',
@@ -52,11 +54,15 @@ function hidratarOrden(row: Record<string, unknown>): Orden {
     estadoFisico: row.estado_fisico as string | undefined,
     trabajo: row.trabajo as string | undefined,
     tecnico: row.tecnico as string | undefined,
+    tecnicoId: row.tecnico_id as string | undefined,
     comisionTecnicaActiva: (row.comision_tecnica_activa as boolean | undefined) ?? false,
     comisionTecnicaPorcentaje: Number(row.comision_tecnica_porcentaje ?? 0),
     comisionTecnicaBruto: row.comision_tecnica_bruto == null ? undefined : Number(row.comision_tecnica_bruto),
     comisionTecnicaBase: row.comision_tecnica_base == null ? undefined : Number(row.comision_tecnica_base),
     comisionTecnicaMonto: row.comision_tecnica_monto == null ? undefined : Number(row.comision_tecnica_monto),
+    comisionTecnicaPagada: (row.comision_tecnica_pagada as boolean | undefined) ?? false,
+    comisionTecnicaPagadaAt: row.comision_tecnica_pagada_at as string | undefined,
+    comisionTecnicaGastoId: row.comision_tecnica_gasto_id as string | undefined,
     presup: row.presup as string | undefined,
     costo: row.costo as string | undefined,
     fechaEstimada: row.fecha_estimada as string | undefined,
@@ -385,6 +391,29 @@ export function useActualizarOrden() {
     // invalida acá para que el detalle abierto muestre lo recién guardado.
     onSettled: () => void qc.invalidateQueries({ queryKey: ['orden-por-num', empresaId] }),
     onError: (_e, _o, ctx) => { if (ctx?.prev) qc.setQueryData(['ordenes-lite', empresaId], ctx.prev) },
+  })
+}
+
+// Registra el pago de una comisión como una única operación atómica: actualiza
+// la OT y crea su gasto vinculado. La función SQL rechaza pagos repetidos.
+export function usePagarComisionTecnica() {
+  const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ ordenId, fecha, metodo }: { ordenId: string; fecha: string; metodo: string }) => {
+      const { data, error } = await supabase.rpc('pagar_comision_tecnica', {
+        p_orden_id: ordenId,
+        p_fecha: fecha,
+        p_metodo: metodo,
+      })
+      if (error) throw error
+      return data
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['orden-por-num', empresaId] })
+      void qc.invalidateQueries({ queryKey: ['ordenes-lite', empresaId] })
+      void qc.invalidateQueries({ queryKey: ['gastos', empresaId] })
+    },
   })
 }
 
