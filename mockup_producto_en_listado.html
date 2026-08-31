@@ -1,0 +1,115 @@
+<title>Producto en el Listado</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#f8f9fb;--card:#fff;--line:#e5e7eb;--soft:#f3f4f6;
+    --ink:#111827;--ink2:#4b5563;--muted:#9ca3af;--azul:#2563eb;--verde:#16a34a;--rojo:#ef4444;--verdebg:#dcfce7}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:'Manrope',system-ui,sans-serif;font-size:14px;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1180px;margin:0 auto;padding:24px 20px 60px}
+  h1{font-size:20px;font-weight:800;margin:0 0 4px}
+  .lead{color:var(--ink2);font-size:13px;margin:0 0 26px;max-width:70ch;line-height:1.55}
+  .op{margin-bottom:30px}
+  .op h2{font-size:13px;font-weight:800;margin:0 0 3px}
+  .op p{font-size:12px;color:var(--muted);margin:0 0 11px;line-height:1.5}
+  .tag{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;
+    padding:2px 7px;border-radius:4px;margin-right:7px;vertical-align:2px}
+  .rec{background:#dbeafe;color:#1d4ed8}
+  .alt{background:var(--soft);color:var(--ink2)}
+  .box{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--muted);
+    text-align:left;padding:11px 12px;background:#fafafb;border-bottom:1px solid var(--line)}
+  th.r,td.r{text-align:right}
+  td{padding:12px;border-bottom:1px solid var(--soft);color:var(--ink2);vertical-align:middle}
+  tr:last-child td{border-bottom:0}
+  .num{color:var(--azul);font-weight:700}
+  .cli{color:var(--ink);font-weight:500}
+  .prod{display:block;font-size:11.5px;color:var(--muted);margin-top:2px;line-height:1.35}
+  .prod b{font-weight:600;color:var(--ink2)}
+  .mas{color:var(--azul);font-weight:600}
+  .doc{color:var(--muted)}
+  .tot{color:var(--ink);font-weight:700}
+  .neto{display:block;font-size:11px;color:var(--muted);font-weight:400;margin-top:1px}
+  .pill{display:inline-block;background:var(--verdebg);color:var(--verde);font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px}
+  .acc a{font-size:12px;font-weight:600;text-decoration:none;margin-left:12px}
+  .ver{color:var(--azul)}.anu{color:var(--rojo)}
+  /* mobile */
+  .movil{max-width:390px;border:1px solid var(--line);border-radius:12px;background:var(--card);overflow:hidden}
+  .fila{padding:13px 14px;border-bottom:1px solid var(--soft)}
+  .fila:last-child{border-bottom:0}
+  .l1{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+  .l2{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-top:3px}
+  .l3{margin-top:5px;font-size:11.5px;color:var(--muted);line-height:1.35}
+  .meta{font-size:11.5px;color:var(--muted)}
+  .nota{font-size:12px;color:var(--ink2);background:#fffbeb;border:1px solid #fde68a;border-radius:9px;
+    padding:10px 13px;margin-top:12px;line-height:1.55}
+</style>
+
+<div class="wrap">
+  <h1>Producto vendido en el listado de Ventas</h1>
+  <p class="lead">Una venta puede tener varios productos, así que hay que decidir qué mostrar cuando son más de uno.
+    En las tres opciones la regla es la misma: se muestra el primero y, si hay más, cuántos faltan.</p>
+
+  <div class="op">
+    <h2><span class="tag rec">Recomendada</span>Opción A · bajo el cliente</h2>
+    <p>El producto va como segunda línea del cliente, igual que el «Neto» va bajo el total. No agrega ninguna columna, así que la tabla no se aprieta más de lo que ya está.</p>
+    <div class="box"><table>
+      <thead><tr><th>N°</th><th>Fecha</th><th>Cliente</th><th>Método</th><th>Doc.</th><th class="r">Total</th><th>Estado</th><th></th></tr></thead>
+      <tbody id="ta"></tbody>
+    </table></div>
+  </div>
+
+  <div class="op">
+    <h2><span class="tag alt">Alternativa</span>Opción B · columna propia</h2>
+    <p>Más fácil de escanear en vertical y de ordenar por producto, pero suma una octava columna: en pantallas de 13" la tabla empieza a necesitar scroll horizontal.</p>
+    <div class="box"><table>
+      <thead><tr><th>N°</th><th>Fecha</th><th>Cliente</th><th>Producto</th><th>Método</th><th>Doc.</th><th class="r">Total</th><th>Estado</th></tr></thead>
+      <tbody id="tb"></tbody>
+    </table></div>
+  </div>
+
+  <div class="op">
+    <h2><span class="tag alt">En celular</span>Opción C · la tarjeta</h2>
+    <p>La vista móvil ya apila los datos, así que el producto entra como tercera línea sin competir con nada.</p>
+    <div class="movil" id="tm"></div>
+    <p class="nota"><b>Ojo con esto:</b> hoy el listado ya trae los productos de cada venta en la misma consulta
+      (<code>venta_items</code> viene dentro de <code>VENTA_COLS</code>), así que ninguna de las tres opciones
+      necesita tocar la base ni pedir datos extra. Es solo mostrar lo que ya está cargado.</p>
+  </div>
+</div>
+
+<script>
+const V=[
+ {n:'VTA-00719',f:'2026-08-31',c:'Cliente genérico',m:'Efectivo',d:'Boleta',t:35000,neto:29412,p:['Cambio de pantalla iPhone 12']},
+ {n:'VTA-00718',f:'2026-08-31',c:'Cliente genérico',m:'Tarjeta', d:'Ticket',t:6000, neto:5042, p:['Lámina Hidrogel']},
+ {n:'VTA-00717',f:'2026-08-31',c:'Cliente genérico',m:'Tarjeta', d:'Ticket',t:10000,neto:8403, p:['Cable Hoco X37 USB-A a Tipo C','Lámina Hidrogel']},
+ {n:'VTA-00716',f:'2026-08-31',c:'Cliente genérico',m:'Efectivo',d:'Ticket',t:12000,neto:10084,p:['Revisión']},
+ {n:'VTA-00715',f:'2026-08-31',c:'Cliente genérico',m:'Efectivo',d:'Boleta',t:40000,neto:33613,p:['iPhone 11 Pro Max Batería','Lámina Hidrogel','Cable HOCO X51']},
+ {n:'VTA-00714',f:'2026-08-31',c:'Cliente genérico',m:'Tarjeta', d:'Boleta',t:5000, neto:4202, p:['Mica 3D iPhone 16 Pro']},
+];
+const clp=n=>'$'+n.toLocaleString('es-CL');
+const prod=v=>v.p.length===1
+  ? `<b>${v.p[0]}</b>`
+  : `<b>${v.p[0]}</b> <span class="mas">+${v.p.length-1} más</span>`;
+
+document.getElementById('ta').innerHTML=V.map(v=>`<tr>
+  <td class="num">${v.n}</td><td>${v.f}</td>
+  <td><span class="cli">${v.c}</span><span class="prod">${prod(v)}</span></td>
+  <td>${v.m}</td><td class="doc">${v.d}</td>
+  <td class="r"><span class="tot">${clp(v.t)}</span><span class="neto">Neto: ${clp(v.neto)}</span></td>
+  <td><span class="pill">Pagada</span></td>
+  <td class="r acc"><a class="ver" href="#">Ver</a><a class="anu" href="#">Anular</a></td></tr>`).join('');
+
+document.getElementById('tb').innerHTML=V.map(v=>`<tr>
+  <td class="num">${v.n}</td><td>${v.f}</td><td class="cli">${v.c}</td>
+  <td>${prod(v)}</td><td>${v.m}</td><td class="doc">${v.d}</td>
+  <td class="r"><span class="tot">${clp(v.t)}</span><span class="neto">Neto: ${clp(v.neto)}</span></td>
+  <td><span class="pill">Pagada</span></td></tr>`).join('');
+
+document.getElementById('tm').innerHTML=V.map(v=>`<div class="fila">
+  <div class="l1"><span class="num">${v.n}</span><span class="tot">${clp(v.t)}</span></div>
+  <div class="l2"><span class="cli">${v.c}</span><span class="meta">${v.m} · ${v.d}</span></div>
+  <div class="l3">${prod(v)}</div></div>`).join('');
+</script>

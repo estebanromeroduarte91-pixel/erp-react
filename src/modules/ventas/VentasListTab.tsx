@@ -131,6 +131,17 @@ export function VentasListTab() {
   // ("mpt7zej50ss1s") en vez de algo legible.
   const mp = (id: string | undefined) => nombreMetodoPago(id, metodos ?? [])
 
+  // Una venta puede tener varios artículos. Se muestra el primero y cuántos
+  // faltan; el detalle completo sigue estando en «Ver». Los items ya vienen en
+  // la misma consulta del listado (VENTA_COLS incluye venta_items), así que
+  // esto no agrega ninguna petición.
+  const resumenProductos = (v: Venta) => {
+    const items = v.items ?? []
+    if (items.length === 0) return null
+    const primero = items[0].producto_nombre?.trim() || 'Sin nombre'
+    return { primero, extra: items.length - 1 }
+  }
+
   const historico = resumen.data?.historico ?? { count: 0, total: 0, utilidad: 0 }
   const totalVentas = resumen.data?.periodo.total_iva ?? 0
   const totalNeto = resumen.data?.periodo.total_neto ?? 0
@@ -451,6 +462,16 @@ export function VentasListTab() {
                   <p className="text-xs text-gray-400 mt-0.5">
                     {mp(v.metodo_pago)} · {v.tipo_doc ?? 'boleta'} · {v.fecha}
                   </p>
+                  {(() => {
+                    const r = resumenProductos(v)
+                    if (!r) return null
+                    return (
+                      <p className="text-xs text-gray-500 mt-1 truncate">
+                        {r.primero}
+                        {r.extra > 0 && <span className="text-blue-600 font-semibold"> +{r.extra} más</span>}
+                      </p>
+                    )
+                  })()}
                 </div>
               ))}
             </div>
@@ -462,6 +483,7 @@ export function VentasListTab() {
                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">N°</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Fecha</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Cliente</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Producto</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Método</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Doc.</th>
                     <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Total</th>
@@ -475,6 +497,18 @@ export function VentasListTab() {
                       <td className="px-4 py-3 font-mono text-xs font-semibold text-blue-600">{v.numero}</td>
                       <td className="px-4 py-3 text-gray-600 text-xs">{v.fecha}</td>
                       <td className="px-4 py-3 text-gray-800 font-medium">{v.cliente}</td>
+                      <td className="px-4 py-3 text-gray-600 text-xs max-w-[15rem]">
+                        {(() => {
+                          const r = resumenProductos(v)
+                          if (!r) return <span className="text-gray-300">—</span>
+                          return (
+                            <span className="block truncate" title={(v.items ?? []).map(i => i.producto_nombre).join(', ')}>
+                              {r.primero}
+                              {r.extra > 0 && <span className="text-blue-600 font-semibold"> +{r.extra} más</span>}
+                            </span>
+                          )
+                        })()}
+                      </td>
                       <td className="px-4 py-3 text-gray-500 text-xs">{mp(v.metodo_pago)}</td>
                       <td className="px-4 py-3 text-xs text-gray-400 capitalize">{v.tipo_doc ?? 'boleta'}</td>
                       <td className="px-4 py-3 text-right">
