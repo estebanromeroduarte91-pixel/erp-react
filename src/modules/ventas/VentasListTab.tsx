@@ -2,6 +2,7 @@ import { useState, useMemo, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useVentasResumen, useVentasPaginadas, useVentaPorId, useAnularVenta, useActualizarMetodoPago, useMetodosPago, useVentasRealtime, useDteDeVenta, useBodegas } from '@/lib/queries'
 import { nombreMetodoPago } from '@/lib/metodoPago'
+import { resumenProductos, nombresProductos } from '@/lib/venta'
 import { useAuth } from '@/context/AuthContext'
 import { Spinner } from '@/components/shared/Spinner'
 import { fechaLocal } from '@/lib/fecha'
@@ -131,16 +132,6 @@ export function VentasListTab() {
   // ("mpt7zej50ss1s") en vez de algo legible.
   const mp = (id: string | undefined) => nombreMetodoPago(id, metodos ?? [])
 
-  // Una venta puede tener varios artículos. Se muestra el primero y cuántos
-  // faltan; el detalle completo sigue estando en «Ver». Los items ya vienen en
-  // la misma consulta del listado (VENTA_COLS incluye venta_items), así que
-  // esto no agrega ninguna petición.
-  const resumenProductos = (v: Venta) => {
-    const items = v.items ?? []
-    if (items.length === 0) return null
-    const primero = items[0].producto_nombre?.trim() || 'Sin nombre'
-    return { primero, extra: items.length - 1 }
-  }
 
   const historico = resumen.data?.historico ?? { count: 0, total: 0, utilidad: 0 }
   const totalVentas = resumen.data?.periodo.total_iva ?? 0
@@ -463,7 +454,7 @@ export function VentasListTab() {
                     {mp(v.metodo_pago)} · {v.tipo_doc ?? 'boleta'} · {v.fecha}
                   </p>
                   {(() => {
-                    const r = resumenProductos(v)
+                    const r = resumenProductos(v.items)
                     if (!r) return null
                     return (
                       <p className="text-xs text-gray-500 mt-1 truncate">
@@ -499,10 +490,10 @@ export function VentasListTab() {
                       <td className="px-4 py-3 text-gray-800 font-medium">{v.cliente}</td>
                       <td className="px-4 py-3 text-gray-600 text-xs max-w-[15rem]">
                         {(() => {
-                          const r = resumenProductos(v)
+                          const r = resumenProductos(v.items)
                           if (!r) return <span className="text-gray-300">—</span>
                           return (
-                            <span className="block truncate" title={(v.items ?? []).map(i => i.producto_nombre).join(', ')}>
+                            <span className="block truncate" title={nombresProductos(v.items)}>
                               {r.primero}
                               {r.extra > 0 && <span className="text-blue-600 font-semibold"> +{r.extra} más</span>}
                             </span>

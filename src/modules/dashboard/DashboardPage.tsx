@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { resumenProductos, nombresProductos } from '@/lib/venta'
 import { useVentasEnRango, useUltimasVentas, useGastosEnRango, useBodegas, useMetodosPago, useOCsEnRango, useCostosProductos } from '@/lib/queries'
 import { distribuirGastosPorSucursal } from '@/lib/gastos'
 import { calcularCostoVentas, calcularResumenOperacional, fechaEfectivaOC, filtrarVentasPagadas, periodoAnteriorEquivalente, restarDias, MARGEN_OC_DIAS } from '@/lib/metricas'
@@ -586,9 +587,19 @@ export function DashboardPage() {
               ? <p style={{ textAlign: 'center', color: C.textMuted, fontSize: 13, padding: '20px 0', margin: 0 }}>Sin ventas</p>
               : ultimasVentas.map((v, i) => (
                 <div key={v.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderBottom: i < ultimasVentas.length - 1 ? `0.5px solid ${C.border}` : 'none' }}>
-                  <div style={{ flex: 1 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ fontSize: 13, fontWeight: 600, color: C.textPrimary, margin: 0 }}>{v.numero}</p>
                     <p style={{ fontSize: 11, color: C.textMuted, margin: 0 }}>{v.cliente || '—'}</p>
+                    {(() => {
+                      const r = resumenProductos(v.items)
+                      if (!r) return null
+                      return (
+                        <p style={{ fontSize: 11, color: C.textSecondary, margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {r.primero}
+                          {r.extra > 0 && <span style={{ color: '#2563eb', fontWeight: 600 }}> +{r.extra} más</span>}
+                        </p>
+                      )
+                    })()}
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <p style={{ fontSize: 13, fontWeight: 600, color: C.textPrimary, margin: 0 }}>{fmt(+v.total_iva)}</p>
@@ -642,8 +653,10 @@ export function DashboardPage() {
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ background: C.bg }}>
-                  {['Folio', 'Cliente', 'Fecha', 'Método', 'Total'].map((h, i) => (
-                    <th key={i} style={{ padding: '7px 14px', fontSize: 10, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '.4px', textAlign: i >= 4 ? 'right' : 'left', borderBottom: `0.5px solid ${C.border}` }}>{h}</th>
+                  {['Folio', 'Cliente', 'Producto', 'Fecha', 'Método', 'Total'].map(h => (
+                    // Se alinea por nombre y no por índice: agregar una columna
+                    // antes de Total no debe descolocar la alineación derecha.
+                    <th key={h} style={{ padding: '7px 14px', fontSize: 10, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '.4px', textAlign: h === 'Total' ? 'right' : 'left', borderBottom: `0.5px solid ${C.border}` }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -652,6 +665,13 @@ export function DashboardPage() {
                   <tr key={v.id} style={{ borderBottom: i < ultimasVentas.length - 1 ? `0.5px solid ${C.borderLight}` : 'none' }}>
                     <td style={{ padding: '9px 14px', fontSize: 12, fontWeight: 600, color: '#2563eb' }}>{v.numero}</td>
                     <td style={{ padding: '9px 14px', fontSize: 13, color: C.textPrimary, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.cliente || '—'}</td>
+                    <td style={{ padding: '9px 14px', fontSize: 12, color: C.textSecondary, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={nombresProductos(v.items)}>
+                      {(() => {
+                        const r = resumenProductos(v.items)
+                        if (!r) return <span style={{ color: C.textMuted }}>—</span>
+                        return <>{r.primero}{r.extra > 0 && <span style={{ color: '#2563eb', fontWeight: 600 }}> +{r.extra} más</span>}</>
+                      })()}
+                    </td>
                     <td style={{ padding: '9px 14px', fontSize: 12, color: C.textMuted }}>{v.fecha}</td>
                     <td style={{ padding: '9px 14px', fontSize: 12, color: C.textSecondary }}>{getMpLabel(v.metodo_pago)}</td>
                     <td style={{ padding: '9px 14px', fontSize: 13, fontWeight: 600, color: C.textPrimary, textAlign: 'right' }}>{fmt(+v.total_iva)}</td>
