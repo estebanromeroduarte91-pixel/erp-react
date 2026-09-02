@@ -9,6 +9,7 @@ import { ProductoModal } from './ProductoModal'
 import type { Producto, LoteInventario, Bodega } from '@/types'
 import { validarArchivoImport, validarContenidoImport } from '@/lib/importArchivo'
 import { fechaLocal } from '@/lib/fecha'
+import { normalizar } from '@/lib/texto'
 
 function uidLote() { return Math.random().toString(36).slice(2) + Date.now().toString(36) }
 
@@ -229,8 +230,15 @@ export function ProductosTab() {
       return st <= (p.stock_min ?? 0)
     })
     if (busqueda.trim()) {
-      const q = busqueda.toLowerCase()
-      r = r.filter(p => p.nombre.toLowerCase().includes(q) || p.sku?.toLowerCase().includes(q))
+      // No exige una frase idéntica: cada palabra escrita debe aparecer en el
+      // nombre, SKU o categoría. La normalización también elimina tildes, por
+      // lo que "lamina" encuentra "Lámina" y "macbook pro 13" encuentra
+      // "MacBook Pro M1 13".
+      const palabras = normalizar(busqueda).split(' ').filter(Boolean)
+      r = r.filter(p => {
+        const indice = normalizar([p.nombre, p.sku, p.categoria, p.subcategoria].filter(Boolean).join(' '))
+        return palabras.every(palabra => indice.includes(palabra))
+      })
     }
     return r
   }, [productos, filtroBodega, filtroCat, filtroSub, filtroTipo, bajosStock, busqueda])
