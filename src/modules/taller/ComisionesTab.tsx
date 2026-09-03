@@ -31,44 +31,50 @@ export function ComisionesTab() {
         .eq('empresa_id', empresaId!)
         .eq('is_draft', false)
         .eq('comision_tecnica_activa', true)
-        .not('comision_tecnica_monto', 'is', null)
-        .not('venta_id', 'is', null)
       if (!puedeGestionar) query = query.eq('tecnico_id', session!.user.id)
       const { data, error: queryError } = await query.order('fecha', { ascending: false })
       if (queryError) throw queryError
-      return (data ?? []).map(row => ({
+      return (data ?? []).map(row => {
+        const bruto = Number(row.comision_tecnica_bruto ?? 0)
+        const porcentaje = Number(row.comision_tecnica_porcentaje ?? 0)
+        const baseEstimada = Math.round(bruto / 1.19)
+        const montoEstimado = Math.round(baseEstimada * porcentaje / 100)
+        return {
         id: row.id, num: row.num, fecha: row.fecha, modelo: row.modelo, trabajo: row.trabajo,
         tecnico: row.tecnico, tecnicoId: row.tecnico_id, branchId: row.branch_id,
         venta_id: row.venta_id, comisionTecnicaActiva: row.comision_tecnica_activa,
-        comisionTecnicaBruto: Number(row.comision_tecnica_bruto ?? 0),
-        comisionTecnicaBase: Number(row.comision_tecnica_base ?? 0),
-        comisionTecnicaPorcentaje: Number(row.comision_tecnica_porcentaje ?? 0),
-        comisionTecnicaMonto: Number(row.comision_tecnica_monto ?? 0),
+        comisionTecnicaBruto: bruto,
+        comisionTecnicaBase: row.comision_tecnica_base == null ? baseEstimada : Number(row.comision_tecnica_base),
+        comisionTecnicaPorcentaje: porcentaje,
+        comisionTecnicaMonto: row.comision_tecnica_monto == null ? montoEstimado : Number(row.comision_tecnica_monto),
         comisionTecnicaPagada: Boolean(row.comision_tecnica_pagada),
         comisionTecnicaPagadaAt: row.comision_tecnica_pagada_at,
-      }))
+      }})
     },
   })
 
   const filas = useMemo(() => ordenes
-    .filter(o => o.comisionTecnicaActiva && (o.comisionTecnicaMonto ?? 0) > 0 && o.venta_id)
+    .filter(o => o.comisionTecnicaActiva && (o.comisionTecnicaMonto ?? 0) > 0)
     .filter(o => puedeGestionar || o.tecnicoId === session?.user?.id)
     .sort((a, b) => Number(a.comisionTecnicaPagada) - Number(b.comisionTecnicaPagada) || b.fecha.localeCompare(a.fecha)),
   [ordenes, puedeGestionar, session?.user?.id])
 
-  const pendientes = filas.filter(o => !o.comisionTecnicaPagada)
+  const pendientes = filas.filter(o => o.venta_id && !o.comisionTecnicaPagada)
+  const porConfirmar = filas.filter(o => !o.venta_id)
   const totalPendiente = pendientes.reduce((acc, o) => acc + (o.comisionTecnicaMonto ?? 0), 0)
+  const totalPorConfirmar = porConfirmar.reduce((acc, o) => acc + (o.comisionTecnicaMonto ?? 0), 0)
   const totalPagado = filas.filter(o => o.comisionTecnicaPagada).reduce((acc, o) => acc + (o.comisionTecnicaMonto ?? 0), 0)
   const porTecnico = useMemo(() => Object.values(filas.reduce<Record<string, {
-    id: string; nombre: string; pendientes: number; pagadas: number; total: number; ordenes: number
+    id: string; nombre: string; pendientes: number; porConfirmar: number; pagadas: number; total: number; ordenes: number
   }>>((acc, orden) => {
     const id = orden.tecnicoId || orden.tecnico || 'sin-tecnico'
-    if (!acc[id]) acc[id] = { id, nombre: orden.tecnico || 'Sin técnico asignado', pendientes: 0, pagadas: 0, total: 0, ordenes: 0 }
+    if (!acc[id]) acc[id] = { id, nombre: orden.tecnico || 'Sin técnico asignado', pendientes: 0, porConfirmar: 0, pagadas: 0, total: 0, ordenes: 0 }
     const monto = orden.comisionTecnicaMonto ?? 0
     acc[id].total += monto
     acc[id].ordenes += 1
     if (orden.comisionTecnicaPagada) acc[id].pagadas += monto
-    else acc[id].pendientes += monto
+    else if (orden.venta_id) acc[id].pendientes += monto
+    else acc[id].porConfirmar += monto
     return acc
   }, {})).sort((a, b) => b.pendientes - a.pendientes || b.total - a.total), [filas])
   const filasVisibles = tecnicoSeleccionado ? filas.filter(o => (o.tecnicoId || o.tecnico || 'sin-tecnico') === tecnicoSeleccionado) : filas
@@ -85,17 +91,18 @@ export function ComisionesTab() {
       <div className="mb-6">
         <h2 className="text-xl font-bold text-gray-900">Comisiones</h2>
         <p className="text-sm text-gray-500 mt-1">
-          {puedeGestionar ? 'Comisiones de los técnicos y estado de pago.' : 'Tus comisiones asignadas y su estado de pago.'}
+          {puedeGestionar ? 'Comisiones asignadas, confirmadas por venta y estado de pago.' : 'Tus comisiones asignadas y su estado de pago.'}
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+        <Kpi label="Por confirmar venta" value={totalPorConfirmar} tone="blue" />
         <Kpi label="Pendiente de pago" value={totalPendiente} tone="amber" />
         <Kpi label="Comisiones pagadas" value={totalPagado} tone="green" />
         <div className="rounded-xl border border-gray-200 bg-white p-5">
           <div className="text-xs font-semibold uppercase tracking-wide text-gray-400">Órdenes con comisión</div>
           <div className="text-2xl font-bold text-gray-900 mt-2">{filas.length}</div>
-          <div className="text-xs text-gray-500 mt-1">{pendientes.length} pendientes</div>
+          <div className="text-xs text-gray-500 mt-1">{pendientes.length} pendientes · {porConfirmar.length} por confirmar</div>
         </div>
       </div>
 
@@ -115,6 +122,7 @@ export function ComisionesTab() {
               >
                 <div className="font-semibold text-gray-900 truncate">{persona.nombre}</div>
                 <div className="mt-3 flex justify-between gap-3 text-sm"><span className="text-gray-500">Pendiente</span><span className="font-semibold text-amber-700"><Money value={persona.pendientes} /></span></div>
+                <div className="mt-1.5 flex justify-between gap-3 text-sm"><span className="text-gray-500">Por confirmar</span><span className="font-semibold text-blue-700"><Money value={persona.porConfirmar} /></span></div>
                 <div className="mt-1.5 flex justify-between gap-3 text-sm"><span className="text-gray-500">Pagado</span><span className="font-semibold text-emerald-700"><Money value={persona.pagadas} /></span></div>
                 <div className="mt-3 pt-3 border-t border-gray-100 flex justify-between gap-3 text-xs text-gray-500"><span>{persona.ordenes} órdenes</span><span className="font-semibold text-gray-800"><Money value={persona.total} /></span></div>
               </button>
@@ -169,6 +177,8 @@ export function ComisionesTab() {
                     <td className="px-5 py-3.5">
                       {o.comisionTecnicaPagada ? (
                         <span className="inline-flex rounded-full bg-green-100 px-2.5 py-1 text-xs font-semibold text-green-700">Pagada · {fechaCorta(o.comisionTecnicaPagadaAt)}</span>
+                      ) : !o.venta_id ? (
+                        <span className="inline-flex rounded-full bg-blue-100 px-2.5 py-1 text-xs font-semibold text-blue-700">Por confirmar venta</span>
                       ) : (
                         <span className="inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">Pendiente</span>
                       )}
@@ -184,8 +194,8 @@ export function ComisionesTab() {
   )
 }
 
-function Kpi({ label, value, tone }: { label: string; value: number; tone: 'amber' | 'green' }) {
-  const color = tone === 'amber' ? 'text-amber-700' : 'text-emerald-700'
+function Kpi({ label, value, tone }: { label: string; value: number; tone: 'amber' | 'green' | 'blue' }) {
+  const color = tone === 'amber' ? 'text-amber-700' : tone === 'green' ? 'text-emerald-700' : 'text-blue-700'
   return <div className="rounded-xl border border-gray-200 bg-white p-5">
     <div className="text-xs font-semibold uppercase tracking-wide text-gray-400">{label}</div>
     <div className={`text-2xl font-bold mt-2 ${color}`}><Money value={value} /></div>

@@ -292,15 +292,20 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
   async function guardarTecnicoYComision() {
     const porcentaje = Math.min(100, Math.max(0, Number(comisionPorcentajeForm) || 0))
     const bruto = Math.max(0, Number(comisionBrutoForm) || 0)
+    const comisionActiva = comisionActivaForm && !!tecnicoForm.trim() && bruto > 0 && porcentaje > 0
+    const baseEstimada = Math.round(bruto / 1.19)
+    const montoEstimado = Math.round(baseEstimada * porcentaje / 100)
     setGuardandoTecnico(true)
     try {
       await actualizarOrden.mutateAsync({
         id: orden.id,
         tecnico: tecnicoForm.trim() || undefined,
         tecnicoId: tecnicoIdForm || undefined,
-        comisionTecnicaActiva: comisionActivaForm && !!tecnicoForm.trim() && bruto > 0 && porcentaje > 0,
+        comisionTecnicaActiva: comisionActiva,
         comisionTecnicaBruto: bruto,
+        comisionTecnicaBase: comisionActiva ? baseEstimada : undefined,
         comisionTecnicaPorcentaje: porcentaje,
+        comisionTecnicaMonto: comisionActiva ? montoEstimado : undefined,
       })
     } finally {
       setGuardandoTecnico(false)
@@ -886,10 +891,11 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
               </div>
             )}
 
-            {o.comisionTecnicaMonto != null && o.venta_id && (
+            {o.comisionTecnicaMonto != null && (
               <div className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
-                Comisión registrada: <strong>${Math.round(o.comisionTecnicaMonto).toLocaleString('es-CL')}</strong>
+                {o.venta_id ? 'Comisión registrada: ' : 'Comisión estimada: '}<strong>${Math.round(o.comisionTecnicaMonto).toLocaleString('es-CL')}</strong>
                 {o.comisionTecnicaBase != null && <> sobre ${Math.round(o.comisionTecnicaBase).toLocaleString('es-CL')} netos.</>}
+                {!o.venta_id && <span className="block mt-1 text-emerald-700/80">Se confirmará al registrar la venta.</span>}
               </div>
             )}
 
