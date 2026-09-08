@@ -6,7 +6,6 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { empresaPermitida } from "../_shared/impersonacion.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const corsHeaders = {
@@ -72,11 +71,16 @@ Deno.serve(async (req) => {
   const jwt = auth.replace("Bearer ", "").trim();
   if (!jwt) return json({ ok: false, error: "No autorizado" }, 401);
 
-  const userClient = createClient(SUPABASE_URL, ANON_KEY, { global: { headers: { Authorization: auth } } });
-  const { data: usuario, error: errorUsuario } = await userClient.auth.getUser(jwt);
-  if (errorUsuario || !usuario.user) return json({ ok: false, error: "Sesión inválida" }, 401);
-
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+  // Valida el JWT directamente contra Auth con las credenciales del servidor.
+  // Así la función no depende de que SUPABASE_ANON_KEY coincida con la clave
+  // pública usada por la versión del frontend que inició la sesión.
+  const { data: usuario, error: errorUsuario } = await admin.auth.getUser(jwt);
+  if (errorUsuario || !usuario.user) {
+    console.error("woo-orders-pull: sesión rechazada", errorUsuario?.message);
+    return json({ ok: false, error: "Sesión inválida. Recarga Pixit e inténtalo nuevamente." }, 401);
+  }
+
   const { data: perfil } = await admin.from("user_profiles")
     .select("empresa_id").eq("id", usuario.user.id).maybeSingle();
   if (!perfil?.empresa_id) return json({ ok: false, error: "El usuario no tiene empresa" }, 403);
@@ -116,4 +120,3 @@ Deno.serve(async (req) => {
 
   return json({ ok: true, importados: filas.length });
 });
-

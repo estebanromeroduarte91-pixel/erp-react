@@ -124,7 +124,20 @@ export function EcommercePage() {
 
   const sincronizarPedidos = useMutation({
     mutationFn: async () => {
-      const { data, error } = await supabase.functions.invoke('woo-orders-pull', { body: { empresa_id: empresaId } })
+      // functions.invoke normalmente adjunta la sesión, pero la enviamos de
+      // forma explícita para que nunca use la anon key como Authorization.
+      let { data: sessionData } = await supabase.auth.getSession()
+      if (!sessionData.session?.access_token) {
+        const refreshed = await supabase.auth.refreshSession()
+        sessionData = refreshed.data
+      }
+      const accessToken = sessionData.session?.access_token
+      if (!accessToken) throw new Error('Tu sesión expiró. Vuelve a iniciar sesión.')
+
+      const { data, error } = await supabase.functions.invoke('woo-orders-pull', {
+        body: { empresa_id: empresaId },
+        headers: { Authorization: `Bearer ${accessToken}` },
+      })
       if (error) throw new Error(await extraerMensajeError(error, 'No se pudieron actualizar los pedidos'))
       if (data?.ok === false) throw new Error(data.error || 'No se pudieron actualizar los pedidos')
       return data as { importados?: number }
