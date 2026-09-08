@@ -1,0 +1,187 @@
+<title>Comisiones por Mes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#f8f9fb;--card:#fff;--line:#e5e7eb;--line2:#f1f2f4;
+    --ink:#111827;--ink2:#4b5563;--muted:#9ca3af;
+    --amber:#b45309;--amber-bg:#fef3c7;--blue:#1d4ed8;--blue-bg:#dbeafe;
+    --green:#047857;--green-bg:#d1fae5;--azul:#2563eb}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:'Manrope',system-ui,sans-serif;font-size:14px;-webkit-font-smoothing:antialiased}
+  .n{font-family:'JetBrains Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums}
+  .wrap{max-width:1060px;margin:0 auto;padding:24px 20px 60px}
+  h2{font-size:20px;font-weight:800;margin:0}
+  .sub{font-size:13px;color:var(--muted);margin:4px 0 0}
+
+  /* selector de mes */
+  .mes{display:flex;align-items:center;gap:6px}
+  .mes button{font-family:inherit;background:var(--card);border:1px solid var(--line);border-radius:8px;
+    width:32px;height:32px;cursor:pointer;color:var(--ink2);font-size:14px;line-height:1}
+  .mes button:hover{background:#f3f4f6}
+  .mes .et{min-width:150px;text-align:center;font-size:13.5px;font-weight:700;text-transform:capitalize}
+  .mes .todos{width:auto;padding:0 12px;font-size:12px;font-weight:600}
+  .mes .todos[aria-pressed="true"]{background:var(--ink);color:#fff;border-color:var(--ink)}
+  button:focus-visible{outline:2px solid var(--azul);outline-offset:2px}
+
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin:18px 0}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+  .kpi .l{font-size:10px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);margin:0}
+  .kpi .v{font-size:23px;font-weight:800;margin:6px 0 0;letter-spacing:-.4px}
+  .kpi .c{font-size:11.5px;color:var(--muted);margin:3px 0 0}
+  .kpi .scope{display:block;font-size:10.5px;color:#b9bcc2;margin-top:2px}
+  .tabs button b{font-weight:800;opacity:.55;margin-left:2px}
+
+  .box{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-bottom:16px}
+  .head{padding:14px 18px;border-bottom:1px solid var(--line2);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+  .head h3{font-size:14px;font-weight:700;margin:0}
+  .head .s{font-size:11.5px;color:var(--muted);margin:2px 0 0}
+
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{font-size:9.5px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);
+    text-align:left;padding:9px 18px;background:#fafbfc;border-bottom:1px solid var(--line2)}
+  th.r,td.r{text-align:right}
+  td{padding:11px 18px;border-bottom:1px solid var(--line2);color:var(--ink2)}
+  tbody tr:last-child td{border-bottom:0}
+  tbody tr:hover td{background:#fafbfc}
+  td.nom{color:var(--ink);font-weight:600}
+  td .met{display:block;font-size:11px;color:var(--muted);font-weight:400;margin-top:1px}
+  tr.tot td{background:#fafbfc;border-top:1px solid var(--line);border-bottom:0;font-weight:800;color:var(--ink)}
+  .cero{color:#c9ccd1}
+  .ot{color:var(--azul);font-weight:700;text-decoration:none}
+
+  .pill{display:inline-block;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;white-space:nowrap}
+  .p-pend{background:var(--amber-bg);color:var(--amber)}
+  .p-pag{background:var(--green-bg);color:var(--green)}
+  .p-conf{background:var(--blue-bg);color:var(--blue)}
+
+  .tabs{display:flex;gap:4px;flex-wrap:wrap}
+  .tabs button{font-family:inherit;font-size:12px;font-weight:600;padding:5px 11px;border-radius:7px;
+    border:1px solid var(--line);background:var(--card);color:var(--ink2);cursor:pointer}
+  .tabs button[aria-pressed="true"]{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .accion{font-family:inherit;font-size:11.5px;font-weight:700;padding:5px 10px;border-radius:6px;
+    border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;white-space:nowrap}
+  .accion:hover{background:#f3f4f6}
+  .vacio{padding:34px 18px;text-align:center;color:var(--muted);font-size:13px}
+  .nota{font-size:12px;color:var(--ink2);background:#fffbeb;border:1px solid #fde68a;border-radius:9px;
+    padding:11px 14px;margin-top:6px;line-height:1.55}
+</style>
+
+<div class="wrap">
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:14px;flex-wrap:wrap">
+    <div><h2>Comisiones</h2><p class="sub">Qué debes pagar, qué ya pagaste y el detalle de cada orden.</p></div>
+    <div class="mes">
+      <button id="ant" title="Mes anterior">‹</button>
+      <span class="et" id="etiqueta"></span>
+      <button id="sig" title="Mes siguiente">›</button>
+    </div>
+  </div>
+
+  <div class="kpis" id="kpis"></div>
+  <div class="box" id="emp"></div>
+  <div class="box" id="det"></div>
+  <p class="nota"><b>El mes filtra por fecha de pago</b>, así que solo afecta a las comisiones ya pagadas:
+    te dice cuánta plata saliste de caja ese mes. <b>Lo pendiente se muestra siempre completo</b>, venga del mes que
+    venga — si una comisión de julio sigue sin pagarse, tiene que estar a la vista en septiembre, no escondida.
+    Fíjate en la OT #3856.</p>
+</div>
+
+<script>
+const clp=n=>'$'+n.toLocaleString('es-CL');
+const fx=f=>new Date(f+'T12:00:00').toLocaleDateString('es-CL');
+const MES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+
+// Datos de ejemplo; OT #3924 es la real de tu pantalla. La #3856 es de julio y
+// sigue sin pagarse: sirve para comprobar que el atraso NO se esconde al
+// cambiar de mes.
+const D=[
+ {num:'3924',fecha:'2026-09-08',eq:'iPhone 11 [Apple]',tec:'Juan Quintero',suc:'Los Dominicos',bruto:79990,base:67218,pct:20,monto:13444,estado:'pendiente'},
+ {num:'3918',fecha:'2026-09-04',eq:'iPhone 13 [Apple]',tec:'Juan Quintero',suc:'Los Dominicos',bruto:129990,base:109235,pct:20,monto:21847,estado:'pagada',pagadaEl:'2026-09-05'},
+ {num:'3915',fecha:'2026-09-02',eq:'Galaxy A54 [Samsung]',tec:'Enrique Camacaro',suc:'La Dehesa',bruto:69990,base:58815,pct:20,monto:11763,estado:'pendiente'},
+ {num:'3910',fecha:'2026-09-01',eq:'MacBook Air [Apple]',tec:'Enrique Camacaro',suc:'La Dehesa',bruto:189990,base:159655,pct:15,monto:23948,estado:'confirmar'},
+ {num:'3901',fecha:'2026-08-28',eq:'iPhone 12 [Apple]',tec:'Juan Quintero',suc:'Los Dominicos',bruto:89990,base:75622,pct:20,monto:15124,estado:'pagada',pagadaEl:'2026-09-05'},
+ {num:'3897',fecha:'2026-08-22',eq:'iPad 9 [Apple]',tec:'Candela Rodriguez',suc:'Los Dominicos',bruto:59990,base:50412,pct:20,monto:10082,estado:'pagada',pagadaEl:'2026-08-25'},
+ {num:'3856',fecha:'2026-07-19',eq:'iPhone XR [Apple]',tec:'Candela Rodriguez',suc:'Los Dominicos',bruto:49990,base:42008,pct:20,monto:8402,estado:'pendiente'},
+];
+const ETQ={pendiente:['Por pagar','p-pend'],pagada:['Pagada','p-pag'],confirmar:['Por confirmar venta','p-conf']};
+
+let mes=new Date(2026,8,1), filtro='pendiente';
+// El mes filtra por FECHA DE PAGO, así que solo aplica a lo ya pagado.
+const pagadasDelMes=()=>D.filter(d=>d.estado==='pagada'
+  && new Date(d.pagadaEl+'T12:00:00').getMonth()===mes.getMonth()
+  && new Date(d.pagadaEl+'T12:00:00').getFullYear()===mes.getFullYear());
+// Lo pendiente es una deuda viva: se muestra completa, venga del mes que venga.
+const pendientes=()=>D.filter(d=>d.estado==='pendiente');
+const porConfirmar=()=>D.filter(d=>d.estado==='confirmar');
+const sum=a=>a.reduce((s,d)=>s+d.monto,0);
+const plural=(n,s,p)=>`${n} ${n===1?s:p}`;
+
+function render(){
+  const etq=`${MES[mes.getMonth()]} ${mes.getFullYear()}`;
+  document.getElementById('etiqueta').textContent=etq;
+  const pag=pagadasDelMes(), pen=pendientes(), con=porConfirmar();
+
+  const k=(l,v,c,col,scope)=>`<div class="kpi"><p class="l">${l}</p>
+    <p class="v n" style="color:${v?col:'#c9ccd1'}">${clp(v)}</p>
+    <p class="c">${c}<span class="scope">${scope}</span></p></div>`;
+  document.getElementById('kpis').innerHTML=
+    k('Por pagar',sum(pen),plural(pen.length,'orden','órdenes'),'var(--amber)','acumulado, todos los meses')+
+    k('Pagado',sum(pag),plural(pag.length,'orden','órdenes'),'var(--green)','pagado en '+etq)+
+    k('Por confirmar venta',sum(con),plural(con.length,'orden','órdenes'),'var(--blue)','acumulado, todos los meses');
+
+  // ── por empleado ──
+  const por={};
+  [...pen,...con].forEach(d=>{(por[d.tec] ??= {tec:d.tec,pend:0,nPend:0,pag:0});
+    if(d.estado==='pendiente'){por[d.tec].pend+=d.monto; por[d.tec].nPend++}});
+  pag.forEach(d=>{(por[d.tec] ??= {tec:d.tec,pend:0,nPend:0,pag:0}); por[d.tec].pag+=d.monto});
+  const emp=Object.values(por).sort((a,b)=>b.pend-a.pend||b.pag-a.pag);
+  const T=emp.reduce((a,e)=>({pend:a.pend+e.pend,nPend:a.nPend+e.nPend,pag:a.pag+e.pag}),{pend:0,nPend:0,pag:0});
+  const cero=v=>v?clp(v):'<span class="cero">$0</span>';
+  document.getElementById('emp').innerHTML=`
+    <div class="head"><div><h3>Por empleado</h3>
+      <p class="s">Lo que le debes a cada uno, y lo que le pagaste en ${etq}.</p></div></div>`+
+    (emp.length?`<table><thead><tr><th>Empleado</th><th class="r">Órdenes por pagar</th>
+      <th class="r">Por pagar</th><th class="r">Pagado en ${MES[mes.getMonth()]}</th></tr></thead><tbody>`+
+      emp.map(e=>`<tr><td class="nom">${e.tec}</td>
+        <td class="r n">${e.nPend||'<span class="cero">0</span>'}</td>
+        <td class="r n" style="${e.pend?'color:var(--amber);font-weight:700':''}">${cero(e.pend)}</td>
+        <td class="r n">${cero(e.pag)}</td></tr>`).join('')+
+      `<tr class="tot"><td>Total</td><td class="r n">${T.nPend}</td>
+        <td class="r n">${clp(T.pend)}</td><td class="r n">${clp(T.pag)}</td></tr></tbody></table>`
+     :`<p class="vacio">Sin comisiones registradas.</p>`);
+
+  // ── detalle ──
+  const vis = filtro==='pagada' ? pag : filtro==='pendiente' ? pen : con;
+  vis.sort((a,b)=>filtro==='pagada'?b.pagadaEl.localeCompare(a.pagadaEl):a.fecha.localeCompare(b.fecha));
+  const tab=(id,l,n)=>`<button data-f="${id}" aria-pressed="${filtro===id}">${l} <b>${n}</b></button>`;
+  document.getElementById('det').innerHTML=`
+    <div class="head">
+      <div><h3>Detalle por orden</h3><p class="s">El pago se registra desde la orden y crea el gasto automáticamente.</p></div>
+      <div class="tabs">${tab('pendiente','Por pagar',pen.length)}${tab('pagada','Pagadas en '+MES[mes.getMonth()],pag.length)}${tab('confirmar','Por confirmar',con.length)}</div>
+    </div>`+
+    (vis.length?`<table><thead><tr><th>Orden</th><th>Técnico</th><th>Sucursal</th>
+      <th>${filtro==='pagada'?'Pagada el':'Fecha de la orden'}</th>
+      <th class="r">Bruto cobrado</th><th class="r">Comisión</th><th></th></tr></thead><tbody>`+
+      vis.map(d=>{
+        const dias=Math.round((new Date('2026-09-08')-new Date(d.fecha+'T12:00:00'))/86400000);
+        const viejo = filtro==='pendiente' && dias>30;
+        return `<tr>
+        <td class="nom"><a class="ot" href="#">OT #${d.num}</a><span class="met">${d.eq}</span></td>
+        <td>${d.tec}</td><td>${d.suc}</td>
+        <td class="n">${filtro==='pagada'?fx(d.pagadaEl):fx(d.fecha)}
+          ${viejo?`<span class="met" style="color:var(--amber);font-weight:600">hace ${dias} días</span>`:''}
+          ${filtro==='pagada'?`<span class="met">orden del ${fx(d.fecha)}</span>`:''}</td>
+        <td class="r n">${clp(d.bruto)}</td>
+        <td class="r n" style="font-weight:700;color:var(--ink)">${clp(d.monto)}<span class="met">${d.pct}% sobre ${clp(d.base)}</span></td>
+        <td class="r">${d.estado==='pendiente'?'<button class="accion">Marcar pagada</button>':''}</td></tr>`}).join('')+
+      `</tbody></table>`
+     :`<p class="vacio">${filtro==='pagada'?`No pagaste comisiones en ${etq}.`:'Nada en este estado.'}</p>`);
+}
+
+document.addEventListener('click',e=>{
+  const f=e.target.closest('[data-f]'); if(f){filtro=f.dataset.f;render();return;}
+  if(e.target.id==='ant'){mes=new Date(mes.getFullYear(),mes.getMonth()-1,1);render();return;}
+  if(e.target.id==='sig'){mes=new Date(mes.getFullYear(),mes.getMonth()+1,1);render();}
+});
+render();
+</script>

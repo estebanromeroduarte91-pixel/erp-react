@@ -7,9 +7,34 @@ import { supabase } from '@/lib/supabase'
 import { Money } from '@/components/shared/Money'
 import { Spinner } from '@/components/shared/Spinner'
 
-function fechaCorta(fecha?: string) {
-  if (!fecha) return '—'
-  return new Date(`${fecha}T12:00:00`).toLocaleDateString('es-CL')
+/**
+ * `ordenes.fecha` viene como 'YYYY-MM-DD' pero `comision_tecnica_pagada_at` es
+ * un timestamp completo. Concatenarle 'T12:00:00' a un timestamp producía
+ * `Invalid Date`, así que se recorta a los primeros 10 caracteres antes de
+ * armar la fecha local (y así tampoco se corre de día por zona horaria).
+ */
+function soloFecha(valor?: string | null) {
+  return valor ? valor.slice(0, 10) : ''
+}
+
+function fechaCorta(fecha?: string | null) {
+  const dia = soloFecha(fecha)
+  if (!dia) return '—'
+  return new Date(`${dia}T12:00:00`).toLocaleDateString('es-CL')
+}
+
+const claveMes = (valor?: string | null) => soloFecha(valor).slice(0, 7)
+
+const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
+
+const plural = (n: number, singular: string, p: string) => `${n} ${n === 1 ? singular : p}`
+
+/** Días transcurridos desde la fecha de la orden, para avisar atrasos. */
+function diasDesde(fecha?: string | null) {
+  const dia = soloFecha(fecha)
+  if (!dia) return 0
+  return Math.max(0, Math.round((Date.now() - new Date(`${dia}T12:00:00`).getTime()) / 86400000))
 }
 
 /**
@@ -21,6 +46,11 @@ export function ComisionesTab() {
   const { rol, session, esAdmin, esPlatformAdmin, empresaId } = useAuth()
   const puedeGestionar = esAdmin || esPlatformAdmin || rol === 'admin'
   const [tecnicoSeleccionado, setTecnicoSeleccionado] = useState('')
+  // El mes arranca en el actual y filtra por FECHA DE PAGO, así que solo afecta
+  // a las comisiones ya pagadas. Lo pendiente es deuda viva y se muestra
+  // completo: una comisión de julio sin pagar tiene que verse en septiembre.
+  const [mes, setMes] = useState(() => { const h = new Date(); return new Date(h.getFullYear(), h.getMonth(), 1) })
+  const [estado, setEstado] = useState<'pendiente' | 'pagada' | 'confirmar'>('pendiente')
   const { data: ordenes = [], isLoading, error } = useQuery({
     queryKey: ['comisiones-tecnicas', empresaId, session?.user?.id, puedeGestionar],
     enabled: !!empresaId && !!session?.user?.id,
@@ -59,25 +89,40 @@ export function ComisionesTab() {
     .sort((a, b) => Number(a.comisionTecnicaPagada) - Number(b.comisionTecnicaPagada) || b.fecha.localeCompare(a.fecha)),
   [ordenes, puedeGestionar, session?.user?.id])
 
+  const mesClave = `${mes.getFullYear()}-${String(mes.getMonth() + 1).padStart(2, '0')}`
+  const mesEtiqueta = `${MESES[mes.getMonth()]} ${mes.getFullYear()}`
+  const suma = (lista: typeof filas) => lista.reduce((acc, o) => acc + (o.comisionTecnicaMonto ?? 0), 0)
+
   const pendientes = filas.filter(o => o.venta_id && !o.comisionTecnicaPagada)
   const porConfirmar = filas.filter(o => !o.venta_id)
-  const totalPendiente = pendientes.reduce((acc, o) => acc + (o.comisionTecnicaMonto ?? 0), 0)
-  const totalPorConfirmar = porConfirmar.reduce((acc, o) => acc + (o.comisionTecnicaMonto ?? 0), 0)
-  const totalPagado = filas.filter(o => o.comisionTecnicaPagada).reduce((acc, o) => acc + (o.comisionTecnicaMonto ?? 0), 0)
+  // Las pagadas SÍ se acotan al mes, por su fecha de pago.
+  const pagadasDelMes = filas.filter(o => o.comisionTecnicaPagada && claveMes(o.comisionTecnicaPagadaAt) === mesClave)
+  const totalPendiente = suma(pendientes)
+  const totalPorConfirmar = suma(porConfirmar)
+  const totalPagado = suma(pagadasDelMes)
   const porTecnico = useMemo(() => Object.values(filas.reduce<Record<string, {
-    id: string; nombre: string; pendientes: number; porConfirmar: number; pagadas: number; total: number; ordenes: number
+    id: string; nombre: string; pendientes: number; porConfirmar: number; pagadas: number; total: number; ordenes: number; ordenesPendientes: number
   }>>((acc, orden) => {
     const id = orden.tecnicoId || orden.tecnico || 'sin-tecnico'
-    if (!acc[id]) acc[id] = { id, nombre: orden.tecnico || 'Sin técnico asignado', pendientes: 0, porConfirmar: 0, pagadas: 0, total: 0, ordenes: 0 }
+    if (!acc[id]) acc[id] = { id, nombre: orden.tecnico || 'Sin técnico asignado', pendientes: 0, porConfirmar: 0, pagadas: 0, total: 0, ordenes: 0, ordenesPendientes: 0 }
     const monto = orden.comisionTecnicaMonto ?? 0
     acc[id].total += monto
     acc[id].ordenes += 1
-    if (orden.comisionTecnicaPagada) acc[id].pagadas += monto
-    else if (orden.venta_id) acc[id].pendientes += monto
+    // `pagadas` cuenta solo lo pagado en el mes elegido; lo pendiente va completo.
+    if (orden.comisionTecnicaPagada) {
+      if (claveMes(orden.comisionTecnicaPagadaAt) === mesClave) acc[id].pagadas += monto
+    } else if (orden.venta_id) { acc[id].pendientes += monto; acc[id].ordenesPendientes += 1 }
     else acc[id].porConfirmar += monto
     return acc
-  }, {})).sort((a, b) => b.pendientes - a.pendientes || b.total - a.total), [filas])
-  const filasVisibles = tecnicoSeleccionado ? filas.filter(o => (o.tecnicoId || o.tecnico || 'sin-tecnico') === tecnicoSeleccionado) : filas
+  }, {})).filter(p => p.pendientes > 0 || p.pagadas > 0 || p.porConfirmar > 0)
+    .sort((a, b) => b.pendientes - a.pendientes || b.pagadas - a.pagadas), [filas, mesClave])
+  const porEstado = estado === 'pagada' ? pagadasDelMes : estado === 'pendiente' ? pendientes : porConfirmar
+  const filasVisibles = (tecnicoSeleccionado
+    ? porEstado.filter(o => (o.tecnicoId || o.tecnico || 'sin-tecnico') === tecnicoSeleccionado)
+    : porEstado
+  ).slice().sort((a, b) => estado === 'pagada'
+    ? soloFecha(b.comisionTecnicaPagadaAt).localeCompare(soloFecha(a.comisionTecnicaPagadaAt))
+    : a.fecha.localeCompare(b.fecha))
 
   if (isLoading) return <div className="py-16 flex justify-center"><Spinner /></div>
   if (error) return (
@@ -88,45 +133,76 @@ export function ComisionesTab() {
 
   return (
     <div className="max-w-6xl mx-auto">
-      <div className="mb-6">
-        <h2 className="text-xl font-bold text-gray-900">Comisiones</h2>
-        <p className="text-sm text-gray-500 mt-1">
-          {puedeGestionar ? 'Comisiones asignadas, confirmadas por venta y estado de pago.' : 'Tus comisiones asignadas y su estado de pago.'}
-        </p>
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-bold text-gray-900">Comisiones</h2>
+          <p className="text-sm text-gray-500 mt-1">
+            {puedeGestionar ? 'Qué debes pagar, qué ya pagaste y el detalle de cada orden.' : 'Tus comisiones y su estado de pago.'}
+          </p>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <button type="button" aria-label="Mes anterior" onClick={() => setMes(m => new Date(m.getFullYear(), m.getMonth() - 1, 1))}
+            className="w-8 h-8 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition">‹</button>
+          <span className="min-w-[150px] text-center text-sm font-bold text-gray-900 capitalize">{mesEtiqueta}</span>
+          <button type="button" aria-label="Mes siguiente" onClick={() => setMes(m => new Date(m.getFullYear(), m.getMonth() + 1, 1))}
+            className="w-8 h-8 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition">›</button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
-        <Kpi label="Por confirmar venta" value={totalPorConfirmar} tone="blue" />
-        <Kpi label="Pendiente de pago" value={totalPendiente} tone="amber" />
-        <Kpi label="Comisiones pagadas" value={totalPagado} tone="green" />
-        <div className="rounded-xl border border-gray-200 bg-white p-5">
-          <div className="text-xs font-semibold uppercase tracking-wide text-gray-400">Órdenes con comisión</div>
-          <div className="text-2xl font-bold text-gray-900 mt-2">{filas.length}</div>
-          <div className="text-xs text-gray-500 mt-1">{pendientes.length} pendientes · {porConfirmar.length} por confirmar</div>
-        </div>
+      {/* Cada tarjeta declara su alcance: dos son acumuladas y una es del mes.
+          Sin decirlo, tres cifras lado a lado con reglas distintas confunden. */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        <Kpi label="Por pagar" value={totalPendiente} tone="amber"
+          detalle={plural(pendientes.length, 'orden', 'órdenes')} alcance="acumulado, todos los meses" />
+        <Kpi label="Pagado" value={totalPagado} tone="green"
+          detalle={plural(pagadasDelMes.length, 'orden', 'órdenes')} alcance={`pagado en ${mesEtiqueta}`} />
+        <Kpi label="Por confirmar venta" value={totalPorConfirmar} tone="blue"
+          detalle={plural(porConfirmar.length, 'orden', 'órdenes')} alcance="acumulado, todos los meses" />
       </div>
 
       {puedeGestionar && porTecnico.length > 0 && (
         <div className="rounded-xl border border-gray-200 bg-white overflow-hidden mb-6">
           <div className="px-5 py-4 border-b border-gray-100">
-            <h3 className="font-semibold text-gray-900">Resumen por empleado</h3>
-            <p className="text-xs text-gray-500 mt-0.5">Montos acumulados de comisiones por técnico.</p>
+            <h3 className="font-semibold text-gray-900">Por empleado</h3>
+            <p className="text-xs text-gray-500 mt-0.5">Lo que le debes a cada uno, y lo que le pagaste en {mesEtiqueta}.</p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-px bg-gray-100">
-            {porTecnico.map(persona => (
-              <button
-                type="button"
-                key={persona.id}
-                onClick={() => setTecnicoSeleccionado(actual => actual === persona.id ? '' : persona.id)}
-                className={`bg-white p-5 text-left transition hover:bg-blue-50/50 ${tecnicoSeleccionado === persona.id ? 'ring-2 ring-inset ring-blue-500 bg-blue-50/40' : ''}`}
-              >
-                <div className="font-semibold text-gray-900 truncate">{persona.nombre}</div>
-                <div className="mt-3 flex justify-between gap-3 text-sm"><span className="text-gray-500">Pendiente</span><span className="font-semibold text-amber-700"><Money value={persona.pendientes} /></span></div>
-                <div className="mt-1.5 flex justify-between gap-3 text-sm"><span className="text-gray-500">Por confirmar</span><span className="font-semibold text-blue-700"><Money value={persona.porConfirmar} /></span></div>
-                <div className="mt-1.5 flex justify-between gap-3 text-sm"><span className="text-gray-500">Pagado</span><span className="font-semibold text-emerald-700"><Money value={persona.pagadas} /></span></div>
-                <div className="mt-3 pt-3 border-t border-gray-100 flex justify-between gap-3 text-xs text-gray-500"><span>{persona.ordenes} órdenes</span><span className="font-semibold text-gray-800"><Money value={persona.total} /></span></div>
-              </button>
-            ))}
+          {/* Tabla y no tarjetas: una grilla de tres columnas se ve rota con un
+              solo empleado, que es el caso normal en un taller chico. */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-400">
+                <tr>
+                  <th className="text-left font-semibold px-5 py-3">Empleado</th>
+                  <th className="text-right font-semibold px-4 py-3">Órdenes por pagar</th>
+                  <th className="text-right font-semibold px-4 py-3">Por pagar</th>
+                  <th className="text-right font-semibold px-5 py-3">Pagado en {MESES[mes.getMonth()]}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {porTecnico.map(persona => (
+                  <tr key={persona.id}
+                    onClick={() => setTecnicoSeleccionado(actual => actual === persona.id ? '' : persona.id)}
+                    className={`cursor-pointer transition ${tecnicoSeleccionado === persona.id ? 'bg-blue-50' : 'hover:bg-gray-50'}`}>
+                    <td className="px-5 py-3 font-semibold text-gray-900">{persona.nombre}</td>
+                    <td className="px-4 py-3 text-right tabular-nums text-gray-600">
+                      {persona.ordenesPendientes || <span className="text-gray-300">0</span>}
+                    </td>
+                    <td className={`px-4 py-3 text-right tabular-nums ${persona.pendientes ? 'font-bold text-amber-700' : 'text-gray-300'}`}>
+                      <Money value={persona.pendientes} />
+                    </td>
+                    <td className={`px-5 py-3 text-right tabular-nums ${persona.pagadas ? 'text-gray-700' : 'text-gray-300'}`}>
+                      <Money value={persona.pagadas} />
+                    </td>
+                  </tr>
+                ))}
+                <tr className="bg-gray-50 font-bold text-gray-900">
+                  <td className="px-5 py-3">Total</td>
+                  <td className="px-4 py-3 text-right tabular-nums">{porTecnico.reduce((a, p) => a + p.ordenesPendientes, 0)}</td>
+                  <td className="px-4 py-3 text-right tabular-nums"><Money value={totalPendiente} /></td>
+                  <td className="px-5 py-3 text-right tabular-nums"><Money value={totalPagado} /></td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       )}
@@ -137,16 +213,32 @@ export function ComisionesTab() {
             <h3 className="font-semibold text-gray-900">Detalle por orden</h3>
             <p className="text-xs text-gray-500 mt-0.5">El pago se registra desde la orden y crea el gasto automáticamente.</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 flex-wrap">
             {puedeGestionar && porTecnico.length > 1 && <select value={tecnicoSeleccionado} onChange={e => setTecnicoSeleccionado(e.target.value)} className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-700">
               <option value="">Todos los empleados</option>
               {porTecnico.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
             </select>}
-            <span className="text-xs text-gray-400">{filasVisibles.length} registros</span>
+            <div className="flex gap-1 flex-wrap">
+              {([
+                ['pendiente', 'Por pagar', pendientes.length],
+                ['pagada', `Pagadas en ${MESES[mes.getMonth()]}`, pagadasDelMes.length],
+                ['confirmar', 'Por confirmar', porConfirmar.length],
+              ] as const).map(([id, label, n]) => (
+                <button key={id} type="button" onClick={() => setEstado(id)} aria-pressed={estado === id}
+                  className={`text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition ${
+                    estado === id ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
+                  {label} <span className="opacity-60 font-bold">{n}</span>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
         {filasVisibles.length === 0 ? (
-          <div className="py-14 text-center text-sm text-gray-400">No hay comisiones registradas todavía.</div>
+          <div className="py-14 text-center text-sm text-gray-400">
+            {estado === 'pagada' ? `No pagaste comisiones en ${mesEtiqueta}.`
+              : estado === 'pendiente' ? 'No hay comisiones por pagar. Estás al día.'
+              : 'No hay comisiones esperando confirmación de venta.'}
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[800px] text-sm">
@@ -155,10 +247,9 @@ export function ComisionesTab() {
                   <th className="text-left font-semibold px-5 py-3">Orden</th>
                   {puedeGestionar && <th className="text-left font-semibold px-4 py-3">Técnico</th>}
                   <th className="text-left font-semibold px-4 py-3">Sucursal</th>
+                  <th className="text-left font-semibold px-4 py-3">{estado === 'pagada' ? 'Pagada el' : 'Fecha de la orden'}</th>
                   <th className="text-right font-semibold px-4 py-3">Bruto cobrado</th>
-                  <th className="text-right font-semibold px-4 py-3">Neto comisionable</th>
-                  <th className="text-right font-semibold px-4 py-3">Comisión</th>
-                  <th className="text-left font-semibold px-5 py-3">Estado</th>
+                  <th className="text-right font-semibold px-5 py-3">Comisión</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -171,17 +262,18 @@ export function ComisionesTab() {
                     </td>
                     {puedeGestionar && <td className="px-4 py-3.5 text-gray-700">{o.tecnico || 'Sin técnico'}</td>}
                     <td className="px-4 py-3.5 text-gray-600">{sucursal}</td>
+                    <td className="px-4 py-3.5 text-gray-600 tabular-nums whitespace-nowrap">
+                      {estado === 'pagada' ? fechaCorta(o.comisionTecnicaPagadaAt) : fechaCorta(o.fecha)}
+                      {estado === 'pagada' && <span className="block text-xs text-gray-400">orden del {fechaCorta(o.fecha)}</span>}
+                      {estado === 'pendiente' && diasDesde(o.fecha) > 30 &&
+                        <span className="block text-xs font-semibold text-amber-700">hace {diasDesde(o.fecha)} días</span>}
+                    </td>
                     <td className="px-4 py-3.5 text-right text-gray-700"><Money value={o.comisionTecnicaBruto ?? 0} /></td>
-                    <td className="px-4 py-3.5 text-right text-gray-700"><Money value={o.comisionTecnicaBase ?? 0} /></td>
-                    <td className="px-4 py-3.5 text-right font-semibold text-gray-900"><Money value={o.comisionTecnicaMonto ?? 0} /></td>
-                    <td className="px-5 py-3.5">
-                      {o.comisionTecnicaPagada ? (
-                        <span className="inline-flex rounded-full bg-green-100 px-2.5 py-1 text-xs font-semibold text-green-700">Pagada · {fechaCorta(o.comisionTecnicaPagadaAt)}</span>
-                      ) : !o.venta_id ? (
-                        <span className="inline-flex rounded-full bg-blue-100 px-2.5 py-1 text-xs font-semibold text-blue-700">Por confirmar venta</span>
-                      ) : (
-                        <span className="inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">Pendiente</span>
-                      )}
+                    <td className="px-5 py-3.5 text-right font-semibold text-gray-900 tabular-nums">
+                      <Money value={o.comisionTecnicaMonto ?? 0} />
+                      {(o.comisionTecnicaPorcentaje ?? 0) > 0 && <span className="block text-xs font-normal text-gray-400">
+                        {o.comisionTecnicaPorcentaje}% sobre <Money value={o.comisionTecnicaBase ?? 0} />
+                      </span>}
                     </td>
                   </tr>
                 })}
@@ -194,10 +286,15 @@ export function ComisionesTab() {
   )
 }
 
-function Kpi({ label, value, tone }: { label: string; value: number; tone: 'amber' | 'green' | 'blue' }) {
-  const color = tone === 'amber' ? 'text-amber-700' : tone === 'green' ? 'text-emerald-700' : 'text-blue-700'
+function Kpi({ label, value, tone, detalle, alcance }: {
+  label: string; value: number; tone: 'amber' | 'green' | 'blue'; detalle: string; alcance: string
+}) {
+  const color = value === 0 ? 'text-gray-300'
+    : tone === 'amber' ? 'text-amber-700' : tone === 'green' ? 'text-emerald-700' : 'text-blue-700'
   return <div className="rounded-xl border border-gray-200 bg-white p-5">
     <div className="text-xs font-semibold uppercase tracking-wide text-gray-400">{label}</div>
-    <div className={`text-2xl font-bold mt-2 ${color}`}><Money value={value} /></div>
+    <div className={`text-2xl font-bold mt-2 tabular-nums ${color}`}><Money value={value} /></div>
+    <div className="text-xs text-gray-500 mt-1">{detalle}</div>
+    <div className="text-[11px] text-gray-400 mt-0.5">{alcance}</div>
   </div>
 }
