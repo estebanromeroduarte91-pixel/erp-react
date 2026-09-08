@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase'
 import { Money } from '@/components/shared/Money'
 import { Spinner } from '@/components/shared/Spinner'
 import { PagoComisionModal } from './PagoComisionModal'
+import { baseComisionable, montoComision } from '@/lib/comision'
 
 /**
  * `ordenes.fecha` viene como 'YYYY-MM-DD' pero `comision_tecnica_pagada_at` es
@@ -83,8 +84,8 @@ export function ComisionesTab() {
       return (data ?? []).map(row => {
         const bruto = Number(row.comision_tecnica_bruto ?? 0)
         const porcentaje = Number(row.comision_tecnica_porcentaje ?? 0)
-        const baseEstimada = Math.round(bruto / 1.19)
-        const montoEstimado = Math.round(baseEstimada * porcentaje / 100)
+        const baseEstimada = baseComisionable(bruto)
+        const montoEstimado = montoComision(bruto, porcentaje)
         return {
         id: row.id, num: row.num, fecha: row.fecha, modelo: row.modelo, trabajo: row.trabajo,
         tecnico: row.tecnico, tecnicoId: row.tecnico_id, branchId: row.branch_id,

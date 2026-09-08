@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { PagoComisionModal } from './PagoComisionModal'
+import { baseComisionable, montoComision } from '@/lib/comision'
 import { useParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { useOrdenesLite, useOrdenPorNum, useActualizarOrden, usePagarComisionTecnica, useMsgTemplates, useSeguimientoConfig, useChecklist, useEquipos, useBuscarProductos, useBodegas, useTraslados, useTerminos, useUserProfiles } from '@/lib/queries'
@@ -232,7 +233,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
   const orden = o! // safe: early returns above guarantee o is defined here during render
   const brutoComisionable = Math.max(0, Number(comisionBrutoForm) || 0)
   const porcentajeComision = Math.min(100, Math.max(0, Number(comisionPorcentajeForm) || 0))
-  const netoComisionableEstimado = Math.round(brutoComisionable / 1.19)
+  const netoComisionableEstimado = baseComisionable(brutoComisionable)
   const montoComisionEstimado = Math.round(netoComisionableEstimado * porcentajeComision / 100)
 
   function buildVars() {
@@ -294,8 +295,8 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
     const porcentaje = Math.min(100, Math.max(0, Number(comisionPorcentajeForm) || 0))
     const bruto = Math.max(0, Number(comisionBrutoForm) || 0)
     const comisionActiva = comisionActivaForm && !!tecnicoForm.trim() && bruto > 0 && porcentaje > 0
-    const baseEstimada = Math.round(bruto / 1.19)
-    const montoEstimado = Math.round(baseEstimada * porcentaje / 100)
+    const baseEstimada = baseComisionable(bruto)
+    const montoEstimado = montoComision(bruto, porcentaje)
     setGuardandoTecnico(true)
     try {
       await actualizarOrden.mutateAsync({
