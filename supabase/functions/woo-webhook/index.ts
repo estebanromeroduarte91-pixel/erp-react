@@ -22,6 +22,15 @@ function json(body: unknown, status = 200) {
   });
 }
 
+function desgloseMontos(pedido: Record<string, unknown>) {
+  const total = Number(pedido.total ?? 0);
+  const costoEnvio = Number(pedido.shipping_total ?? 0) + Number(pedido.shipping_tax ?? 0);
+  return {
+    subtotal_productos: Math.max(0, total - costoEnvio),
+    costo_envio: Math.max(0, costoEnvio),
+  };
+}
+
 /** Compara sin filtrar por dónde difieren las cadenas (evita timing attacks). */
 function igualSeguro(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
@@ -141,6 +150,7 @@ Deno.serve(async (req) => {
       estado_origen: estado,
       moneda: String(pedido.currency ?? "CLP"),
       total: Number(pedido.total ?? 0),
+      ...desgloseMontos(pedido),
       metodo_pago: String(pedido.payment_method ?? ""),
       metodo_pago_titulo: String(pedido.payment_method_title ?? ""),
       cliente_nombre: nombreCliente,

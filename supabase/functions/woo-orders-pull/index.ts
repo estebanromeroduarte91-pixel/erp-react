@@ -28,6 +28,15 @@ function tienePagoConfirmado(pedido: Record<string, unknown>): boolean {
   return Boolean(pedido.date_paid_gmt || pedido.date_paid);
 }
 
+function desgloseMontos(pedido: Record<string, unknown>) {
+  const total = Number(pedido.total ?? 0);
+  const costoEnvio = Number(pedido.shipping_total ?? 0) + Number(pedido.shipping_tax ?? 0);
+  return {
+    subtotal_productos: Math.max(0, total - costoEnvio),
+    costo_envio: Math.max(0, costoEnvio),
+  };
+}
+
 function pedidoFila(empresaId: string, pedido: Record<string, unknown>) {
   const billing = (pedido.billing ?? {}) as Record<string, unknown>;
   const shipping = (pedido.shipping ?? {}) as Record<string, unknown>;
@@ -42,6 +51,7 @@ function pedidoFila(empresaId: string, pedido: Record<string, unknown>) {
     estado_origen: String(pedido.status ?? "pending"),
     moneda: String(pedido.currency ?? "CLP"),
     total: Number(pedido.total ?? 0),
+    ...desgloseMontos(pedido),
     metodo_pago: String(pedido.payment_method ?? ""),
     metodo_pago_titulo: String(pedido.payment_method_title ?? ""),
     cliente_nombre: nombre,

@@ -27,6 +27,8 @@ interface PedidoEcommerce {
   estado_gestion: EstadoGestion
   moneda: string
   total: number
+  subtotal_productos: number
+  costo_envio: number
   metodo_pago_titulo: string | null
   cliente_nombre: string | null
   cliente_email: string | null
@@ -127,7 +129,7 @@ export function EcommercePage() {
     enabled: !!empresaId && (periodo !== 'rango' || (!!desde && !!hasta && desde <= hasta)),
     queryFn: async () => {
       let consulta = supabase.from('ecommerce_pedidos')
-        .select('id,pedido_externo_id,numero,estado_origen,estado_gestion,moneda,total,metodo_pago_titulo,cliente_nombre,cliente_email,cliente_telefono,facturacion,envio,items,nota_cliente,pagado_en,creado_en_origen,recibido_en,stock_resultado')
+        .select('id,pedido_externo_id,numero,estado_origen,estado_gestion,moneda,total,subtotal_productos,costo_envio,metodo_pago_titulo,cliente_nombre,cliente_email,cliente_telefono,facturacion,envio,items,nota_cliente,pagado_en,creado_en_origen,recibido_en,stock_resultado')
         .eq('empresa_id', empresaId!)
         .not('pagado_en', 'is', null)
       if (limites.inicio) consulta = consulta.gte('creado_en_origen', limites.inicio)
@@ -136,7 +138,13 @@ export function EcommercePage() {
         .order('creado_en_origen', { ascending: false, nullsFirst: false })
         .limit(1000)
       if (error) throw error
-      return (data ?? []).map(p => ({ ...p, total: Number(p.total ?? 0), items: (p.items ?? []) as unknown as ItemPedido[] })) as PedidoEcommerce[]
+      return (data ?? []).map(p => ({
+        ...p,
+        total: Number(p.total ?? 0),
+        subtotal_productos: Number(p.subtotal_productos ?? p.total ?? 0),
+        costo_envio: Number(p.costo_envio ?? 0),
+        items: (p.items ?? []) as unknown as ItemPedido[],
+      })) as PedidoEcommerce[]
     },
     refetchInterval: 30_000,
   })
@@ -282,7 +290,7 @@ export function EcommercePage() {
             <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 text-[11px] uppercase tracking-wide text-gray-400">
-                  <tr><th className="text-left px-5 py-3">Pedido</th><th className="text-left px-4 py-3">Cliente</th><th className="text-left px-4 py-3">Compra</th><th className="text-left px-4 py-3">WooCommerce</th><th className="text-left px-4 py-3">Gestión</th><th className="text-right px-5 py-3">Total</th></tr>
+                  <tr><th className="text-left px-5 py-3">Pedido</th><th className="text-left px-4 py-3">Cliente</th><th className="text-left px-4 py-3">Compra</th><th className="text-right px-4 py-3">Productos</th><th className="text-right px-4 py-3">Envío</th><th className="text-left px-4 py-3">WooCommerce</th><th className="text-left px-4 py-3">Gestión</th><th className="text-right px-5 py-3">Total</th></tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {filtrados.map(p => <FilaPedido key={p.id} pedido={p} onOpen={() => setDetalle(p)} onEstado={estadoGestion => actualizarEstado.mutate({ id: p.id, estadoGestion })} />)}
@@ -318,6 +326,8 @@ function FilaPedido({ pedido, onOpen, onEstado }: { pedido: PedidoEcommerce; onO
     <td className="px-5 py-4"><p className="font-bold text-blue-600">#{pedido.numero}</p><p className="text-xs text-gray-400 mt-1">{fecha(pedido.creado_en_origen ?? pedido.recibido_en)}</p></td>
     <td className="px-4 py-4"><p className="font-semibold text-gray-800">{pedido.cliente_nombre || 'Cliente ecommerce'}</p><p className="text-xs text-gray-400 mt-1">{pedido.cliente_email || 'Sin email'}</p></td>
     <td className="px-4 py-4"><p className="text-gray-700">{pedido.items.length} {pedido.items.length === 1 ? 'producto' : 'productos'}</p>{alerta && <p className="text-xs font-semibold text-amber-600 mt-1">Revisar SKU</p>}</td>
+    <td className="px-4 py-4 text-right font-medium text-gray-700 whitespace-nowrap">{dinero(pedido.subtotal_productos, pedido.moneda)}</td>
+    <td className="px-4 py-4 text-right font-medium text-gray-500 whitespace-nowrap">{pedido.costo_envio > 0 ? dinero(pedido.costo_envio, pedido.moneda) : 'Sin costo'}</td>
     <td className="px-4 py-4"><span className="text-xs font-medium text-gray-600">{WOO_ESTADOS[pedido.estado_origen] ?? pedido.estado_origen}</span></td>
     <td className="px-4 py-4"><SelectorEstado pedido={pedido} onEstado={onEstado} /></td>
     <td className="px-5 py-4 text-right font-bold text-gray-900">{dinero(pedido.total, pedido.moneda)}</td>
@@ -328,7 +338,7 @@ function TarjetaPedido({ pedido, onOpen, onEstado }: { pedido: PedidoEcommerce; 
   const alerta = (pedido.stock_resultado?.ignorados?.length ?? 0) > 0
   return <div className="p-4" onClick={onOpen}>
     <div className="flex justify-between gap-3"><div><p className="font-bold text-blue-600">#{pedido.numero}</p><p className="text-sm font-semibold text-gray-900 mt-1">{pedido.cliente_nombre || 'Cliente ecommerce'}</p></div><p className="font-bold text-gray-900 whitespace-nowrap">{dinero(pedido.total, pedido.moneda)}</p></div>
-    <div className="mt-3 flex items-center justify-between gap-3"><div><p className="text-xs text-gray-500">{pedido.items.length} {pedido.items.length === 1 ? 'producto' : 'productos'} · {WOO_ESTADOS[pedido.estado_origen] ?? pedido.estado_origen}</p>{alerta && <p className="text-xs font-semibold text-amber-600 mt-1">Revisar SKU sin asociar</p>}</div><SelectorEstado pedido={pedido} onEstado={onEstado} /></div>
+    <div className="mt-3 flex items-center justify-between gap-3"><div><p className="text-xs text-gray-500">{pedido.items.length} {pedido.items.length === 1 ? 'producto' : 'productos'} · {WOO_ESTADOS[pedido.estado_origen] ?? pedido.estado_origen}</p><p className="mt-1 text-xs text-gray-500">Productos {dinero(pedido.subtotal_productos, pedido.moneda)} · Envío {pedido.costo_envio > 0 ? dinero(pedido.costo_envio, pedido.moneda) : '$0'}</p>{alerta && <p className="text-xs font-semibold text-amber-600 mt-1">Revisar SKU sin asociar</p>}</div><SelectorEstado pedido={pedido} onEstado={onEstado} /></div>
   </div>
 }
 
@@ -343,7 +353,7 @@ function DetallePedido({ pedido, siteUrl, onClose }: { pedido: PedidoEcommerce; 
         {alertas.length > 0 && <section className="rounded-xl border border-amber-200 bg-amber-50 p-4"><h3 className="text-sm font-bold text-amber-800">Productos que no movieron stock</h3>{alertas.map((a, i) => <p key={i} className="text-xs text-amber-700 mt-2">{a.sku || a.nombre || 'Producto'}: {a.motivo}</p>)}</section>}
         <section className="grid grid-cols-1 sm:grid-cols-2 gap-3"><Info title="Cliente" lines={[pedido.cliente_nombre, pedido.cliente_email, pedido.cliente_telefono]} /><Info title="Despacho" lines={[direccion(Object.keys(pedido.envio ?? {}).length ? pedido.envio : pedido.facturacion)]} /></section>
         {pedido.nota_cliente && <Info title="Nota del cliente" lines={[pedido.nota_cliente]} />}
-        <section className="rounded-xl bg-gray-50 p-4 space-y-2"><div className="flex justify-between text-sm text-gray-500"><span>Método de pago</span><span>{pedido.metodo_pago_titulo || 'No informado'}</span></div><div className="flex justify-between text-base font-bold text-gray-900"><span>Total</span><span>{dinero(pedido.total, pedido.moneda)}</span></div></section>
+        <section className="rounded-xl bg-gray-50 p-4 space-y-2"><div className="flex justify-between text-sm text-gray-500"><span>Método de pago</span><span>{pedido.metodo_pago_titulo || 'No informado'}</span></div><div className="flex justify-between text-sm text-gray-600"><span>Productos</span><span>{dinero(pedido.subtotal_productos, pedido.moneda)}</span></div><div className="flex justify-between text-sm text-gray-600"><span>Envío</span><span>{dinero(pedido.costo_envio, pedido.moneda)}</span></div><div className="flex justify-between border-t border-gray-200 pt-2 text-base font-bold text-gray-900"><span>Total pagado</span><span>{dinero(pedido.total, pedido.moneda)}</span></div></section>
         {urlWoo && <a href={urlWoo} target="_blank" rel="noreferrer" className="block w-full rounded-xl bg-gray-900 px-4 py-3 text-center text-sm font-semibold text-white">Abrir pedido en WooCommerce</a>}
       </div>
     </div>
