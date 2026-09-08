@@ -1,0 +1,112 @@
+<title>Estado en la Lista</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#f8f9fb;--card:#fff;--line:#e5e7eb;--line2:#f3f4f6;
+    --ink:#111827;--ink2:#4b5563;--muted:#9ca3af;--azul:#2563eb}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:'Manrope',system-ui,sans-serif;font-size:14px;-webkit-font-smoothing:antialiased}
+  .n{font-family:'JetBrains Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums}
+  .wrap{max-width:1120px;margin:0 auto;padding:24px 20px 60px}
+  h1{font-size:19px;font-weight:800;margin:0 0 4px}
+  .lead{color:var(--ink2);font-size:13px;margin:0 0 24px;max-width:74ch;line-height:1.55}
+  .box{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-bottom:14px}
+  .head{padding:14px 18px;border-bottom:1px solid var(--line2);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+  .head h3{font-size:14px;font-weight:700;margin:0}
+  .head .s{font-size:11.5px;color:var(--muted);margin:2px 0 0}
+  .chips{display:flex;gap:4px;flex-wrap:wrap}
+  .chips button{font-family:inherit;font-size:12px;font-weight:600;padding:5px 11px;border-radius:8px;
+    border:1px solid var(--line);background:var(--card);color:var(--ink2);cursor:pointer}
+  .chips button[aria-pressed="true"]{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .chips button b{font-weight:800;opacity:.55;margin-left:2px}
+  button:focus-visible{outline:2px solid var(--azul);outline-offset:2px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{font-size:9.5px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);
+    text-align:left;padding:9px 18px;background:#fafbfc;border-bottom:1px solid var(--line2)}
+  th.r,td.r{text-align:right}
+  td{padding:12px 18px;border-bottom:1px solid var(--line2);color:var(--ink2);vertical-align:middle}
+  tbody tr:last-child td{border-bottom:0}
+  tbody tr:hover td{background:#fafbfc}
+  td.nom{color:var(--ink);font-weight:600}
+  td .met{display:block;font-size:11px;color:var(--muted);font-weight:400;margin-top:1px}
+  .ot{color:var(--azul);font-weight:700;text-decoration:none}
+  /* pills — las mismas clases que ya usa Pixit */
+  .pill{display:inline-block;font-size:11px;font-weight:600;padding:3px 10px;border-radius:999px;white-space:nowrap}
+  .p-pagar{background:#fee2e2;color:#dc2626}      /* bg-red-100 text-red-600 */
+  .p-pagada{background:#dcfce7;color:#15803d}     /* bg-green-100 text-green-700 */
+  .p-conf{background:#dbeafe;color:#1d4ed8}       /* bg-blue-100 text-blue-700 */
+  .p-nov{background:#f3f4f6;color:#4b5563}        /* bg-gray-100 text-gray-600 */
+  .accion{font-family:inherit;font-size:11.5px;font-weight:700;padding:5px 12px;border-radius:7px;
+    border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;white-space:nowrap}
+  .accion:hover{background:#f3f4f6}
+  .nota{font-size:12px;color:var(--ink2);background:#fffbeb;border:1px solid #fde68a;border-radius:9px;
+    padding:11px 14px;line-height:1.55}
+  .antes{opacity:.55;pointer-events:none}
+  .et{font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+</style>
+
+<div class="wrap">
+  <h1>El estado se muestra, no esconde la fila</h1>
+  <p class="lead">Hoy al pagar la orden desaparece de la vista porque cambia de pestaña. En la propuesta la lista es
+    una sola: la fila se queda donde está y solo cambia su etiqueta. <b>Prueba el botón Pagar</b> — vas a ver la fila
+    quedarse en su lugar y ponerse verde.</p>
+
+  <p class="et">Propuesta</p>
+  <div class="box">
+    <div class="head">
+      <div><h3>Detalle por orden</h3><p class="s">El pago se registra desde acá y crea el gasto automáticamente.</p></div>
+      <div class="chips" id="chips"></div>
+    </div>
+    <table>
+      <thead><tr><th>Orden</th><th>Técnico</th><th>Sucursal</th><th>Fecha</th>
+        <th class="r">Bruto cobrado</th><th class="r">Comisión</th><th>Estado</th><th></th></tr></thead>
+      <tbody id="filas"></tbody>
+    </table>
+  </div>
+
+  <p class="nota"><b>Las etiquetas usan las mismas clases que el resto de Pixit:</b>
+    <span class="pill p-pagar">Por pagar</span> rojo como «Anulada» en Ventas,
+    <span class="pill p-pagada">Pagada</span> verde como «Pagada»,
+    <span class="pill p-conf">Por confirmar venta</span> azul,
+    <span class="pill p-nov">No vigente</span> gris. Los filtros de arriba siguen ahí para cuando quieras acotar,
+    pero ahora arrancan en «Todas» y ninguno oculta lo que acabas de pagar.</p>
+</div>
+
+<script>
+const clp=n=>'$'+n.toLocaleString('es-CL');
+const ETQ={pagar:['Por pagar','p-pagar'],pagada:['Pagada','p-pagada'],
+           conf:['Por confirmar venta','p-conf'],nov:['No vigente','p-nov']};
+const D=[
+ {num:'3890',eq:'MacBook Pro 13" A1708 [Apple]',tec:'Juan Quintero',suc:'Los Dominicos',fecha:'29-08-2026',bruto:169990,base:137692,monto:27538,est:'pagar'},
+ {num:'3892',eq:'MacBook Air 13" A1466 [Apple]',tec:'Juan Quintero',suc:'Los Dominicos',fecha:'29-08-2026',bruto:149990,base:121492,monto:24298,est:'pagar'},
+ {num:'3924',eq:'iPhone 11 [Apple]',tec:'Juan Quintero',suc:'Los Dominicos',fecha:'08-09-2026',bruto:79990,base:64792,monto:12958,est:'pagada',pagadaEl:'08-09-2026'},
+ {num:'3910',eq:'MacBook Air [Apple]',tec:'Enrique Camacaro',suc:'La Dehesa',fecha:'01-09-2026',bruto:189990,base:153892,monto:23084,est:'conf'},
+ {num:'3877',eq:'iPad 9 [Apple]',tec:'Candela Rodriguez',suc:'Los Dominicos',fecha:'21-08-2026',bruto:59990,base:48592,monto:9718,est:'nov'},
+];
+let filtro='todas';
+const CH=[['todas','Todas'],['pagar','Por pagar'],['pagada','Pagadas'],['conf','Por confirmar'],['nov','No vigentes']];
+
+function render(){
+  document.getElementById('chips').innerHTML=CH.map(([id,l])=>{
+    const n=id==='todas'?D.length:D.filter(d=>d.est===id).length;
+    return `<button data-f="${id}" aria-pressed="${filtro===id}">${l} <b>${n}</b></button>`}).join('');
+  const vis=D.filter(d=>filtro==='todas'||d.est===filtro);
+  document.getElementById('filas').innerHTML=vis.map(d=>{
+    const[et,cl]=ETQ[d.est];
+    return `<tr>
+      <td class="nom"><a class="ot" href="#">OT #${d.num}</a><span class="met">${d.eq}</span></td>
+      <td>${d.tec}</td><td>${d.suc}</td>
+      <td class="n">${d.fecha}${d.pagadaEl?`<span class="met">pagada el ${d.pagadaEl}</span>`:''}</td>
+      <td class="r n">${clp(d.bruto)}</td>
+      <td class="r n" style="font-weight:700;color:var(--ink)">${clp(d.monto)}<span class="met">20% sobre ${clp(d.base)}</span></td>
+      <td><span class="pill ${cl}">${et}</span></td>
+      <td class="r">${d.est==='pagar'?`<button class="accion" data-pagar="${d.num}">Pagar</button>`:''}</td></tr>`}).join('');
+}
+document.addEventListener('click',e=>{
+  const f=e.target.closest('[data-f]'); if(f){filtro=f.dataset.f;render();return;}
+  const p=e.target.closest('[data-pagar]');
+  if(p){const d=D.find(x=>x.num===p.dataset.pagar); d.est='pagada'; d.pagadaEl='08-09-2026'; render();}
+});
+render();
+</script>
