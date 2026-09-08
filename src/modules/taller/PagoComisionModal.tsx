@@ -7,6 +7,18 @@ function fechaLocalHoy() {
   return new Date(ahora.getTime() - desfase).toISOString().slice(0, 10)
 }
 
+function mensajeError(error: unknown) {
+  if (error instanceof Error) return error.message
+  // Los errores de RPC de Supabase son objetos PostgREST, no instancias de
+  // Error. Mostrar su mensaje evita el engañoso "No se pudo registrar" y deja
+  // claro al administrador qué validación debe resolver.
+  if (typeof error === 'object' && error !== null && 'message' in error) {
+    const mensaje = (error as { message?: unknown }).message
+    if (typeof mensaje === 'string' && mensaje.trim()) return mensaje
+  }
+  return 'No se pudo registrar el pago.'
+}
+
 /**
  * Registrar el pago de una comisión. Vive en su propio archivo porque se usa
  * desde dos lados: la ficha de la orden y el listado de Comisiones, que es
@@ -29,7 +41,7 @@ export function PagoComisionModal({ tecnico, monto, onClose, onConfirm }: {
     try {
       await onConfirm({ fecha, metodo })
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'No se pudo registrar el pago.')
+      setError(mensajeError(e))
       setGuardando(false)
     }
   }

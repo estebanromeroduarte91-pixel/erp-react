@@ -17,6 +17,7 @@ as $$
 declare
   v_orden public.ordenes%rowtype;
   v_role text;
+  v_es_platform_admin boolean := public.is_platform_admin();
   v_gasto_id text;
 begin
   select * into v_orden
@@ -34,7 +35,9 @@ begin
     and empresa_id = v_orden.empresa_id
     and activo is distinct from false;
 
-  if coalesce(v_role, '') <> 'admin' then
+  -- La interfaz permite que el superadministrador de Pixit gestione una
+  -- empresa impersonada; la función debe respetar exactamente ese permiso.
+  if not v_es_platform_admin and coalesce(v_role, '') <> 'admin' then
     raise exception 'Solo un administrador puede registrar el pago de una comisión.';
   end if;
 
