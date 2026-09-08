@@ -2,10 +2,11 @@ import { Link } from 'react-router-dom'
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '@/context/AuthContext'
-import { useBodegas } from '@/lib/queries'
+import { useBodegas, usePagarComisionTecnica } from '@/lib/queries'
 import { supabase } from '@/lib/supabase'
 import { Money } from '@/components/shared/Money'
 import { Spinner } from '@/components/shared/Spinner'
+import { PagoComisionModal } from './PagoComisionModal'
 
 /**
  * `ordenes.fecha` viene como 'YYYY-MM-DD' pero `comision_tecnica_pagada_at` es
@@ -51,6 +52,10 @@ export function ComisionesTab() {
   // completo: una comisión de julio sin pagar tiene que verse en septiembre.
   const [mes, setMes] = useState(() => { const h = new Date(); return new Date(h.getFullYear(), h.getMonth(), 1) })
   const [estado, setEstado] = useState<'pendiente' | 'pagada' | 'confirmar'>('pendiente')
+  // Orden cuyo pago se está registrando. El mismo modal que usa la ficha de la
+  // orden, para que el flujo y el gasto que genera sean idénticos por los dos lados.
+  const [pagando, setPagando] = useState<{ id: string; tecnico: string; monto: number } | null>(null)
+  const pagarComision = usePagarComisionTecnica()
   const { data: ordenes = [], isLoading, error } = useQuery({
     queryKey: ['comisiones-tecnicas', empresaId, session?.user?.id, puedeGestionar],
     enabled: !!empresaId && !!session?.user?.id,
@@ -249,7 +254,8 @@ export function ComisionesTab() {
                   <th className="text-left font-semibold px-4 py-3">Sucursal</th>
                   <th className="text-left font-semibold px-4 py-3">{estado === 'pagada' ? 'Pagada el' : 'Fecha de la orden'}</th>
                   <th className="text-right font-semibold px-4 py-3">Bruto cobrado</th>
-                  <th className="text-right font-semibold px-5 py-3">Comisión</th>
+                  <th className="text-right font-semibold px-4 py-3">Comisión</th>
+                  {puedeGestionar && <th className="px-5 py-3" />}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -269,12 +275,23 @@ export function ComisionesTab() {
                         <span className="block text-xs font-semibold text-amber-700">hace {diasDesde(o.fecha)} días</span>}
                     </td>
                     <td className="px-4 py-3.5 text-right text-gray-700"><Money value={o.comisionTecnicaBruto ?? 0} /></td>
-                    <td className="px-5 py-3.5 text-right font-semibold text-gray-900 tabular-nums">
+                    <td className="px-4 py-3.5 text-right font-semibold text-gray-900 tabular-nums">
                       <Money value={o.comisionTecnicaMonto ?? 0} />
                       {(o.comisionTecnicaPorcentaje ?? 0) > 0 && <span className="block text-xs font-normal text-gray-400">
                         {o.comisionTecnicaPorcentaje}% sobre <Money value={o.comisionTecnicaBase ?? 0} />
                       </span>}
                     </td>
+                    {puedeGestionar && <td className="px-5 py-3.5 text-right">
+                      {/* Solo se paga lo que ya tiene venta confirmada; sin venta
+                          la comisión todavía no es exigible. */}
+                      {!o.comisionTecnicaPagada && o.venta_id && (
+                        <button type="button"
+                          onClick={() => setPagando({ id: o.id, tecnico: o.tecnico || 'Técnico asignado', monto: o.comisionTecnicaMonto ?? 0 })}
+                          className="whitespace-nowrap rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-bold text-gray-900 hover:bg-gray-50 transition">
+                          Pagar
+                        </button>
+                      )}
+                    </td>}
                   </tr>
                 })}
               </tbody>
@@ -282,6 +299,18 @@ export function ComisionesTab() {
           </div>
         )}
       </div>
+
+      {pagando && (
+        <PagoComisionModal
+          tecnico={pagando.tecnico}
+          monto={pagando.monto}
+          onClose={() => setPagando(null)}
+          onConfirm={async ({ fecha, metodo }) => {
+            await pagarComision.mutateAsync({ ordenId: pagando.id, fecha, metodo })
+            setPagando(null)
+          }}
+        />
+      )}
     </div>
   )
 }

@@ -413,6 +413,9 @@ export function usePagarComisionTecnica() {
       void qc.invalidateQueries({ queryKey: ['orden-por-num', empresaId] })
       void qc.invalidateQueries({ queryKey: ['ordenes-lite', empresaId] })
       void qc.invalidateQueries({ queryKey: ['gastos', empresaId] })
+      // Faltaba: sin esto, pagar desde el listado de Comisiones dejaba la fila
+      // como pendiente hasta recargar la página.
+      void qc.invalidateQueries({ queryKey: ['comisiones-tecnicas', empresaId] })
     },
   })
 }
