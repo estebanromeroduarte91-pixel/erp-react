@@ -120,38 +120,57 @@ Deno.serve(async (req) => {
     };
   });
 
-  // Guarda una copia operativa completa. Esta escritura NO crea una venta y NO
-  // mueve stock; fn_woo_aplicar_pedido conserva esa responsabilidad exclusiva.
+  // La bandeja operativa muestra únicamente pedidos cuyo pago fue confirmado
+  // por WooCommerce. Los intentos pendientes, fallidos o cancelados antes del
+  // cobro no deben convertirse en trabajo para el equipo.
+  const fechaPago = pedido.date_paid_gmt || pedido.date_paid;
+  let pedidoGuardado = false;
+
+  // Esta escritura NO crea una venta y NO mueve stock;
+  // fn_woo_aplicar_pedido conserva esa responsabilidad exclusiva.
   const billing = (pedido.billing ?? {}) as Record<string, unknown>;
   const shipping = (pedido.shipping ?? {}) as Record<string, unknown>;
   const nombreCliente = [billing.first_name, billing.last_name].filter(Boolean).join(" ")
     || String(billing.company ?? "") || "Cliente ecommerce";
-  const { error: errorGuardar } = await admin.from("ecommerce_pedidos").upsert({
-    empresa_id: conn.empresa_id,
-    canal: "woocommerce",
-    pedido_externo_id: orderId,
-    numero: String(pedido.number ?? orderId),
-    estado_origen: estado,
-    moneda: String(pedido.currency ?? "CLP"),
-    total: Number(pedido.total ?? 0),
-    metodo_pago: String(pedido.payment_method ?? ""),
-    metodo_pago_titulo: String(pedido.payment_method_title ?? ""),
-    cliente_nombre: nombreCliente,
-    cliente_email: String(billing.email ?? ""),
-    cliente_telefono: String(billing.phone ?? ""),
-    facturacion: billing,
-    envio: shipping,
-    items,
-    nota_cliente: String(pedido.customer_note ?? ""),
-    pagado_en: pedido.date_paid_gmt ? `${String(pedido.date_paid_gmt)}Z` : null,
-    creado_en_origen: pedido.date_created_gmt ? `${String(pedido.date_created_gmt)}Z` : null,
-    actualizado_en_origen: pedido.date_modified_gmt ? `${String(pedido.date_modified_gmt)}Z` : null,
-    recibido_en: new Date().toISOString(),
-    actualizado_en: new Date().toISOString(),
-  }, { onConflict: "empresa_id,canal,pedido_externo_id", ignoreDuplicates: false });
-  // Durante un despliegue escalonado la tabla puede no existir todavía. No se
-  // bloquea el webhook ni el descuento de stock por una falla de la bandeja.
-  if (errorGuardar) console.error("woo-webhook guardar pedido", orderId, errorGuardar.message);
+  if (fechaPago) {
+    const { error: errorGuardar } = await admin.from("ecommerce_pedidos").upsert({
+      empresa_id: conn.empresa_id,
+      canal: "woocommerce",
+      pedido_externo_id: orderId,
+      numero: String(pedido.number ?? orderId),
+      estado_origen: estado,
+      moneda: String(pedido.currency ?? "CLP"),
+      total: Number(pedido.total ?? 0),
+      metodo_pago: String(pedido.payment_method ?? ""),
+      metodo_pago_titulo: String(pedido.payment_method_title ?? ""),
+      cliente_nombre: nombreCliente,
+      cliente_email: String(billing.email ?? ""),
+      cliente_telefono: String(billing.phone ?? ""),
+      facturacion: billing,
+      envio: shipping,
+      items,
+      nota_cliente: String(pedido.customer_note ?? ""),
+      pagado_en: pedido.date_paid_gmt ? `${String(pedido.date_paid_gmt)}Z` : String(pedido.date_paid),
+      creado_en_origen: pedido.date_created_gmt ? `${String(pedido.date_created_gmt)}Z` : null,
+      actualizado_en_origen: pedido.date_modified_gmt ? `${String(pedido.date_modified_gmt)}Z` : null,
+      recibido_en: new Date().toISOString(),
+      actualizado_en: new Date().toISOString(),
+    }, { onConflict: "empresa_id,canal,pedido_externo_id", ignoreDuplicates: false });
+    // Durante un despliegue escalonado la tabla puede no existir todavía. No
+    // se bloquea el webhook ni el stock por una falla de la bandeja.
+    if (errorGuardar) console.error("woo-webhook guardar pedido", orderId, errorGuardar.message);
+    pedidoGuardado = !errorGuardar;
+  } else {
+    // Si antes se alcanzó a guardar como intento, deja de aparecer en la
+    // bandeja. Esto no elimina el pedido real de WooCommerce.
+    const { error: errorQuitar } = await admin.from("ecommerce_pedidos")
+      .delete()
+      .eq("empresa_id", conn.empresa_id)
+      .eq("canal", "woocommerce")
+      .eq("pedido_externo_id", orderId)
+      .is("pagado_en", null);
+    if (errorQuitar) console.error("woo-webhook quitar pedido sin pago", orderId, errorQuitar.message);
+  }
 
   const { data, error } = await admin.rpc("fn_woo_aplicar_pedido", {
     p_token: token,
@@ -165,7 +184,7 @@ Deno.serve(async (req) => {
     return json({ ok: false, error: error.message }, 500);
   }
 
-  if (!errorGuardar) {
+  if (pedidoGuardado) {
     await admin.from("ecommerce_pedidos")
       .update({ stock_resultado: data, actualizado_en: new Date().toISOString() })
       .eq("empresa_id", conn.empresa_id)

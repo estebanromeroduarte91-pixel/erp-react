@@ -7,6 +7,7 @@ import { Spinner } from '@/components/shared/Spinner'
 import { extraerMensajeError } from '@/lib/edgeError'
 
 type EstadoGestion = 'nuevo' | 'preparando' | 'listo' | 'despachado' | 'entregado' | 'cancelado'
+type Periodo = 'mes' | 'hoy' | 'rango' | 'todo'
 
 interface ItemPedido {
   id?: number
@@ -63,6 +64,33 @@ function fecha(valor: string | null) {
   return new Intl.DateTimeFormat('es-CL', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(valor))
 }
 
+function fechaInput(valor: Date) {
+  const year = valor.getFullYear()
+  const month = String(valor.getMonth() + 1).padStart(2, '0')
+  const day = String(valor.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function limitesPeriodo(periodo: Periodo, desde: string, hasta: string) {
+  if (periodo === 'todo') return { inicio: null, fin: null }
+  const ahora = new Date()
+  let inicio: Date
+  let fin: Date
+
+  if (periodo === 'hoy') {
+    inicio = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate())
+    fin = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate() + 1)
+  } else if (periodo === 'mes') {
+    inicio = new Date(ahora.getFullYear(), ahora.getMonth(), 1)
+    fin = new Date(ahora.getFullYear(), ahora.getMonth() + 1, 1)
+  } else {
+    inicio = new Date(`${desde}T00:00:00`)
+    const ultimoDia = new Date(`${hasta}T00:00:00`)
+    fin = new Date(ultimoDia.getFullYear(), ultimoDia.getMonth(), ultimoDia.getDate() + 1)
+  }
+  return { inicio: inicio.toISOString(), fin: fin.toISOString() }
+}
+
 function textoBusqueda(valor: string) {
   return valor.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
 }
@@ -84,19 +112,29 @@ function direccion(datos: Record<string, unknown>) {
 export function EcommercePage() {
   const { empresaId } = useAuth()
   const qc = useQueryClient()
+  const hoy = fechaInput(new Date())
+  const inicioMes = fechaInput(new Date(new Date().getFullYear(), new Date().getMonth(), 1))
   const [buscar, setBuscar] = useState('')
   const [estado, setEstado] = useState<'todos' | EstadoGestion>('todos')
+  const [periodo, setPeriodo] = useState<Periodo>('mes')
+  const [desde, setDesde] = useState(inicioMes)
+  const [hasta, setHasta] = useState(hoy)
   const [detalle, setDetalle] = useState<PedidoEcommerce | null>(null)
+  const limites = useMemo(() => limitesPeriodo(periodo, desde, hasta), [periodo, desde, hasta])
 
   const pedidosQuery = useQuery({
-    queryKey: ['ecommerce-pedidos', empresaId],
-    enabled: !!empresaId,
+    queryKey: ['ecommerce-pedidos', empresaId, periodo, desde, hasta],
+    enabled: !!empresaId && (periodo !== 'rango' || (!!desde && !!hasta && desde <= hasta)),
     queryFn: async () => {
-      const { data, error } = await supabase.from('ecommerce_pedidos')
+      let consulta = supabase.from('ecommerce_pedidos')
         .select('id,pedido_externo_id,numero,estado_origen,estado_gestion,moneda,total,metodo_pago_titulo,cliente_nombre,cliente_email,cliente_telefono,facturacion,envio,items,nota_cliente,pagado_en,creado_en_origen,recibido_en,stock_resultado')
         .eq('empresa_id', empresaId!)
+        .not('pagado_en', 'is', null)
+      if (limites.inicio) consulta = consulta.gte('creado_en_origen', limites.inicio)
+      if (limites.fin) consulta = consulta.lt('creado_en_origen', limites.fin)
+      const { data, error } = await consulta
         .order('creado_en_origen', { ascending: false, nullsFirst: false })
-        .limit(300)
+        .limit(1000)
       if (error) throw error
       return (data ?? []).map(p => ({ ...p, total: Number(p.total ?? 0), items: (p.items ?? []) as unknown as ItemPedido[] })) as PedidoEcommerce[]
     },
@@ -196,7 +234,32 @@ export function EcommercePage() {
       </div>
 
       <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden">
-        <div className="p-4 border-b border-gray-100 flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
+        <div className="p-4 border-b border-gray-100 flex flex-col gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+            <label className="min-w-[150px]">
+              <span className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wide text-gray-400">Período</span>
+              <select value={periodo} onChange={e => setPeriodo(e.target.value as Periodo)}
+                className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none">
+                <option value="mes">Este mes</option>
+                <option value="hoy">Hoy</option>
+                <option value="rango">Rango de fechas</option>
+                <option value="todo">Todo el historial</option>
+              </select>
+            </label>
+            {periodo === 'rango' && <>
+              <label className="min-w-[150px] flex-1 sm:flex-none">
+                <span className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wide text-gray-400">Desde</span>
+                <input type="date" value={desde} max={hasta || undefined} onChange={e => setDesde(e.target.value)}
+                  className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none" />
+              </label>
+              <label className="min-w-[150px] flex-1 sm:flex-none">
+                <span className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wide text-gray-400">Hasta</span>
+                <input type="date" value={hasta} min={desde || undefined} onChange={e => setHasta(e.target.value)}
+                  className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none" />
+              </label>
+            </>}
+          </div>
+          <div className="flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
           <div className="relative flex-1 max-w-xl">
             <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
             <input value={buscar} onChange={e => setBuscar(e.target.value)} placeholder="Buscar pedido, cliente, producto o SKU…"
@@ -207,6 +270,7 @@ export function EcommercePage() {
             <option value="todos">Todos los estados</option>
             {ESTADOS.map(e => <option key={e.id} value={e.id}>{e.label}</option>)}
           </select>
+          </div>
         </div>
 
         {filtrados.length === 0 ? (

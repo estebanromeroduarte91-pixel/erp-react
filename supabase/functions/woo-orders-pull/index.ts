@@ -21,6 +21,13 @@ function json(body: unknown, status = 200) {
   });
 }
 
+function tienePagoConfirmado(pedido: Record<string, unknown>): boolean {
+  // WooCommerce completa date_paid/date_paid_gmt únicamente después de que el
+  // gateway confirma el cobro. El estado por sí solo no basta: "pending",
+  // "failed" y "cancelled" también son pedidos válidos para la API.
+  return Boolean(pedido.date_paid_gmt || pedido.date_paid);
+}
+
 function pedidoFila(empresaId: string, pedido: Record<string, unknown>) {
   const billing = (pedido.billing ?? {}) as Record<string, unknown>;
   const shipping = (pedido.shipping ?? {}) as Record<string, unknown>;
@@ -98,7 +105,7 @@ Deno.serve(async (req) => {
 
   const base = String(conexion.site_url).replace(/\/+$/, "");
   const basic = btoa(`${conexion.consumer_key}:${conexion.consumer_secret}`);
-  const respuesta = await fetch(`${base}/wp-json/wc/v3/orders?per_page=50&orderby=date&order=desc`, {
+  const respuesta = await fetch(`${base}/wp-json/wc/v3/orders?per_page=100&orderby=date&order=desc`, {
     headers: { Authorization: `Basic ${basic}`, Accept: "application/json" },
   });
   const texto = await respuesta.text();
@@ -109,7 +116,19 @@ Deno.serve(async (req) => {
     return json({ ok: false, error: `WooCommerce ${respuesta.status}: ${mensaje}` }, 502);
   }
 
-  const filas = pedidos.map(p => pedidoFila(empresaId, p)).filter(p => p.pedido_externo_id);
+  const pedidosPagados = pedidos.filter(tienePagoConfirmado);
+  const filas = pedidosPagados.map(p => pedidoFila(empresaId, p)).filter(p => p.pedido_externo_id);
+
+  // El módulo es una bandeja de preparación, no un historial de intentos de
+  // checkout. Quita registros antiguos que se hayan importado antes de aplicar
+  // este filtro y que WooCommerce nunca marcó como pagados.
+  const { error: errorLimpiar } = await admin.from("ecommerce_pedidos")
+    .delete()
+    .eq("empresa_id", empresaId)
+    .eq("canal", "woocommerce")
+    .is("pagado_en", null);
+  if (errorLimpiar) return json({ ok: false, error: errorLimpiar.message }, 500);
+
   if (filas.length) {
     const { error } = await admin.from("ecommerce_pedidos").upsert(filas, {
       onConflict: "empresa_id,canal,pedido_externo_id",
@@ -118,5 +137,5 @@ Deno.serve(async (req) => {
     if (error) return json({ ok: false, error: error.message }, 500);
   }
 
-  return json({ ok: true, importados: filas.length });
+  return json({ ok: true, importados: filas.length, ignorados_sin_pago: pedidos.length - pedidosPagados.length });
 });
