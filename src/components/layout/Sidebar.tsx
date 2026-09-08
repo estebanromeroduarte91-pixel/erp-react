@@ -57,6 +57,14 @@ const OP_ITEMS: SectionItem[] = [
   {
     type: 'single',
     item: {
+      to: '/ecommerce',
+      label: 'Ecommerce',
+      icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9h18l-1.5-5h-15z"/><path d="M5 9v11h14V9"/><path d="M9 20v-6h6v6"/><path d="M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0"/></svg>,
+    },
+  },
+  {
+    type: 'single',
+    item: {
       to: '/cotizaciones',
       label: 'Cotizaciones',
       icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="8" y1="13" x2="16" y2="13" /><line x1="8" y1="17" x2="12" y2="17" /></svg>,
@@ -282,6 +290,7 @@ export function Sidebar() {
     if (si.type === 'single') {
       const to = (si.item as NavSingle).to
       if (to === '/dashboard') return !!permisos.dashboard
+      if (to === '/ecommerce') return !!permisos.ventas
       return true
     }
     const id = (si.item as NavGroup).id

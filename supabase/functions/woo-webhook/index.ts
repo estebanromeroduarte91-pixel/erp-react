@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
 
   const { data: conn } = await admin
     .from("woo_conexiones")
-    .select("secret")
+    .select("secret,empresa_id")
     .eq("token", token)
     .eq("activa", true)
     .maybeSingle();
@@ -73,7 +73,9 @@ Deno.serve(async (req) => {
     return json({ ok: false, error: "Firma inválida" }, 401);
   }
 
-  let pedido: { id?: number | string; number?: string; status?: string; line_items?: unknown[] };
+  let pedido: Record<string, unknown> & {
+    id?: number | string; number?: string; status?: string; line_items?: unknown[];
+  };
   try {
     pedido = JSON.parse(cuerpo);
   } catch {
@@ -109,9 +111,47 @@ Deno.serve(async (req) => {
   // Se manda solo lo necesario: SKU y cantidad. El emparejamiento y la escritura
   // ocurren dentro de fn_woo_aplicar_pedido, en una sola transacción.
   const items = (pedido.line_items ?? []).map((i) => {
-    const item = i as { sku?: string; quantity?: number; name?: string };
-    return { sku: item.sku ?? "", cantidad: item.quantity ?? 1, nombre: item.name ?? "" };
+    const item = i as { id?: number; product_id?: number; variation_id?: number; sku?: string; quantity?: number; name?: string; price?: number; subtotal?: string; total?: string; image?: { src?: string } };
+    return {
+      id: item.id, producto_woo_id: item.product_id, variacion_woo_id: item.variation_id,
+      sku: item.sku ?? "", cantidad: item.quantity ?? 1, nombre: item.name ?? "",
+      precio: Number(item.price ?? 0), subtotal: Number(item.subtotal ?? 0),
+      total: Number(item.total ?? 0), imagen: item.image?.src ?? null,
+    };
   });
+
+  // Guarda una copia operativa completa. Esta escritura NO crea una venta y NO
+  // mueve stock; fn_woo_aplicar_pedido conserva esa responsabilidad exclusiva.
+  const billing = (pedido.billing ?? {}) as Record<string, unknown>;
+  const shipping = (pedido.shipping ?? {}) as Record<string, unknown>;
+  const nombreCliente = [billing.first_name, billing.last_name].filter(Boolean).join(" ")
+    || String(billing.company ?? "") || "Cliente ecommerce";
+  const { error: errorGuardar } = await admin.from("ecommerce_pedidos").upsert({
+    empresa_id: conn.empresa_id,
+    canal: "woocommerce",
+    pedido_externo_id: orderId,
+    numero: String(pedido.number ?? orderId),
+    estado_origen: estado,
+    moneda: String(pedido.currency ?? "CLP"),
+    total: Number(pedido.total ?? 0),
+    metodo_pago: String(pedido.payment_method ?? ""),
+    metodo_pago_titulo: String(pedido.payment_method_title ?? ""),
+    cliente_nombre: nombreCliente,
+    cliente_email: String(billing.email ?? ""),
+    cliente_telefono: String(billing.phone ?? ""),
+    facturacion: billing,
+    envio: shipping,
+    items,
+    nota_cliente: String(pedido.customer_note ?? ""),
+    pagado_en: pedido.date_paid_gmt ? `${String(pedido.date_paid_gmt)}Z` : null,
+    creado_en_origen: pedido.date_created_gmt ? `${String(pedido.date_created_gmt)}Z` : null,
+    actualizado_en_origen: pedido.date_modified_gmt ? `${String(pedido.date_modified_gmt)}Z` : null,
+    recibido_en: new Date().toISOString(),
+    actualizado_en: new Date().toISOString(),
+  }, { onConflict: "empresa_id,canal,pedido_externo_id", ignoreDuplicates: false });
+  // Durante un despliegue escalonado la tabla puede no existir todavía. No se
+  // bloquea el webhook ni el descuento de stock por una falla de la bandeja.
+  if (errorGuardar) console.error("woo-webhook guardar pedido", orderId, errorGuardar.message);
 
   const { data, error } = await admin.rpc("fn_woo_aplicar_pedido", {
     p_token: token,
@@ -123,6 +163,14 @@ Deno.serve(async (req) => {
   if (error) {
     console.error("woo-webhook", orderId, estado, error.message);
     return json({ ok: false, error: error.message }, 500);
+  }
+
+  if (!errorGuardar) {
+    await admin.from("ecommerce_pedidos")
+      .update({ stock_resultado: data, actualizado_en: new Date().toISOString() })
+      .eq("empresa_id", conn.empresa_id)
+      .eq("canal", "woocommerce")
+      .eq("pedido_externo_id", orderId);
   }
 
   // Se responde 200 aunque haya productos sin emparejar: para WooCommerce el
