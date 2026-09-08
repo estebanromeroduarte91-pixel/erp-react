@@ -1,6 +1,12 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 
+function fechaLocalHoy() {
+  const ahora = new Date()
+  const desfase = ahora.getTimezoneOffset() * 60_000
+  return new Date(ahora.getTime() - desfase).toISOString().slice(0, 10)
+}
+
 /**
  * Registrar el pago de una comisión. Vive en su propio archivo porque se usa
  * desde dos lados: la ficha de la orden y el listado de Comisiones, que es
@@ -12,7 +18,7 @@ export function PagoComisionModal({ tecnico, monto, onClose, onConfirm }: {
   onClose: () => void
   onConfirm: (data: { fecha: string; metodo: string }) => Promise<void>
 }) {
-  const [fecha, setFecha] = useState(() => new Date().toISOString().slice(0, 10))
+  const [fecha, setFecha] = useState(fechaLocalHoy)
   const [metodo, setMetodo] = useState('Transferencia')
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState('')

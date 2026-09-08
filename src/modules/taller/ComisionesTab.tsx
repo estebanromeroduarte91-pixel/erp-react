@@ -51,7 +51,7 @@ export function ComisionesTab() {
   // a las comisiones ya pagadas. Lo pendiente es deuda viva y se muestra
   // completo: una comisión de julio sin pagar tiene que verse en septiembre.
   const [mes, setMes] = useState(() => { const h = new Date(); return new Date(h.getFullYear(), h.getMonth(), 1) })
-  const [estado, setEstado] = useState<'pendiente' | 'pagada' | 'confirmar'>('pendiente')
+  const [estado, setEstado] = useState<'pendiente' | 'pagada' | 'confirmar' | 'anulada'>('pendiente')
   // Orden cuyo pago se está registrando. El mismo modal que usa la ficha de la
   // orden, para que el flujo y el gasto que genera sean idénticos por los dos lados.
   const [pagando, setPagando] = useState<{ id: string; tecnico: string; monto: number } | null>(null)
@@ -69,6 +69,17 @@ export function ComisionesTab() {
       if (!puedeGestionar) query = query.eq('tecnico_id', session!.user.id)
       const { data, error: queryError } = await query.order('fecha', { ascending: false })
       if (queryError) throw queryError
+      const ventaIds = [...new Set((data ?? []).map(row => row.venta_id).filter((id): id is string => !!id))]
+      const estadosVenta = new Map<string, string>()
+      if (ventaIds.length) {
+        const { data: ventas, error: ventasError } = await supabase
+          .from('ventas')
+          .select('id, estado')
+          .eq('empresa_id', empresaId!)
+          .in('id', ventaIds)
+        if (ventasError) throw ventasError
+        ventas?.forEach(venta => estadosVenta.set(venta.id, venta.estado))
+      }
       return (data ?? []).map(row => {
         const bruto = Number(row.comision_tecnica_bruto ?? 0)
         const porcentaje = Number(row.comision_tecnica_porcentaje ?? 0)
@@ -77,7 +88,8 @@ export function ComisionesTab() {
         return {
         id: row.id, num: row.num, fecha: row.fecha, modelo: row.modelo, trabajo: row.trabajo,
         tecnico: row.tecnico, tecnicoId: row.tecnico_id, branchId: row.branch_id,
-        venta_id: row.venta_id, comisionTecnicaActiva: row.comision_tecnica_activa,
+        venta_id: row.venta_id, ventaEstado: row.venta_id ? estadosVenta.get(row.venta_id) : undefined,
+        comisionTecnicaActiva: row.comision_tecnica_activa,
         comisionTecnicaBruto: bruto,
         comisionTecnicaBase: row.comision_tecnica_base == null ? baseEstimada : Number(row.comision_tecnica_base),
         comisionTecnicaPorcentaje: porcentaje,
@@ -98,8 +110,10 @@ export function ComisionesTab() {
   const mesEtiqueta = `${MESES[mes.getMonth()]} ${mes.getFullYear()}`
   const suma = (lista: typeof filas) => lista.reduce((acc, o) => acc + (o.comisionTecnicaMonto ?? 0), 0)
 
-  const pendientes = filas.filter(o => o.venta_id && !o.comisionTecnicaPagada)
+  const ventaVigente = (orden: typeof filas[number]) => orden.ventaEstado === 'pagada'
+  const pendientes = filas.filter(o => ventaVigente(o) && !o.comisionTecnicaPagada)
   const porConfirmar = filas.filter(o => !o.venta_id)
+  const anuladas = filas.filter(o => !!o.venta_id && !ventaVigente(o) && !o.comisionTecnicaPagada)
   // Las pagadas SÍ se acotan al mes, por su fecha de pago.
   const pagadasDelMes = filas.filter(o => o.comisionTecnicaPagada && claveMes(o.comisionTecnicaPagadaAt) === mesClave)
   const totalPendiente = suma(pendientes)
@@ -116,12 +130,12 @@ export function ComisionesTab() {
     // `pagadas` cuenta solo lo pagado en el mes elegido; lo pendiente va completo.
     if (orden.comisionTecnicaPagada) {
       if (claveMes(orden.comisionTecnicaPagadaAt) === mesClave) acc[id].pagadas += monto
-    } else if (orden.venta_id) { acc[id].pendientes += monto; acc[id].ordenesPendientes += 1 }
+    } else if (orden.ventaEstado === 'pagada') { acc[id].pendientes += monto; acc[id].ordenesPendientes += 1 }
     else acc[id].porConfirmar += monto
     return acc
   }, {})).filter(p => p.pendientes > 0 || p.pagadas > 0 || p.porConfirmar > 0)
     .sort((a, b) => b.pendientes - a.pendientes || b.pagadas - a.pagadas), [filas, mesClave])
-  const porEstado = estado === 'pagada' ? pagadasDelMes : estado === 'pendiente' ? pendientes : porConfirmar
+  const porEstado = estado === 'pagada' ? pagadasDelMes : estado === 'pendiente' ? pendientes : estado === 'confirmar' ? porConfirmar : anuladas
   const filasVisibles = (tecnicoSeleccionado
     ? porEstado.filter(o => (o.tecnicoId || o.tecnico || 'sin-tecnico') === tecnicoSeleccionado)
     : porEstado
@@ -156,13 +170,15 @@ export function ComisionesTab() {
 
       {/* Cada tarjeta declara su alcance: dos son acumuladas y una es del mes.
           Sin decirlo, tres cifras lado a lado con reglas distintas confunden. */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
         <Kpi label="Por pagar" value={totalPendiente} tone="amber"
           detalle={plural(pendientes.length, 'orden', 'órdenes')} alcance="acumulado, todos los meses" />
         <Kpi label="Pagado" value={totalPagado} tone="green"
           detalle={plural(pagadasDelMes.length, 'orden', 'órdenes')} alcance={`pagado en ${mesEtiqueta}`} />
         <Kpi label="Por confirmar venta" value={totalPorConfirmar} tone="blue"
           detalle={plural(porConfirmar.length, 'orden', 'órdenes')} alcance="acumulado, todos los meses" />
+        <Kpi label="Ventas no vigentes" value={suma(anuladas)} tone="gray"
+          detalle={plural(anuladas.length, 'orden', 'órdenes')} alcance="no se pueden pagar" />
       </div>
 
       {puedeGestionar && porTecnico.length > 0 && (
@@ -228,6 +244,7 @@ export function ComisionesTab() {
                 ['pendiente', 'Por pagar', pendientes.length],
                 ['pagada', `Pagadas en ${MESES[mes.getMonth()]}`, pagadasDelMes.length],
                 ['confirmar', 'Por confirmar', porConfirmar.length],
+                ['anulada', 'No vigentes', anuladas.length],
               ] as const).map(([id, label, n]) => (
                 <button key={id} type="button" onClick={() => setEstado(id)} aria-pressed={estado === id}
                   className={`text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition ${
@@ -242,7 +259,8 @@ export function ComisionesTab() {
           <div className="py-14 text-center text-sm text-gray-400">
             {estado === 'pagada' ? `No pagaste comisiones en ${mesEtiqueta}.`
               : estado === 'pendiente' ? 'No hay comisiones por pagar. Estás al día.'
-              : 'No hay comisiones esperando confirmación de venta.'}
+              : estado === 'confirmar' ? 'No hay comisiones esperando confirmación de venta.'
+              : 'No hay comisiones vinculadas a ventas anuladas o no vigentes.'}
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -284,7 +302,7 @@ export function ComisionesTab() {
                     {puedeGestionar && <td className="px-5 py-3.5 text-right">
                       {/* Solo se paga lo que ya tiene venta confirmada; sin venta
                           la comisión todavía no es exigible. */}
-                      {!o.comisionTecnicaPagada && o.venta_id && (
+                      {!o.comisionTecnicaPagada && ventaVigente(o) && (
                         <button type="button"
                           onClick={() => setPagando({ id: o.id, tecnico: o.tecnico || 'Técnico asignado', monto: o.comisionTecnicaMonto ?? 0 })}
                           className="whitespace-nowrap rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-bold text-gray-900 hover:bg-gray-50 transition">
@@ -316,10 +334,10 @@ export function ComisionesTab() {
 }
 
 function Kpi({ label, value, tone, detalle, alcance }: {
-  label: string; value: number; tone: 'amber' | 'green' | 'blue'; detalle: string; alcance: string
+  label: string; value: number; tone: 'amber' | 'green' | 'blue' | 'gray'; detalle: string; alcance: string
 }) {
   const color = value === 0 ? 'text-gray-300'
-    : tone === 'amber' ? 'text-amber-700' : tone === 'green' ? 'text-emerald-700' : 'text-blue-700'
+    : tone === 'amber' ? 'text-amber-700' : tone === 'green' ? 'text-emerald-700' : tone === 'blue' ? 'text-blue-700' : 'text-gray-600'
   return <div className="rounded-xl border border-gray-200 bg-white p-5">
     <div className="text-xs font-semibold uppercase tracking-wide text-gray-400">{label}</div>
     <div className={`text-2xl font-bold mt-2 tabular-nums ${color}`}><Money value={value} /></div>
