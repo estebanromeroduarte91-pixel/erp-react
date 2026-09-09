@@ -111,6 +111,36 @@ Deno.serve(async (req) => {
     return respuesta({ ok: false, error: "Falta configurar el correo comercial de Pixit" }, 500);
   }
 
+  const body = await req.json().catch(() => ({}));
+  const destinatarioPrueba = typeof body?.preview_to === "string" ? body.preview_to.trim() : "";
+  if (destinatarioPrueba) {
+    const resultados = [];
+    for (const diasRestantes of [3, 1] as const) {
+      const vencimiento = new Date(Date.now() + diasRestantes * 24 * 60 * 60 * 1000).toISOString();
+      const mensaje = plantilla("Empresa de prueba", vencimiento, diasRestantes);
+      const envio = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${RESEND_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: `Pixit <${PIXIT_FROM_EMAIL}>`,
+          reply_to: PIXIT_BILLING_EMAIL,
+          to: [destinatarioPrueba],
+          subject: `[PRUEBA] ${mensaje.subject}`,
+          html: mensaje.html,
+          text: mensaje.text,
+          tags: [{ name: "tipo", value: `prueba_vencimiento_${diasRestantes}_dias` }],
+        }),
+      });
+      const envioData = await envio.json().catch(() => ({}));
+      resultados.push({ diasRestantes, ok: envio.ok, respuesta: envioData });
+    }
+    const ok = resultados.every((resultado) => resultado.ok);
+    return respuesta({ ok, destinatario: destinatarioPrueba, resultados }, ok ? 200 : 502);
+  }
+
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
   const ahora = new Date();
   const hasta = new Date(ahora.getTime() + 4 * 24 * 60 * 60 * 1000);
