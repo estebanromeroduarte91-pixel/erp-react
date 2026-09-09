@@ -4,6 +4,7 @@ import { Topbar } from './Topbar'
 import { MobileTabBar } from './MobileTabBar'
 import { PullToRefresh } from './PullToRefresh'
 import { useIsMobile } from '@/lib/useIsMobile'
+import { SubscriptionExpiryBanner } from '@/components/shared/SubscriptionExpiryBanner'
 
 export function Shell({ children }: { children: ReactNode }) {
   const isMobile = useIsMobile()
@@ -20,6 +21,7 @@ export function Shell({ children }: { children: ReactNode }) {
         }} />
         <PullToRefresh>
           <main style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'calc(68px + env(safe-area-inset-bottom, 0px))' }}>
+            <SubscriptionExpiryBanner mobile />
             {children}
           </main>
         </PullToRefresh>
@@ -33,7 +35,10 @@ export function Shell({ children }: { children: ReactNode }) {
       <Sidebar />
       <Topbar />
       <main style={{ marginLeft: 'var(--sidebar-w)', paddingTop: 58, minHeight: '100vh' }}>
-        <div style={{ padding: 24 }}>{children}</div>
+        <div style={{ padding: 24 }}>
+          <SubscriptionExpiryBanner />
+          {children}
+        </div>
       </main>
     </div>
   )

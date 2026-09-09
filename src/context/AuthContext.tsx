@@ -17,6 +17,7 @@ interface AuthState {
   cargando: boolean
   planEstado: string | null   // 'trial' | 'activo' | 'vencido' | null (empresas antiguas, sin restricción)
   trialTermina: string | null // ISO date; solo aplica si planEstado === 'trial'
+  suscripcionTermina: string | null // ISO date; solo aplica si planEstado === 'activo'
   usuarioActivo: boolean      // user_profiles.activo — false = acceso revocado por su admin
   impersonatedEmpresaId: string | null
   impersonatedEmpresaNombre: string | null
@@ -50,6 +51,7 @@ const ESTADO_INICIAL: AuthState = {
   cargando: true,
   planEstado: null,
   trialTermina: null,
+  suscripcionTermina: null,
   usuarioActivo: true,
   impersonatedEmpresaId: null,
   impersonatedEmpresaNombre: null,
@@ -74,12 +76,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // — ver supabase/29_proteger_plan_empresa_insert.sql.
     const { data: empData, error } = await supabase.from('empresas').insert({
       nombre, owner_id: user.id,
-    }).select('id,nombre,plan_estado,trial_termina').single()
+    }).select('id,nombre,plan_estado,trial_termina,suscripcion_termina').single()
     if (error || !empData) {
       // Carrera (el índice único por owner_id la rechazó): la empresa ya se creó
       // en un render paralelo, la reutilizamos en vez de duplicarla.
       const { data: existente } = await supabase.from('empresas')
-        .select('id,nombre,plan_estado,trial_termina').eq('owner_id', user.id).maybeSingle()
+        .select('id,nombre,plan_estado,trial_termina,suscripcion_termina').eq('owner_id', user.id).maybeSingle()
       return existente ?? null
     }
     // El tier del trial (Scale, para dar el 100% del producto durante la
@@ -112,7 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (perfil?.empresa_id) {
       const [{ data: emp }, uCfg] = await Promise.all([
-        supabase.from('empresas').select('nombre,plan_estado,trial_termina').eq('id', perfil.empresa_id).maybeSingle(),
+        supabase.from('empresas').select('nombre,plan_estado,trial_termina,suscripcion_termina').eq('id', perfil.empresa_id).maybeSingle(),
         dbGet<{ cargoId?: string; branchId?: string }>(perfil.empresa_id, `ucfg_${user.id}`),
       ])
       const roleRaw = perfil.role || 'tecnico'
@@ -133,6 +135,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         cargando: false,
         planEstado: emp?.plan_estado ?? null,
         trialTermina: emp?.trial_termina ?? null,
+        suscripcionTermina: emp?.suscripcion_termina ?? null,
         // `activo` puede venir null en perfiles antiguos (antes de que la
         // columna existiera) — esos se tratan como activos, no como revocados.
         usuarioActivo: perfil.activo !== false,
@@ -143,7 +146,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Flujo de propietario: la empresa se busca por owner_id
       const { data: empExistente } = await supabase
         .from('empresas')
-        .select('id,nombre,plan_estado,trial_termina')
+        .select('id,nombre,plan_estado,trial_termina,suscripcion_termina')
         .eq('owner_id', user.id)
         .maybeSingle()
       // Si aún no existe pero hay datos de registro en user_metadata, es el primer
@@ -172,6 +175,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         cargando: false,
         planEstado: emp?.plan_estado ?? null,
         trialTermina: emp?.trial_termina ?? null,
+        suscripcionTermina: emp?.suscripcion_termina ?? null,
         // El dueño de la empresa no se puede autodesactivar (su perfil se crea
         // siempre con activo: true, arriba).
         usuarioActivo: true,
