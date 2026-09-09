@@ -17,6 +17,11 @@ verify_jwt = false
 # la firma HMAC, que la función comprueba por su cuenta.
 verify_jwt = false
 
+[functions.woo-conectar]
+# El asistente recibe y valida credenciales comerciales de la tienda. El
+# gateway exige JWT y la función vuelve a comprobar usuario, empresa y rol.
+verify_jwt = true
+
 [functions.woo-push]
 # Ésta SÍ exige JWT, y se deja explícito para que nadie se lo saque por
 # analogía con woo-webhook. La llaman el cron (con la service_role) y la app

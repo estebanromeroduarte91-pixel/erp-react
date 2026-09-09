@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { Spinner } from '@/components/shared/Spinner'
 import { extraerMensajeError } from '@/lib/edgeError'
+import { useBodegas } from '@/lib/queries'
 
 type EstadoGestion = 'nuevo' | 'preparando' | 'listo' | 'despachado' | 'entregado' | 'cancelado'
 type Periodo = 'mes' | 'hoy' | 'rango' | 'todo'
@@ -150,8 +151,9 @@ function direccion(datos: Record<string, unknown>) {
 }
 
 export function EcommercePage() {
-  const { empresaId } = useAuth()
+  const { empresaId, esAdmin, esPlatformAdmin } = useAuth()
   const qc = useQueryClient()
+  const bodegasQuery = useBodegas()
   const hoy = fechaInput(new Date())
   const inicioMes = fechaInput(new Date(new Date().getFullYear(), new Date().getMonth(), 1))
   const [buscar, setBuscar] = useState('')
@@ -231,6 +233,30 @@ export function EcommercePage() {
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['ecommerce-pedidos', empresaId] }),
   })
 
+  const conectarWoo = useMutation({
+    mutationFn: async (config: { site_url: string; consumer_key: string; consumer_secret: string; bodega_id: string }) => {
+      let { data: sessionData } = await supabase.auth.getSession()
+      if (!sessionData.session?.access_token) {
+        const refreshed = await supabase.auth.refreshSession()
+        sessionData = refreshed.data
+      }
+      const accessToken = sessionData.session?.access_token
+      if (!accessToken) throw new Error('Tu sesión expiró. Vuelve a iniciar sesión.')
+
+      const { data, error } = await supabase.functions.invoke('woo-conectar', {
+        body: { ...config, empresa_id: empresaId },
+        headers: { Authorization: `Bearer ${accessToken}` },
+      })
+      if (error) throw new Error(await extraerMensajeError(error, 'No se pudo conectar WooCommerce'))
+      if (data?.ok === false) throw new Error(data.error || 'No se pudo conectar WooCommerce')
+    },
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ['woo-conexion-publica', empresaId] })
+      await qc.invalidateQueries({ queryKey: ['ecommerce-pedidos', empresaId] })
+      sincronizarPedidos.mutate()
+    },
+  })
+
   const pedidos = useMemo(() => pedidosQuery.data ?? [], [pedidosQuery.data])
   const filtrados = useMemo(() => {
     const q = textoBusqueda(buscar)
@@ -253,10 +279,15 @@ export function EcommercePage() {
     return <BienvenidaEcommerce
       seleccionada={plataformaSeleccionada}
       mensaje={mensajeConexion}
+      bodegas={bodegasQuery.data ?? []}
+      puedeConfigurar={esAdmin || esPlatformAdmin}
+      conectando={conectarWoo.isPending}
+      errorConexion={conectarWoo.error?.message ?? null}
       onSelect={id => {
         setPlataformaSeleccionada(id)
         setMensajeConexion(null)
       }}
+      onConectarWoo={config => conectarWoo.mutateAsync(config)}
       onConnect={() => {
         if (!plataforma) return
         setMensajeConexion(plataforma.disponible
@@ -370,15 +401,75 @@ export function EcommercePage() {
 function BienvenidaEcommerce({
   seleccionada,
   mensaje,
+  bodegas,
+  puedeConfigurar,
+  conectando,
+  errorConexion,
   onSelect,
   onConnect,
+  onConectarWoo,
 }: {
   seleccionada: PlataformaEcommerce | null
   mensaje: string | null
+  bodegas: { id: string; nombre?: string; name?: string; activo?: boolean }[]
+  puedeConfigurar: boolean
+  conectando: boolean
+  errorConexion: string | null
   onSelect: (id: PlataformaEcommerce) => void
   onConnect: () => void
+  onConectarWoo: (config: { site_url: string; consumer_key: string; consumer_secret: string; bodega_id: string }) => Promise<void>
 }) {
   const plataforma = PLATAFORMAS.find(item => item.id === seleccionada)
+  const [pasoWoo, setPasoWoo] = useState<0 | 1 | 2>(0)
+  const [siteUrl, setSiteUrl] = useState('https://')
+  const [consumerKey, setConsumerKey] = useState('')
+  const [consumerSecret, setConsumerSecret] = useState('')
+  const [bodegaId, setBodegaId] = useState('')
+  const [errorLocal, setErrorLocal] = useState<string | null>(null)
+
+  function abrirConexion() {
+    if (seleccionada === 'woocommerce') {
+      if (!puedeConfigurar) {
+        setErrorLocal('Sólo un administrador puede conectar la tienda.')
+        return
+      }
+      setErrorLocal(null)
+      setPasoWoo(1)
+      return
+    }
+    onConnect()
+  }
+
+  function continuarCredenciales() {
+    try {
+      const url = new URL(siteUrl.trim())
+      if (url.protocol !== 'https:') throw new Error()
+      setSiteUrl(url.toString().replace(/\/+$/, ''))
+      setErrorLocal(null)
+      setPasoWoo(2)
+    } catch {
+      setErrorLocal('Ingresa la dirección completa de la tienda, comenzando con https://')
+    }
+  }
+
+  async function conectar() {
+    if (!consumerKey.trim().startsWith('ck_') || !consumerSecret.trim().startsWith('cs_')) {
+      setErrorLocal('Revisa las claves: deben comenzar con ck_ y cs_.')
+      return
+    }
+    if (!bodegaId) {
+      setErrorLocal('Selecciona la sucursal desde la que se descontará el stock.')
+      return
+    }
+    setErrorLocal(null)
+    await onConectarWoo({
+      site_url: siteUrl.trim(),
+      consumer_key: consumerKey.trim(),
+      consumer_secret: consumerSecret.trim(),
+      bodega_id: bodegaId,
+    }).catch(() => undefined)
+  }
+
   return <div className="px-4 py-5 md:p-0 max-w-[1500px] mx-auto">
     <div className="mb-5">
       <div className="flex items-center gap-2">
@@ -397,7 +488,7 @@ function BienvenidaEcommerce({
         <p className="mt-2 text-sm leading-6 text-gray-500">Recibe y gestiona tus pedidos en un solo lugar. Elige la plataforma que utilizas para comenzar.</p>
       </div>
 
-      <div className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      {pasoWoo === 0 ? <div className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {PLATAFORMAS.map(item => {
           const activa = seleccionada === item.id
           return <button
@@ -417,22 +508,66 @@ function BienvenidaEcommerce({
             <span className="mt-2 block text-xs leading-5 text-gray-500">Sincroniza pedidos pagados, clientes, productos y estados de venta en Pixit.</span>
           </button>
         })}
-      </div>
+      </div> : <div className="mx-auto mt-8 max-w-3xl">
+        <div className="mb-7 flex items-center justify-center">
+          {[1, 2, 3].map((paso, index) => <div key={paso} className="flex items-center">
+            <span className={`grid h-8 w-8 place-items-center rounded-full text-xs font-bold ${paso <= pasoWoo ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-400'}`}>{paso}</span>
+            {index < 2 && <span className={`h-0.5 w-12 sm:w-24 ${paso < pasoWoo ? 'bg-blue-600' : 'bg-gray-200'}`} />}
+          </div>)}
+        </div>
 
-      {mensaje && <div className={`mt-5 rounded-xl border px-4 py-3 text-sm ${plataforma?.disponible ? 'border-blue-100 bg-blue-50 text-blue-700' : 'border-gray-200 bg-gray-50 text-gray-600'}`}>{mensaje}</div>}
+        {pasoWoo === 1 && <div className="rounded-2xl border border-gray-200 bg-gray-50/60 p-5 md:p-6">
+          <p className="text-xs font-bold uppercase tracking-wide text-blue-600">Paso 1 de 3</p>
+          <h3 className="mt-2 text-lg font-bold text-gray-900">Dirección de tu tienda</h3>
+          <p className="mt-1 text-sm leading-6 text-gray-500">Copia la dirección principal con la que ingresan tus clientes. No agregues rutas como <span className="font-mono text-xs">/wp-admin</span>.</p>
+          <label className="mt-5 block">
+            <span className="mb-1.5 block text-xs font-semibold text-gray-700">URL de WooCommerce</span>
+            <input value={siteUrl} onChange={e => setSiteUrl(e.target.value)} autoFocus placeholder="https://mitienda.cl"
+              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10" />
+          </label>
+          <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-between">
+            <button type="button" onClick={() => setPasoWoo(0)} className="rounded-xl px-4 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-100">Volver</button>
+            <button type="button" onClick={continuarCredenciales} className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">Continuar</button>
+          </div>
+        </div>}
 
-      <div className="mt-7 flex flex-col gap-4 border-t border-gray-100 pt-6 sm:flex-row sm:items-center sm:justify-between">
+        {pasoWoo === 2 && <div className="rounded-2xl border border-gray-200 bg-gray-50/60 p-5 md:p-6">
+          <p className="text-xs font-bold uppercase tracking-wide text-blue-600">Paso 2 de 3</p>
+          <h3 className="mt-2 text-lg font-bold text-gray-900">Crea las claves de acceso</h3>
+          <ol className="mt-3 space-y-2 text-sm leading-6 text-gray-600">
+            <li><strong>1.</strong> En WordPress entra a <strong>WooCommerce → Ajustes → Avanzado → API REST</strong>.</li>
+            <li><strong>2.</strong> Pulsa <strong>Añadir clave</strong>, escribe “Pixit” y selecciona permisos de <strong>Lectura/Escritura</strong>.</li>
+            <li><strong>3.</strong> Genera las claves y cópialas aquí. WooCommerce muestra el secreto una sola vez.</li>
+          </ol>
+          <div className="mt-5 grid gap-4 sm:grid-cols-2">
+            <label><span className="mb-1.5 block text-xs font-semibold text-gray-700">Clave del cliente</span><input value={consumerKey} onChange={e => setConsumerKey(e.target.value)} placeholder="ck_…" autoComplete="off" className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 font-mono text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10" /></label>
+            <label><span className="mb-1.5 block text-xs font-semibold text-gray-700">Clave secreta</span><input type="password" value={consumerSecret} onChange={e => setConsumerSecret(e.target.value)} placeholder="cs_…" autoComplete="new-password" className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 font-mono text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10" /></label>
+          </div>
+          <label className="mt-4 block"><span className="mb-1.5 block text-xs font-semibold text-gray-700">Sucursal que descontará el stock</span><select value={bodegaId} onChange={e => setBodegaId(e.target.value)} className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-500"><option value="">Seleccionar sucursal…</option>{bodegas.filter(b => b.activo !== false).map(b => <option key={b.id} value={b.id}>{b.nombre || b.name || 'Sucursal'}</option>)}</select></label>
+          <div className="mt-4 rounded-xl border border-green-100 bg-green-50 px-4 py-3 text-xs leading-5 text-green-800">Pixit comprobará las claves y dejará configurados automáticamente los webhooks. No tendrás que copiar enlaces ni editar código.</div>
+          {(errorLocal || errorConexion) && <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{errorLocal || errorConexion}</div>}
+          <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-between">
+            <button type="button" disabled={conectando} onClick={() => setPasoWoo(1)} className="rounded-xl px-4 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-100 disabled:opacity-50">Volver</button>
+            <button type="button" disabled={conectando} onClick={() => void conectar()} className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60">{conectando ? 'Verificando y conectando…' : 'Conectar y verificar'}</button>
+          </div>
+        </div>}
+      </div>}
+
+      {pasoWoo === 0 && mensaje && <div className={`mt-5 rounded-xl border px-4 py-3 text-sm ${plataforma?.disponible ? 'border-blue-100 bg-blue-50 text-blue-700' : 'border-gray-200 bg-gray-50 text-gray-600'}`}>{mensaje}</div>}
+      {pasoWoo === 1 && errorLocal && <div className="mx-auto mt-4 max-w-3xl rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{errorLocal}</div>}
+
+      {pasoWoo === 0 && <div className="mt-7 flex flex-col gap-4 border-t border-gray-100 pt-6 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2 text-xs text-gray-500">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
           <span>Tu conexión es privada y puedes desconectarla cuando quieras.</span>
         </div>
-        <button type="button" disabled={!seleccionada} onClick={onConnect}
+        <button type="button" disabled={!seleccionada} onClick={abrirConexion}
           className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-md shadow-blue-600/15 transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400 disabled:shadow-none">
           {plataforma ? `Conectar ${plataforma.nombre}` : 'Selecciona una plataforma'}
         </button>
-      </div>
+      </div>}
 
-      <p className="mt-5 text-center text-xs text-gray-500">¿Usas otra plataforma? <button type="button" className="font-semibold text-blue-600 hover:underline">Solicitar integración</button></p>
+      {pasoWoo === 0 && <p className="mt-5 text-center text-xs text-gray-500">¿Usas otra plataforma? <button type="button" className="font-semibold text-blue-600 hover:underline">Solicitar integración</button></p>}
     </section>
   </div>
 }
