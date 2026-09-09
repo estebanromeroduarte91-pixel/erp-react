@@ -64,7 +64,9 @@ function plantilla(nombreEmpresa: string, vencimiento: string, diasRestantes: 1 
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f5f7fb;padding:32px 16px">
       <tr><td align="center">
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border:1px solid #e5e7eb;border-radius:18px;overflow:hidden">
-          <tr><td style="padding:28px 30px 14px;font-size:28px;font-weight:800;letter-spacing:-1px;color:#111827">Pixit</td></tr>
+          <tr><td style="padding:28px 30px 14px">
+            <img src="https://pixit.cl/logo-pixit.png" width="118" alt="Pixit" style="display:block;width:118px;max-width:100%;height:auto;border:0">
+          </td></tr>
           <tr><td style="padding:8px 30px 30px">
             <div style="display:inline-block;padding:6px 10px;border-radius:999px;background:#fff7ed;color:#c2410c;font-size:12px;font-weight:700">Aviso de vencimiento</div>
             <h1 style="margin:18px 0 10px;font-size:24px;line-height:1.25;color:#111827">${titulo}</h1>
