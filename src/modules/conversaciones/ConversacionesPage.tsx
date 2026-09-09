@@ -1,7 +1,22 @@
 const CANALES = [
-  { id: 'whatsapp', nombre: 'WhatsApp', detalle: 'Mensajes de WhatsApp Business', color: 'bg-green-500', letra: 'W' },
-  { id: 'instagram', nombre: 'Instagram', detalle: 'Mensajes directos de Instagram', color: 'bg-gradient-to-br from-violet-600 via-pink-500 to-amber-400', letra: 'I' },
-  { id: 'messenger', nombre: 'Messenger', detalle: 'Mensajes de Facebook', color: 'bg-blue-600', letra: 'M' },
+  {
+    id: 'whatsapp',
+    nombre: 'WhatsApp',
+    detalle: 'Mensajes de WhatsApp Business',
+    logo: 'https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg',
+  },
+  {
+    id: 'instagram',
+    nombre: 'Instagram',
+    detalle: 'Mensajes directos de Instagram',
+    logo: 'https://upload.wikimedia.org/wikipedia/commons/9/95/Instagram_logo_2022.svg',
+  },
+  {
+    id: 'messenger',
+    nombre: 'Messenger',
+    detalle: 'Mensajes de Facebook',
+    logo: 'https://upload.wikimedia.org/wikipedia/commons/b/be/Facebook_Messenger_logo_2020.svg',
+  },
 ]
 
 export function ConversacionesPage() {
@@ -28,7 +43,7 @@ export function ConversacionesPage() {
         </button>
         <div className="mt-6 space-y-2">
           {CANALES.map(canal => <div key={canal.id} className="flex items-center gap-3 rounded-xl px-3 py-2.5 opacity-55">
-            <span className={`grid h-8 w-8 place-items-center rounded-lg text-xs font-bold text-white ${canal.color}`}>{canal.letra}</span>
+            <ChannelLogo canal={canal} size="sm" />
             <div className="min-w-0"><p className="text-sm font-semibold text-gray-700">{canal.nombre}</p><p className="truncate text-[10px] text-gray-400">No conectado</p></div>
           </div>)}
         </div>
@@ -62,7 +77,7 @@ export function ConversacionesPage() {
           <p className="mt-2 text-sm leading-6 text-gray-500">Conecta tus canales para responder clientes, asignar conversaciones y vincularlas con contactos, cotizaciones y órdenes.</p>
           <div className="mt-6 grid grid-cols-3 gap-3">
             {CANALES.map(canal => <div key={canal.id} className="rounded-xl border border-gray-200 bg-white p-3">
-              <span className={`mx-auto grid h-9 w-9 place-items-center rounded-xl text-xs font-bold text-white ${canal.color}`}>{canal.letra}</span>
+              <ChannelLogo canal={canal} />
               <p className="mt-2 text-xs font-semibold text-gray-700">{canal.nombre}</p>
             </div>)}
           </div>
@@ -71,6 +86,20 @@ export function ConversacionesPage() {
       </div>
     </section>
   </div>
+}
+
+function ChannelLogo({ canal, size = 'md' }: { canal: (typeof CANALES)[number], size?: 'sm' | 'md' }) {
+  const dimensions = size === 'sm' ? 'h-8 w-8' : 'mx-auto h-10 w-10'
+
+  return <img
+    src={canal.logo}
+    alt={`Logo de ${canal.nombre}`}
+    width={size === 'sm' ? 32 : 40}
+    height={size === 'sm' ? 32 : 40}
+    loading="lazy"
+    decoding="async"
+    className={`${dimensions} shrink-0 object-contain`}
+  />
 }
 
 function ChatIcon({ size = 18 }: { size?: number }) {
