@@ -30,6 +30,7 @@ const ComprasPage = lazyWithReload(() => import('@/modules/compras/ComprasPage')
 const BuscarPage = lazyWithReload(() => import('@/modules/buscar/BuscarPage').then(m => ({ default: m.BuscarPage })))
 const CotizacionesPage = lazyWithReload(() => import('@/modules/cotizaciones/CotizacionesPage').then(m => ({ default: m.CotizacionesPage })))
 const EcommercePage = lazyWithReload(() => import('@/modules/ecommerce/EcommercePage').then(m => ({ default: m.EcommercePage })))
+const ConversacionesPage = lazyWithReload(() => import('@/modules/conversaciones/ConversacionesPage').then(m => ({ default: m.ConversacionesPage })))
 const PixitAdminPage = lazyWithReload(() => import('@/modules/pixitadmin/PixitAdminPage').then(m => ({ default: m.PixitAdminPage })))
 // La página de marketing solo la ve un visitante sin sesión en "/" — cualquier
 // usuario ya logueado la descargaba igual porque estaba importada estática.
@@ -103,6 +104,7 @@ function AppRoutes() {
             <Route path="/taller" element={<TallerPage />} />
             <Route path="/cotizaciones" element={<CotizacionesPage />} />
             <Route path="/ecommerce" element={<EcommercePage />} />
+            <Route path="/conversaciones" element={<ConversacionesPage />} />
             <Route path="/dashboard"     element={<DashboardPage />} />
             <Route path="/inventario"    element={<InventarioPage />} />
             <Route path="/ventas"        element={<VentasPage />} />
