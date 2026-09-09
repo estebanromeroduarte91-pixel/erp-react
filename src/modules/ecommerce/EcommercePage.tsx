@@ -8,6 +8,44 @@ import { extraerMensajeError } from '@/lib/edgeError'
 
 type EstadoGestion = 'nuevo' | 'preparando' | 'listo' | 'despachado' | 'entregado' | 'cancelado'
 type Periodo = 'mes' | 'hoy' | 'rango' | 'todo'
+type PlataformaEcommerce = 'woocommerce' | 'shopify' | 'jumpseller' | 'mercadolibre'
+
+const PLATAFORMAS: {
+  id: PlataformaEcommerce
+  nombre: string
+  logo: string
+  disponible: boolean
+  logoClassName: string
+}[] = [
+  {
+    id: 'woocommerce',
+    nombre: 'WooCommerce',
+    logo: 'https://woocommerce.com/wp-content/uploads/2025/01/Logo-Primary.png',
+    disponible: true,
+    logoClassName: 'max-h-9 max-w-[112px]',
+  },
+  {
+    id: 'shopify',
+    nombre: 'Shopify',
+    logo: 'https://cdn.shopify.com/shopifycloud/brochure/assets/brand-assets/shopify-logo-primary-logo-456baa801ee66a0a435671082365958316831c9960c480451dd0330bcdae304f.svg',
+    disponible: false,
+    logoClassName: 'max-h-10 max-w-[112px]',
+  },
+  {
+    id: 'jumpseller',
+    nombre: 'Jumpseller',
+    logo: 'https://es.jumpseller.com/images/brand/jumpseller-logo-26.svg',
+    disponible: false,
+    logoClassName: 'max-h-8 max-w-[118px]',
+  },
+  {
+    id: 'mercadolibre',
+    nombre: 'Mercado Libre',
+    logo: 'https://http2.mlstatic.com/frontend-assets/ml-web-navigation/ui-navigation/6.6.133/mercadolibre/logo__large_plus.png',
+    disponible: false,
+    logoClassName: 'max-h-8 max-w-[112px]',
+  },
+]
 
 interface ItemPedido {
   id?: number
@@ -122,6 +160,8 @@ export function EcommercePage() {
   const [desde, setDesde] = useState(inicioMes)
   const [hasta, setHasta] = useState(hoy)
   const [detalle, setDetalle] = useState<PedidoEcommerce | null>(null)
+  const [plataformaSeleccionada, setPlataformaSeleccionada] = useState<PlataformaEcommerce | null>(null)
+  const [mensajeConexion, setMensajeConexion] = useState<string | null>(null)
   const limites = useMemo(() => limitesPeriodo(periodo, desde, hasta), [periodo, desde, hasta])
 
   const pedidosQuery = useQuery({
@@ -206,7 +246,25 @@ export function EcommercePage() {
   const pagados = pedidos.filter(p => ['processing', 'completed'].includes(p.estado_origen))
   const conAlerta = pedidos.filter(p => (p.stock_resultado?.ignorados?.length ?? 0) > 0)
 
-  if (pedidosQuery.isLoading) return <div className="py-16"><Spinner /></div>
+  if (pedidosQuery.isLoading || conexionQuery.isLoading) return <div className="py-16"><Spinner /></div>
+
+  if (!conexionQuery.data?.activa) {
+    const plataforma = PLATAFORMAS.find(item => item.id === plataformaSeleccionada)
+    return <BienvenidaEcommerce
+      seleccionada={plataformaSeleccionada}
+      mensaje={mensajeConexion}
+      onSelect={id => {
+        setPlataformaSeleccionada(id)
+        setMensajeConexion(null)
+      }}
+      onConnect={() => {
+        if (!plataforma) return
+        setMensajeConexion(plataforma.disponible
+          ? 'WooCommerce está disponible. La conexión requiere la URL y las credenciales API de la tienda.'
+          : `La conexión con ${plataforma.nombre} estará disponible próximamente.`)
+      }}
+    />
+  }
 
   return (
     <div className="px-4 py-5 md:p-0 max-w-[1500px] mx-auto">
@@ -307,6 +365,76 @@ export function EcommercePage() {
       {detalle && <DetallePedido pedido={detalle} siteUrl={conexionQuery.data?.site_url} onClose={() => setDetalle(null)} />}
     </div>
   )
+}
+
+function BienvenidaEcommerce({
+  seleccionada,
+  mensaje,
+  onSelect,
+  onConnect,
+}: {
+  seleccionada: PlataformaEcommerce | null
+  mensaje: string | null
+  onSelect: (id: PlataformaEcommerce) => void
+  onConnect: () => void
+}) {
+  const plataforma = PLATAFORMAS.find(item => item.id === seleccionada)
+  return <div className="px-4 py-5 md:p-0 max-w-[1500px] mx-auto">
+    <div className="mb-5">
+      <div className="flex items-center gap-2">
+        <h1 className="text-xl font-bold text-gray-900">Ecommerce</h1>
+        <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-500">Sin conexión activa</span>
+      </div>
+      <p className="mt-1 text-sm text-gray-500">Administra tus pedidos online desde Pixit.</p>
+    </div>
+
+    <section className="mx-auto max-w-6xl rounded-2xl border border-gray-200 bg-white px-5 py-8 shadow-sm md:px-8 md:py-10">
+      <div className="mx-auto max-w-2xl text-center">
+        <div className="mx-auto grid h-13 w-13 place-items-center rounded-2xl bg-violet-50 text-violet-600">
+          <svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 7h16"/><path d="M5 7l1-3h12l1 3"/><path d="M5 7v13h14V7"/><path d="M9 11h6v5H9z"/></svg>
+        </div>
+        <h2 className="mt-4 text-2xl font-bold text-gray-900">Conecta tu tienda online</h2>
+        <p className="mt-2 text-sm leading-6 text-gray-500">Recibe y gestiona tus pedidos en un solo lugar. Elige la plataforma que utilizas para comenzar.</p>
+      </div>
+
+      <div className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {PLATAFORMAS.map(item => {
+          const activa = seleccionada === item.id
+          return <button
+            key={item.id}
+            type="button"
+            aria-pressed={activa}
+            onClick={() => onSelect(item.id)}
+            className={`relative min-h-[190px] rounded-2xl border bg-white p-5 text-left transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-lg hover:shadow-blue-600/5 ${activa ? 'border-2 border-blue-600 p-[19px] ring-4 ring-blue-600/5' : 'border-gray-200'}`}
+          >
+            <span className={`absolute right-3 top-3 rounded-full px-2 py-1 text-[10px] font-semibold ${item.disponible ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+              {item.disponible ? 'Disponible' : 'Próximamente'}
+            </span>
+            <span className="flex h-13 items-center pr-18">
+              <img src={item.logo} alt={item.nombre} className={`block h-auto w-auto object-contain object-left ${item.logoClassName}`} />
+            </span>
+            <span className="mt-3 block text-[15px] font-bold text-gray-900">{item.nombre}</span>
+            <span className="mt-2 block text-xs leading-5 text-gray-500">Sincroniza pedidos pagados, clientes, productos y estados de venta en Pixit.</span>
+          </button>
+        })}
+      </div>
+
+      {mensaje && <div className={`mt-5 rounded-xl border px-4 py-3 text-sm ${plataforma?.disponible ? 'border-blue-100 bg-blue-50 text-blue-700' : 'border-gray-200 bg-gray-50 text-gray-600'}`}>{mensaje}</div>}
+
+      <div className="mt-7 flex flex-col gap-4 border-t border-gray-100 pt-6 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-2 text-xs text-gray-500">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+          <span>Tu conexión es privada y puedes desconectarla cuando quieras.</span>
+        </div>
+        <button type="button" disabled={!seleccionada} onClick={onConnect}
+          className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-md shadow-blue-600/15 transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400 disabled:shadow-none">
+          {plataforma ? `Conectar ${plataforma.nombre}` : 'Selecciona una plataforma'}
+        </button>
+      </div>
+
+      <p className="mt-5 text-center text-xs text-gray-500">¿Usas otra plataforma? <button type="button" className="font-semibold text-blue-600 hover:underline">Solicitar integración</button></p>
+    </section>
+  </div>
 }
 
 function Kpi({ label, value, detail, alert = false }: { label: string; value: string; detail: string; alert?: boolean }) {
