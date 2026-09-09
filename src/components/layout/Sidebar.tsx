@@ -58,7 +58,7 @@ const OP_ITEMS: SectionItem[] = [
     type: 'single',
     item: {
       to: '/ecommerce',
-      label: 'Ecommerce',
+      label: 'E-Commerce',
       icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9h18l-1.5-5h-15z"/><path d="M5 9v11h14V9"/><path d="M9 20v-6h6v6"/><path d="M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0"/></svg>,
     },
   },

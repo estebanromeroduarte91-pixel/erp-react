@@ -57,7 +57,7 @@ const MAS_ICONS: Record<string, React.ReactNode> = {
 
 const MAS_ITEMS = [
   { to: '/ventas', label: 'Ventas' },
-  { to: '/ecommerce', label: 'Ecommerce' },
+  { to: '/ecommerce', label: 'E-Commerce' },
   { to: '/inventario', label: 'Inventario' },
   { to: '/contactos', label: 'Clientes' },
   { to: '/cotizaciones', label: 'Cotizaciones' },

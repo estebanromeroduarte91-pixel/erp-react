@@ -271,7 +271,7 @@ export function EcommercePage() {
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between mb-5">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold text-gray-900">Ecommerce</h1>
+            <h1 className="text-xl font-bold text-gray-900">E-Commerce</h1>
             <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${conexionQuery.data?.activa ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
               {conexionQuery.data?.activa ? 'WooCommerce conectado' : 'Sin conexión activa'}
             </span>
@@ -382,7 +382,7 @@ function BienvenidaEcommerce({
   return <div className="px-4 py-5 md:p-0 max-w-[1500px] mx-auto">
     <div className="mb-5">
       <div className="flex items-center gap-2">
-        <h1 className="text-xl font-bold text-gray-900">Ecommerce</h1>
+        <h1 className="text-xl font-bold text-gray-900">E-Commerce</h1>
         <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-500">Sin conexión activa</span>
       </div>
       <p className="mt-1 text-sm text-gray-500">Administra tus pedidos online desde Pixit.</p>
