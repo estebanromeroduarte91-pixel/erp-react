@@ -16,12 +16,24 @@ function diasRestantes(iso: string | null): number | null {
   return Math.ceil((new Date(iso).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
 }
 
+function fechaEn30Dias() {
+  const fecha = new Date()
+  fecha.setDate(fecha.getDate() + 30)
+  return fecha.toISOString().slice(0, 10)
+}
+
+function fechaParaInput(iso: string | null) {
+  return iso ? new Date(iso).toISOString().slice(0, 10) : ''
+}
+
 function EstadoPill({ e }: { e: EmpresaAdmin }) {
   if (e.plan_estado === 'suspendida') {
     return <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-700">Suspendida</span>
   }
   if (e.plan_estado === 'activo') {
-    return <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700">Activa</span>
+    return <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700">
+      {e.suscripcion_termina ? `Activa · vence ${fmtFecha(e.suscripcion_termina)}` : 'Activa'}
+    </span>
   }
   if (e.plan_estado === 'trial') {
     const dias = diasRestantes(e.trial_termina)
@@ -42,6 +54,7 @@ export function PixitAdminPage() {
   const { startImpersonation } = useAuth()
   const [busqueda, setBusqueda] = useState('')
   const [tierPorActivar, setTierPorActivar] = useState<Record<string, PlanTier>>({})
+  const [vencimientoPorActivar, setVencimientoPorActivar] = useState<Record<string, string>>({})
   const [tab, setTab] = useState<'empresas' | 'leads' | 'errores'>('empresas')
 
   const lista = useMemo(() => {
@@ -72,9 +85,14 @@ export function PixitAdminPage() {
 
   async function activarPlan(e: EmpresaAdmin) {
     const tier = tierPorActivar[e.id] ?? e.tier
-    if (!confirm(`¿Activar el plan ${TIER_NOMBRE[tier]} para "${e.nombre}"? Debes haber confirmado el pago antes de hacer esto.`)) return
+    const fecha = vencimientoPorActivar[e.id] ?? (fechaParaInput(e.suscripcion_termina) || fechaEn30Dias())
+    if (!confirm(`¿Activar el plan ${TIER_NOMBRE[tier]} para "${e.nombre}" hasta el ${new Date(`${fecha}T12:00:00`).toLocaleDateString('es-CL')}? Debes haber confirmado el pago antes de hacer esto.`)) return
     await actualizarLimits.mutateAsync({ empresaId: e.id, limits: { tier, ...TIER_LIMITS[tier] } })
-    await actualizar.mutateAsync({ id: e.id, plan_estado: 'activo' })
+    await actualizar.mutateAsync({
+      id: e.id,
+      plan_estado: 'activo',
+      suscripcion_termina: new Date(`${fecha}T23:59:59`).toISOString(),
+    })
     // El selector queda igual al tier recién activado — antes se resetía a "Starter"
     // en el próximo refetch porque no tenía de dónde leer el tier real guardado.
     setTierPorActivar(t => ({ ...t, [e.id]: tier }))
@@ -171,6 +189,14 @@ export function PixitAdminPage() {
                     >
                       {TIER_ORDER.map(tier => <option key={tier} value={tier}>{TIER_NOMBRE[tier]}</option>)}
                     </select>
+                    <input
+                      type="date"
+                      aria-label={`Vencimiento de ${e.nombre}`}
+                      title="Fecha de vencimiento o próxima renovación"
+                      value={vencimientoPorActivar[e.id] ?? (fechaParaInput(e.suscripcion_termina) || fechaEn30Dias())}
+                      onChange={ev => setVencimientoPorActivar(f => ({ ...f, [e.id]: ev.target.value }))}
+                      className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white text-gray-600 opacity-0 group-hover:opacity-100"
+                    />
                     <button
                       onClick={() => activarPlan(e)}
                       disabled={actualizarLimits.isPending || actualizar.isPending}

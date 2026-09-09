@@ -3385,6 +3385,7 @@ export interface EmpresaAdmin {
   owner_id: string | null
   plan_estado: string | null
   trial_termina: string | null
+  suscripcion_termina: string | null
   creado_en: string | null
   usuarios: number
   tier: PlanTier
@@ -3396,7 +3397,7 @@ export function usePlatformEmpresas() {
     queryKey: ['pixit_admin_empresas'],
     queryFn: async () => {
       const [{ data: empresas, error: e1 }, { data: perfiles, error: e2 }, { data: limitsRows, error: e3 }] = await Promise.all([
-        supabase.from('empresas').select('id,nombre,owner_id,plan_estado,trial_termina,creado_en').order('creado_en', { ascending: false }),
+        supabase.from('empresas').select('id,nombre,owner_id,plan_estado,trial_termina,suscripcion_termina,creado_en').order('creado_en', { ascending: false }),
         supabase.from('user_profiles').select('empresa_id,activo'),
         // El tier activo/pagado vive en erp_data (misma clave que usePlanLimits) — sin esto
         // el selector de plan del panel no tiene forma de saber qué está realmente activado
@@ -3427,7 +3428,7 @@ export function usePlatformEmpresas() {
 export function useActualizarEmpresaAdmin() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (cambio: { id: string; plan_estado?: string; trial_termina?: string | null }) => {
+    mutationFn: async (cambio: { id: string; plan_estado?: string; trial_termina?: string | null; suscripcion_termina?: string | null }) => {
       const { id, ...rest } = cambio
       const { error } = await supabase.from('empresas').update(rest).eq('id', id)
       if (error) throw error

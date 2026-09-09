@@ -30,6 +30,12 @@ verify_jwt = true
 # pública, así que la función vuelve a comprobar quién llama.
 verify_jwt = true
 
+[functions.subscription-expiry-reminder]
+# La ejecuta un proceso diario sin sesión de usuario. El gateway no exige JWT,
+# pero la función valida un secreto dedicado en `x-cron-token` antes de usar
+# service_role o enviar correos.
+verify_jwt = false
+
 [functions.dte-certificado]
 # Exige JWT y además comprueba por dentro que quien llama sea admin de la
 # empresa: por acá entra la firma legal del contribuyente, así que la anon key
