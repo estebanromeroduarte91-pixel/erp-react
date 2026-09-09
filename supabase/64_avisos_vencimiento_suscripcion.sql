@@ -11,7 +11,7 @@ comment on column public.empresas.suscripcion_termina is
 create table if not exists public.avisos_vencimiento_suscripcion (
   id uuid primary key default gen_random_uuid(),
   empresa_id uuid not null references public.empresas(id) on delete cascade,
-  tipo text not null check (tipo in ('trial_3_dias', 'plan_3_dias')),
+  tipo text not null check (tipo in ('trial_3_dias', 'trial_1_dia', 'plan_3_dias', 'plan_1_dia')),
   vencimiento timestamptz not null,
   destinatario text not null,
   estado text not null default 'procesando' check (estado in ('procesando', 'enviado')),

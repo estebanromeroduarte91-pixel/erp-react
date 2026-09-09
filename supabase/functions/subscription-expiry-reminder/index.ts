@@ -41,15 +41,23 @@ function fechaChile(fecha: string) {
   }).format(new Date(fecha));
 }
 
-function plantilla(nombreEmpresa: string, vencimiento: string) {
+function plantilla(nombreEmpresa: string, vencimiento: string, diasRestantes: 1 | 3) {
   const empresa = escaparHtml(nombreEmpresa);
   const fecha = escaparHtml(fechaChile(vencimiento));
   const contacto = escaparHtml(PIXIT_BILLING_EMAIL);
   const enlaceContacto = `mailto:${encodeURIComponent(PIXIT_BILLING_EMAIL)}?subject=${encodeURIComponent(`Renovar Pixit — ${nombreEmpresa}`)}`;
+  const esUltimoAviso = diasRestantes === 1;
+  const asunto = esUltimoAviso
+    ? "Mañana vence tu acceso a Pixit"
+    : `Tu acceso a Pixit vence el ${fechaChile(vencimiento)}`;
+  const titulo = esUltimoAviso ? "Mañana vence tu suscripción" : "Tu acceso vence pronto";
+  const introduccion = esUltimoAviso
+    ? "Tu suscripción vence mañana. Si no la renuevas, no podrás ingresar a Pixit una vez finalizado tu acceso."
+    : "Quedan 3 días para que finalice tu acceso a Pixit.";
 
   return {
-    subject: `Tu acceso a Pixit vence el ${fechaChile(vencimiento)}`,
-    text: `Hola ${nombreEmpresa},\n\nTu acceso a Pixit vence el ${fechaChile(vencimiento)}. Contáctanos antes de esa fecha para coordinar el pago y mantener tu cuenta activa.\n\nContacto: ${PIXIT_BILLING_EMAIL}\n\nEquipo Pixit`,
+    subject: asunto,
+    text: `Hola ${nombreEmpresa},\n\n${introduccion}\n\nFecha de vencimiento: ${fechaChile(vencimiento)}. Contáctanos para coordinar el pago y mantener tu cuenta activa.\n\nContacto: ${PIXIT_BILLING_EMAIL}\n\nEquipo Pixit`,
     html: `<!doctype html>
 <html lang="es">
   <body style="margin:0;background:#f5f7fb;font-family:Arial,sans-serif;color:#111827">
@@ -59,8 +67,8 @@ function plantilla(nombreEmpresa: string, vencimiento: string) {
           <tr><td style="padding:28px 30px 14px;font-size:28px;font-weight:800;letter-spacing:-1px;color:#111827">Pixit</td></tr>
           <tr><td style="padding:8px 30px 30px">
             <div style="display:inline-block;padding:6px 10px;border-radius:999px;background:#fff7ed;color:#c2410c;font-size:12px;font-weight:700">Aviso de vencimiento</div>
-            <h1 style="margin:18px 0 10px;font-size:24px;line-height:1.25;color:#111827">Tu acceso vence pronto</h1>
-            <p style="margin:0 0 16px;font-size:15px;line-height:1.7;color:#4b5563">Hola <strong>${empresa}</strong>, quedan 3 días para que finalice tu acceso a Pixit.</p>
+            <h1 style="margin:18px 0 10px;font-size:24px;line-height:1.25;color:#111827">${titulo}</h1>
+            <p style="margin:0 0 16px;font-size:15px;line-height:1.7;color:#4b5563">Hola <strong>${empresa}</strong>, ${introduccion}</p>
             <div style="margin:20px 0;padding:18px;border-radius:14px;background:#eff6ff;border:1px solid #dbeafe">
               <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#6b7280">Fecha de vencimiento</div>
               <div style="margin-top:6px;font-size:20px;font-weight:800;color:#1d4ed8">${fecha}</div>
@@ -77,6 +85,21 @@ function plantilla(nombreEmpresa: string, vencimiento: string) {
   };
 }
 
+function fechaLocalISO(fecha: Date) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Santiago",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(fecha);
+}
+
+function diasCalendarioRestantes(vencimiento: string, ahora: Date) {
+  const inicio = Date.parse(`${fechaLocalISO(ahora)}T00:00:00Z`);
+  const fin = Date.parse(`${fechaLocalISO(new Date(vencimiento))}T00:00:00Z`);
+  return Math.round((fin - inicio) / (24 * 60 * 60 * 1000));
+}
+
 Deno.serve(async (req) => {
   if (req.method !== "POST") return respuesta({ ok: false, error: "Método no permitido" }, 405);
 
@@ -90,7 +113,7 @@ Deno.serve(async (req) => {
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
   const ahora = new Date();
-  const hasta = new Date(ahora.getTime() + 3 * 24 * 60 * 60 * 1000);
+  const hasta = new Date(ahora.getTime() + 4 * 24 * 60 * 60 * 1000);
   const { data, error } = await admin
     .from("empresas")
     .select("id,nombre,owner_id,plan_estado,trial_termina,suscripcion_termina")
@@ -110,7 +133,9 @@ Deno.serve(async (req) => {
     const esTrial = empresa.plan_estado === "trial";
     const vencimiento = esTrial ? empresa.trial_termina : empresa.suscripcion_termina;
     if (!vencimiento) continue;
-    const tipo = esTrial ? "trial_3_dias" : "plan_3_dias";
+    const diasRestantes = diasCalendarioRestantes(vencimiento, ahora);
+    if (diasRestantes !== 3 && diasRestantes !== 1) continue;
+    const tipo = `${esTrial ? "trial" : "plan"}_${diasRestantes}_dia${diasRestantes === 1 ? "" : "s"}`;
     const { data: reserva, error: reservaError } = await admin
       .from("avisos_vencimiento_suscripcion")
       .insert({
@@ -136,7 +161,7 @@ Deno.serve(async (req) => {
       const destinatario = usuario?.user?.email;
       if (usuarioError || !destinatario) throw new Error(usuarioError?.message || "El propietario no tiene correo");
 
-      const mensaje = plantilla(empresa.nombre, vencimiento);
+      const mensaje = plantilla(empresa.nombre, vencimiento, diasRestantes);
       const envio = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: {
@@ -151,7 +176,7 @@ Deno.serve(async (req) => {
           html: mensaje.html,
           text: mensaje.text,
           tags: [
-            { name: "tipo", value: esTrial ? "vencimiento_trial" : "vencimiento_plan" },
+            { name: "tipo", value: `${esTrial ? "vencimiento_trial" : "vencimiento_plan"}_${diasRestantes}_dias` },
             { name: "empresa_id", value: empresa.id },
           ],
         }),
