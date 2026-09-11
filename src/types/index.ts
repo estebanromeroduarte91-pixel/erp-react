@@ -278,6 +278,13 @@ export interface Caja {
   activa?: boolean
 }
 
+export interface CajaMetodoPagoResumen {
+  metodoId: string
+  nombre: string
+  cantidad: number
+  monto: number
+}
+
 export interface CajaSesion {
   id: string
   branchId: string
@@ -296,6 +303,8 @@ export interface CajaSesion {
     observaciones: string
     totalVentas: number
     conteo: number
+    /** Fotografía del cierre para conservar el detalle aunque cambien los métodos. */
+    desgloseMetodos?: CajaMetodoPagoResumen[]
   } | null
 }
 

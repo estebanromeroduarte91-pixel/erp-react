@@ -12,6 +12,7 @@ import { IconCashRegister, IconLock, IconLockOpen, IconBuildingStore } from '@ta
 import type { VentaItem, Venta, Orden, CajaSesion, LoteInventario, Producto } from '@/types'
 import { fechaLocal } from '@/lib/fecha'
 import { MobileSheet } from '@/components/shared/MobileSheet'
+import { calcularTotalesCaja } from '@/lib/caja'
 
 const IVA = 0.19
 
@@ -233,24 +234,11 @@ export function POSTab() {
 
   // Totales del día para cierre
   const totalesHoy = useMemo(() => {
-    if (!cajaAbierta) return { efectivo: 0, debito: 0, credito: 0, transferencia: 0, otro: 0, _total: 0, _count: 0 }
-    const mpMap: Record<string, string> = {}
-    ;(metodos ?? []).forEach(m => { mpMap[m.id] = (m.label ?? '').toLowerCase() })
+    if (!cajaAbierta) return calcularTotalesCaja([], metodos ?? [])
     const ventasHoy = (ventas ?? []).filter(v =>
       v.estado !== 'anulada' && v.fecha === today() && v.cajaId === cajaAbierta.id
     )
-    const totales = { efectivo: 0, debito: 0, credito: 0, transferencia: 0, otro: 0, _total: 0, _count: 0 }
-    ventasHoy.forEach(v => {
-      const label = mpMap[v.metodo_pago] ?? v.metodo_pago ?? ''
-      const monto = +v.total_iva || 0
-      totales._total += monto; totales._count++
-      if (label.includes('efect')) totales.efectivo += monto
-      else if (label.includes('debit') || label.includes('deb')) totales.debito += monto
-      else if (label.includes('credit') || label.includes('cred')) totales.credito += monto
-      else if (label.includes('transf')) totales.transferencia += monto
-      else totales.otro += monto
-    })
-    return totales
+    return calcularTotalesCaja(ventasHoy, metodos ?? [])
   }, [ventas, cajaAbierta, metodos])
 
   const esperadoEfect = totalesHoy.efectivo + (sesionAbierta?.apertura?.montoInicial ?? 0)
@@ -293,6 +281,7 @@ export function POSTab() {
             observaciones: obsCierre.trim(),
             totalVentas: totalesHoy._total,
             conteo: totalesHoy._count,
+            desgloseMetodos: totalesHoy.desgloseMetodos,
           },
         }
         : s
@@ -830,15 +819,18 @@ export function POSTab() {
       >
           <div className="px-5 md:px-6 py-5 space-y-4">
             <div className="space-y-2">
-              {[
-                { label: 'Sistema espera (efectivo + fondo)', value: esperadoEfect },
-                ...(totalesHoy.debito > 0 ? [{ label: 'Débito', value: totalesHoy.debito }] : []),
-                ...(totalesHoy.credito > 0 ? [{ label: 'Crédito', value: totalesHoy.credito }] : []),
-                ...(totalesHoy.transferencia > 0 ? [{ label: 'Transferencia', value: totalesHoy.transferencia }] : []),
-              ].map((row, i) => (
-                <div key={i} className="flex justify-between items-center bg-gray-50 rounded-lg px-4 py-2 text-sm">
-                  <span className="text-gray-500">{row.label}</span>
-                  <span className="text-gray-700">{fmt(row.value)}</span>
+              <div className="flex justify-between items-center bg-gray-50 rounded-lg px-4 py-2 text-sm">
+                <span className="text-gray-500">Sistema espera (efectivo + fondo)</span>
+                <span className="text-gray-700">{fmt(esperadoEfect)}</span>
+              </div>
+              <p className="px-1 pt-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Ventas por método de pago</p>
+              {totalesHoy.desgloseMetodos.map(row => (
+                <div key={row.metodoId} className="flex justify-between items-center bg-gray-50 rounded-lg px-4 py-2 text-sm">
+                  <span className="text-gray-500">
+                    {row.nombre}
+                    <span className="ml-1.5 text-xs text-gray-400">({row.cantidad})</span>
+                  </span>
+                  <span className="font-medium text-gray-800">{fmt(row.monto)}</span>
                 </div>
               ))}
               <div className="flex justify-between items-center bg-blue-50 rounded-lg px-4 py-2.5 text-sm">

@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext'
 import { Spinner } from '@/components/shared/Spinner'
 import type { CajaSesion } from '@/types'
 import { fechaLocal } from '@/lib/fecha'
+import { calcularTotalesCaja } from '@/lib/caja'
 
 const today = fechaLocal
 function nowTime() {
@@ -47,26 +48,11 @@ export function CajaTab() {
   }, [sesiones, cajaActual])
 
   const totalesHoy = useMemo(() => {
-    if (!cajaActual) return { efectivo: 0, debito: 0, credito: 0, transferencia: 0, otro: 0, _total: 0, _count: 0 }
-    const mpMap: Record<string, string> = {}
-    ;(metodos ?? []).forEach(m => { mpMap[m.id] = (m.label ?? '').toLowerCase() })
-
+    if (!cajaActual) return calcularTotalesCaja([], metodos ?? [])
     const ventasHoy = (ventas ?? []).filter(v =>
       v.estado !== 'anulada' && v.fecha === today() && v.cajaId === cajaActual.id
     )
-    const totales = { efectivo: 0, debito: 0, credito: 0, transferencia: 0, otro: 0, _total: 0, _count: 0 }
-    ventasHoy.forEach(v => {
-      const label = mpMap[v.metodo_pago] ?? v.metodo_pago ?? ''
-      const monto = +v.total_iva || 0
-      totales._total += monto
-      totales._count++
-      if (label.includes('efect')) totales.efectivo += monto
-      else if (label.includes('debit') || label.includes('deb')) totales.debito += monto
-      else if (label.includes('credit') || label.includes('cred')) totales.credito += monto
-      else if (label.includes('transf')) totales.transferencia += monto
-      else totales.otro += monto
-    })
-    return totales
+    return calcularTotalesCaja(ventasHoy, metodos ?? [])
   }, [ventas, cajaActual, metodos])
 
   const esperadoEfect = totalesHoy.efectivo + (sesionHoy?.apertura?.montoInicial ?? 0)
@@ -118,6 +104,7 @@ export function CajaTab() {
             observaciones: obsCliente.trim(),
             totalVentas: totalesHoy._total,
             conteo: totalesHoy._count,
+            desgloseMetodos: totalesHoy.desgloseMetodos,
           },
         }
         : s
@@ -211,18 +198,24 @@ export function CajaTab() {
 
               {/* Resumen automático */}
               <div className="space-y-2">
-                {[
-                  { label: 'Sistema espera (efectivo + fondo)', value: esperadoEfect, bold: false },
-                  ...(totalesHoy.debito > 0 ? [{ label: 'Débito (automático)', value: totalesHoy.debito, bold: false }] : []),
-                  ...(totalesHoy.credito > 0 ? [{ label: 'Crédito (automático)', value: totalesHoy.credito, bold: false }] : []),
-                  ...(totalesHoy.transferencia > 0 ? [{ label: 'Transferencia (automático)', value: totalesHoy.transferencia, bold: false }] : []),
-                  { label: 'Total ventas del día', value: totalesHoy._total, bold: true },
-                ].map((row, i) => (
-                  <div key={i} className="flex justify-between items-center bg-gray-50 rounded-lg px-4 py-2 text-sm">
-                    <span className={row.bold ? 'font-semibold text-gray-800' : 'text-gray-600'}>{row.label}</span>
-                    <span className={row.bold ? 'font-bold text-gray-900' : 'text-gray-700'}>{fmt(row.value)}</span>
+                <div className="flex justify-between items-center bg-gray-50 rounded-lg px-4 py-2 text-sm">
+                  <span className="text-gray-600">Sistema espera (efectivo + fondo)</span>
+                  <span className="text-gray-700">{fmt(esperadoEfect)}</span>
+                </div>
+                <p className="px-1 pt-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Ventas por método de pago</p>
+                {totalesHoy.desgloseMetodos.map(row => (
+                  <div key={row.metodoId} className="flex justify-between items-center bg-gray-50 rounded-lg px-4 py-2 text-sm">
+                    <span className="text-gray-600">
+                      {row.nombre}
+                      <span className="ml-1.5 text-xs text-gray-400">({row.cantidad})</span>
+                    </span>
+                    <span className="font-medium text-gray-800">{fmt(row.monto)}</span>
                   </div>
                 ))}
+                <div className="flex justify-between items-center bg-blue-50 rounded-lg px-4 py-2.5 text-sm">
+                  <span className="font-semibold text-blue-700">Total ventas del día ({totalesHoy._count})</span>
+                  <span className="font-bold text-blue-700">{fmt(totalesHoy._total)}</span>
+                </div>
               </div>
 
               {/* Conteo efectivo */}
@@ -309,34 +302,32 @@ export function CajaTab() {
           <div className="px-6 py-3 border-b border-gray-100">
             <p className="text-xs font-semibold text-gray-500 uppercase">Historial reciente</p>
           </div>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-50 bg-gray-50">
-                <th className="text-left px-4 py-2 text-xs text-gray-400 font-medium">Fecha</th>
-                <th className="text-right px-4 py-2 text-xs text-gray-400 font-medium">Total ventas</th>
-                <th className="text-right px-4 py-2 text-xs text-gray-400 font-medium">Conteo efectivo</th>
-                <th className="text-right px-4 py-2 text-xs text-gray-400 font-medium">Diferencia</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {historial.map(s => (
-                <tr key={s.id}>
-                  <td className="px-4 py-3 text-gray-600">{s.fecha}</td>
-                  <td className="px-4 py-3 text-right font-medium text-gray-900">
-                    {fmt(s.cierre?.totalVentas ?? 0)}
-                  </td>
-                  <td className="px-4 py-3 text-right text-gray-600">
-                    {fmt(s.cierre?.conteoEfectivo ?? 0)}
-                  </td>
-                  <td className={['px-4 py-3 text-right font-medium',
+          <div className="divide-y divide-gray-100">
+            {historial.map(s => (
+              <div key={s.id} className="px-4 py-3">
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm md:grid-cols-4">
+                  <div><p className="text-[11px] text-gray-400">Fecha</p><p className="text-gray-600">{s.fecha}</p></div>
+                  <div className="text-right"><p className="text-[11px] text-gray-400">Total ventas</p><p className="font-medium text-gray-900">{fmt(s.cierre?.totalVentas ?? 0)}</p></div>
+                  <div><p className="text-[11px] text-gray-400">Conteo efectivo</p><p className="text-gray-600">{fmt(s.cierre?.conteoEfectivo ?? 0)}</p></div>
+                  <div className="text-right"><p className="text-[11px] text-gray-400">Diferencia</p><p className={['font-medium',
                     (s.cierre?.diferencia ?? 0) === 0 ? 'text-gray-400'
                     : (s.cierre?.diferencia ?? 0) > 0 ? 'text-green-600' : 'text-red-600'].join(' ')}>
                     {(s.cierre?.diferencia ?? 0) === 0 ? '—' : fmt(s.cierre?.diferencia ?? 0)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  </p></div>
+                </div>
+                {(s.cierre?.desgloseMetodos?.length ?? 0) > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-2 border-t border-gray-100 pt-3">
+                    {s.cierre!.desgloseMetodos!.map(metodo => (
+                      <div key={metodo.metodoId} className="rounded-lg bg-gray-50 px-3 py-1.5 text-xs text-gray-600">
+                        <span>{metodo.nombre} · {metodo.cantidad}</span>
+                        <span className="ml-2 font-semibold text-gray-800">{fmt(metodo.monto)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
