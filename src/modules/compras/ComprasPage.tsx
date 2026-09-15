@@ -6,9 +6,7 @@ import {
   useOCs, useCrearOC, useActualizarOC, useEliminarOC, useOCLog, useGuardarOCLog,
   useIncrementarContadorOC, useBuscarProductos, useBodegas,
   useProveedores, useGuardarProveedores, useRecibirOC,
-  usePlanCuentas, useAsientos, useGuardarAsientos,
 } from '@/lib/queries'
-import { asientoDeOC, asientoIdDeOC, nextNumeroAsiento } from '@/lib/contabilidad'
 import { formatRut } from '@/lib/rut'
 import { calcularEstadoOC, getCantRecibida } from './utils'
 import type { OC, OCItem, OCRecepcion, OCLogEntry, EstadoOC, Producto, Bodega, Proveedor, Movimiento, LoteInventario } from '@/types'
@@ -1045,9 +1043,6 @@ export function ComprasPage() {
   const incrementarContador = useIncrementarContadorOC()
   const guardarProveedores = useGuardarProveedores()
   const recibirOC = useRecibirOC()
-  const { data: planCuentas } = usePlanCuentas()
-  const { data: asientos } = useAsientos()
-  const guardarAsientos = useGuardarAsientos()
 
   // Recalculate dynamic estado
   const ocs: OC[] = rawOcs.map(o => {
@@ -1174,13 +1169,8 @@ export function ComprasPage() {
   }
 
   async function handleConfirmar(ocId: string, folio: string, metodoPago: string) {
-    const sinFactura = !folio.trim() || folio.trim().toUpperCase() === 'SIN FACTURA'
     const ocConfirmada = { ...(ocs.find(o => o.id === ocId)!), estado: 'confirmada' as EstadoOC, folio_factura: folio, metodo_pago: metodoPago, fecha_confirmacion: today() }
     await actualizarOC.mutateAsync(ocConfirmada)
-    const listaAs = asientos ?? []
-    const existente = listaAs.find(a => a.id === asientoIdDeOC(ocId))
-    const asiento = asientoDeOC(ocConfirmada, metodoPago, sinFactura, planCuentas ?? [], existente?.numero ?? await nextNumeroAsiento())
-    await guardarAsientos.mutateAsync(existente ? listaAs.map(a => a.id === asiento.id ? asiento : a) : [...listaAs, asiento])
     setModal({ type: 'none' })
     showToast('OC confirmada')
   }
@@ -1189,11 +1179,6 @@ export function ComprasPage() {
     const oc = ocs.find(o => o.id === ocId)
     if (!oc || !confirm(`¿Cancelar la OC ${oc.numero}? Esta acción no se puede deshacer.`)) return
     await actualizarOC.mutateAsync({ id: ocId, estado: 'cancelada' as EstadoOC })
-    // Elimina el asiento contable asociado (si la OC estaba confirmada)
-    const idAs = asientoIdDeOC(ocId)
-    if ((asientos ?? []).some(a => a.id === idAs)) {
-      await guardarAsientos.mutateAsync((asientos ?? []).filter(a => a.id !== idAs))
-    }
     setModal({ type: 'none' })
     showToast(`OC ${oc.numero} cancelada`)
   }

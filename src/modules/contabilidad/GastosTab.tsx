@@ -1,7 +1,6 @@
 import { useState, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { useGastos, useCrearGasto, useActualizarGasto, useEliminarGasto, useGastoCats, useGuardarGastoCats, usePlanCuentas, useCatCuentaMap, useAsientos, useGuardarAsientos, useBodegas, useUserProfiles } from '@/lib/queries'
-import { asientoDeGasto, asientoIdDeGasto, nextNumeroAsiento } from '@/lib/contabilidad'
+import { useGastos, useCrearGasto, useActualizarGasto, useEliminarGasto, useGastoCats, useGuardarGastoCats, useBodegas, useUserProfiles } from '@/lib/queries'
 import { separarIva } from '@/lib/metricas'
 import { GASTO_GENERAL_ID } from '@/lib/gastos'
 import { Spinner } from '@/components/shared/Spinner'
@@ -83,27 +82,6 @@ export function GastosTab() {
   const crearGasto = useCrearGasto()
   const actualizarGasto = useActualizarGasto()
   const eliminarGasto = useEliminarGasto()
-  const { data: planCuentas } = usePlanCuentas()
-  const { data: catCuentaMap } = useCatCuentaMap()
-  const { data: asientos } = useAsientos()
-  const guardarAsientos = useGuardarAsientos()
-
-  // Mantiene el asiento de partida doble de cada gasto en sincronía (crear/editar).
-  async function sincronizarAsiento(gasto: Gasto) {
-    const lista = asientos ?? []
-    const existente = lista.find((a) => a.id === asientoIdDeGasto(gasto.id))
-    const numero = existente?.numero ?? await nextNumeroAsiento()
-    const asiento = asientoDeGasto(gasto, planCuentas ?? [], catCuentaMap ?? {}, numero)
-    const actualizada = existente
-      ? lista.map((a) => (a.id === asiento.id ? asiento : a))
-      : [...lista, asiento]
-    await guardarAsientos.mutateAsync(actualizada)
-  }
-
-  async function eliminarAsiento(gastoId: string) {
-    const id = asientoIdDeGasto(gastoId)
-    await guardarAsientos.mutateAsync((asientos ?? []).filter((a) => a.id !== id))
-  }
 
   const guardarCats = useGuardarGastoCats()
   const [busqueda, setBusqueda] = useState('')
@@ -224,7 +202,6 @@ export function GastosTab() {
   async function eliminar(g: Gasto) {
     if (!confirm(`¿Eliminar "${g.descripcion}"?`)) return
     await eliminarGasto.mutateAsync(g.id)
-    await eliminarAsiento(g.id)
   }
 
   function abrirNuevo() { setEditando(null); setModalOpen(true) }
@@ -425,7 +402,6 @@ export function GastosTab() {
             } else {
               await crearGasto.mutateAsync(guardado)
             }
-            await sincronizarAsiento(guardado)
           }}
         />
       )}

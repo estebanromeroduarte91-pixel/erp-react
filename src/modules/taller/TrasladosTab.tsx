@@ -1,7 +1,6 @@
 import { useState, useMemo } from 'react'
-import { useTraslados, useGuardarTraslados, useTecnicosExternos, useGuardarTecnicosExternos, useOrdenesLite, useActualizarOrden, useCrearGasto, usePlanCuentas, useCatCuentaMap, useAsientos, useGuardarAsientos } from '@/lib/queries'
+import { useTraslados, useGuardarTraslados, useTecnicosExternos, useGuardarTecnicosExternos, useOrdenesLite, useActualizarOrden, useCrearGasto } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
-import { asientoDeGasto, nextNumeroAsiento } from '@/lib/contabilidad'
 import { Spinner } from '@/components/shared/Spinner'
 import type { Traslado, EstadoTraslado, TecnicoExterno, EstadoOrden } from '@/types'
 
@@ -79,10 +78,6 @@ export function TrasladosTab() {
   const { data: ordenes } = useOrdenesLite()
   const actualizarOrden = useActualizarOrden()
   const crearGasto = useCrearGasto()
-  const { data: planCuentas } = usePlanCuentas()
-  const { data: catCuentaMap } = useCatCuentaMap()
-  const { data: asientos } = useAsientos()
-  const guardarAsientos = useGuardarAsientos()
 
   // Diálogo "Confirmar retorno"
   const [retorno, setRetorno] = useState<Traslado | null>(null)
@@ -126,8 +121,6 @@ export function TrasladosTab() {
         metodo: retMetodo,
       }
       await crearGasto.mutateAsync(gasto)
-      const asiento = asientoDeGasto(gasto, planCuentas ?? [], catCuentaMap ?? {}, await nextNumeroAsiento())
-      await guardarAsientos.mutateAsync([...(asientos ?? []), asiento])
     }
     setRetGuardando(false)
     setRetorno(null)

@@ -1,5 +1,5 @@
 import { useState, useMemo, memo } from 'react'
-import { useMovimientos, useCrearMovimiento, useProductos, useBuscarProductos, useBodegas, useAjustarStock, MOVIMIENTOS_LIMITE } from '@/lib/queries'
+import { useMovimientos, useProductos, useBuscarProductos, useBodegas, useRegistrarTraslado, MOVIMIENTOS_LIMITE } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { useAnchorRect, fixedDropdownStyle } from '@/lib/useAnchorRect'
 import { Spinner } from '@/components/shared/Spinner'
@@ -72,8 +72,7 @@ const LineaTrasladoRow = memo(function LineaTrasladoRow({
 function ModalTraslado({ onClose }: { onClose: () => void }) {
   const { data: productos = [] } = useProductos()
   const { data: bodegas = [] } = useBodegas()
-  const crearMovimiento = useCrearMovimiento()
-  const ajustarStock = useAjustarStock()
+  const registrarTraslado = useRegistrarTraslado()
   const { nombre: usuarioNombre } = useAuth()
 
   const bodegasActivas = useMemo(() => bodegas.filter(b => b.activo !== false), [bodegas])
@@ -125,12 +124,6 @@ function ModalTraslado({ onClose }: { onClose: () => void }) {
 
     setGuardando(true)
     try {
-      const ajustes = validas.flatMap(l => [
-        { producto_id: l.producto_id, bodega_id: origenId, delta: -l.cantidad },
-        { producto_id: l.producto_id, bodega_id: destinoId, delta: l.cantidad },
-      ])
-      await ajustarStock.mutateAsync(ajustes)
-
       const movProductos: MovProducto[] = validas.map(l => ({
         producto_id: l.producto_id,
         producto_nombre: productos.find(p => p.id === l.producto_id)?.nombre ?? '',
@@ -147,7 +140,12 @@ function ModalTraslado({ onClose }: { onClose: () => void }) {
         notas: notas || `Traslado ${nombreBodega(origenId)} → ${nombreBodega(destinoId)}`,
         usuario: usuarioNombre,
       }
-      await crearMovimiento.mutateAsync(nuevoMov)
+      await registrarTraslado.mutateAsync({
+        origenId,
+        destinoId,
+        lineas: validas.map(({ producto_id, cantidad }) => ({ producto_id, cantidad })),
+        movimiento: nuevoMov,
+      })
       onClose()
     } catch (e) {
       setError((e as Error).message)

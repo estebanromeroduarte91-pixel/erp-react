@@ -2,14 +2,14 @@ import { useState, useMemo, useRef, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { TIPO_DTE, abrirPdfBase64, lineaParaDte } from '@/lib/dte'
 import { ProductoModal } from '@/modules/inventario/ProductoModal'
-import { useProductos, useBuscarProductos, useBodegas, useVentasEnRango, useConfirmarVenta, useMetodosPago, useCajaSesiones, useCajas, useGuardarCajaSesiones, useIncrementarContadorVenta, useOrdenesLite, useUserProfiles, useUserCargoMap, useCargos, fetchLotesActivosParaVenta, fetchOrdenCompletaPorId, useClientes, useBuscarClientes, useCrearCliente, useVentasConfig, CARGOS_DEFAULT, useEmitirDte, useImprimirDte, useEnviarDte } from '@/lib/queries'
+import { useProductos, useBuscarProductos, useBodegas, useVentasEnRango, useConfirmarVenta, useMetodosPago, useCajaSesiones, useCajas, useGuardarCajaSesiones, useIncrementarContadorVenta, useOrdenesLite, useUserProfiles, useUserCargoMap, useCargos, fetchOrdenCompletaPorId, useClientes, useBuscarClientes, useCrearCliente, useVentasConfig, CARGOS_DEFAULT, useEmitirDte, useImprimirDte, useEnviarDte } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 
 import { useAnchorRect, fixedDropdownStyle } from '@/lib/useAnchorRect'
 import { formatRut } from '@/lib/rut'
 import { capWords } from '@/lib/formatters'
 import { IconCashRegister, IconLock, IconLockOpen, IconBuildingStore } from '@tabler/icons-react'
-import type { VentaItem, Venta, Orden, CajaSesion, LoteInventario, Producto } from '@/types'
+import type { VentaItem, Venta, Orden, CajaSesion, Producto } from '@/types'
 import { fechaLocal } from '@/lib/fecha'
 import { MobileSheet } from '@/components/shared/MobileSheet'
 import { calcularTotalesCaja } from '@/lib/caja'
@@ -543,56 +543,11 @@ export function POSTab() {
     setAvisoDte('')
     setGuardando(true)
     try {
-      const bodegaId = cajaAbierta?.bodegaId
-
-      // Costeo FIFO: congela el costo real de cada línea al momento de la venta,
-      // consumiendo los lotes más antiguos primero. Si no hay lotes suficientes
-      // (hueco de datos), usa el precio_compra actual del producto como respaldo.
-      // Solo se trackean los lotes que efectivamente cambian (consumo FIFO), no el
-      // array completo — así el guardado toca únicamente esas filas.
-      // Los lotes se traen puntuales para los productos de este carrito (no toda
-      // la tabla): antes useLotes() precargaba TODA la tabla (1400+ filas y
-      // creciendo) cada vez que se abría el POS, aunque una venta típica solo
-      // toque un puñado de productos.
-      const productosDelCarrito = [...new Set(
-        items
-          .filter(it => it.producto_id && it.producto_id !== 'ot-servicio' && !it.producto_id.startsWith('rep-'))
-          .map(it => it.producto_id!),
-      )]
-      // Son operaciones independientes: ejecutarlas juntas evita una vuelta
-      // de red completa antes de comenzar la transacción de la venta.
-      const [nextNum, lotesRelevantes] = await Promise.all([
-        incrementarContador.mutateAsync(),
-        empresaId && bodegaId
-          ? fetchLotesActivosParaVenta(empresaId, productosDelCarrito, bodegaId)
-          : Promise.resolve([] as LoteInventario[]),
-      ])
+      // El servidor bloquea stock y lotes, calcula FIFO y registra todo dentro
+      // de la misma transacción. El navegador ya no lee lotes ni propone sus
+      // saldos finales: dos cajas vendiendo a la vez no pueden pisarse.
+      const nextNum = await incrementarContador.mutateAsync()
       const numero = 'VTA-' + String(nextNum).padStart(5, '0')
-
-      const restantePorLote = new Map<string, number>()
-      const cantidadRestante = (l: LoteInventario) => restantePorLote.get(l.id) ?? l.cantidad_restante
-      const costosPorItem = new Map<string, { costo_unitario: number; costo_total: number }>()
-      for (const it of items) {
-        if (!it.producto_id || it.producto_id === 'ot-servicio' || it.producto_id.startsWith('rep-')) continue
-        const producto = (productos ?? []).find(p => p.id === it.producto_id)
-        if (producto?.tipo === 'servicio') continue
-        const fallback = producto?.precio_compra ?? 0
-        const candidatos = lotesRelevantes
-          .filter(l => l.producto_id === it.producto_id && cantidadRestante(l) > 0)
-          .sort((a, b) => (a.creado_en || a.fecha).localeCompare(b.creado_en || b.fecha))
-        let restante = it.cantidad
-        let costoTotal = 0
-        for (const lote of candidatos) {
-          if (restante <= 0) break
-          const disponible = cantidadRestante(lote)
-          const consumir = Math.min(disponible, restante)
-          costoTotal += consumir * lote.costo_unitario
-          restante -= consumir
-          restantePorLote.set(lote.id, disponible - consumir)
-        }
-        if (restante > 0) costoTotal += restante * fallback
-        costosPorItem.set(it.id, { costo_unitario: it.cantidad ? Math.round(costoTotal / it.cantidad) : 0, costo_total: Math.round(costoTotal) })
-      }
 
       const venta: Venta = {
         id: uid(),
@@ -617,7 +572,6 @@ export function POSTab() {
           precio_iva: Math.round(it.precio_iva * (1 - (it.descuento || 0) / 100)),
           descuento: it.descuento || 0,
           subtotal: lineNeto(it),
-          ...(costosPorItem.get(it.id) ?? {}),
         })),
         total: totalNeto,
         total_iva: totalIva,
@@ -638,15 +592,6 @@ export function POSTab() {
         notas: 'Venta registrada',
       } : null
 
-      // Descontar stock de la bodega de la caja (delta, no SET absoluto).
-      const ajustes = bodegaId
-        ? prodsSalida
-          .filter(it => (productos ?? []).find(p => p.id === it.producto_id)?.tipo !== 'servicio')
-          .map(it => ({ producto_id: it.producto_id!, bodega_id: bodegaId, delta: -it.cantidad }))
-        : []
-
-      const loteUpdates = [...restantePorLote.entries()].map(([id, cantidad_restante]) => ({ id, cantidad_restante }))
-
       const orden = otSeleccionada ? {
         id: otSeleccionada.id,
         status: 'Entregado',
@@ -662,7 +607,7 @@ export function POSTab() {
       // la OT: todo en una sola transacción atómica (fn_confirmar_venta). Si
       // se corta la conexión a mitad de camino, no queda nada aplicado a
       // medias — o se guarda todo, o no se guarda nada.
-      await confirmarVentaMutation.mutateAsync({ venta, movimiento: mov, ajustesStock: ajustes, lotes: loteUpdates, orden })
+      await confirmarVentaMutation.mutateAsync({ venta, movimiento: mov, orden })
 
       // Desde este punto la venta ya está confirmada. El DTE continúa en una
       // cola separada: emitir, imprimir o enviar al SII nunca debe mantener el

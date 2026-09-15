@@ -93,21 +93,16 @@ Deno.serve(async (req) => {
     // guardar cualquier dato como conexión activa.
     await wooFetch(siteUrl, consumerKey, consumerSecret, "/orders?per_page=1");
 
-    const { data: conexionPrevia } = await admin.from("woo_conexiones")
-      .select("id,token,secret").eq("empresa_id", empresaId).maybeSingle();
-
-    const fila = {
-      empresa_id: empresaId,
-      site_url: siteUrl,
-      consumer_key: consumerKey,
-      consumer_secret: consumerSecret,
-      bodega_id: bodegaId,
-      activa: true,
-    };
-    const operacion = conexionPrevia
-      ? admin.from("woo_conexiones").update(fila).eq("id", conexionPrevia.id).select("id,token,secret").single()
-      : admin.from("woo_conexiones").insert(fila).select("id,token,secret").single();
-    const { data: conexion, error: errorConexion } = await operacion;
+    // Las credenciales quedan cifradas en Supabase Vault. La tabla expuesta a
+    // PostgREST conserva únicamente referencias opacas a esos secretos.
+    const { data: conexiones, error: errorConexion } = await admin.rpc("fn_woo_guardar_conexion", {
+      p_empresa: empresaId,
+      p_site_url: siteUrl,
+      p_consumer_key: consumerKey,
+      p_consumer_secret: consumerSecret,
+      p_bodega_id: bodegaId,
+    });
+    const conexion = Array.isArray(conexiones) ? conexiones[0] : null;
     if (errorConexion || !conexion) throw new Error(errorConexion?.message ?? "No se pudo guardar la conexión");
 
     const deliveryUrl = `${SUPABASE_URL}/functions/v1/woo-webhook?t=${conexion.token}`;
@@ -123,7 +118,7 @@ Deno.serve(async (req) => {
         topic,
         status: "active",
         delivery_url: deliveryUrl,
-        secret: conexion.secret,
+        secret: conexion.webhook_secret,
       });
       await wooFetch(siteUrl, consumerKey, consumerSecret, existente ? `/webhooks/${existente.id}` : "/webhooks", {
         method: existente ? "PUT" : "POST",

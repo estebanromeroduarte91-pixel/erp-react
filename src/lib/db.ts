@@ -15,7 +15,10 @@ export async function dbGet<T>(empresaId: string, clave: string): Promise<T | nu
     .maybeSingle()
   if (error) {
     console.error(`dbGet(${clave}):`, error.message)
-    return null
+    // Un error de red/permisos no equivale a "no hay datos". Devolver null
+    // hacía que varias pantallas interpretaran una lectura fallida como una
+    // lista vacía y luego sobrescribieran información válida al guardar.
+    throw new Error(error.message)
   }
   return (data?.datos as T) ?? null
 }

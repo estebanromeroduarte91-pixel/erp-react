@@ -195,8 +195,10 @@ export function EcommercePage() {
     queryKey: ['woo-conexion-publica', empresaId],
     enabled: !!empresaId,
     queryFn: async () => {
-      const { data } = await supabase.from('woo_conexiones').select('site_url,activa').eq('empresa_id', empresaId!).maybeSingle()
-      return data as { site_url?: string | null; activa?: boolean } | null
+      const { data, error } = await supabase.rpc('fn_woo_estado', { p_empresa_id: empresaId })
+      if (error) throw error
+      const estado = Array.isArray(data) ? data[0] : null
+      return estado as { site_url?: string | null; activa?: boolean; bodega_id?: string | null } | null
     },
   })
 

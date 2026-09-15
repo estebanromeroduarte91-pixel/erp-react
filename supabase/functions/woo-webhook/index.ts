@@ -59,12 +59,11 @@ Deno.serve(async (req) => {
   const cuerpo = await req.text();
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
-  const { data: conn } = await admin
-    .from("woo_conexiones")
-    .select("secret,empresa_id")
-    .eq("token", token)
-    .eq("activa", true)
-    .maybeSingle();
+  const { data: conexiones, error: errorConexion } = await admin.rpc("fn_woo_obtener_webhook", {
+    p_token: token,
+  });
+  if (errorConexion) return json({ ok: false, error: "No se pudo validar la conexión" }, 500);
+  const conn = Array.isArray(conexiones) ? conexiones[0] : null;
   if (!conn) return json({ ok: false, error: "Conexión no encontrada" }, 404);
 
   const firmaRecibida = req.headers.get("X-WC-Webhook-Signature") ?? "";
@@ -78,7 +77,7 @@ Deno.serve(async (req) => {
     return json({ ok: true, ping: true, detalle: "Conexión verificada" });
   }
 
-  if (!firmaRecibida || !igualSeguro(firmaRecibida, await firmaEsperada(conn.secret, cuerpo))) {
+  if (!firmaRecibida || !igualSeguro(firmaRecibida, await firmaEsperada(conn.webhook_secret, cuerpo))) {
     return json({ ok: false, error: "Firma inválida" }, 401);
   }
 

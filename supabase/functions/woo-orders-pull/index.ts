@@ -106,9 +106,11 @@ Deno.serve(async (req) => {
   try { body = await req.json(); } catch { /* empresa propia */ }
   const { empresaId } = await empresaPermitida(admin, usuario.user.id, perfil.empresa_id, body.empresa_id);
 
-  const { data: conexion } = await admin.from("woo_conexiones")
-    .select("site_url,consumer_key,consumer_secret,activa")
-    .eq("empresa_id", empresaId).eq("activa", true).maybeSingle();
+  const { data: conexiones, error: errorConexion } = await admin.rpc("fn_woo_obtener_conexion", {
+    p_empresa: empresaId,
+  });
+  if (errorConexion) return json({ ok: false, error: errorConexion.message }, 500);
+  const conexion = Array.isArray(conexiones) ? conexiones[0] : null;
   if (!conexion?.site_url || !conexion.consumer_key || !conexion.consumer_secret) {
     return json({ ok: false, error: "WooCommerce no está configurado para esta empresa" }, 400);
   }

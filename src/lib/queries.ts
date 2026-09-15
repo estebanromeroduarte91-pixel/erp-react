@@ -862,6 +862,35 @@ export function useAjustarStock() {
   })
 }
 
+export interface RegistrarTrasladoPayload {
+  origenId: string
+  destinoId: string
+  lineas: { producto_id: string; cantidad: number }[]
+  movimiento: Movimiento
+}
+
+/** Traslada stock y registra el movimiento como una única operación SQL. */
+export function useRegistrarTraslado() {
+  const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: RegistrarTrasladoPayload) => {
+      const { error } = await supabase.rpc('fn_registrar_traslado', {
+        p_origen_id: payload.origenId,
+        p_destino_id: payload.destinoId,
+        p_lineas: payload.lineas,
+        p_movimiento: payload.movimiento,
+        p_empresa_id: empresaId,
+      })
+      if (error) throw error
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['productos', empresaId] })
+      void qc.invalidateQueries({ queryKey: ['movimientos_inventario', empresaId] })
+    },
+  })
+}
+
 // ── Tomas de inventario (conteo físico) ───────────────────────
 
 export function useConteos() {
@@ -885,6 +914,31 @@ export function useGuardarConteos() {
   return useMutation({
     mutationFn: (conteos: ConteoInventario[]) => dbSet(empresaId!, 'conteos_inventario', conteos),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['conteos_inventario', empresaId] }),
+  })
+}
+
+/**
+ * Guarda la toma y todos sus ajustes de stock/FIFO en una sola transacción.
+ * El servidor vuelve a leer el stock bajo lock y devuelve la versión realmente
+ * persistida, con sistema y diferencia calculados allí.
+ */
+export function useRegistrarConteo() {
+  const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (conteo: ConteoInventario) => {
+      const { data, error } = await supabase.rpc('fn_registrar_conteo', {
+        p_conteo: conteo,
+        p_empresa_id: empresaId,
+      })
+      if (error) throw error
+      return data as ConteoInventario
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['conteos_inventario', empresaId] })
+      void qc.invalidateQueries({ queryKey: ['productos', empresaId] })
+      void qc.invalidateQueries({ queryKey: ['lotes_inventario', empresaId] })
+    },
   })
 }
 
@@ -2287,11 +2341,40 @@ export function useGuardarPlanCuentas() {
 
 export function useAsientos() {
   const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  const instanceId = useId()
+
+  useEffect(() => {
+    if (!empresaId) return
+    const channel = supabase
+      .channel(`rt-asientos-${empresaId}-${instanceId}-${Math.random().toString(36).slice(2, 8)}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'asientos_contables', filter: `empresa_id=eq.${empresaId}` },
+        () => { void qc.invalidateQueries({ queryKey: ['asientos', empresaId] }) },
+      )
+      .subscribe()
+    return () => { void supabase.removeChannel(channel) }
+  }, [empresaId, qc, instanceId])
+
   return useQuery({
     queryKey: ['asientos', empresaId],
-    queryFn: () => dbGet<Asiento[] | string>(empresaId!, 'asientos'),
+    queryFn: async () => {
+      const PAGE = 1000
+      const lista: Asiento[] = []
+      for (let from = 0; ; from += PAGE) {
+        const { data, error } = await supabase
+          .from('asientos_contables')
+          .select('datos')
+          .eq('empresa_id', empresaId!)
+          .range(from, from + PAGE - 1)
+        if (error) throw error
+        lista.push(...(data ?? []).map((row) => row.datos as Asiento))
+        if (!data || data.length < PAGE) break
+      }
+      return lista
+    },
     enabled: !!empresaId,
-    select: (data) => parseArr<Asiento>(data as Asiento[] | string | null),
   })
 }
 
@@ -2299,7 +2382,15 @@ export function useGuardarAsientos() {
   const { empresaId } = useAuth()
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (asientos: Asiento[]) => dbSet(empresaId!, 'asientos', asientos),
+    // Upsert por id: nunca reemplaza ni elimina los asientos creados por otro
+    // usuario entre la lectura y esta escritura.
+    mutationFn: async (asientos: Asiento[]) => {
+      const { error } = await supabase.rpc('fn_upsert_asientos', {
+        p_asientos: asientos,
+        p_empresa_id: empresaId,
+      })
+      if (error) throw error
+    },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['asientos', empresaId] }),
   })
 }

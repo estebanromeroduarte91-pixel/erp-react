@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { useBodegas, useBuscarProductos, useConteos, useGuardarConteos, useFijarStock } from '@/lib/queries'
+import { useBodegas, useBuscarProductos, useConteos, useRegistrarConteo } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { Spinner } from '@/components/shared/Spinner'
 import type { ConteoInventario, ConteoItem, Producto } from '@/types'
@@ -21,8 +21,7 @@ type Fila = { producto: Producto; contado: number }
 export function ConteosTab() {
   const { data: bodegas = [] } = useBodegas()
   const { data: conteos = [], isLoading } = useConteos()
-  const guardarConteos = useGuardarConteos()
-  const fijarStock = useFijarStock()
+  const registrarConteo = useRegistrarConteo()
   const { nombre: nombreUsuario } = useAuth()
 
   const [enCurso, setEnCurso] = useState(false)
@@ -75,11 +74,6 @@ export function ConteosTab() {
           diferencia: f.contado - sistema,
         }
       })
-      // Ajusta solo lo que realmente cambió. fijarStock reconcilia además los lotes FIFO.
-      for (const it of items) {
-        if (it.diferencia === 0) continue
-        await fijarStock.mutateAsync({ producto_id: it.producto_id, bodega_id: bodegaId, cantidad: it.contado })
-      }
       const conteo: ConteoInventario = {
         id: uid(),
         fecha: today(),
@@ -89,7 +83,9 @@ export function ConteosTab() {
         items,
         creado_en: new Date().toISOString(),
       }
-      await guardarConteos.mutateAsync([conteo, ...conteos])
+      // Conteo, stock y capas FIFO se confirman juntos. Ya no puede quedar una
+      // toma aplicada a medias si falla una línea o se corta la conexión.
+      await registrarConteo.mutateAsync(conteo)
       setEnCurso(false); setFilas([])
     } catch (e) {
       // Antes esto era try/finally sin catch: si el ajuste fallaba, el conteo
