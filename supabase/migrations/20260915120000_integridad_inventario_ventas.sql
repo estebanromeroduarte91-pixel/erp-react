@@ -240,7 +240,10 @@ declare
   v_empresa_id uuid;
   v_impersonando boolean;
   v_linea record;
+  v_lote record;
   v_stock numeric;
+  v_restante numeric;
+  v_consumir numeric;
   v_productos jsonb := '[]'::jsonb;
 begin
   v_impersonando := p_empresa_id is not null and public.is_platform_admin();
@@ -280,7 +283,7 @@ begin
   for update of ps;
 
   for v_linea in
-    select p.id producto_id, p.nombre,
+    select p.id producto_id, p.nombre, max(coalesce(p.precio_compra, 0)) precio_compra,
            sum((x.value->>'cantidad')::numeric) cantidad
     from jsonb_array_elements(p_lineas) x(value)
     join public.productos p on p.id = x.value->>'producto_id' and p.empresa_id = v_empresa_id
@@ -302,6 +305,53 @@ begin
       where producto_id = v_linea.producto_id and bodega_id = p_origen_id;
     update public.producto_stock set cantidad = cantidad + v_linea.cantidad
       where producto_id = v_linea.producto_id and bodega_id = p_destino_id;
+
+    -- El stock y su costo deben viajar juntos. Consumimos las capas FIFO del
+    -- origen y recreamos exactamente esas porciones en el destino, conservando
+    -- el costo y la trazabilidad de compra. Sin esto, una venta posterior en la
+    -- sucursal de destino podía calcular una rentabilidad incorrecta.
+    v_restante := v_linea.cantidad;
+    for v_lote in
+      select id, cantidad_restante, costo_unitario, origen, oc_id, oc_item_id,
+             fecha, creado_en
+      from public.lotes_inventario
+      where empresa_id = v_empresa_id
+        and producto_id = v_linea.producto_id
+        and bodega_id = p_origen_id
+        and cantidad_restante > 0
+      order by creado_en, fecha, id
+      for update
+    loop
+      exit when v_restante <= 0;
+      v_consumir := least(v_lote.cantidad_restante, v_restante);
+
+      update public.lotes_inventario
+      set cantidad_restante = cantidad_restante - v_consumir
+      where id = v_lote.id and empresa_id = v_empresa_id;
+
+      insert into public.lotes_inventario
+        (id, empresa_id, producto_id, bodega_id, cantidad_inicial, cantidad_restante,
+         costo_unitario, origen, oc_id, oc_item_id, fecha, creado_en)
+      values
+        (gen_random_uuid()::text, v_empresa_id, v_linea.producto_id, p_destino_id,
+         v_consumir, v_consumir, coalesce(v_lote.costo_unitario, 0),
+         coalesce(v_lote.origen, 'apertura'), v_lote.oc_id, v_lote.oc_item_id,
+         v_lote.fecha, v_lote.creado_en);
+
+      v_restante := v_restante - v_consumir;
+    end loop;
+
+    -- Datos antiguos pueden tener stock agregado sin capas FIFO. No impedimos
+    -- el traslado: creamos únicamente la diferencia al costo de compra actual.
+    if v_restante > 0 then
+      insert into public.lotes_inventario
+        (id, empresa_id, producto_id, bodega_id, cantidad_inicial, cantidad_restante,
+         costo_unitario, origen, fecha, creado_en)
+      values
+        (gen_random_uuid()::text, v_empresa_id, v_linea.producto_id, p_destino_id,
+         v_restante, v_restante, v_linea.precio_compra, 'apertura',
+         to_char(current_date, 'YYYY-MM-DD'), now());
+    end if;
 
     v_productos := v_productos || jsonb_build_array(jsonb_build_object(
       'producto_id', v_linea.producto_id,
