@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { describirError } from './errorUtils'
 
 // Registro de errores de runtime en la tabla `error_log` (ver
 // supabase/30_error_log.sql). Antes de esto, un error en producción moría en
@@ -17,6 +18,7 @@ const IGNORAR = [
   'ResizeObserver loop',           // benigno, lo tira Chrome al redimensionar
   'Non-Error promise rejection',
   'Script error.',                 // error cross-origin sin detalle utilizable
+  'Failed to connect to MetaMask', // extensión de billetera, no nace en Pixit
 ]
 
 let enviados = 0
@@ -71,17 +73,21 @@ export async function registrarError({ mensaje, stack, componente }: DatosError)
  */
 export function instalarCapturaGlobalDeErrores(): void {
   window.addEventListener('error', (ev) => {
+    // Las extensiones se ejecutan encima de Pixit, pero sus fallos no son
+    // accionables para el ERP y solo contaminan el panel del administrador.
+    if (/^(chrome|moz|safari)-extension:/i.test(ev.filename ?? '')) return
+    const detalle = describirError(ev.error, ev.message || 'Error desconocido')
     void registrarError({
-      mensaje: ev.message || String(ev.error ?? 'Error desconocido'),
-      stack: ev.error instanceof Error ? ev.error.stack : undefined,
+      mensaje: ev.message || detalle.mensaje,
+      stack: detalle.stack,
     })
   })
 
   window.addEventListener('unhandledrejection', (ev) => {
-    const motivo = ev.reason
+    const detalle = describirError(ev.reason, 'Promesa rechazada sin detalle')
     void registrarError({
-      mensaje: motivo instanceof Error ? motivo.message : `Promesa rechazada: ${String(motivo)}`,
-      stack: motivo instanceof Error ? motivo.stack : undefined,
+      mensaje: detalle.mensaje,
+      stack: detalle.stack,
     })
   })
 }

@@ -1,10 +1,12 @@
 import { useState, useMemo, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useGastos, useCrearGasto, useActualizarGasto, useEliminarGasto, useGastoCats, useGuardarGastoCats, usePlanCuentas, useCatCuentaMap, useAsientos, useGuardarAsientos, useBodegas, useUserProfiles } from '@/lib/queries'
 import { asientoDeGasto, asientoIdDeGasto, nextNumeroAsiento } from '@/lib/contabilidad'
 import { separarIva } from '@/lib/metricas'
 import { GASTO_GENERAL_ID } from '@/lib/gastos'
 import { Spinner } from '@/components/shared/Spinner'
 import { capFirst } from '@/lib/formatters'
+import { describirError } from '@/lib/errorUtils'
 import type { Gasto, GastoCat, Bodega } from '@/types'
 
 function uid() { return Math.random().toString(36).slice(2) + Date.now().toString(36) }
@@ -468,35 +470,41 @@ function GastoModal({ cats, bodegas, personasComisionables, gasto, subcatsPorCat
   }, [canonMap, subcategoria])
 
   async function handleGuardar() {
+    if (guardando) return
     if (!monto || +monto <= 0) { setError('Ingresa un monto válido'); return }
     if (!descripcion.trim()) { setError('Agrega una descripción'); return }
     if (!bodegaId) { setError('Elige a qué sucursal corresponde este gasto'); return }
     setError(''); setGuardando(true)
-    const bodega = bodegas.find(b => b.id === bodegaId)
-    await onGuardar({
-      id: gasto?.id ?? '',
-      fecha,
-      descripcion: descripcion.trim(),
-      monto: +monto,
-      // Con factura el IVA es crédito fiscal y no costo, así que se guarda
-      // separado y el resultado descuenta solo el neto.
-      con_credito_fiscal: conFactura,
-      monto_neto: conFactura ? separarIva(+monto).neto : undefined,
-      iva: conFactura ? separarIva(+monto).iva : undefined,
-      categoria,
-      subcategoria: subCanonica,
-      metodo,
-      bodega_id: bodegaId,
-      bodega_nombre: bodegaId === GASTO_GENERAL_ID ? 'General / Compartido' : (bodega?.nombre ?? bodega?.name),
-    })
-    setGuardando(false)
-    onClose()
+    try {
+      const bodega = bodegas.find(b => b.id === bodegaId)
+      await onGuardar({
+        id: gasto?.id ?? '',
+        fecha,
+        descripcion: descripcion.trim(),
+        monto: +monto,
+        // Con factura el IVA es crédito fiscal y no costo, así que se guarda
+        // separado y el resultado descuenta solo el neto.
+        con_credito_fiscal: conFactura,
+        monto_neto: conFactura ? separarIva(+monto).neto : undefined,
+        iva: conFactura ? separarIva(+monto).iva : undefined,
+        categoria,
+        subcategoria: subCanonica,
+        metodo,
+        bodega_id: bodegaId,
+        bodega_nombre: bodegaId === GASTO_GENERAL_ID ? 'General / Compartido' : (bodega?.nombre ?? bodega?.name),
+      })
+      setGuardando(false)
+      onClose()
+    } catch (e) {
+      setError(describirError(e, 'No se pudo guardar el gasto.').mensaje)
+      setGuardando(false)
+    }
   }
 
   const montoFmt = monto ? `$${(+monto || 0).toLocaleString('es-CL')}` : '$0'
 
-  return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40 p-4">
+  return createPortal(
+    <div translate="no" className="notranslate fixed inset-0 z-[110] flex items-center justify-center bg-black/40 p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden">
 
         {/* Header */}
@@ -679,11 +687,12 @@ function GastoModal({ cats, bodegas, personasComisionables, gasto, subcatsPorCat
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
             </svg>
-            {guardando ? 'Guardando…' : gasto ? 'Guardar cambios' : 'Registrar gasto'}
+            <span>{guardando ? 'Guardando…' : gasto ? 'Guardar cambios' : 'Registrar gasto'}</span>
           </button>
         </div>
 
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
