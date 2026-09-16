@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { useCargos, usePuedeUsarModulo } from '@/lib/queries'
 import { useTour } from '@/modules/onboarding/TourContext'
+import { useDeliveryHabilitado } from '@/modules/delivery/deliveryQueries'
 
 // ── Tipos ─────────────────────────────────────────────────────
 interface SubItem { to: string; label: string; icon: React.ReactNode; id?: string; roles?: string[] }
@@ -68,6 +69,14 @@ const OP_ITEMS: SectionItem[] = [
       to: '/ecommerce',
       label: 'E-Commerce',
       icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9h18l-1.5-5h-15z"/><path d="M5 9v11h14V9"/><path d="M9 20v-6h6v6"/><path d="M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0"/></svg>,
+    },
+  },
+  {
+    type: 'single',
+    item: {
+      to: '/delivery',
+      label: 'Delivery',
+      icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7h11v10H3z"/><path d="M14 10h3l4 4v3h-7z"/><circle cx="7" cy="19" r="2"/><circle cx="18" cy="19" r="2"/><path d="M5 11h5"/></svg>,
     },
   },
   {
@@ -285,6 +294,7 @@ export function Sidebar() {
   const puedeAccesos = usePuedeUsarModulo('accesos')
   const puedeCompras = usePuedeUsarModulo('compras')
   const puedeGastos = usePuedeUsarModulo('gastos')
+  const { data: deliveryHabilitado = false } = useDeliveryHabilitado()
 
   // Permisos efectivos del usuario actual
   const permisos: Record<string, boolean> = (() => {
@@ -299,6 +309,7 @@ export function Sidebar() {
       const to = (si.item as NavSingle).to
       if (to === '/dashboard') return !!permisos.dashboard
       if (to === '/ecommerce') return !!permisos.ventas
+      if (to === '/delivery') return !!permisos.taller || !!permisos.ventas
       return true
     }
     const id = (si.item as NavGroup).id
@@ -308,7 +319,10 @@ export function Sidebar() {
     if (id === 'inventario') return !!permisos.inventario
     return true
   })
-  const opItemsFiltrados = opItemsBase.map(si => {
+  const opItemsFiltrados = opItemsBase.filter(si => {
+    if (si.type !== 'single') return true
+    return (si.item as NavSingle).to !== '/delivery' || deliveryHabilitado
+  }).map(si => {
     if (si.type !== 'group') return si
     const grupo = si.item as NavGroup
     return { ...si, item: { ...grupo, sub: grupo.sub.filter(s => !s.roles || s.roles.includes(rol) || esPlatformAdmin) } }

@@ -13,6 +13,7 @@ import { lazyWithReload } from '@/lib/lazyWithReload'
 import { TourProvider } from '@/modules/onboarding/TourProvider'
 import { TourOverlay } from '@/modules/onboarding/TourOverlay'
 import { EmailSendToast } from '@/components/shared/EmailSendToast'
+import { useDeliveryHabilitado } from '@/modules/delivery/deliveryQueries'
 
 // Carga perezosa (Lazy Loading) de todos los módulos pesados del ERP.
 // lazyWithReload (en vez de lazy de React) recarga la página sola una vez si
@@ -31,6 +32,7 @@ const BuscarPage = lazyWithReload(() => import('@/modules/buscar/BuscarPage').th
 const CotizacionesPage = lazyWithReload(() => import('@/modules/cotizaciones/CotizacionesPage').then(m => ({ default: m.CotizacionesPage })))
 const EcommercePage = lazyWithReload(() => import('@/modules/ecommerce/EcommercePage').then(m => ({ default: m.EcommercePage })))
 const ConversacionesPage = lazyWithReload(() => import('@/modules/conversaciones/ConversacionesPage').then(m => ({ default: m.ConversacionesPage })))
+const DeliveryPage = lazyWithReload(() => import('@/modules/delivery/DeliveryPage').then(m => ({ default: m.DeliveryPage })))
 const PixitAdminPage = lazyWithReload(() => import('@/modules/pixitadmin/PixitAdminPage').then(m => ({ default: m.PixitAdminPage })))
 // La página de marketing solo la ve un visitante sin sesión en "/" — cualquier
 // usuario ya logueado la descargaba igual porque estaba importada estática.
@@ -43,6 +45,12 @@ function EstadisticasProtegidas() {
   if (cargos.isLoading) return <div className="py-12"><Spinner /></div>
   const cargo = cargos.data?.find(c => c.id === (cargoId ?? rol))
   return cargo?.permisos.estadisticas ? <EstadisticasPage /> : <Navigate to="/taller" replace />
+}
+
+function DeliveryProtegido() {
+  const modulo = useDeliveryHabilitado()
+  if (modulo.isLoading) return <div className="py-12"><Spinner /></div>
+  return modulo.data ? <DeliveryPage /> : <Navigate to="/dashboard" replace />
 }
 
 function AppRoutes() {
@@ -105,6 +113,7 @@ function AppRoutes() {
             <Route path="/cotizaciones" element={<CotizacionesPage />} />
             <Route path="/ecommerce" element={<EcommercePage />} />
             <Route path="/conversaciones" element={<ConversacionesPage />} />
+            <Route path="/delivery" element={<DeliveryProtegido />} />
             <Route path="/dashboard"     element={<DashboardPage />} />
             <Route path="/inventario"    element={<InventarioPage />} />
             <Route path="/ventas"        element={<VentasPage />} />

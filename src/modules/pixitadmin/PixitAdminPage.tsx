@@ -1,5 +1,5 @@
 import { useState, useMemo, Fragment } from 'react'
-import { usePlatformEmpresas, useActualizarEmpresaAdmin, useLeads, useActualizarLead, useErrorLog, type EmpresaAdmin, type Lead } from '@/lib/queries'
+import { usePlatformEmpresas, useActualizarEmpresaAdmin, useActualizarModuloEmpresa, useLeads, useActualizarLead, useErrorLog, type EmpresaAdmin, type Lead } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { Spinner } from '@/components/shared/Spinner'
 import { useUpdatePlanLimits, TIER_LIMITS, TIER_ORDER, type PlanTier } from '@/lib/queries/usePlanLimits'
@@ -50,6 +50,7 @@ function EstadoPill({ e }: { e: EmpresaAdmin }) {
 export function PixitAdminPage() {
   const { data: empresas, isLoading } = usePlatformEmpresas()
   const actualizar = useActualizarEmpresaAdmin()
+  const actualizarModulo = useActualizarModuloEmpresa()
   const actualizarLimits = useUpdatePlanLimits()
   const { startImpersonation } = useAuth()
   const [busqueda, setBusqueda] = useState('')
@@ -96,6 +97,12 @@ export function PixitAdminPage() {
     // El selector queda igual al tier recién activado — antes se resetía a "Starter"
     // en el próximo refetch porque no tenía de dónde leer el tier real guardado.
     setTierPorActivar(t => ({ ...t, [e.id]: tier }))
+  }
+
+  async function toggleDelivery(e: EmpresaAdmin) {
+    const activar = !e.delivery_activo
+    if (!activar && !confirm(`¿Desactivar Delivery para "${e.nombre}"? El formulario dejará de aceptar solicitudes y el módulo se ocultará para sus usuarios.`)) return
+    await actualizarModulo.mutateAsync({ empresaId: e.id, activo: activar })
   }
 
   if (isLoading) return <div className="flex justify-center py-16"><Spinner className="w-8 h-8" /></div>
@@ -160,6 +167,7 @@ export function PixitAdminPage() {
               <th className="px-4 py-3 font-semibold">Empresa</th>
               <th className="px-4 py-3 font-semibold">Estado</th>
               <th className="px-4 py-3 font-semibold">Plan</th>
+              <th className="px-4 py-3 font-semibold">Delivery</th>
               <th className="px-4 py-3 font-semibold">Usuarios</th>
               <th className="px-4 py-3 font-semibold">Creada</th>
               <th className="px-4 py-3 font-semibold text-right">Acción</th>
@@ -167,7 +175,7 @@ export function PixitAdminPage() {
           </thead>
           <tbody>
             {lista.length === 0 && (
-              <tr><td colSpan={6} className="px-4 py-10 text-center text-sm text-gray-400">Sin resultados</td></tr>
+              <tr><td colSpan={7} className="px-4 py-10 text-center text-sm text-gray-400">Sin resultados</td></tr>
             )}
             {lista.map(e => (
               <tr key={e.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/60 group">
@@ -177,6 +185,24 @@ export function PixitAdminPage() {
                   <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700">
                     {TIER_NOMBRE[e.tier]}
                   </span>
+                </td>
+                <td className="px-4 py-3">
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={e.delivery_activo}
+                    aria-label={`${e.delivery_activo ? 'Desactivar' : 'Activar'} Delivery para ${e.nombre}`}
+                    disabled={actualizarModulo.isPending}
+                    onClick={() => toggleDelivery(e)}
+                    className={`inline-flex items-center gap-2 text-xs font-semibold rounded-full pl-1 pr-2.5 py-1 transition disabled:opacity-50 ${
+                      e.delivery_activo ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-500'
+                    }`}
+                  >
+                    <span className={`relative w-7 h-4 rounded-full transition ${e.delivery_activo ? 'bg-green-500' : 'bg-gray-300'}`}>
+                      <span className={`absolute top-0.5 w-3 h-3 bg-white rounded-full shadow-sm transition-all ${e.delivery_activo ? 'left-3.5' : 'left-0.5'}`} />
+                    </span>
+                    {e.delivery_activo ? 'Activo' : 'Inactivo'}
+                  </button>
                 </td>
                 <td className="px-4 py-3 text-gray-600">{e.usuarios}</td>
                 <td className="px-4 py-3 text-gray-500">{fmtFecha(e.creado_en)}</td>

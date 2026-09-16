@@ -9,6 +9,14 @@ verify_jwt = false
 # limita internamente las rutas permitidas.
 verify_jwt = false
 
+[functions.delivery-solicitud]
+# La llama el formulario público de WordPress (stevedocs.cl/delivery), que no
+# tiene ni debe tener claves de Supabase. Con verificación de JWT el gateway
+# responde 401 a toda solicitud. La función valida por su cuenta el formulario
+# activo, el origen permitido, el módulo habilitado, RUT, teléfono y límite
+# por IP antes de insertar con service_role.
+verify_jwt = false
+
 [functions.woo-webhook]
 # WooCommerce firma con X-WC-Webhook-Signature (HMAC), no con un JWT de
 # Supabase: con verificación de JWT el gateway la rechaza antes de que la

@@ -3480,6 +3480,7 @@ export interface EmpresaAdmin {
   creado_en: string | null
   usuarios: number
   tier: PlanTier
+  delivery_activo: boolean
 }
 
 export function usePlatformEmpresas() {
@@ -3487,17 +3488,19 @@ export function usePlatformEmpresas() {
   return useQuery({
     queryKey: ['pixit_admin_empresas'],
     queryFn: async () => {
-      const [{ data: empresas, error: e1 }, { data: perfiles, error: e2 }, { data: limitsRows, error: e3 }] = await Promise.all([
+      const [{ data: empresas, error: e1 }, { data: perfiles, error: e2 }, { data: limitsRows, error: e3 }, { data: modulos, error: e4 }] = await Promise.all([
         supabase.from('empresas').select('id,nombre,owner_id,plan_estado,trial_termina,suscripcion_termina,creado_en').order('creado_en', { ascending: false }),
         supabase.from('user_profiles').select('empresa_id,activo'),
         // El tier activo/pagado vive en erp_data (misma clave que usePlanLimits) — sin esto
         // el selector de plan del panel no tiene forma de saber qué está realmente activado
         // hoy y siempre "olvida" la selección al recargar (quedaba en Starter por defecto).
         supabase.from('erp_data').select('empresa_id,datos').eq('clave', 'plan_limits'),
+        supabase.from('empresa_modulos').select('empresa_id,activo').eq('modulo', 'delivery'),
       ])
       if (e1) throw e1
       if (e2) throw e2
       if (e3) throw e3
+      if (e4) throw e4
       const conteo = new Map<string, number>()
       for (const p of perfiles ?? []) {
         if (!p.activo) continue
@@ -3508,11 +3511,32 @@ export function usePlatformEmpresas() {
         const tier = (r.datos as { tier?: PlanTier } | null)?.tier
         if (tier) tiers.set(r.empresa_id, tier)
       }
+      const delivery = new Map<string, boolean>()
+      for (const modulo of modulos ?? []) delivery.set(modulo.empresa_id, modulo.activo === true)
       return (empresas ?? []).map((e): EmpresaAdmin => ({
-        ...e, usuarios: conteo.get(e.id) ?? 0, tier: tiers.get(e.id) ?? DEFAULT_PLAN_LIMITS.tier,
+        ...e,
+        usuarios: conteo.get(e.id) ?? 0,
+        tier: tiers.get(e.id) ?? DEFAULT_PLAN_LIMITS.tier,
+        delivery_activo: delivery.get(e.id) ?? false,
       }))
     },
     enabled: esPlatformAdmin,
+  })
+}
+
+export function useActualizarModuloEmpresa() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ empresaId, activo }: { empresaId: string; activo: boolean }) => {
+      const { error } = await supabase.from('empresa_modulos').upsert({
+        empresa_id: empresaId,
+        modulo: 'delivery',
+        activo,
+        actualizado_en: new Date().toISOString(),
+      }, { onConflict: 'empresa_id,modulo' })
+      if (error) throw error
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['pixit_admin_empresas'] }),
   })
 }
 
