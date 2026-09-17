@@ -22,6 +22,10 @@ interface Props {
   ordenes: Orden[]
   onClose: () => void
   defaultBranchId?: string
+  // Orden nueva con datos ya cargados (ej. desde una solicitud de Delivery).
+  prefill?: Partial<FormData>
+  // Se llama solo al crear, con la orden ya guardada, antes de cerrar.
+  onCreated?: (orden: Orden) => void | Promise<void>
 }
 
 // Número atómico en la base (lock de fila vía siguiente_folio): dos OTs
@@ -54,7 +58,7 @@ function rellenarTemplate(tpl: string, vars: Record<string, string>): string {
   return tpl.replace(/\{\{(\w+)\}\}/g, (_, k) => vars[k] ?? '')
 }
 
-export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) {
+export function OrdenModal({ orden, ordenes, onClose, defaultBranchId, prefill, onCreated }: Props) {
   const { empresaId, empresaNombre, branchId: userBranchId } = useAuth()
   const crearOrden = useCrearOrden()
   const actualizarOrden = useActualizarOrden()
@@ -81,7 +85,7 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
       presup: String(orden.presup ?? ''), costo: String(orden.costo ?? ''),
       status: orden.status ?? 'Chequeo', fechaEstimada: orden.fechaEstimada ?? '',
       numero_boleta: orden.numero_boleta ?? '',
-    } : EMPTY,
+    } : { ...EMPTY, ...prefill },
   )
   const [repuestos, setRepuestos] = useState<Repuesto[]>(orden?.repuestos ?? [])
   const [checkIngreso, setCheckIngreso] = useState<CheckItem[]>(orden?.checkIngreso ?? [])
@@ -509,6 +513,8 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId }: Props) 
         void sendEmail(empresaId, form.email, `Orden de trabajo #OT-${String(num).padStart(4, '0')}`, html)
       }
     }
+
+    if (!isEditing && onCreated) await onCreated(ordenGuardada)
 
     onClose()
     } catch (e) {

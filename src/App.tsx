@@ -47,10 +47,15 @@ function EstadisticasProtegidas() {
   return cargo?.permisos.estadisticas ? <EstadisticasPage /> : <Navigate to="/taller" replace />
 }
 
+// Delivery vive dentro de Taller: exige el complemento activo para la empresa
+// y además el permiso de Taller del cargo.
 function DeliveryProtegido() {
+  const { esAdmin, rol, cargoId } = useAuth()
+  const cargos = useCargos()
   const modulo = useDeliveryHabilitado()
-  if (modulo.isLoading) return <div className="py-12"><Spinner /></div>
-  return modulo.data ? <DeliveryPage /> : <Navigate to="/dashboard" replace />
+  if (modulo.isLoading || (!esAdmin && cargos.isLoading)) return <div className="py-12"><Spinner /></div>
+  const puedeTaller = esAdmin || rol === 'admin' || !!cargos.data?.find(c => c.id === (cargoId ?? rol))?.permisos.taller
+  return modulo.data && puedeTaller ? <DeliveryPage /> : <Navigate to="/dashboard" replace />
 }
 
 function AppRoutes() {
