@@ -8,7 +8,7 @@ import {
   type DeliveryCambio, type DeliveryEstado, type DeliverySolicitud,
 } from './deliveryQueries'
 import {
-  ESTADOS, TRAMOS, codigoDelivery, direccionEntrega, fechaCorta, fechaDia, hoyIso, siguientePaso, type Tramo,
+  ESTADOS, TRAMOS, codigoDelivery, direccionEntrega, fechaCorta, fechaDia, hoyIso, modeloOrdenDelivery, siguientePaso, type Tramo,
 } from './delivery'
 
 const OrdenModal = lazy(() => import('@/modules/taller/OrdenModal').then(m => ({ default: m.OrdenModal })))
@@ -254,7 +254,7 @@ export function DeliveryPage() {
               rut: creandoOrden.rut,
               tel: creandoOrden.telefono,
               email: creandoOrden.email ?? '',
-              modelo: [creandoOrden.marca, creandoOrden.modelo].filter(Boolean).join(' ') || creandoOrden.tipo_equipo,
+              modelo: modeloOrdenDelivery(creandoOrden.marca, creandoOrden.modelo, creandoOrden.tipo_equipo),
               trabajo: `${creandoOrden.falla}\n\nIngreso por Delivery ${codigoDelivery(creandoOrden.numero)}`,
             }}
             onCreated={async (orden: Orden) => {

@@ -43,6 +43,17 @@ export function codigoDelivery(numero: number) {
   return `DEL-${String(numero).padStart(6, '0')}`
 }
 
+// Las órdenes creadas desde Delivery deben usar exactamente el mismo formato
+// que EquipoSelector: "Modelo [Marca]". Así el mismo equipo no queda registrado
+// con dos nombres distintos según el canal de ingreso.
+export function modeloOrdenDelivery(marca: string | null | undefined, modelo: string | null | undefined, tipoEquipo: string) {
+  const marcaLimpia = marca?.trim() ?? ''
+  const modeloLimpio = modelo?.trim() ?? ''
+  if (!modeloLimpio) return tipoEquipo.trim()
+  if (!marcaLimpia || modeloLimpio.endsWith(`[${marcaLimpia}]`)) return modeloLimpio
+  return `${modeloLimpio} [${marcaLimpia}]`
+}
+
 // Sin dirección de entrega propia, se devuelve donde se retiró.
 export function direccionEntrega(s: Pick<DeliverySolicitud, 'direccion' | 'comuna' | 'entrega_direccion' | 'entrega_comuna'>) {
   return s.entrega_direccion

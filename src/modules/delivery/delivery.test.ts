@@ -1,9 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { codigoDelivery, direccionEntrega, ESTADOS, fechaDia, hoyIso, siguientePaso } from './delivery'
+import { codigoDelivery, direccionEntrega, ESTADOS, fechaDia, hoyIso, modeloOrdenDelivery, siguientePaso } from './delivery'
 
 describe('delivery', () => {
   it('formatea el código con seis dígitos', () => {
     expect(codigoDelivery(124)).toBe('DEL-000124')
+  })
+
+  it('mantiene en Delivery el formato de equipo usado por las órdenes de tienda', () => {
+    expect(modeloOrdenDelivery('Apple', 'iPhone 16 Pro Max', 'Teléfono')).toBe('iPhone 16 Pro Max [Apple]')
+    expect(modeloOrdenDelivery('Apple', 'iPhone 16 Pro Max [Apple]', 'Teléfono')).toBe('iPhone 16 Pro Max [Apple]')
+    expect(modeloOrdenDelivery(null, null, 'Tablet')).toBe('Tablet')
   })
 
   it('en taller no hay botón: lo mueve la orden', () => {
