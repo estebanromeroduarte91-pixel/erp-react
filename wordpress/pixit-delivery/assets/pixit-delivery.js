@@ -110,6 +110,30 @@
     if (!opciones.completo) root.classList.add('pxd-solo');
 
     var cfg = { comunas: [], bloques: [], whatsapp: null, turnstile_site_key: null };
+    var cfgLista = false;
+    var cfgError = false;
+    var cacheKey = 'pixit-delivery-config:' + opciones.formulario;
+    var CACHE_MS = 6 * 60 * 60 * 1000;
+
+    function normalizarConfig(res) {
+      return {
+        comunas: Array.isArray(res.comunas) ? res.comunas : [],
+        bloques: Array.isArray(res.bloques) ? res.bloques : [],
+        whatsapp: res.whatsapp || null,
+        turnstile_site_key: res.turnstile_site_key || null
+      };
+    }
+
+    // La configuración cambia poco. Una copia local permite mostrar el
+    // formulario incluso durante un arranque en frío del endpoint.
+    try {
+      var cache = JSON.parse(window.localStorage.getItem(cacheKey) || 'null');
+      if (cache && cache.guardado && Date.now() - cache.guardado < CACHE_MS && cache.config) {
+        cfg = normalizarConfig(cache.config);
+        cfgLista = true;
+      }
+    } catch (e) { /* localStorage puede estar bloqueado por el navegador */ }
+
     var S = {
       paso: 0, enviando: false, error: '', codigo: '', turnstileToken: '', turnstileWidget: null,
       datos: {
@@ -430,25 +454,45 @@
       var accion = el.getAttribute('data-accion');
       if (accion === 'siguiente') {
         S.error = '';
-        if (validar(S.paso)) S.paso = Math.min(2, S.paso + 1);
+        if (validar(S.paso)) {
+          if (S.paso === 1 && !cfgLista) {
+            S.error = cfgError
+              ? 'No pudimos cargar los horarios de retiro. Revisa tu conexión e intenta nuevamente.'
+              : 'Estamos cargando los horarios disponibles. Espera un momento e intenta nuevamente.';
+          } else {
+            S.paso = Math.min(2, S.paso + 1);
+          }
+        }
         return render(true);
       }
       if (accion === 'atras') { S.error = ''; S.errores = {}; S.paso = Math.max(0, S.paso - 1); return render(true); }
       if (accion === 'enviar' && !S.enviando) enviar();
     });
 
-    root.innerHTML = '<div class="pxd-loading">Cargando formulario…</div>';
+    // El primer paso se muestra de inmediato. Comunas, horarios, WhatsApp y
+    // Turnstile se actualizan en segundo plano antes de llegar al paso Retiro.
+    render();
     fetch(opciones.endpoint + '?formulario=' + encodeURIComponent(opciones.formulario))
       .then(function (r) { return r.json(); })
       .then(function (res) {
         if (!res || !res.ok) throw new Error((res && res.error) || 'no disponible');
-        cfg = res;
-        cfg.comunas = res.comunas || [];
-        cfg.bloques = res.bloques || [];
-        render();
+        cfg = normalizarConfig(res);
+        cfgLista = true;
+        cfgError = false;
+        try { window.localStorage.setItem(cacheKey, JSON.stringify({ guardado: Date.now(), config: cfg })); } catch (e) { /* sin caché local */ }
+
+        // No interrumpir a alguien que ya está escribiendo. Las acciones
+        // siguientes volverán a renderizar con la configuración actualizada.
+        if (!root.contains(document.activeElement)) render();
       })
       .catch(function () {
-        root.innerHTML = '<div class="pxd-alert">El formulario de retiro no está disponible en este momento. Escríbenos por WhatsApp y coordinamos el retiro.</div>';
+        // Con una copia válida se puede continuar normalmente. Sin ella se
+        // mantiene el formulario visible y se avisa solo al intentar avanzar
+        // al paso que depende de comunas y horarios.
+        if (!cfgLista) {
+          cfgError = true;
+          S.error = 'No pudimos cargar los horarios de retiro. Revisa tu conexión e intenta nuevamente.';
+        }
       });
   }
 

@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Pixit Delivery
  * Description: Formulario de retiro y entrega a domicilio conectado a Pixit. Usa el shortcode [pixit_delivery].
- * Version: 1.0.1
+ * Version: 1.0.2
  * Author: Pixit
  * Text Domain: pixit-delivery
  * Requires at least: 5.8
@@ -11,7 +11,7 @@
 
 if (!defined('ABSPATH')) exit;
 
-define('PIXIT_DELIVERY_VERSION', '1.0.1');
+define('PIXIT_DELIVERY_VERSION', '1.0.2');
 define('PIXIT_DELIVERY_ENDPOINT_DEFAULT', 'https://nfcdqdbhrsjhbnbtqewl.supabase.co/functions/v1/delivery-solicitud');
 
 // ── Ajustes → Pixit Delivery ────────────────────────────────────────────────

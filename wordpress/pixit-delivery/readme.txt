@@ -13,3 +13,7 @@ Formulario de retiro y entrega a domicilio conectado a Pixit.
 
 Comunas, bloques horarios, WhatsApp y la verificación antispam se configuran en
 Pixit (tabla delivery_formularios), no en WordPress. WordPress no guarda claves.
+
+== Rendimiento ==
+El primer paso se muestra de inmediato. La configuración pública de Pixit se
+carga en segundo plano y se conserva temporalmente en el navegador.

@@ -122,8 +122,11 @@ function decodificarFoto(dataUrl: unknown) {
 Deno.serve(async req => {
   const origin = req.headers.get("origin") ?? "";
   const permitido = await origenPermitido(origin);
-  const headers = { ...cors(origin, permitido), "Content-Type": "application/json", "Cache-Control": "no-store" };
-  const responder = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers });
+  const headers = { ...cors(origin, permitido), "Content-Type": "application/json" };
+  const responder = (body: unknown, status = 200, cacheControl = "no-store") => new Response(JSON.stringify(body), {
+    status,
+    headers: { ...headers, "Cache-Control": cacheControl },
+  });
 
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors(origin, permitido) });
 
@@ -159,7 +162,7 @@ Deno.serve(async req => {
       bloques: listaTextos(cfg.bloques),
       whatsapp: texto(cfg.whatsapp, 20) || null,
       turnstile_site_key: texto(cfg.turnstile_site_key, 100) || null,
-    });
+    }, 200, "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400");
   }
 
   if (req.method !== "POST") return responder({ ok: false, error: "Método no permitido" }, 405);
