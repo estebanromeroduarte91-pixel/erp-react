@@ -10,6 +10,7 @@ import {
 import {
   ESTADOS, TRAMOS, codigoDelivery, direccionEntrega, fechaCorta, fechaDia, hoyIso, modeloOrdenDelivery, siguientePaso, type Tramo,
 } from './delivery'
+import { ViajesPanel } from './ViajesPanel'
 
 const OrdenModal = lazy(() => import('@/modules/taller/OrdenModal').then(m => ({ default: m.OrdenModal })))
 
@@ -31,6 +32,8 @@ function coincideFiltro(s: DeliverySolicitud, f: Filtro) {
 }
 
 export function DeliveryPage() {
+  const { rol, esPlatformAdmin } = useAuth()
+  const puedeGestionarViajes = rol === 'admin' || rol === 'encargado' || esPlatformAdmin
   const { data = [], isLoading, error } = useDeliverySolicitudes()
   const { data: ordenes } = useOrdenesDeDelivery(data.map(s => s.orden_id).filter((x): x is string => !!x))
   const actualizar = useActualizarDeliverySolicitud()
@@ -41,6 +44,8 @@ export function DeliveryPage() {
   const [agendando, setAgendando] = useState<{ s: DeliverySolicitud; tramo: 'retiro' | 'entrega' } | null>(null)
   const [creandoOrden, setCreandoOrden] = useState<DeliverySolicitud | null>(null)
   const [aviso, setAviso] = useState<string | null>(null)
+  const [vista, setVista] = useState<'solicitudes' | 'viajes'>('solicitudes')
+  const [viajeSolicitudId, setViajeSolicitudId] = useState<string | null>(null)
 
   const seleccionada = data.find(s => s.id === seleccionadaId) ?? null
 
@@ -103,6 +108,16 @@ export function DeliveryPage() {
       </div>
 
       {error && <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">No se pudieron cargar las solicitudes. Recarga la página.</div>}
+
+      <div className="flex gap-2 mb-5" role="tablist" aria-label="Secciones de Delivery">
+        <button role="tab" aria-selected={vista === 'solicitudes'} onClick={() => setVista('solicitudes')}
+          className={`px-4 py-2 rounded-full text-sm font-semibold ${vista === 'solicitudes' ? 'bg-blue-600 text-white' : 'bg-white border border-gray-200 text-gray-600'}`}>Solicitudes</button>
+        {puedeGestionarViajes && <button role="tab" aria-selected={vista === 'viajes'} onClick={() => setVista('viajes')}
+          className={`px-4 py-2 rounded-full text-sm font-semibold ${vista === 'viajes' ? 'bg-blue-600 text-white' : 'bg-white border border-gray-200 text-gray-600'}`}>Viajes y motoboys</button>
+        }
+      </div>
+
+      {vista === 'viajes' && puedeGestionarViajes ? <ViajesPanel solicitudes={data} solicitudInicialId={viajeSolicitudId} /> : <>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
         {kpis.map(k => (
@@ -227,6 +242,7 @@ export function DeliveryPage() {
           onPaso={() => ejecutarPaso(seleccionada)}
           onMover={(cambio, texto) => mover(seleccionada, cambio, texto)}
           onAbrirOrden={num => navigate(`/taller?abrir=${encodeURIComponent(num)}`)}
+          onPrepararViaje={() => { setViajeSolicitudId(seleccionada.id); setSeleccionadaId(null); setVista('viajes') }}
         />
       )}
 
@@ -270,6 +286,7 @@ export function DeliveryPage() {
           />
         </Suspense>
       )}
+      </>}
 
       {aviso && (
         <div role="status" className="fixed left-1/2 -translate-x-1/2 bottom-6 z-[400] bg-gray-900 text-white text-sm font-medium px-4 py-2.5 rounded-xl shadow-lg max-w-[90vw]">
@@ -366,13 +383,14 @@ function AgendarModal({ solicitud, tramo, onClose, onGuardar }: {
 }
 
 // ── Panel de detalle ─────────────────────────────────────────────────────────
-function DetalleSolicitud({ solicitud: s, orden, onClose, onPaso, onMover, onAbrirOrden }: {
+function DetalleSolicitud({ solicitud: s, orden, onClose, onPaso, onMover, onAbrirOrden, onPrepararViaje }: {
   solicitud: DeliverySolicitud
   orden?: { num: string; status: string }
   onClose: () => void
   onPaso: () => void
   onMover: (cambio: DeliveryCambio, texto: string) => Promise<void>
   onAbrirOrden: (num: string) => void
+  onPrepararViaje: () => void
 }) {
   const { rol, esPlatformAdmin } = useAuth()
   const puedeEditar = rol === 'admin' || rol === 'encargado' || esPlatformAdmin
@@ -407,6 +425,7 @@ function DetalleSolicitud({ solicitud: s, orden, onClose, onPaso, onMover, onAbr
           {paso && (
             <button onClick={onPaso} className="w-full py-2.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700">{paso.label}</button>
           )}
+          {puedeEditar && s.estado !== 'cancelada' && <button onClick={onPrepararViaje} className="w-full py-2.5 rounded-lg border border-blue-200 text-blue-700 text-sm font-semibold hover:bg-blue-50">Preparar viaje de motoboy</button>}
 
           {orden && (
             <button onClick={() => onAbrirOrden(orden.num)} className="w-full flex items-center justify-between rounded-xl border border-gray-200 px-4 py-3 text-sm hover:bg-gray-50">
