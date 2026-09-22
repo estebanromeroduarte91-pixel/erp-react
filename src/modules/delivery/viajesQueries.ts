@@ -96,3 +96,51 @@ export function useGuardarViaje() {
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['delivery_viajes', empresaId] }),
   })
 }
+
+export interface CoordinarViajeInput {
+  solicitudId: string
+  tipo: 'retiro' | 'entrega'
+  sucursalId: string
+  sucursalNombre: string
+  sucursalDireccion: string
+  motoboyId: string
+  fecha: string
+  bloque: string
+  distanciaKm: number
+}
+
+export function useCoordinarViaje() {
+  const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: CoordinarViajeInput) => {
+      const { data, error } = await supabase.rpc('fn_delivery_coordinar_viaje', {
+        p_solicitud_id: input.solicitudId, p_tipo: input.tipo,
+        p_sucursal_id: input.sucursalId, p_sucursal_nombre: input.sucursalNombre,
+        p_sucursal_direccion: input.sucursalDireccion, p_motoboy_id: input.motoboyId,
+        p_fecha: input.fecha, p_bloque: input.bloque, p_distancia_km: input.distanciaKm,
+      })
+      if (error) throw error
+      const row = (data as { viaje_id: string; acceso_token: string; monto: number }[] | null)?.[0]
+      if (!row?.acceso_token) throw new Error('No se generó el acceso al viaje')
+      return row
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['delivery_viajes', empresaId] })
+      void qc.invalidateQueries({ queryKey: ['delivery_solicitudes', empresaId] })
+      void qc.invalidateQueries({ queryKey: ['delivery_eventos', empresaId] })
+    },
+  })
+}
+
+export function useRenovarAccesoViaje() {
+  return useMutation({
+    mutationFn: async (viajeId: string) => {
+      const { data, error } = await supabase.rpc('fn_delivery_renovar_acceso_viaje', { p_viaje_id: viajeId })
+      if (error) throw error
+      const row = (data as { acceso_token: string; monto: number; motoboy_nombre: string; motoboy_telefono: string }[] | null)?.[0]
+      if (!row?.acceso_token) throw new Error('No se pudo generar el enlace')
+      return row
+    },
+  })
+}

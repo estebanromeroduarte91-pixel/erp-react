@@ -33,6 +33,7 @@ const CotizacionesPage = lazyWithReload(() => import('@/modules/cotizaciones/Cot
 const EcommercePage = lazyWithReload(() => import('@/modules/ecommerce/EcommercePage').then(m => ({ default: m.EcommercePage })))
 const ConversacionesPage = lazyWithReload(() => import('@/modules/conversaciones/ConversacionesPage').then(m => ({ default: m.ConversacionesPage })))
 const DeliveryPage = lazyWithReload(() => import('@/modules/delivery/DeliveryPage').then(m => ({ default: m.DeliveryPage })))
+const MotoboyViajePage = lazyWithReload(() => import('@/modules/delivery/MotoboyViajePage').then(m => ({ default: m.MotoboyViajePage })))
 const PixitAdminPage = lazyWithReload(() => import('@/modules/pixitadmin/PixitAdminPage').then(m => ({ default: m.PixitAdminPage })))
 // La página de marketing solo la ve un visitante sin sesión en "/" — cualquier
 // usuario ya logueado la descargaba igual porque estaba importada estática.
@@ -77,6 +78,9 @@ function AppRoutes() {
 
   // Llegó por el enlace de "olvidé mi contraseña" → fijar nueva clave (antes de todo lo demás)
   if (recoveryMode) return <ResetPassword />
+
+  // Enlace privado de un viaje: lo abre un motoboy sin cuenta del ERP.
+  if (location.pathname === '/motoboy/viaje') return <Suspense fallback={<div className="p-8 text-center">Cargando viaje...</div>}><MotoboyViajePage /></Suspense>
 
   if (!session) {
     return (

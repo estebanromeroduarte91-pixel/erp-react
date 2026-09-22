@@ -11,6 +11,7 @@ import {
   ESTADOS, TRAMOS, codigoDelivery, direccionEntrega, fechaCorta, fechaDia, hoyIso, modeloOrdenDelivery, siguientePaso, type Tramo,
 } from './delivery'
 import { ViajesPanel } from './ViajesPanel'
+import { CoordinarViajeModal } from './CoordinarViajeModal'
 
 const OrdenModal = lazy(() => import('@/modules/taller/OrdenModal').then(m => ({ default: m.OrdenModal })))
 
@@ -45,7 +46,7 @@ export function DeliveryPage() {
   const [creandoOrden, setCreandoOrden] = useState<DeliverySolicitud | null>(null)
   const [aviso, setAviso] = useState<string | null>(null)
   const [vista, setVista] = useState<'solicitudes' | 'viajes'>('solicitudes')
-  const [viajeSolicitudId, setViajeSolicitudId] = useState<string | null>(null)
+  const [coordinando, setCoordinando] = useState<{ s: DeliverySolicitud; tipo: 'retiro' | 'entrega' } | null>(null)
 
   const seleccionada = data.find(s => s.id === seleccionadaId) ?? null
 
@@ -66,8 +67,8 @@ export function DeliveryPage() {
   function ejecutarPaso(s: DeliverySolicitud) {
     const paso = siguientePaso(s.estado)
     if (!paso) return
-    if (paso.accion === 'agendar_retiro') return setAgendando({ s, tramo: 'retiro' })
-    if (paso.accion === 'agendar_entrega') return setAgendando({ s, tramo: 'entrega' })
+    if (paso.accion === 'agendar_retiro') return puedeGestionarViajes ? setCoordinando({ s, tipo: 'retiro' }) : setAgendando({ s, tramo: 'retiro' })
+    if (paso.accion === 'agendar_entrega') return puedeGestionarViajes ? setCoordinando({ s, tipo: 'entrega' }) : setAgendando({ s, tramo: 'entrega' })
     if (paso.accion === 'crear_orden') return setCreandoOrden(s)
     if (paso.accion === 'entregar_en_orden') {
       const num = s.orden_id ? ordenes?.get(s.orden_id)?.num : undefined
@@ -117,7 +118,7 @@ export function DeliveryPage() {
         }
       </div>
 
-      {vista === 'viajes' && puedeGestionarViajes ? <ViajesPanel solicitudes={data} solicitudInicialId={viajeSolicitudId} /> : <>
+      {vista === 'viajes' && puedeGestionarViajes ? <ViajesPanel solicitudes={data} onCoordinar={(s, tipo) => setCoordinando({ s, tipo })} /> : <>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
         {kpis.map(k => (
@@ -193,7 +194,7 @@ export function DeliveryPage() {
                           {paso && (
                             <button onClick={() => ejecutarPaso(s)} disabled={actualizar.isPending}
                               className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50 whitespace-nowrap">
-                              {paso.label}
+                              {puedeGestionarViajes && paso.accion === 'agendar_retiro' ? 'Coordinar retiro' : puedeGestionarViajes && paso.accion === 'agendar_entrega' ? 'Coordinar entrega' : paso.label}
                             </button>
                           )}
                         </td>
@@ -242,7 +243,7 @@ export function DeliveryPage() {
           onPaso={() => ejecutarPaso(seleccionada)}
           onMover={(cambio, texto) => mover(seleccionada, cambio, texto)}
           onAbrirOrden={num => navigate(`/taller?abrir=${encodeURIComponent(num)}`)}
-          onPrepararViaje={() => { setViajeSolicitudId(seleccionada.id); setSeleccionadaId(null); setVista('viajes') }}
+          onPrepararViaje={() => { setCoordinando({ s: seleccionada, tipo: ESTADOS[seleccionada.estado].tramo === 'entrega' ? 'entrega' : 'retiro' }); setSeleccionadaId(null) }}
         />
       )}
 
@@ -287,6 +288,9 @@ export function DeliveryPage() {
         </Suspense>
       )}
       </>}
+
+      {coordinando && <CoordinarViajeModal key={`${coordinando.s.id}-${coordinando.tipo}`} solicitud={coordinando.s} tipo={coordinando.tipo}
+        onClose={() => setCoordinando(null)} onGestionarMotoboys={() => { setCoordinando(null); setVista('viajes') }} />}
 
       {aviso && (
         <div role="status" className="fixed left-1/2 -translate-x-1/2 bottom-6 z-[400] bg-gray-900 text-white text-sm font-medium px-4 py-2.5 rounded-xl shadow-lg max-w-[90vw]">
@@ -423,9 +427,9 @@ function DetalleSolicitud({ solicitud: s, orden, onClose, onPaso, onMover, onAbr
 
         <div className="p-5 space-y-5">
           {paso && (
-            <button onClick={onPaso} className="w-full py-2.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700">{paso.label}</button>
+            <button onClick={onPaso} className="w-full py-2.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700">{puedeEditar && paso.accion === 'agendar_retiro' ? 'Coordinar retiro' : puedeEditar && paso.accion === 'agendar_entrega' ? 'Coordinar entrega' : paso.label}</button>
           )}
-          {puedeEditar && s.estado !== 'cancelada' && <button onClick={onPrepararViaje} className="w-full py-2.5 rounded-lg border border-blue-200 text-blue-700 text-sm font-semibold hover:bg-blue-50">Preparar viaje de motoboy</button>}
+          {puedeEditar && ['retiro_agendado','entrega_agendada'].includes(s.estado) && <button onClick={onPrepararViaje} className="w-full py-2.5 rounded-lg border border-blue-200 text-blue-700 text-sm font-semibold hover:bg-blue-50">Editar coordinación y pago del motoboy</button>}
 
           {orden && (
             <button onClick={() => onAbrirOrden(orden.num)} className="w-full flex items-center justify-between rounded-xl border border-gray-200 px-4 py-3 text-sm hover:bg-gray-50">

@@ -17,6 +17,13 @@ verify_jwt = false
 # por IP antes de insertar con service_role.
 verify_jwt = false
 
+[functions.delivery-viaje]
+# El motoboy no tiene cuenta Pixit: el enlace incluye un token aleatorio de
+# 256 bits que la función verifica por hash y vencimiento antes de devolver
+# solo los datos de ese viaje. El token viaja en el cuerpo POST, no en una URL
+# del servidor, y el acceso se revoca al reasignar o cancelar.
+verify_jwt = false
+
 [functions.woo-webhook]
 # WooCommerce firma con X-WC-Webhook-Signature (HMAC), no con un JWT de
 # Supabase: con verificación de JWT el gateway la rechaza antes de que la
