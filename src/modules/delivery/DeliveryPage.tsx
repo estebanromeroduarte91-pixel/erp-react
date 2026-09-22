@@ -197,6 +197,12 @@ export function DeliveryPage() {
                               {puedeGestionarViajes && paso.accion === 'agendar_retiro' ? 'Coordinar retiro' : puedeGestionarViajes && paso.accion === 'agendar_entrega' ? 'Coordinar entrega' : paso.label}
                             </button>
                           )}
+                          {puedeGestionarViajes && (s.estado === 'en_ruta_retiro' || s.estado === 'en_ruta_entrega') && (
+                            <button onClick={() => setCoordinando({ s, tipo: s.estado === 'en_ruta_retiro' ? 'retiro' : 'entrega' })}
+                              className="block ml-auto mt-1.5 text-xs font-semibold text-blue-600 hover:text-blue-800 whitespace-nowrap">
+                              Asignar motoboy y pago
+                            </button>
+                          )}
                         </td>
                       </tr>
                     )
@@ -225,6 +231,12 @@ export function DeliveryPage() {
                       <button onClick={e => { e.stopPropagation(); ejecutarPaso(s) }} disabled={actualizar.isPending}
                         className="mt-3 w-full py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold disabled:opacity-50">
                         {paso.label}
+                      </button>
+                    )}
+                    {puedeGestionarViajes && (s.estado === 'en_ruta_retiro' || s.estado === 'en_ruta_entrega') && (
+                      <button onClick={e => { e.stopPropagation(); setCoordinando({ s, tipo: s.estado === 'en_ruta_retiro' ? 'retiro' : 'entrega' }) }}
+                        className="mt-2 w-full py-2 rounded-lg border border-blue-200 text-blue-700 text-sm font-semibold">
+                        Asignar motoboy y pago
                       </button>
                     )}
                   </div>
@@ -429,7 +441,7 @@ function DetalleSolicitud({ solicitud: s, orden, onClose, onPaso, onMover, onAbr
           {paso && (
             <button onClick={onPaso} className="w-full py-2.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700">{puedeEditar && paso.accion === 'agendar_retiro' ? 'Coordinar retiro' : puedeEditar && paso.accion === 'agendar_entrega' ? 'Coordinar entrega' : paso.label}</button>
           )}
-          {puedeEditar && ['retiro_agendado','entrega_agendada'].includes(s.estado) && <button onClick={onPrepararViaje} className="w-full py-2.5 rounded-lg border border-blue-200 text-blue-700 text-sm font-semibold hover:bg-blue-50">Editar coordinación y pago del motoboy</button>}
+          {puedeEditar && ['retiro_agendado','entrega_agendada','en_ruta_retiro','en_ruta_entrega'].includes(s.estado) && <button onClick={onPrepararViaje} className="w-full py-2.5 rounded-lg border border-blue-200 text-blue-700 text-sm font-semibold hover:bg-blue-50">{s.estado.startsWith('en_ruta_') ? 'Asignar motoboy y pago' : 'Editar coordinación y pago del motoboy'}</button>}
 
           {orden && (
             <button onClick={() => onAbrirOrden(orden.num)} className="w-full flex items-center justify-between rounded-xl border border-gray-200 px-4 py-3 text-sm hover:bg-gray-50">
