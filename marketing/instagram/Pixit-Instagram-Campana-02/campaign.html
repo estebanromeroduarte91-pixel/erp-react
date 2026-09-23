@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Pixit · Campaña Instagram 02</title>
+  <style>
+    @font-face{font-family:PixitDisplay;src:url("file:///Library/Fonts/SF-Pro-Display-Regular.otf") format("opentype");font-weight:400}
+    @font-face{font-family:PixitDisplay;src:url("file:///Library/Fonts/SF-Pro-Display-Semibold.otf") format("opentype");font-weight:650}
+    @font-face{font-family:PixitDisplay;src:url("file:///Library/Fonts/SF-Pro-Display-Bold.otf") format("opentype");font-weight:800}
+    *{box-sizing:border-box}
+    html,body{margin:0;background:#e9ecf2;font-family:PixitDisplay,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#081328}
+    body{display:grid;gap:42px;padding:42px;width:max-content}
+    .frame{position:relative;width:1080px;height:1350px;overflow:hidden;background:#fff;isolation:isolate}
+    .frame:before{content:"";position:absolute;width:740px;height:450px;left:-290px;bottom:-210px;border-radius:50%;background:#2463ff;filter:blur(105px);opacity:.13;z-index:-2}
+    .frame:after{content:"";position:absolute;width:650px;height:420px;right:-300px;bottom:-190px;border-radius:50%;background:#a126ff;filter:blur(100px);opacity:.15;z-index:-2}
+    .page{height:100%;padding:62px 72px 52px;display:flex;flex-direction:column}
+    .header,.footer{display:flex;align-items:center;justify-content:space-between}
+    .logo{width:156px;height:auto;object-fit:contain}
+    .counter{font-size:18px;color:#9aa4b5;font-weight:650;letter-spacing:.08em}
+    .kicker{margin-top:60px;color:#516078;font-size:19px;font-weight:650;letter-spacing:.14em;text-transform:uppercase}
+    h1{margin:18px 0 0;font-size:76px;line-height:.97;letter-spacing:-.055em;font-weight:800;max-width:930px}
+    .gradient{display:inline-block;color:#235dff;background:linear-gradient(100deg,#1f5eff 0%,#7044ff 58%,#a31cff 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+    .sub{font-size:27px;line-height:1.28;color:#596980;margin:26px 0 0;max-width:845px;font-weight:400}
+    .stage{flex:1;min-height:0;display:flex;align-items:flex-end;justify-content:center;padding-top:34px}
+    .footer{padding-top:28px;font-size:18px;color:#66738a;font-weight:650}
+    .cta{display:inline-flex;align-items:center;gap:11px;color:#fff;background:#2262f5;border-radius:999px;padding:16px 24px;box-shadow:0 14px 34px rgba(34,98,245,.24)}
+    .cta b{font-size:23px}
+    .browser{position:relative;width:100%;background:#fff;border:10px solid rgba(255,255,255,.92);border-radius:34px;box-shadow:0 30px 80px rgba(25,53,100,.18),0 0 80px rgba(72,88,255,.12);overflow:hidden}
+    .bar{height:48px;background:#edf1f6;display:flex;align-items:center;gap:10px;padding:0 20px}
+    .dot{width:12px;height:12px;border-radius:50%;background:#ff5e66}.dot:nth-child(2){background:#ffbb18}.dot:nth-child(3){background:#08cfa0}
+    .screen{height:385px;position:relative;overflow:hidden;background:#f7f9fc}
+    .screen img{width:100%;height:100%;object-fit:cover;object-position:top left}
+    .panel{width:100%;padding:30px;background:rgba(255,255,255,.91);border:1px solid #e8ecf4;border-radius:31px;box-shadow:0 30px 80px rgba(25,53,100,.14);backdrop-filter:blur(14px)}
+    .panel-title{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;font-size:20px;font-weight:800}
+    .badge{padding:8px 13px;border-radius:999px;background:#e9f8ef;color:#16814b;font-size:14px;font-weight:800}
+    .row{display:flex;align-items:center;gap:16px;padding:17px 0;border-top:1px solid #edf0f5;font-size:19px;color:#334057}
+    .icon{flex:0 0 auto;width:45px;height:45px;border-radius:14px;display:grid;place-items:center;background:#edf2ff;color:#2860f3;font-weight:800;font-size:18px}
+    .soft{color:#7c8799;font-size:15px;margin-top:3px}
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;width:100%}
+    .tile{padding:24px;border-radius:24px;background:#fff;border:1px solid #e8ecf3;box-shadow:0 18px 50px rgba(30,55,100,.09)}
+    .tile small{display:block;color:#8c96a7;font-size:14px;font-weight:650;text-transform:uppercase;letter-spacing:.06em}
+    .tile strong{display:block;font-size:28px;margin-top:10px;letter-spacing:-.03em}
+    .tile p{font-size:16px;color:#69758a;margin:7px 0 0}
+    .flow{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;width:100%}
+    .step{background:#fff;border:1px solid #e5eaf2;border-radius:22px;padding:23px 10px;text-align:center;color:#48566d;font-size:16px;font-weight:650;box-shadow:0 15px 38px rgba(25,53,100,.08)}
+    .step span{display:grid;place-items:center;width:38px;height:38px;border-radius:50%;margin:0 auto 12px;background:#e9efff;color:#285ff2;font-weight:800}
+    .phone-wrap{display:flex;width:100%;justify-content:center;align-items:flex-end;gap:28px}
+    .phone{width:310px;height:510px;border:10px solid #0b1220;border-radius:48px;background:#fff;box-shadow:0 34px 75px rgba(12,28,60,.2);padding:42px 22px 22px;position:relative}
+    .phone:before{content:"";position:absolute;top:14px;left:50%;transform:translateX(-50%);width:92px;height:22px;background:#0b1220;border-radius:20px}
+    .qr{width:166px;height:166px;margin:8px auto 24px;background:repeating-conic-gradient(#0b1220 0 25%,#fff 0 50%) 0/28px 28px;border:16px solid #fff;outline:1px solid #dfe4ed}
+    .camera{height:235px;border-radius:25px;background:linear-gradient(145deg,#192136,#53617a);position:relative;overflow:hidden}
+    .camera:after{content:"";position:absolute;width:68px;height:68px;border:6px solid #fff;border-radius:50%;bottom:18px;left:50%;transform:translateX(-50%)}
+    .phone-label{text-align:center;font-size:17px;color:#596980;font-weight:650}
+    .arrow{font-size:46px;color:#2860f3;font-weight:800;margin-bottom:210px}
+    .salary{display:grid;grid-template-columns:1.2fr .8fr;gap:18px;width:100%}
+    .money{border-radius:25px;padding:26px;background:linear-gradient(135deg,#225eff,#7f35ff);color:#fff;box-shadow:0 24px 55px rgba(70,67,246,.23)}
+    .money small{font-size:16px;opacity:.8}.money strong{display:block;font-size:48px;margin-top:9px}.money p{margin:8px 0 0;font-size:16px;opacity:.84}
+    .access{display:grid;grid-template-columns:205px 1fr;gap:18px;width:100%}
+    .roles{display:grid;gap:10px}.role{padding:17px;border:1px solid #e7ebf2;border-radius:17px;color:#536177;font-weight:650;background:#fff}.role.active{color:#205bef;border-color:#b9caff;background:#edf2ff}
+    .switches{background:#fff;border:1px solid #e7ebf2;border-radius:24px;padding:21px 25px}.switch-row{display:flex;justify-content:space-between;padding:13px 0;border-bottom:1px solid #edf0f5;font-size:17px}.switch-row:last-child{border:0}
+    .toggle{width:43px;height:24px;border-radius:30px;background:#d7dce5;position:relative}.toggle.on{background:#2361f5}.toggle:after{content:"";position:absolute;width:18px;height:18px;border-radius:50%;background:#fff;top:3px;left:3px;box-shadow:0 2px 5px #0002}.toggle.on:after{left:22px}
+    .route{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%}.place{flex:1;padding:25px 18px;border-radius:24px;background:#fff;border:1px solid #e7ebf3;text-align:center;box-shadow:0 16px 40px rgba(25,53,100,.08)}.place .icon{margin:0 auto 12px}.place strong{font-size:20px}.route-arrow{font-size:35px;color:#2a61f2}
+    .status-line{display:flex;justify-content:center;gap:9px;margin-top:17px}.status{font-size:13px;padding:8px 12px;border-radius:999px;background:#eef2f8;color:#5d6980}.status.active{background:#e9f8ef;color:#16814b}
+    .plans{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;width:100%}.plan{padding:25px 20px;border:1px solid #e3e8f1;border-radius:24px;background:#fff;box-shadow:0 16px 42px rgba(25,53,100,.08)}.plan.featured{border:2px solid #2961f3;transform:translateY(-12px);box-shadow:0 25px 55px rgba(41,97,243,.18)}.plan small{color:#6e7b91;font-size:14px}.plan h3{margin:6px 0 13px;font-size:25px}.plan strong{font-size:30px;color:#225df0}.plan p{font-size:14px;color:#7c8799;margin:9px 0 0}
+    .notifications{display:grid;gap:13px;width:100%}.notification{display:flex;align-items:center;gap:16px;background:#fff;border:1px solid #e7ebf2;padding:18px 20px;border-radius:20px;box-shadow:0 15px 40px rgba(25,53,100,.07)}.notification strong{display:block;font-size:18px}.notification span{display:block;margin-top:3px;color:#7a869a;font-size:15px}
+    .graph{height:176px;margin-top:20px;padding:22px;border-radius:24px;background:#f8faff;border:1px solid #e7ebf2;display:flex;align-items:flex-end;gap:16px}.barcol{flex:1;border-radius:9px 9px 3px 3px;background:linear-gradient(#8a36ff,#2462ff)}
+    .mini-label{position:absolute;right:76px;top:140px;padding:10px 14px;border-radius:999px;background:#f1f4fa;color:#647187;font-size:14px;font-weight:700}
+  </style>
+</head>
+<body>
+
+  <section class="frame" data-file="01-simplifica-tu-taller"><div class="page">
+    <header class="header"><img class="logo" src="../../../public/logo-pixit.png"><span class="counter">01 / 10</span></header>
+    <div class="kicker">ERP para servicios técnicos</div>
+    <h1>Simplifica tu taller.<br><span class="gradient">Multiplica tus ventas.</span></h1>
+    <p class="sub">Órdenes, clientes, inventario y ventas conectados en un solo lugar.</p>
+    <div class="stage"><div class="browser"><div class="bar"><i class="dot"></i><i class="dot"></i><i class="dot"></i></div><div class="screen"><img src="../../../public/app-screenshot.png"></div></div></div>
+    <footer class="footer"><span class="cta">Prueba Pixit gratis <b>→</b></span><span>pixit.cl</span></footer>
+  </div></section>
+
+  <section class="frame" data-file="02-ordenes-sin-caos"><div class="page">
+    <header class="header"><img class="logo" src="../../../public/logo-pixit.png"><span class="counter">02 / 10</span></header>
+    <div class="kicker">Órdenes de trabajo</div>
+    <h1>Cada reparación.<br><span class="gradient">Siempre bajo control.</span></h1>
+    <p class="sub">Cliente, equipo, falla, técnico y estado dentro de una orden digital.</p>
+    <div class="stage" style="flex-direction:column;justify-content:flex-end;gap:22px"><div class="flow"><div class="step"><span>1</span>Ingreso</div><div class="step"><span>2</span>Chequeo</div><div class="step"><span>3</span>Reparación</div><div class="step"><span>4</span>Entrega</div></div><div class="browser"><div class="bar"><i class="dot"></i><i class="dot"></i><i class="dot"></i></div><div class="screen"><img src="../assets/ordenes-sanitized.png"></div></div></div>
+    <footer class="footer"><span class="cta">Ordena tu operación <b>→</b></span><span>pixit.cl</span></footer>
+  </div></section>
+
+  <section class="frame" data-file="03-inventario-y-pos"><div class="page">
+    <header class="header"><img class="logo" src="../../../public/logo-pixit.png"><span class="counter">03 / 10</span></header>
+    <div class="kicker">Inventario + Punto de venta</div>
+    <h1>Vende. Descuenta stock.<br><span class="gradient">Todo en un paso.</span></h1>
+    <p class="sub">Conecta ventas, repuestos y existencias por sucursal sin duplicar trabajo.</p>
+    <div class="stage"><div class="grid2"><div class="tile"><small>Venta registrada</small><strong>$89.990</strong><p>Pago confirmado en caja</p></div><div class="tile"><small>Inventario</small><strong>− 1 unidad</strong><p>Stock actualizado automáticamente</p></div><div class="browser" style="grid-column:1/-1"><div class="bar"><i class="dot"></i><i class="dot"></i><i class="dot"></i></div><div class="screen" style="height:270px"><img src="../assets/pos-sanitized.png"></div></div></div></div>
+    <footer class="footer"><span class="cta">Vende con más control <b>→</b></span><span>pixit.cl</span></footer>
+  </div></section>
+
+  <section class="frame" data-file="04-clientes-informados"><div class="page">
+    <header class="header"><img class="logo" src="../../../public/logo-pixit.png"><span class="counter">04 / 10</span></header>
+    <div class="kicker">Experiencia del cliente</div>
+    <h1>Menos preguntas.<br><span class="gradient">Más confianza.</span></h1>
+    <p class="sub">Mantén informado a tu cliente desde el ingreso hasta la entrega.</p>
+    <div class="stage"><div class="notifications"><div class="notification"><div class="icon">01</div><div><strong>Equipo recibido</strong><span>La orden fue registrada correctamente.</span></div></div><div class="notification"><div class="icon">02</div><div><strong>Presupuesto disponible</strong><span>El cliente puede revisar la propuesta.</span></div></div><div class="notification"><div class="icon">03</div><div><strong>Equipo listo</strong><span>Aviso enviado para coordinar el retiro.</span></div></div></div></div>
+    <footer class="footer"><span class="cta">Mejora la experiencia <b>→</b></span><span>pixit.cl</span></footer>
+  </div></section>
+
+  <section class="frame" data-file="05-planes-para-crecer"><div class="page">
+    <header class="header"><img class="logo" src="../../../public/logo-pixit.png"><span class="counter">05 / 10</span></header>
+    <div class="kicker">Planes para cada etapa</div>
+    <h1>Empieza simple.<br><span class="gradient">Crece sin límites.</span></h1>
+    <p class="sub">Elige el plan que acompaña el tamaño y la operación de tu taller.</p>
+    <div class="stage"><div class="plans"><div class="plan"><small>Para comenzar</small><h3>Starter</h3><strong>0,5 UF</strong><p>1 sucursal · Usuarios ilimitados</p></div><div class="plan featured"><small>Más elegido</small><h3>PRO</h3><strong>1,2 UF</strong><p>2 sucursales · POS y compras</p></div><div class="plan"><small>Para cadenas</small><h3>Scale</h3><strong>2,5 UF</strong><p>Sucursales ilimitadas</p></div></div></div>
+    <footer class="footer"><span class="cta">Prueba gratis 30 días <b>→</b></span><span>+ IVA / mes · pixit.cl</span></footer>
+  </div></section>
+
+  <section class="frame" data-file="06-comisiones-tecnicos"><div class="page">
+    <header class="header"><img class="logo" src="../../../public/logo-pixit.png"><span class="counter">06 / 10</span></header>
+    <div class="kicker">Comisiones técnicas</div>
+    <h1>Calcula comisiones.<br><span class="gradient">Sin planillas.</span></h1>
+    <p class="sub">Asigna al técnico, define el porcentaje y registra el pago desde la orden.</p>
+    <div class="stage"><div class="salary"><div class="panel"><div class="panel-title"><span>Orden #OT-1842</span><span class="badge">Venta confirmada</span></div><div class="row"><div class="icon">TC</div><div><strong>Técnico responsable</strong><div class="soft">Comisión configurada al 20%</div></div></div><div class="row"><div class="icon">✓</div><div><strong>Pago registrado</strong><div class="soft">Creado automáticamente como gasto</div></div></div></div><div class="money"><small>Comisión calculada</small><strong>$16.807</strong><p>Sobre el monto neto comisionable</p></div></div></div>
+    <footer class="footer"><span class="cta">Controla cada pago <b>→</b></span><span>pixit.cl</span></footer>
+  </div></section>
+
+  <section class="frame" data-file="07-gastos-y-compras"><div class="page">
+    <header class="header"><img class="logo" src="../../../public/logo-pixit.png"><span class="counter">07 / 10</span></header>
+    <div class="kicker">Gastos + Órdenes de compra</div>
+    <h1>No basta con vender.<br><span class="gradient">Controla lo que gastas.</span></h1>
+    <p class="sub">Registra gastos, compra a proveedores y conoce el resultado real del negocio.</p>
+    <div class="stage"><div class="panel"><div class="grid2"><div class="tile"><small>Ingresos</small><strong>$4.860.000</strong><p>Ventas del período</p></div><div class="tile"><small>Gastos</small><strong>$1.340.000</strong><p>Operación y comisiones</p></div></div><div class="graph"><div class="barcol" style="height:46%"></div><div class="barcol" style="height:65%"></div><div class="barcol" style="height:55%"></div><div class="barcol" style="height:83%"></div><div class="barcol" style="height:72%"></div><div class="barcol" style="height:100%"></div></div></div></div>
+    <footer class="footer"><span class="cta">Conoce tu rentabilidad <b>→</b></span><span>pixit.cl</span></footer>
+  </div></section>
+
+  <section class="frame" data-file="08-fotos-con-qr"><div class="page">
+    <header class="header"><img class="logo" src="../../../public/logo-pixit.png"><span class="counter">08 / 10</span></header>
+    <div class="kicker">Fotos directo desde el teléfono</div>
+    <h1>Escanea. Captura.<br><span class="gradient">Listo.</span></h1>
+    <p class="sub">Sin descargar archivos ni enviarte fotos por WhatsApp.</p>
+    <div class="stage"><div class="phone-wrap"><div class="panel" style="width:360px;align-self:center"><div class="panel-title"><span>Orden #1842</span></div><div class="qr"></div><div class="phone-label">Escanea el QR de la orden</div></div><div class="arrow">→</div><div class="phone"><div class="camera"></div><div class="phone-label" style="margin-top:24px">Las fotos se guardan<br>en la orden</div></div></div></div>
+    <footer class="footer"><span class="cta">Documenta cada ingreso <b>→</b></span><span>pixit.cl</span></footer>
+  </div></section>
+
+  <section class="frame" data-file="09-accesos-por-cargo"><div class="page">
+    <header class="header"><img class="logo" src="../../../public/logo-pixit.png"><span class="counter">09 / 10</span></header>
+    <div class="kicker">Usuarios y permisos</div>
+    <h1>Cada persona ve<br><span class="gradient">lo que necesita.</span></h1>
+    <p class="sub">Crea cargos y controla el acceso a cada módulo de Pixit.</p>
+    <div class="stage"><div class="access"><div class="roles"><div class="role">Administrador</div><div class="role active">Técnico</div><div class="role">Vendedor</div></div><div class="switches"><div class="panel-title"><span>Permisos · Técnico</span></div><div class="switch-row"><span>Taller</span><i class="toggle on"></i></div><div class="switch-row"><span>Inventario</span><i class="toggle on"></i></div><div class="switch-row"><span>Ventas</span><i class="toggle"></i></div><div class="switch-row"><span>Contabilidad</span><i class="toggle"></i></div></div></div></div>
+    <footer class="footer"><span class="cta">Protege tu información <b>→</b></span><span>pixit.cl</span></footer>
+  </div></section>
+
+  <section class="frame" data-file="10-derivaciones-con-registro"><div class="page">
+    <header class="header"><img class="logo" src="../../../public/logo-pixit.png"><span class="counter">10 / 10</span></header>
+    <div class="kicker">Derivaciones con trazabilidad</div>
+    <h1>Envía la reparación.<br><span class="gradient">No pierdas el control.</span></h1>
+    <p class="sub">Deriva una orden a otro taller y conserva estados, motivo y respaldo fotográfico.</p>
+    <div class="stage"><div class="panel"><div class="route"><div class="place"><div class="icon">OT</div><strong>Tu taller</strong><div class="soft">Orden #1842</div></div><div class="route-arrow">→</div><div class="place"><div class="icon">EX</div><strong>Taller externo</strong><div class="soft">Servicio especializado</div></div><div class="route-arrow">→</div><div class="place"><div class="icon">✓</div><strong>Retorno</strong><div class="soft">Historial completo</div></div></div><div class="status-line"><span class="status">Enviado</span><span class="status active">En revisión</span><span class="status">Listo</span><span class="status">Retornado</span></div></div></div>
+    <footer class="footer"><span class="cta">Sigue cada derivación <b>→</b></span><span>pixit.cl</span></footer>
+  </div></section>
+
+</body>
+</html>
