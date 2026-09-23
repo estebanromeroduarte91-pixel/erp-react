@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Pixit · Piloto Premium</title>
+  <style>
+    @font-face{font-family:Pixit;src:url("file:///Library/Fonts/SF-Pro-Display-Regular.otf") format("opentype");font-weight:400}
+    @font-face{font-family:Pixit;src:url("file:///Library/Fonts/SF-Pro-Display-Semibold.otf") format("opentype");font-weight:650}
+    @font-face{font-family:Pixit;src:url("file:///Library/Fonts/SF-Pro-Display-Bold.otf") format("opentype");font-weight:800}
+    *{box-sizing:border-box}
+    html,body{margin:0;background:#dfe4ed;font-family:Pixit,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    body{padding:40px;width:max-content}
+    .post{position:relative;width:1080px;height:1350px;overflow:hidden;background:#f8f9fc;color:#071225;isolation:isolate}
+    .mesh{position:absolute;inset:0;z-index:-3;background:
+      radial-gradient(700px 500px at 100% 45%,rgba(130,55,255,.14),transparent 65%),
+      radial-gradient(620px 520px at -8% 72%,rgba(25,99,255,.13),transparent 65%),
+      linear-gradient(180deg,#fff 0%,#f8f9fd 56%,#f1f4fa 100%)}
+    .grid{position:absolute;inset:0;z-index:-2;opacity:.28;background-image:linear-gradient(#cbd4e2 1px,transparent 1px),linear-gradient(90deg,#cbd4e2 1px,transparent 1px);background-size:54px 54px;mask-image:linear-gradient(to bottom,transparent 0%,transparent 48%,#000 83%,transparent 100%)}
+    .orb{position:absolute;width:520px;height:520px;border-radius:50%;right:-260px;top:410px;background:linear-gradient(135deg,#275fff,#972bff);filter:blur(100px);opacity:.18;z-index:-1}
+    header{height:122px;padding:54px 64px 0;display:flex;justify-content:space-between;align-items:flex-start}
+    .logo{width:135px;height:auto}
+    .series{font-size:16px;font-weight:700;letter-spacing:.13em;color:#7b8799;text-transform:uppercase;padding-top:9px}
+    .copy{padding:69px 64px 0;position:relative;z-index:4}
+    .eyebrow{display:inline-flex;gap:9px;align-items:center;padding:10px 15px;border:1px solid #dbe2ee;background:rgba(255,255,255,.76);border-radius:999px;color:#42506a;font-size:16px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;box-shadow:0 8px 25px rgba(31,48,86,.06)}
+    .eyebrow:before{content:"";width:8px;height:8px;border-radius:50%;background:#2462ff;box-shadow:0 0 0 5px rgba(36,98,255,.12)}
+    h1{margin:24px 0 0;font-size:78px;line-height:.94;letter-spacing:-.06em;font-weight:800;max-width:900px}
+    h1 span{display:inline-block;color:#225fff;background:linear-gradient(100deg,#215fff 0%,#604bff 52%,#9b23ff 100%);background-clip:text;-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+    .lead{margin:27px 0 0;max-width:780px;color:#58677e;font-size:27px;line-height:1.25;letter-spacing:-.015em}
+    .visual{position:absolute;left:52px;right:52px;top:596px;height:635px;perspective:1500px}
+    .browser{position:absolute;left:0;top:62px;width:955px;height:515px;border-radius:30px;background:#fff;border:9px solid rgba(255,255,255,.93);overflow:hidden;box-shadow:0 44px 100px rgba(20,38,76,.23),0 12px 32px rgba(32,76,190,.12);transform:rotateX(2deg) rotateZ(-1.4deg);transform-origin:center center}
+    .chrome{height:49px;background:#e9edf4;display:flex;align-items:center;padding:0 20px;gap:10px;border-bottom:1px solid #dfe4ec}
+    .dot{width:12px;height:12px;border-radius:50%;background:#ff5e68}.dot:nth-child(2){background:#ffb71b}.dot:nth-child(3){background:#0bca98}
+    .address{height:24px;flex:1;margin-left:10px;border-radius:8px;background:rgba(255,255,255,.84);color:#8e99aa;font-size:12px;display:flex;align-items:center;padding-left:15px}
+    .screen{height:466px;overflow:hidden;background:#f5f7fa}
+    .screen img{width:100%;height:100%;object-fit:cover;object-position:top left}
+    .zoom{position:absolute;right:-2px;top:4px;width:390px;height:250px;border-radius:26px;background:#fff;border:8px solid rgba(255,255,255,.95);box-shadow:0 35px 75px rgba(27,43,85,.25),0 0 0 1px rgba(202,210,224,.7);overflow:hidden;transform:rotate(2.5deg)}
+    .zoom:before{content:"DETALLE FINANCIERO";position:absolute;left:19px;top:16px;z-index:3;font-size:12px;font-weight:800;letter-spacing:.12em;color:#fff;background:#152440;padding:8px 11px;border-radius:999px}
+    .zoom .crop{position:absolute;inset:0;background-image:url("../../../public/app-screenshot.png");background-repeat:no-repeat;background-size:1095px 601px;background-position:-642px -195px}
+    .insight{position:absolute;left:34px;bottom:3px;width:360px;padding:20px 22px;border-radius:22px;background:rgba(8,19,40,.94);color:#fff;box-shadow:0 25px 55px rgba(6,17,39,.26);backdrop-filter:blur(12px);transform:rotate(-1.4deg)}
+    .insight small{display:block;color:#91a0b8;text-transform:uppercase;letter-spacing:.13em;font-size:12px;font-weight:700}
+    .insight strong{display:block;margin-top:7px;font-size:24px;line-height:1.08;letter-spacing:-.025em}
+    .insight strong span{color:#7da0ff}
+    footer{position:absolute;left:64px;right:64px;bottom:43px;display:flex;align-items:center;justify-content:space-between}
+    .cta{display:flex;align-items:center;gap:12px;font-size:18px;font-weight:700;color:#fff;background:#205ff3;padding:15px 21px;border-radius:999px;box-shadow:0 16px 35px rgba(32,95,243,.28)}
+    .cta b{font-size:23px;line-height:1}
+    .url{font-size:18px;font-weight:700;color:#66748a}
+  </style>
+</head>
+<body>
+  <article class="post" data-file="pixit-piloto-premium-gastos">
+    <div class="mesh"></div><div class="grid"></div><div class="orb"></div>
+    <header><img class="logo" src="../../../public/logo-pixit.png"><span class="series">Gestión que se ve</span></header>
+    <section class="copy">
+      <div class="eyebrow">Gastos + compras</div>
+      <h1>Vender es importante.<br><span>Conocer tu margen, más.</span></h1>
+      <p class="lead">Registra gastos y órdenes de compra. Pixit reúne los números que necesitas para decidir mejor.</p>
+    </section>
+    <section class="visual">
+      <div class="browser">
+        <div class="chrome"><i class="dot"></i><i class="dot"></i><i class="dot"></i><div class="address">app.pixit.cl · Dashboard</div></div>
+        <div class="screen"><img src="../../../public/app-screenshot.png" alt="Dashboard real de Pixit"></div>
+      </div>
+      <div class="zoom"><div class="crop"></div></div>
+      <div class="insight"><small>Todo conectado</small><strong>Ventas, gastos y compras en <span>una sola vista.</span></strong></div>
+    </section>
+    <footer><span class="cta">Prueba Pixit gratis <b>→</b></span><span class="url">pixit.cl</span></footer>
+  </article>
+</body>
+</html>
