@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { etiquetaHtml } from '@/lib/etiqueta'
 import { createPortal } from 'react-dom'
 import { PagoComisionModal } from './PagoComisionModal'
 import { baseComisionable, montoComision } from '@/lib/comision'
@@ -421,51 +422,17 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
   function printLabel() {
     if (!o) return
     const branch = bodegas.find(b => b.id === o.branchId)
-    const tallerNom = empresaNombre || 'tu taller'
-    const sucNom = branch?.nombre ?? branch?.name ?? ''
-    const footer = [tallerNom, sucNom].filter(Boolean).join(' — ')
-    const otUrl = `${window.location.origin}${window.location.pathname}?orden=${encodeURIComponent(o.id)}`
     const w = window.open('', '_blank')
     if (!w) return
-    w.document.write(`<!DOCTYPE html><html><head><title>Etiqueta OT #${o.num}</title>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<style>
-  @page{size:6cm 4cm;margin:0}
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{width:6cm;height:4cm;font-family:'Manrope',system-ui,sans-serif;overflow:hidden;background:#fff;padding:3mm 3mm 3mm 4mm;display:flex;gap:3mm}
-  .left{display:flex;flex-direction:column;justify-content:space-between;flex:1;min-width:0}
-  .modelo{font-size:8pt;font-weight:800;color:#000;line-height:1.2}
-  .cliente{font-size:7.5pt;font-weight:600;color:#000;margin-top:.5mm}
-  .orden-label{font-size:4.5pt;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:.5px;margin-top:1.5mm}
-  .orden{font-size:13pt;font-weight:800;color:#000;line-height:1.1;margin-bottom:1.5mm}
-  .row{font-size:6.5pt;color:#000;margin-top:1.5mm;font-weight:500;line-height:1.4}
-  .row b{font-weight:700}
-  .footer{font-size:4.5pt;color:#999;font-weight:500;margin-top:auto;padding-top:2mm}
-  .right{display:flex;flex-direction:column;align-items:center;justify-content:center;width:15mm;border-left:.3px solid #ddd;padding-left:2.5mm;flex-shrink:0}
-  .qr-lbl{font-size:4pt;color:#aaa;margin-top:1.5mm;text-align:center;font-weight:500}
-  @media print{@page{size:6cm 4cm;margin:0}}
-</style></head><body>
-<div class="left">
-  <div>
-    <div class="modelo">${o.modelo ?? '—'}</div>
-    <div class="cliente">${o.nombre ?? '—'}${o.apellido ? ' ' + o.apellido : ''}</div>
-    <div class="orden-label">Orden</div>
-    <div class="orden">#${o.num}</div>
-    <div class="row"><b>Trabajo:</b> ${o.trabajo ?? '—'}</div>
-    ${o.pin ? `<div class="row"><b>Clave:</b> ${o.pin}</div>` : ''}
-  </div>
-  <div class="footer">${footer}</div>
-</div>
-<div class="right">
-  <div id="qr"></div>
-  <div class="qr-lbl">Abrir OT</div>
-</div>
-<script>
-  new QRCode(document.getElementById('qr'),{text:'${otUrl}',width:52,height:52,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.M});
-  window.onload=()=>setTimeout(()=>window.print(),600);
-</script>
-</body></html>`)
+    w.document.write(etiquetaHtml({
+      num: String(o.num ?? ''),
+      modelo: o.modelo,
+      cliente: [o.nombre, o.apellido].filter(Boolean).join(' '),
+      trabajo: o.trabajo,
+      pin: o.pin,
+      pie: [empresaNombre || 'tu taller', branch?.nombre ?? branch?.name ?? ''].filter(Boolean).join(' — '),
+      url: `${window.location.origin}${window.location.pathname}?orden=${encodeURIComponent(o.id)}`,
+    }))
     w.document.close()
   }
 

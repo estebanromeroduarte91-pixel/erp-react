@@ -1,0 +1,781 @@
+<title>Feed Pixit</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap">
+<style>
+:root{
+  --page:#eef0f6; --card:#ffffff; --ink:#0b1220; --mut:#5b6478; --faint:#98a1b4; --line:#dde1ea;
+  --blue:#2563eb; --violet:#7c3aed;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --page:#0c0f17; --card:#141926; --ink:#eef1f7; --mut:#9aa4ba; --faint:#6b7488; --line:#242b3b;
+}}
+:root[data-theme="dark"]{
+  --page:#0c0f17; --card:#141926; --ink:#eef1f7; --mut:#9aa4ba; --faint:#6b7488; --line:#242b3b;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--ink);font-family:Manrope,system-ui,sans-serif;font-size:15px;line-height:1.6}
+.wrap{max-width:1180px;margin:0 auto;padding-inline:20px;padding-block:32px 90px}
+.eyebrow{font-size:11px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--faint)}
+h1{font-size:30px;font-weight:800;letter-spacing:-.02em;margin:6px 0 8px;text-wrap:balance}
+h2{font-size:20px;font-weight:800;letter-spacing:-.01em;margin:0}
+.lead{color:var(--mut);max-width:68ch;margin:0}
+.sys{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:26px 0 20px}
+.sys>div{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px 20px}
+.sys h3{margin:0 0 6px;font-size:15px}
+.sw{display:flex;gap:8px;margin:10px 0;flex-wrap:wrap}
+.sw span{width:32px;height:32px;border-radius:9px;border:1px solid rgba(0,0,0,.08)}
+.k{font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--mut);margin:2px 0}
+.sys p{margin:8px 0 0;color:var(--mut);font-size:13.5px}
+.indice{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 20px;margin-bottom:44px}
+.indice ol{margin:10px 0 0;padding-left:20px;columns:2;column-gap:32px}
+.indice li{margin:0 0 6px;font-size:14px;break-inside:avoid}
+.indice a{color:var(--ink);text-decoration:none;border-bottom:1px solid var(--line)}
+.indice a:hover{border-color:var(--blue);color:var(--blue)}
+.piece{margin:0 0 56px;scroll-margin-top:20px}
+.piece-head{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin-bottom:14px}
+.tag{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--blue);background:color-mix(in srgb,var(--blue) 12%,transparent);padding:4px 10px;border-radius:999px}
+.tag.dark{color:var(--violet);background:color-mix(in srgb,var(--violet) 14%,transparent)}
+.slides{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:18px}
+.slides.uno{grid-template-columns:minmax(0,min(620px,100%))}
+.stage{position:relative;aspect-ratio:1;border-radius:18px;overflow:hidden;box-shadow:0 18px 44px rgba(11,18,32,.18);background:#fff}
+.post{position:absolute;top:0;left:0;width:1080px;height:1080px;transform-origin:0 0}
+.cap{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 18px;margin-top:14px}
+.cap p{margin:0 0 10px;font-size:14px}
+.cap p:last-child{margin:0}
+.cap b{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+.cap .cta{color:var(--blue);font-weight:700}
+.cap .tags{color:var(--faint);font-size:13px}
+
+/* ───────── pieza 1080×1080 ───────── */
+.post{font-family:Manrope,system-ui,sans-serif;color:#0b1220;background:#fff;overflow:hidden}
+.post .bg{position:absolute;inset:0;background:
+  radial-gradient(52% 40% at 84% 12%, rgba(124,58,237,.16), transparent 70%),
+  radial-gradient(60% 46% at 8% 92%, rgba(37,99,235,.14), transparent 72%),
+  linear-gradient(180deg,#ffffff 0%,#f6f8fd 100%)}
+.post .grain{position:absolute;inset:0;opacity:.5;background-image:linear-gradient(rgba(11,18,32,.028) 1px,transparent 1px),linear-gradient(90deg,rgba(11,18,32,.028) 1px,transparent 1px);background-size:60px 60px;-webkit-mask-image:radial-gradient(70% 60% at 50% 40%,#000,transparent 100%);mask-image:radial-gradient(70% 60% at 50% 40%,#000,transparent 100%)}
+.post .pad{position:absolute;inset:0;padding:76px 78px;display:flex;flex-direction:column}
+.top{display:flex;justify-content:space-between;align-items:flex-start}
+.logo{display:flex;align-items:center;gap:13px}
+.brand-logo{display:block;width:148px;height:auto;object-fit:contain}
+.logo .mark{font-size:40px;font-weight:800;letter-spacing:-.04em;line-height:1}
+.logo .name{font-size:33px;font-weight:700;letter-spacing:.22em;line-height:1;padding-top:3px}
+.num{font-size:17px;font-weight:800;letter-spacing:.14em;color:#94a3b8;padding-top:10px}
+.post.dark .num{color:#6b7488}
+.h{font-size:76px;line-height:1.03;font-weight:800;letter-spacing:-.035em;margin:52px 0 0;text-wrap:balance}
+.h.sm{font-size:64px}
+.h .g{background:linear-gradient(96deg,#2563eb 8%,#7c3aed 92%);-webkit-background-clip:text;background-clip:text;color:transparent}
+.sub{font-size:26px;line-height:1.45;color:#4b5568;margin:22px 0 0;max-width:20ch;font-weight:500}
+.sub.ancho{max-width:26ch}
+.foot{margin-top:auto;display:flex;align-items:center;justify-content:flex-end;gap:24px;padding-top:46px}
+.url{font-size:23px;font-weight:700;letter-spacing:.01em}
+.badge{font-size:19px;font-weight:700;color:#fff;background:linear-gradient(96deg,#2563eb,#7c3aed);padding:14px 26px;border-radius:999px;white-space:nowrap}
+.ghost{font-size:19px;font-weight:700;color:#2563eb;border:2px solid rgba(37,99,235,.28);padding:12px 24px;border-radius:999px;white-space:nowrap}
+
+/* ventana de producto — mismos tokens que el ERP: tinta #1c1c1e, gris #8e8e93,
+   borde #e5e7eb, fondo #f2f2f7, verde #15803d, rojo #dc2626 */
+.win{position:relative;display:flex;flex-direction:column;margin-inline:auto;color:#3c3c43;background:#f2f2f7;border-radius:22px;border:1px solid #e4e8f2;box-shadow:0 40px 90px -30px rgba(23,37,84,.45),0 0 0 14px rgba(255,255,255,.7);overflow:hidden;margin:44px 0 0}
+.win::after{content:"";position:absolute;inset:-40px;border-radius:40px;background:linear-gradient(120deg,rgba(37,99,235,.35),rgba(124,58,237,.35));filter:blur(46px);z-index:-1}
+.win .bar{height:52px;flex:0 0 52px;background:#fff;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:8px;padding:0 16px}
+.win .bar i{width:11px;height:11px;border-radius:50%;display:block}
+.win .bar .tit{margin-left:14px;font-size:12px;font-weight:700;color:#8e8e93}
+.scr{position:relative;overflow:hidden}
+.real-win .scr{height:430px;background:#f5f6fa}
+.real-shot{display:block;width:100%;height:100%;object-fit:cover;object-position:top left}
+.real-win .bar .tit{font-size:13px;color:#687084}
+.ui{position:relative;display:flex;font-size:13px;transform-origin:top left}
+.side{position:absolute;top:0;bottom:0;left:0;width:190px;background:#fff;border-right:1px solid #e5e7eb;padding:14px 10px;display:flex;flex-direction:column;gap:2px;overflow:hidden}
+.ui:has(.side) .body{margin-left:190px}
+.side .lbl{font-size:9px;font-weight:700;letter-spacing:.5px;color:#8e8e93;text-transform:uppercase;margin:10px 0 4px 8px}
+.side .it{padding:7px 9px;border-radius:8px;color:#3c3c43;font-weight:600;font-size:12px}
+.side .on{background:#eef2ff;color:#3656e6}
+.body{flex:1;padding:18px 22px;background:#f2f2f7;min-width:0;overflow:hidden}
+.row{display:flex;gap:8px}
+.kpi{flex:1;border:.5px solid #e5e7eb;border-radius:12px;padding:12px 14px;background:#fff}
+.kpi .t{font-size:11px;font-weight:600;color:#8e8e93;text-transform:uppercase;letter-spacing:.4px}
+.kpi .v{font-size:18px;font-weight:700;color:#1c1c1e;margin-top:4px;line-height:1;font-variant-numeric:tabular-nums}
+.kpi .d{font-size:11px;margin-top:4px;color:#8e8e93}
+.up{color:#15803d}.down{color:#dc2626}
+.slabel{font-size:12px;font-weight:700;color:#8e8e93;text-transform:uppercase;letter-spacing:.5px;margin:14px 0 8px}
+.suc{background:#fff;border:.5px solid #e5e7eb;border-radius:12px;overflow:hidden}
+.suc .barra-color{height:3px}
+.suc .in{padding:12px 14px}
+.suc .nom{font-size:14px;font-weight:600;color:#1c1c1e}
+.suc .tot2{font-size:22px;font-weight:700;color:#1c1c1e;margin:6px 0 10px;font-variant-numeric:tabular-nums}
+.suc .tres{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;border-top:.5px solid #e5e7eb;padding-top:10px}
+.suc .tres .t{font-size:10px;font-weight:600;color:#8e8e93;text-transform:uppercase;letter-spacing:.3px}
+.suc .tres .v{font-size:12px;color:#3c3c43;font-variant-numeric:tabular-nums}
+.suc .res{margin-top:8px;padding:6px 8px;border-radius:6px;display:flex;justify-content:space-between;align-items:center;font-size:11px;color:#3c3c43}
+.suc .res b{font-size:13px}
+.panel{border:.5px solid #e5e7eb;border-radius:12px;margin-top:10px;overflow:hidden;background:#fff}
+.panel:first-child{margin-top:0}
+.panel h5{margin:0;padding:11px 14px;font-size:14px;font-weight:700;color:#1c1c1e;border-bottom:.5px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.panel h5 em{font-style:normal;font-size:11px;font-weight:600;color:#8e8e93;letter-spacing:.4px;text-transform:uppercase}
+table{width:100%;border-collapse:collapse;font-size:12px;background:#fff}
+th{text-align:left;font-size:10px;letter-spacing:.4px;text-transform:uppercase;color:#8e8e93;font-weight:700;padding:9px 14px;background:#fff;border-bottom:.5px solid #e5e7eb}
+td{padding:10px 14px;border-top:.5px solid #f2f2f7;color:#3c3c43}
+td b{color:#1c1c1e;font-weight:700}
+.der{text-align:right}
+.pill{display:inline-block;padding:3px 10px;border-radius:999px;font-size:10.5px;font-weight:700;white-space:nowrap}
+.p-b{background:#dbeafe;color:#1d4ed8}.p-a{background:#fef3c7;color:#b45309}.p-g{background:#dcfce7;color:#15803d}
+.p-r{background:#fee2e2;color:#dc2626}.p-v{background:#ede9fe;color:#6d28d9}.p-n{background:#f2f2f7;color:#3c3c43}
+.mono{font-family:"JetBrains Mono",monospace;font-variant-numeric:tabular-nums}
+.campo{display:grid;grid-template-columns:104px 1fr;gap:10px;padding:9px 14px;border-top:.5px solid #f2f2f7;font-size:12px;background:#fff}
+.campo span{color:#8e8e93;font-weight:600}
+.campo b{color:#1c1c1e}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.mini{border:.5px solid #e5e7eb;border-radius:12px;padding:11px 13px;background:#fff}
+.mini .t{font-size:11px;font-weight:600;color:#8e8e93;text-transform:uppercase;letter-spacing:.4px}
+.foto{border-radius:8px;height:52px;background:linear-gradient(135deg,#cbd5e1,#8f9bb0)}
+.tot{display:flex;justify-content:space-between;padding:9px 14px;font-size:12px;color:#3c3c43;border-top:.5px solid #f2f2f7;background:#fff}
+.tot b{font-size:14px;color:#1c1c1e}
+.qr{width:104px;height:104px;background:
+  repeating-linear-gradient(90deg,#1c1c1e 0 8px,#fff 8px 16px),
+  repeating-linear-gradient(#1c1c1e 0 8px,#fff 8px 16px);background-blend-mode:difference;border-radius:4px}
+.switch{width:32px;height:18px;border-radius:99px;background:#e5e7eb;position:relative;display:inline-block}
+.switch.on{background:#3656e6}
+.switch::after{content:"";position:absolute;top:2.5px;left:3px;width:13px;height:13px;border-radius:50%;background:#fff}
+.switch.on::after{left:16px}
+
+/* bloques fuera de la ventana */
+.steps{display:grid;gap:16px;margin-top:46px}
+.steps.c4{grid-template-columns:repeat(4,1fr)}
+.steps.c3{grid-template-columns:repeat(3,1fr)}
+.step{background:#fff;border:1px solid #e7ebf4;border-radius:20px;padding:24px 20px;box-shadow:0 20px 40px -28px rgba(23,37,84,.5)}
+.step .n{width:42px;height:42px;border-radius:13px;display:grid;place-items:center;font-size:18px;font-weight:800;color:#fff;background:linear-gradient(140deg,#2563eb,#7c3aed)}
+.step .t{font-size:24px;font-weight:800;margin-top:16px;letter-spacing:-.02em;line-height:1.15}
+.step .d{font-size:16px;color:#6b7488;margin-top:7px;line-height:1.4;font-weight:500}
+.step .s{margin-top:14px}
+.post.dark .step{background:#121827;border-color:#222a3c;color:#fff}
+.post.dark .step .d{color:#98a3bb}
+
+.planes{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:44px}
+.plan{border-radius:22px;padding:26px 22px;border:1px solid #e7ebf4;color:#0b1220;background:#fff;box-shadow:0 20px 40px -28px rgba(23,37,84,.5)}
+.plan .p-n2{font-size:15px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#94a3b8}
+.plan .p-p{font-size:40px;font-weight:800;letter-spacing:-.03em;margin-top:10px}
+.plan .p-p small{font-size:16px;font-weight:700;color:#94a3b8;letter-spacing:0}
+.plan ul{list-style:none;margin:16px 0 0;padding:0;font-size:16px;color:#5b6478;font-weight:500}
+.plan li{margin:7px 0;display:flex;gap:9px;align-items:flex-start}
+.plan li::before{content:"✓";color:#2563eb;font-weight:800}
+.plan.destacado{background:linear-gradient(160deg,#111a33,#0b1220);border-color:transparent;color:#fff}
+.step{color:#0b1220}
+.msg{color:#0b1220}
+.plan.destacado .p-n2{color:#a5b4fc}
+.plan.destacado ul{color:#c2cbdd}
+.plan.destacado li::before{color:#a78bfa}
+.cinta{display:inline-block;font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#fff;background:linear-gradient(96deg,#2563eb,#7c3aed);padding:4px 12px;border-radius:999px;margin-bottom:12px}
+
+.chat{margin-top:44px;display:grid;gap:14px;max-width:760px}
+.msg{background:#fff;border:1px solid #e7ebf4;border-radius:20px;border-top-left-radius:6px;padding:20px 24px;box-shadow:0 18px 36px -28px rgba(23,37,84,.6)}
+.msg .de{font-size:14px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#94a3b8}
+.msg .tx{font-size:21px;font-weight:600;margin-top:7px;line-height:1.35}
+.msg.mio{border-top-left-radius:20px;border-top-right-radius:6px;background:linear-gradient(140deg,#eef2ff,#faf5ff);border-color:#e2e5f5}
+
+.frase{font-size:30px;font-weight:700;line-height:1.35;color:#4b5568;margin-top:40px;max-width:24ch}
+.order-proof{position:relative;height:400px;margin-top:34px}
+.proof-card{position:absolute;background:rgba(255,255,255,.96);border:1px solid #e2e7f0;border-radius:22px;box-shadow:0 24px 55px -28px rgba(23,37,84,.5);padding:22px}
+.proof-main{left:0;top:0;width:62%;height:258px}
+.proof-check{right:0;top:18px;width:42%;height:232px}
+.proof-gallery{left:96px;bottom:0;width:72%;height:174px;z-index:3}
+.proof-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:15px}
+.proof-title{font-size:18px;font-weight:800;letter-spacing:-.01em}
+.proof-pill{font-size:11px;font-weight:800;color:#245eea;background:#edf2ff;padding:6px 10px;border-radius:999px;text-transform:uppercase;letter-spacing:.06em}
+.proof-fields{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.proof-field{border:1px solid #e7eaf1;background:#f8f9fc;border-radius:12px;padding:10px 12px;min-height:59px}
+.proof-field.wide{grid-column:1/-1}
+.proof-field small{display:block;color:#98a1b4;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+.proof-field strong{display:block;font-size:14px;margin-top:3px;color:#2f3747}
+.check-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid #edf0f5;font-size:14px;font-weight:650;color:#414b5e}
+.check-row:first-of-type{border-top:0}
+.check-ok{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:#dcfce7;color:#15803d;font-size:13px;font-weight:900}
+.photo-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.proof-photo{height:78px;border-radius:12px;position:relative;overflow:hidden;isolation:isolate;background:#dce3ee}
+.proof-photo img{width:100%;height:100%;display:block;object-fit:cover;object-position:center}
+.proof-photo:before{content:"";position:absolute;inset:0;z-index:3;background:linear-gradient(180deg,rgba(5,12,28,0) 36%,rgba(5,12,28,.52) 100%)}
+.proof-photo:after{position:absolute;left:9px;bottom:7px;z-index:4;color:#fff;font-size:10px;font-weight:800;text-shadow:0 1px 4px #24324f}
+.proof-photo .device{position:absolute;z-index:2;display:block;border:2px solid rgba(255,255,255,.78);background:linear-gradient(155deg,#111827,#34445e);box-shadow:0 10px 18px rgba(13,22,40,.34),inset 0 0 0 2px rgba(5,10,20,.35)}
+.proof-photo.p1{background:linear-gradient(145deg,#8796aa,#d8dee8)}
+.proof-photo.p1 .device{width:38px;height:62px;border-radius:8px;left:50%;top:8px;transform:translateX(-50%) rotate(-7deg)}
+.proof-photo.p1 .device:after{content:"";position:absolute;left:50%;top:4px;width:13px;height:3px;border-radius:3px;background:#0b1220;transform:translateX(-50%)}
+.proof-photo.p1:after{content:"Frontal"}
+.proof-photo.p2{background:linear-gradient(135deg,#c9d3e2,#77869a)}
+.proof-photo.p2 .device{width:40px;height:63px;border-radius:8px;left:50%;top:7px;transform:translateX(-50%) rotate(8deg);background:linear-gradient(145deg,#7d8797,#d5d9df)}
+.proof-photo.p2 .device:before,.proof-photo.p2 .device:after{content:"";position:absolute;border-radius:50%;background:#1d2736;width:8px;height:8px;top:6px}
+.proof-photo.p2 .device:before{left:6px}.proof-photo.p2 .device:after{left:16px}
+.proof-photo.p2:after{content:"Posterior"}
+.proof-photo.p3{background:linear-gradient(145deg,#9caac0,#e3e8f1)}
+.proof-photo.p3 .device{width:62px;height:42px;border-radius:9px;left:50%;top:15px;transform:translateX(-50%) rotate(-5deg);background:linear-gradient(145deg,#1c2738,#526078)}
+.proof-photo.p3 .device:before{content:"";position:absolute;inset:7px;border-radius:4px;border:1px solid rgba(255,255,255,.38);background:linear-gradient(165deg,transparent 44%,rgba(255,255,255,.5) 45%,transparent 48%)}
+.proof-photo.p3:after{content:"Detalle"}
+.proof-note{margin-top:9px;color:#758198;font-size:12px;font-weight:600}
+.approval-flow{position:relative;height:390px;margin-top:30px}
+.approval-card{position:absolute;background:rgba(255,255,255,.97);border:1px solid #e2e7f0;border-radius:22px;box-shadow:0 24px 55px -28px rgba(23,37,84,.5);padding:22px;color:#253047}
+.approval-quote{left:0;top:18px;width:55%;height:292px}
+.approval-message{right:0;top:0;width:42%;height:190px;z-index:2;background:linear-gradient(145deg,#fff,#f5f7ff)}
+.approval-confirm{right:0;bottom:0;width:43%;height:174px;z-index:3;border-color:#ccebd9;background:linear-gradient(145deg,#f5fff9,#fff)}
+.approval-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.approval-title{font-size:18px;font-weight:800;letter-spacing:-.01em;color:#111827}
+.approval-status{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;padding:6px 10px;border-radius:999px;background:#eaf0ff;color:#245eea}
+.approval-device{font-size:12px;color:#7b8599;font-weight:650;margin-top:-8px;margin-bottom:13px}
+.approval-line{display:grid;grid-template-columns:1fr auto;gap:16px;padding:10px 0;border-top:1px solid #edf0f5;font-size:13px;color:#566176}
+.approval-line strong{color:#222c3f;font-weight:750;text-align:right}
+.approval-total{display:flex;justify-content:space-between;align-items:center;margin-top:2px;padding-top:13px;border-top:1px solid #dfe4ed;font-size:15px;font-weight:800;color:#111827}
+.approval-total b{font-size:21px}
+.message-label{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#8b96aa}
+.message-copy{font-size:14px;line-height:1.42;font-weight:650;margin-top:8px;color:#3b465a}
+.message-copy b{color:#111827}
+.approval-button{display:block;margin-top:14px;border-radius:10px;padding:10px 12px;background:linear-gradient(96deg,#2563eb,#6246ea);color:#fff;font-size:12px;font-weight:800;text-align:center}
+.confirm-icon{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:#dcfce7;color:#15803d;font-size:19px;font-weight:900}
+.confirm-title{font-size:17px;font-weight:800;color:#166534;margin-top:9px}
+.confirm-meta{font-size:12px;line-height:1.45;color:#667085;margin-top:4px}
+.confirm-meta b{color:#344054}
+.qr-real-flow{position:relative;height:405px;margin-top:26px}
+.qr-order-card{position:absolute;left:0;top:44px;width:67%;height:300px;padding:25px 250px 24px 24px;background:rgba(255,255,255,.97);border:1px solid #e2e7f0;border-radius:22px;box-shadow:0 24px 55px -28px rgba(23,37,84,.5);color:#253047}
+.qr-order-title{font-size:18px;font-weight:800;color:#111827}
+.qr-order-device{font-size:12px;color:#7b8599;font-weight:650;margin-top:3px}
+.qr-order-tag{display:inline-block;margin-top:15px;padding:6px 10px;border-radius:999px;background:#edf2ff;color:#245eea;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em}
+.qr-flow-line{display:flex;gap:10px;align-items:center;margin-top:13px;font-size:13px;font-weight:700;color:#485469}
+.qr-flow-line span{width:24px;height:24px;border-radius:8px;display:grid;place-items:center;color:#fff;background:linear-gradient(140deg,#2563eb,#7c3aed);font-size:11px;font-weight:900;flex:0 0 auto}
+.qr-sync{font-size:11px;color:#758198;font-weight:650;margin-top:14px;line-height:1.4}
+.qr-modal-wrap{position:absolute;right:22px;top:0;width:274px;height:405px;z-index:3;border-radius:22px;overflow:hidden;background:#fff;border:1px solid #dce2ed;box-shadow:0 30px 65px -24px rgba(23,37,84,.55)}
+.qr-modal-wrap img{display:block;width:100%;height:100%;object-fit:cover;object-position:center}
+.post.dark .frase{color:#aab3c8}
+.post.dark .sub{color:#aab3c8}
+.post.dark .url{color:#fff}
+.post.dark .brand-logo{filter:brightness(0) invert(1)}
+.post.dark{background:#080b14;color:#fff}
+.post.dark .bg{background:
+  radial-gradient(48% 38% at 82% 14%, rgba(124,58,237,.42), transparent 68%),
+  radial-gradient(54% 44% at 10% 88%, rgba(37,99,235,.34), transparent 70%),
+  linear-gradient(180deg,#0a0e1a 0%,#070a12 100%)}
+.post.dark .grain{background-image:linear-gradient(rgba(255,255,255,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.045) 1px,transparent 1px)}
+.post.dark .ghost{color:#c4b5fd;border-color:rgba(196,181,253,.35)}
+.post.dark .win{border-color:rgba(255,255,255,.08);box-shadow:0 40px 90px -30px rgba(0,0,0,.8),0 0 0 14px rgba(255,255,255,.04)}
+.post.dark .msg{background:#111827;border-color:#222b3d;color:#fff}
+.post.dark .msg.mio{background:linear-gradient(140deg,#1b2040,#161231)}
+@media (max-width:640px){h1{font-size:24px}.sys{grid-template-columns:1fr}.indice ol{columns:1}}
+</style>
+
+<div class="wrap">
+  <div class="eyebrow">Pixit · Instagram</div>
+  <h1>Feed completo: 10 publicaciones</h1>
+  <p class="lead">Todas las piezas están dibujadas a 1080×1080 reales, el tamaño de Instagram. Las pantallas de Pixit están recreadas con la interfaz del ERP y datos de ejemplo; cuando quieras las cambiamos por capturas de tu cuenta.</p>
+
+  <div class="sys">
+    <div>
+      <h3>Color</h3>
+      <div class="sw"><span style="background:#0b1220"></span><span style="background:#2563eb"></span><span style="background:#7c3aed"></span><span style="background:#f6f8fd"></span><span style="background:#080b14"></span></div>
+      <p class="k">#0B1220 · #2563EB · #7C3AED</p>
+      <p>El degradado azul→violeta se usa en una sola frase por pieza. Nunca en todo el titular.</p>
+    </div>
+    <div>
+      <h3>Tipografía</h3>
+      <p class="k">Manrope 800 · 76px · −3,5%</p>
+      <p class="k">Manrope 500 · 26px</p>
+      <p class="k">JetBrains Mono · cifras</p>
+      <p>Titular de dos líneas. Bajada de máximo 20 caracteres por línea.</p>
+    </div>
+    <div>
+      <h3>Ritmo del feed</h3>
+      <p>Siete piezas claras y tres oscuras (3, 5 y 8), repartidas para que la grilla no se vea plana al mirarla completa. Abajo siempre la misma línea: pixit.cl y la acción.</p>
+    </div>
+  </div>
+
+  <div class="indice">
+    <b class="eyebrow">Las 10 publicaciones</b>
+    <ol id="indice"></ol>
+  </div>
+
+  <div id="feed"></div>
+</div>
+
+<script>
+/* ─── Pantallas de producto reutilizables ─────────────────────────────────
+   Cada una devuelve el interior de una ventana del ERP. Se dibujan con la
+   misma interfaz de Pixit (barra lateral, KPIs, píldoras de estado, cifras en
+   mono) para que las piezas se lean como producto y no como ilustración. */
+var APP_W = 1010, APP_H = 430;
+var chrome = function (titulo, cuerpo) {
+  return '<div class="win">' +
+    '<div class="bar"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i>' +
+    (titulo ? '<span class="tit">' + titulo + '</span>' : '') + '</div>' +
+    '<div class="scr"><div class="ui" style="width:' + APP_W + 'px;height:' + APP_H + 'px">' + cuerpo + '</div></div></div>';
+};
+
+/* Capturas reales de Pixit. Los archivos usados aquí fueron sanitizados
+   para ocultar datos personales y cifras internas antes de exportarlos. */
+var REAL_SHOTS = {
+  dashboard: 'dashboard-feature',
+  ordenes: 'ordenes-feature',
+  ficha: 'ficha-feature',
+  presupuesto: 'ficha-feature',
+  reparacion: 'ficha-feature',
+  entrega: 'ventas-feature',
+  ventas: 'ventas-feature',
+  pos: 'pos-feature',
+  inventario: 'inventario-feature',
+  comisiones: 'comisiones-feature',
+  gastos: 'gastos-feature',
+  compras: 'compras-feature',
+  qr: 'qr-feature',
+  accesos: 'cargos-feature',
+  derivacion: 'derivados-feature'
+};
+var REAL_TITLES = {
+  dashboard: 'Dashboard real', ordenes: 'Órdenes reales', ficha: 'Ficha real de una orden',
+  presupuesto: 'Presupuesto dentro de la orden', reparacion: 'Reparación dentro de la orden',
+  entrega: 'Ventas y documentos reales', ventas: 'Historial real de ventas',
+  pos: 'Punto de venta real', inventario: 'Inventario real', comisiones: 'Comisiones reales',
+  gastos: 'Gastos reales', compras: 'Órdenes de compra reales', qr: 'Fotos por QR',
+  accesos: 'Cargos y permisos reales', derivacion: 'Derivaciones reales'
+};
+var realChrome = function (clave) {
+  var archivo = REAL_SHOTS[clave];
+  return '<div class="win real-win">' +
+    '<div class="bar"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i>' +
+    '<span class="tit">' + REAL_TITLES[clave] + '</span></div>' +
+    '<div class="scr"><img class="real-shot" src="real-ui-captures/' + archivo + '-sanitized.png" alt="Pantalla real de Pixit"></div></div>';
+};
+var menu = function (activo) {
+  var op = ['Dashboard', 'Ventas', 'Taller', 'Inventario'];
+  var ad = ['Compras', 'Gastos', 'Configuración'];
+  var it = function (t) { return '<div class="it' + (t === activo ? ' on' : '') + '">' + t + '</div>'; };
+  return '<div class="side"><div class="lbl">Operación</div>' + op.map(it).join('') +
+    '<div class="lbl">Administración</div>' + ad.map(it).join('') + '</div>';
+};
+var tabla = function (cols, filas) {
+  return '<table><thead><tr>' + cols.map(function (c) { return '<th>' + c + '</th>'; }).join('') + '</tr></thead><tbody>' +
+    filas.map(function (f) { return '<tr>' + f.map(function (c) { return '<td>' + c + '</td>'; }).join('') + '</tr>'; }).join('') + '</tbody></table>';
+};
+var kpi = function (t, v, d, clase) {
+  return '<div class="kpi"><div class="t">' + t + '</div><div class="v mono"' + (clase ? ' style="color:' + clase + '"' : '') + '>' + v + '</div>' +
+    (d ? '<div class="d">' + d + '</div>' : '') + '</div>';
+};
+// Tarjeta de sucursal del Dashboard, con su franja de color y el resultado.
+var sucursal = function (nombre, color, total, neto, ventas, part) {
+  return '<div class="suc"><div class="barra-color" style="background:' + color + '"></div><div class="in">' +
+    '<div class="nom">' + nombre + '</div><div class="tot2">' + total + '</div>' +
+    '<div class="tres">' +
+    '<div><div class="t">Neto</div><div class="v">' + neto + '</div></div>' +
+    '<div><div class="t">Ventas</div><div class="v">' + ventas + '</div></div>' +
+    '<div><div class="t">Participación</div><div class="v">' + part + '</div></div>' +
+    '</div></div></div>';
+};
+var panel = function (tit, extra, contenido) {
+  return '<div class="panel"><h5>' + tit + (extra ? '<em>' + extra + '</em>' : '') + '</h5>' + contenido + '</div>';
+};
+
+var PANTALLAS = {
+  // Todas las cifras, productos y modelos salen de la base real de Pixit.
+  // Solo los nombres de los clientes están cambiados.
+  dashboard: function () {
+    return chrome('Dashboard', menu('Dashboard') + '<div class="body">' +
+      '<div class="row">' +
+      kpi('Ventas con IVA', '$10.664.760', '109 transacciones') +
+      kpi('Ventas netas', '$8.961.980', 'sin IVA') +
+      kpi('Transacciones', '109', '$97.842 prom. con IVA') +
+      '</div>' +
+      '<p class="slabel">Ventas por sucursal</p>' +
+      '<div class="grid2">' +
+      sucursal('Sucursal Centro', '#3656e6', '$6.857.240', '$5.762.385', '63', '64%') +
+      sucursal('Sucursal Norte', '#7c3aed', '$3.807.520', '$3.199.595', '46', '36%') +
+      '</div></div>');
+  },
+  ventas: function () {
+    return chrome('Ventas', menu('Ventas') + '<div class="body">' +
+      panel('Ventas', 'Septiembre', tabla(['N°', 'Fecha', 'Cliente', 'Producto', 'Método', 'Doc.', 'Total'], [
+        ['<span class="mono">VTA-03590</span>', '22-09-26', '<b>Camila Rojas</b>', 'iPhone 13 Batería', 'GetNet', 'Boleta', '<span class="mono der"><b>$84.990</b></span>'],
+        ['<span class="mono">VTA-03589</span>', '21-09-26', '<b>Jorge Muñoz</b>', 'Sistema Operativo MacBook', 'GetNet', 'Boleta', '<span class="mono der"><b>$34.990</b></span>'],
+        ['<span class="mono">VTA-03588</span>', '21-09-26', '<b>Valentina Soto</b>', 'iPhone 14 Pro Pantalla Original', 'Transferencia', 'Boleta', '<span class="mono der"><b>$309.990</b></span>'],
+        ['<span class="mono">VTA-03587</span>', '21-09-26', '<b>Matías Fuentes</b>', 'MacBook Pro 13\'\' M1 A2338 Pantalla Space Gray', 'Transferencia', 'Boleta', '<span class="mono der"><b>$439.990</b></span>'],
+        ['<span class="mono">VTA-03586</span>', '21-09-26', '<b>Paula Núñez</b>', 'iPhone 13 Batería', 'GetNet', 'Boleta', '<span class="mono der"><b>$84.990</b></span>'],
+        ['<span class="mono">VTA-03585</span>', '20-09-26', '<b>Tomás Herrera</b>', 'MacBook Pro 13\'\' A1708 Batería', 'Efectivo', 'Boleta', '<span class="mono der"><b>$149.990</b></span>'],
+        ['<span class="mono">VTA-03584</span>', '20-09-26', '<b>Andrea Pérez</b>', 'Cable HOCO X51 Tipo C a Tipo C 100W 1m', 'Efectivo', 'Boleta', '<span class="mono der"><b>$12.990</b></span>']
+      ])) + '</div>');
+  },
+  ordenes: function () {
+    return chrome('Taller', menu('Taller') + '<div class="body">' +
+      panel('Órdenes de trabajo', '16 activas', tabla(['N°', 'Fecha', 'Cliente', 'Equipo', 'Estado', 'Precio'], [
+        ['<span class="mono"><b>4049</b></span>', '23-09-26', '<b>Camila Rojas</b>', 'iPhone 11 [Apple]', '<span class="pill p-b">Chequeo</span>', '<span class="mono der">—</span>'],
+        ['<span class="mono"><b>4045</b></span>', '22-09-26', '<b>Valentina Soto</b>', 'iPhone 15 Pro [Apple]', '<span class="pill p-a">Reparación</span>', '<span class="mono der">$409.990</span>'],
+        ['<span class="mono"><b>4041</b></span>', '22-09-26', '<b>Matías Fuentes</b>', 'MacBook Pro 16" A2141 [Apple]', '<span class="pill p-g">Listo</span>', '<span class="mono der">$34.990</span>'],
+        ['<span class="mono"><b>4039</b></span>', '22-09-26', '<b>Jorge Muñoz</b>', 'iPhone 13 [Apple]', '<span class="pill p-n">Entregado</span>', '<span class="mono der">$84.990</span>'],
+        ['<span class="mono"><b>4037</b></span>', '21-09-26', '<b>Andrea Pérez</b>', 'iPad 8 A2270 [Apple]', '<span class="pill p-b">Chequeo</span>', '<span class="mono der">—</span>'],
+        ['<span class="mono"><b>4035</b></span>', '21-09-26', '<b>Tomás Herrera</b>', 'MacBook Air 13" A1466 [Apple]', '<span class="pill p-a">Reparación</span>', '<span class="mono der">$149.990</span>'],
+        ['<span class="mono"><b>4033</b></span>', '21-09-26', '<b>Paula Núñez</b>', 'iPhone 13 [Apple]', '<span class="pill p-g">Listo</span>', '<span class="mono der">$84.990</span>']
+      ])) + '</div>');
+  },
+  ficha: function () {
+    return chrome('Taller · Orden #4045', menu('Taller') + '<div class="body">' +
+      panel('Cliente', '',
+        '<div class="campo"><span>Nombre</span><b>Valentina Soto</b></div>' +
+        '<div class="campo"><span>Teléfono</span><b>+56 9 7301 2254</b></div>') +
+      panel('Equipo', '',
+        '<div class="campo"><span>Equipo</span><b>iPhone 15 Pro [Apple]</b></div>' +
+        '<div class="campo"><span>Trabajo a realizar</span><b>Revisión, no enciende, ni carga.</b></div>' +
+        '<div class="campo"><span>Estado físico</span><b>No enciende · Sin humedad · Marcas de uso</b></div>' +
+        '<div class="campo"><span>Técnico</span><b>Diego Salas</b></div>') + '</div>');
+  },
+  presupuesto: function () {
+    return chrome('Taller · Presupuesto', menu('Taller') + '<div class="body">' +
+      panel('Presupuesto', 'Aprobado',
+        '<div class="campo"><span>Equipo</span><b>iPhone 15 Pro [Apple]</b></div>' +
+        '<div class="campo"><span>Trabajo</span><b>iPhone 15 Pro Pantalla Original</b></div>' +
+        '<div class="campo"><span>Total repuestos</span><b class="mono">$168.067</b></div>' +
+        '<div class="tot"><span><b>Presupuesto</b></span><b class="mono">$409.990</b></div>') +
+      '<div class="mini" style="margin-top:10px"><div class="t">Aprobación del cliente</div>' +
+      '<div style="margin-top:7px;font-size:12px;color:#1c1c1e"><b>Valentina Soto</b> aprobó el 22-09-26 a las 10:14</div>' +
+      '<div style="margin-top:8px"><span class="pill p-g">Aprobado</span></div></div></div>');
+  },
+  reparacion: function () {
+    return chrome('Taller · Repuestos', menu('Taller') + '<div class="body">' +
+      panel('Repuestos', 'Descuentan stock', tabla(['Producto', 'Cant.', 'Costo', 'Subtotal'], [
+        ['<b>iPhone 15 Pro Pantalla Original</b>', '1', '<span class="mono">$168.067</span>', '<span class="mono der"><b>$168.067</b></span>'],
+        ['<b>Adaptador Lightning a Jack 3.5</b>', '1', '<span class="mono">$1.681</span>', '<span class="mono der"><b>$1.681</b></span>']
+      ])) +
+      '<div class="grid2" style="margin-top:10px">' +
+      '<div class="mini"><div class="t">Técnico</div><div style="font-size:14px;font-weight:700;color:#1c1c1e;margin-top:4px">Diego Salas</div><div class="t" style="margin-top:10px">Comisión 20%</div><div class="mono" style="font-size:14px;font-weight:700;color:#1c1c1e">$66.418</div></div>' +
+      '<div class="mini"><div class="t">Estado</div><div style="margin-top:8px"><span class="pill p-a">Reparación</span></div><div class="t" style="margin-top:10px">Sucursal</div><div style="font-size:13px;font-weight:700;color:#1c1c1e">Sucursal Centro</div></div>' +
+      '</div></div>');
+  },
+  entrega: function () {
+    return chrome('Ventas · Boleta', menu('Ventas') + '<div class="body">' +
+      panel('Venta VTA-03590', 'Orden #4039', tabla(['Producto', 'Cant.', 'Subtotal'], [
+        ['<b>iPhone 13 Batería</b>', '1', '<span class="mono der"><b>$84.990</b></span>']
+      ]) +
+        '<div class="tot"><span>Subtotal neto</span><span class="mono">$71.420</span></div>' +
+        '<div class="tot"><span><b>Total con IVA</b></span><b class="mono">$84.990</b></div>') +
+      '<div class="grid2" style="margin-top:10px">' +
+      '<div class="mini"><div class="t">Método de pago</div><div style="font-size:13px;font-weight:700;color:#1c1c1e;margin-top:4px">GetNet</div></div>' +
+      '<div class="mini"><div class="t">Documento</div><div style="font-size:13px;font-weight:700;color:#1c1c1e;margin-top:4px">Boleta</div><div style="margin-top:8px"><span class="pill p-g">Pagada</span></div></div>' +
+      '</div></div>');
+  },
+  pos: function () {
+    return chrome('Ventas · Punto de venta', menu('Ventas') + '<div class="body">' +
+      '<div class="grid2" style="grid-template-columns:1.35fr 1fr">' +
+      panel('Carrito', 'Sucursal Centro', tabla(['Producto', 'Cant.', 'Subtotal'], [
+        ['<b>Cable HOCO X51 Tipo C a Tipo C 100W 1m</b>', '1', '<span class="mono der"><b>$12.990</b></span>'],
+        ['<b>Audífono HOCO L10 Tipo C</b>', '1', '<span class="mono der"><b>$7.990</b></span>'],
+        ['<b>Adaptador Hoco UA5 Tipo C a USB-A</b>', '1', '<span class="mono der"><b>$9.990</b></span>']
+      ]) + '<div class="tot"><span><b>Total con IVA</b></span><b class="mono">$30.970</b></div>') +
+      panel('Stock al confirmar', 'Sucursal Centro',
+        '<div class="campo"><span>Cable X51 1m</span><b class="mono">7 → 6</b></div>' +
+        '<div class="campo"><span>Audífono L10</span><b class="mono">3 → 2</b></div>' +
+        '<div class="campo"><span>Adaptador UA5</span><b class="mono">2 → 1</b></div>' +
+        '<div style="padding:11px 14px;background:#fff"><span class="pill p-g">Stock actualizado</span></div>') +
+      '</div></div>');
+  },
+  inventario: function () {
+    return chrome('Inventario', menu('Inventario') + '<div class="body">' +
+      panel('Productos', '1.475 productos', tabla(['SKU', 'Nombre', 'Categoría', 'Costo', 'Precio venta', 'Sucursal Norte', 'Sucursal Centro'], [
+        ['<span class="mono">1174</span>', '<b>Cable HOCO X51 Tipo C a Tipo C 100W 1m</b>', 'Accesorios', '<span class="mono">$1.119</span>', '<span class="mono">$12.990</span>', '<span class="mono">5</span>', '<span class="mono">7</span>'],
+        ['<span class="mono">1100</span>', '<b>Audífono HOCO L10 Tipo C</b>', 'Accesorios', '<span class="mono">$1.176</span>', '<span class="mono">$7.990</span>', '<span class="mono">3</span>', '<span class="mono">3</span>'],
+        ['<span class="mono">1124</span>', '<b>Audífonos Hoco EW84 Blanco</b>', 'Accesorios', '<span class="mono">$6.490</span>', '<span class="mono">$22.990</span>', '<span class="mono">0</span>', '<span class="mono">4</span>'],
+        ['<span class="mono">1002</span>', '<b>Adaptador Hoco UA5 Tipo C a USB-A</b>', 'Accesorios', '<span class="mono">$1.690</span>', '<span class="mono">$9.990</span>', '<span class="mono">0</span>', '<span class="mono">2</span>'],
+        ['<span class="mono">1358</span>', '<b>Holder Hoco PH15</b>', 'Accesorios', '<span class="mono">$1.933</span>', '<span class="mono">$14.990</span>', '<span class="mono">0</span>', '<span class="mono">1</span>'],
+        ['<span class="mono">1136</span>', '<b>Audífonos Hoco W28</b>', 'Accesorios', '<span class="mono">$8.227</span>', '<span class="mono">$24.990</span>', '<span class="mono">2</span>', '<span class="mono">0</span>'],
+        ['<span class="mono">1186</span>', '<b>Cable Hoco HDMI US08 2m</b>', 'Accesorios', '<span class="mono">$1.990</span>', '<span class="mono">$9.990</span>', '<span class="mono">1</span>', '<span class="mono">1</span>']
+      ])) + '</div>');
+  },
+  comisiones: function () {
+    return chrome('Taller · Comisiones', menu('Taller') + '<div class="body">' +
+      '<div class="row">' +
+      kpi('Por pagar', '$51.836', '2 órdenes', '#dc2626') +
+      kpi('Pagado en el mes', '$95.597', '', '#15803d') +
+      kpi('Porcentaje', '20%', 'sobre el neto') +
+      '</div>' +
+      panel('Detalle por orden', 'Septiembre', tabla(['Orden', 'Técnico', 'Sucursal', 'Bruto cobrado', 'Comisión'], [
+        ['<span class="mono"><b>3890</b></span>', 'Diego Salas', 'Sucursal Centro', '<span class="mono">$169.990</span>', '<span class="mono"><b>$27.538</b></span><br><span style="color:#8e8e93">20% sobre $137.692</span>'],
+        ['<span class="mono"><b>3892</b></span>', 'Diego Salas', 'Sucursal Centro', '<span class="mono">$149.990</span>', '<span class="mono"><b>$24.298</b></span><br><span style="color:#8e8e93">20% sobre $121.492</span>'],
+        ['<span class="mono"><b>3924</b></span>', 'Diego Salas', 'Sucursal Centro', '<span class="mono">$79.990</span>', '<span class="mono"><b>$12.958</b></span><br><span style="color:#8e8e93">20% sobre $64.792</span>']
+      ])) + '</div>');
+  },
+  gastos: function () {
+    return chrome('Contabilidad · Gastos', menu('Gastos') + '<div class="body">' +
+      panel('Gastos por categoría', 'Septiembre', tabla(['Categoría', 'Sucursal', 'Método', 'Monto'], [
+        ['<b>Sueldos</b>', 'Sucursal Centro', 'Transferencia', '<span class="mono der"><b>$2.991.855</b></span>'],
+        ['<b>Arriendo</b>', 'Sucursal Norte', 'Transferencia', '<span class="mono der"><b>$558.907</b></span>'],
+        ['<b>Publicidad y Marketing</b>', 'Sucursal Centro', 'Transferencia', '<span class="mono der"><b>$556.073</b></span>'],
+        ['<b>Comisiones</b>', 'Sucursal Centro', 'Transferencia', '<span class="mono der"><b>$95.597</b></span>'],
+        ['<b>Deliverys</b>', 'Sucursal Centro', 'Transferencia', '<span class="mono der"><b>$92.259</b></span>'],
+        ['<b>Internet y Telefonía</b>', 'Sucursal Norte', 'Transferencia', '<span class="mono der"><b>$105.607</b></span>'],
+        ['<b>Administrativo</b>', 'Sucursal Centro', 'Transferencia', '<span class="mono der"><b>$145.000</b></span>']
+      ])) + '</div>');
+  },
+  compras: function () {
+    return chrome('Compras · Orden de compra', menu('Compras') + '<div class="body">' +
+      panel('Recepción de productos', 'Parcial', tabla(['Producto', 'Ord.', 'Rec.', 'Pend.', 'Subtotal'], [
+        ['<b>Cable HOCO X51 Tipo C a Tipo C 100W 1m</b>', '<span class="mono">20</span>', '<span class="mono">20</span>', '<span class="mono">0</span>', '<span class="mono der"><b>$22.380</b></span>'],
+        ['<b>Audífono HOCO L10 Tipo C</b>', '<span class="mono">12</span>', '<span class="mono">12</span>', '<span class="mono">0</span>', '<span class="mono der"><b>$14.112</b></span>'],
+        ['<b>iPhone 13 Batería</b>', '<span class="mono">10</span>', '<span class="mono">6</span>', '<span class="mono">4</span>', '<span class="mono der"><b>$131.400</b></span>']
+      ])) + '</div>');
+  },
+  qr: function () {
+    return chrome('Taller · Fotos de la orden', menu('Taller') + '<div class="body">' +
+      '<div class="grid2" style="grid-template-columns:.85fr 1.15fr">' +
+      '<div class="mini" style="text-align:center;padding:14px">' +
+      '<div style="font-size:13px;font-weight:700;color:#1c1c1e">Subir fotos desde iPhone</div>' +
+      '<div style="font-size:11px;color:#8e8e93;margin:6px 0 10px;line-height:1.4">Escanea el QR con la cámara del iPhone. Las fotos se sincronizan automáticamente.</div>' +
+      '<div style="display:flex;justify-content:center"><div class="qr"></div></div></div>' +
+      panel('Fotos de la orden', '6',
+        '<div class="row" style="gap:6px;padding:11px 14px;background:#fff"><div class="foto" style="flex:1"></div><div class="foto" style="flex:1"></div><div class="foto" style="flex:1"></div></div>' +
+        '<div class="campo"><span>Ingreso</span><b>3 fotos</b></div>' +
+        '<div class="campo"><span>Inspección</span><b>2 fotos</b></div>' +
+        '<div class="campo"><span>Salida</span><b>1 foto</b></div>') +
+      '</div></div>');
+  },
+  accesos: function () {
+    return chrome('Configuración · Cargos', menu('Configuración') + '<div class="body">' +
+      '<div class="grid2">' +
+      panel('Técnico', '',
+        '<div class="campo"><span>Taller</span><span class="switch on"></span></div>' +
+        '<div class="campo"><span>Inventario</span><span class="switch on"></span></div>' +
+        '<div class="campo"><span>Ventas</span><span class="switch"></span></div>' +
+        '<div class="campo"><span>Compras</span><span class="switch"></span></div>' +
+        '<div class="campo"><span>Estadísticas</span><span class="switch"></span></div>') +
+      panel('Encargado', '',
+        '<div class="campo"><span>Taller</span><span class="switch on"></span></div>' +
+        '<div class="campo"><span>Inventario</span><span class="switch on"></span></div>' +
+        '<div class="campo"><span>Ventas</span><span class="switch on"></span></div>' +
+        '<div class="campo"><span>Compras</span><span class="switch on"></span></div>' +
+        '<div class="campo"><span>Estadísticas</span><span class="switch on"></span></div>') +
+      '</div></div>');
+  },
+  derivacion: function () {
+    return chrome('Taller · Derivados', menu('Taller') + '<div class="body">' +
+      panel('Órdenes derivadas', '2 fuera del taller', tabla(['OT', 'Cliente / Equipo', 'Técnico externo', 'Envío', 'Días fuera', 'Estado'], [
+        ['<span class="mono"><b>4041</b></span>', '<b>Matías Fuentes</b><br><span style="color:#8e8e93">MacBook Pro 16" A2141 [Apple]</span>', 'Taller externo · A. Soto', '18-09-26', '<span class="mono">5</span>', '<span class="pill p-v">Enviado</span>'],
+        ['<span class="mono"><b>4021</b></span>', '<b>Andrea Pérez</b><br><span style="color:#8e8e93">iPad 8 A2270 [Apple]</span>', 'Taller externo · A. Soto', '15-09-26', '<span class="mono">8</span>', '<span class="pill p-a">En reparación</span>']
+      ])) +
+      '<div class="mini" style="margin-top:10px"><div class="t">Respaldo de salida · OT 4041</div>' +
+      '<div class="row" style="gap:6px;margin-top:7px"><div class="foto" style="flex:1;height:46px"></div><div class="foto" style="flex:1;height:46px"></div><div class="foto" style="flex:1;height:46px"></div></div></div></div>');
+  }
+};
+
+/* ─── Bloques que reemplazan a la ventana ─────────────────────────────── */
+var BLOQUES = {
+  ordenResguardo: '<div class="order-proof">' +
+    '<div class="proof-card proof-main"><div class="proof-head"><span class="proof-title">Datos de la orden</span></div>' +
+    '<div class="proof-fields"><div class="proof-field"><small>Cliente</small><strong>Martina Ríos</strong></div>' +
+    '<div class="proof-field"><small>Equipo</small><strong>iPhone 15 Pro</strong></div>' +
+    '<div class="proof-field wide"><small>Estado físico</small><strong>Marcas de uso · Sin humedad · Enciende</strong></div></div></div>' +
+    '<div class="proof-card proof-check"><div class="proof-head"><span class="proof-title">Checklist de ingreso</span></div>' +
+    '<div class="check-row"><span class="check-ok">✓</span><span>Pantalla y táctil</span></div>' +
+    '<div class="check-row"><span class="check-ok">✓</span><span>Cámaras y Face ID</span></div>' +
+    '<div class="check-row"><span class="check-ok">✓</span><span>Carga y botones</span></div></div>' +
+    '<div class="proof-card proof-gallery"><div class="proof-head"><span class="proof-title">Fotos de ingreso</span><span class="proof-pill">3 respaldos</span></div>' +
+    '<div class="photo-row"><div class="proof-photo p1"><img src="real-ui-captures/order-iphone15-front.png" alt="Vista frontal del iPhone 15 Pro"></div><div class="proof-photo p2"><img src="real-ui-captures/order-iphone15-back.png" alt="Vista posterior del iPhone 15 Pro"></div><div class="proof-photo p3"><img src="real-ui-captures/order-iphone15-detail.png" alt="Detalle físico del iPhone 15 Pro"></div></div>' +
+    '<div class="proof-note">Todo queda guardado dentro de la misma orden.</div></div></div>',
+
+  aprobacionCliente: '<div class="approval-flow">' +
+    '<div class="approval-card approval-quote"><div class="approval-top"><span class="approval-title">Presupuesto · Orden #4047</span><span class="approval-status">Enviado</span></div>' +
+    '<div class="approval-device">iPhone 15 Pro · Martina Ríos</div>' +
+    '<div class="approval-line"><span>iPhone 15 Pro Pantalla Original</span><strong>$369.990</strong></div>' +
+    '<div class="approval-line"><span>iPhone 15 Pro Batería</span><strong>$119.990</strong></div>' +
+    '<div class="approval-total"><span>Total</span><b>$489.980</b></div></div>' +
+    '<div class="approval-card approval-message"><div class="message-label">Solicitud al cliente</div>' +
+    '<div class="message-copy">Hola Martina, tu presupuesto está listo. Revísalo y confirma para comenzar la reparación.</div>' +
+    '<span class="approval-button">Revisar y aprobar presupuesto</span></div>' +
+    '<div class="approval-card approval-confirm"><div class="confirm-icon">✓</div><div class="confirm-title">Aprobado por el cliente</div>' +
+    '<div class="confirm-meta"><b>Martina Ríos</b><br>23 sep 2026 · 16:42<br>Registrado en la orden</div></div></div>',
+
+  qrReal: '<div class="qr-real-flow"><div class="qr-order-card">' +
+    '<div class="qr-order-title">Fotos de ingreso · Orden #4047</div><div class="qr-order-device">iPhone 15 Pro · Martina Ríos</div>' +
+    '<span class="qr-order-tag">QR temporal</span>' +
+    '<div class="qr-flow-line"><span>1</span>Abre la orden</div><div class="qr-flow-line"><span>2</span>Escanea con el teléfono</div><div class="qr-flow-line"><span>3</span>Toma las fotografías</div>' +
+    '<div class="qr-sync">Las imágenes se sincronizan automáticamente con la orden.</div></div>' +
+    '<div class="qr-modal-wrap"><img src="real-ui-captures/qr-upload-modal-real.png" alt="Código QR real para subir fotos desde iPhone"></div></div>',
+
+  estados: '<div class="steps c4">' +
+    [['1', 'Ingreso', 'Cliente, equipo y falla', '<span class="pill p-n">Recibido</span>'],
+     ['2', 'Chequeo', 'Diagnóstico y presupuesto', '<span class="pill p-b">Chequeo</span>'],
+     ['3', 'Reparación', 'Técnico y repuestos', '<span class="pill p-a">Reparación</span>'],
+     ['4', 'Entrega', 'Boleta y garantía', '<span class="pill p-g">Entregado</span>']]
+      .map(function (s) { return '<div class="step"><div class="n">' + s[0] + '</div><div class="t">' + s[1] + '</div><div class="d">' + s[2] + '</div><div class="s">' + s[3] + '</div></div>'; }).join('') + '</div>',
+
+  comisionPasos: '<div class="steps c3">' +
+    [['1', 'Asignas', 'El técnico responsable de la orden'],
+     ['2', 'Defines', 'El porcentaje comisionable'],
+     ['3', 'Registras', 'El pago, que queda como gasto']]
+      .map(function (s) { return '<div class="step"><div class="n">' + s[0] + '</div><div class="t">' + s[1] + '</div><div class="d">' + s[2] + '</div></div>'; }).join('') + '</div>',
+
+  qrPasos: '<div class="steps c3">' +
+    [['1', 'Abre la orden', 'y genera el código QR'],
+     ['2', 'Escanea', 'con la cámara del teléfono'],
+     ['3', 'Fotografía', 'y queda guardado en la orden']]
+      .map(function (s) { return '<div class="step"><div class="n">' + s[0] + '</div><div class="t">' + s[1] + '</div><div class="d">' + s[2] + '</div></div>'; }).join('') + '</div>',
+
+  derivaPasos: '<div class="steps c3">' +
+    [['1', 'Registras', 'El taller o técnico externo y el motivo'],
+     ['2', 'Documentas', 'Con fotos antes de que salga'],
+     ['3', 'Controlas', 'El estado hasta que el equipo vuelve']]
+      .map(function (s) { return '<div class="step"><div class="n">' + s[0] + '</div><div class="t">' + s[1] + '</div><div class="d">' + s[2] + '</div></div>'; }).join('') + '</div>',
+
+  planes: '<div class="planes">' +
+    '<div class="plan"><div class="p-n2">Starter</div><div class="p-p">0,5 <small>UF + IVA</small></div>' +
+      '<ul><li>Órdenes de trabajo</li><li>Punto de venta</li><li>Inventario</li><li>Usuarios ilimitados</li></ul></div>' +
+    '<div class="plan destacado"><span class="cinta">El más elegido</span><div class="p-n2">PRO</div><div class="p-p">1 <small>UF + IVA</small></div>' +
+      '<ul><li>Todo lo de Starter</li><li>Multisucursal</li><li>Comisiones y gastos</li><li>Estadísticas</li></ul></div>' +
+    '<div class="plan"><div class="p-n2">Scale</div><div class="p-p">2 <small>UF + IVA</small></div>' +
+      '<ul><li>Todo lo de PRO</li><li>Boleta electrónica</li><li>Integración WooCommerce</li><li>Reportes BI</li></ul></div>' +
+    '</div>',
+
+  avisos: '<div class="chat">' +
+    '<div class="msg"><div class="de">Al ingresar</div><div class="tx">Recibimos tu iPhone 13. Tu orden es la <b>#3938</b> y te avisamos apenas tengamos el diagnóstico.</div></div>' +
+    '<div class="msg mio"><div class="de">Con el diagnóstico</div><div class="tx">Tu presupuesto está listo: <b>$59.990</b>. Apruébalo desde el enlace y empezamos hoy mismo.</div></div>' +
+    '<div class="msg"><div class="de">Al terminar</div><div class="tx">¡Tu equipo está listo! Puedes retirarlo hoy hasta las 19:00 en Sucursal Centro.</div></div>' +
+    '</div>'
+};
+
+/* ─── Las 10 publicaciones ────────────────────────────────────────────── */
+var POSTS = [
+  { n: 1, tipo: 'Marca', nombre: 'Simplifica tu taller',
+    caption: '¿Tu servicio técnico todavía depende de papeles, planillas y mensajes sueltos? Pixit conecta órdenes, clientes, inventario y ventas en una sola plataforma hecha para talleres de servicio técnico.',
+    cta: 'Prueba Pixit gratis durante 30 días en pixit.cl',
+    tags: '#serviciotecnico #tallerdecelulares #erp #pymechile #reparaciondecelulares',
+    slides: [{ h: 'Simplifica tu taller,<br><span class="g">multiplica tus ventas.</span>', sub: 'Órdenes, clientes, inventario y ventas en un solo lugar.', ancho: true, pantalla: 'dashboard', badge: 'Prueba gratis 30 días' }] },
+
+  { n: 2, tipo: 'Carrusel · 5 láminas', nombre: 'Órdenes sin caos',
+    caption: 'Registra al cliente, el equipo, la falla, el técnico responsable y cada cambio de estado dentro de una orden digital. Tu equipo encuentra lo que necesita sin buscar entre mensajes.',
+    cta: 'Ordena la operación de tu taller con Pixit.',
+    tags: '#ordendetrabajo #serviciotecnico #gestion #tallerdecelulares',
+    slides: [
+      { h: 'Cada reparación.<br><span class="g">Siempre bajo control.</span>', sub: 'Cliente, equipo, falla, técnico y estado en una orden digital.', pantalla: 'ordenes', ghost: 'Desliza →' },
+      { h: 'Todo el <span class="g">ingreso</span>,<br>dentro de una sola orden.', sub: 'Cliente, equipo, estado físico, checklist y fotos de ingreso.', bloque: 'ordenResguardo', ghost: 'Desliza →', sm: true },
+      { h: 'El presupuesto<br><span class="g">lo aprueba el cliente.</span>', sub: 'Y queda registrado en la orden, con fecha y hora.', bloque: 'aprobacionCliente', ghost: 'Desliza →', sm: true },
+      { h: 'Los repuestos salen<br><span class="g">del inventario solos.</span>', sub: 'Con el técnico y su comisión ya calculada.', pantalla: 'reparacion', ghost: 'Desliza →', sm: true },
+      { h: 'Se entrega,<br><span class="g">se cobra, se cierra.</span>', sub: 'La boleta sale desde la misma orden.', ancho: true, pantalla: 'entrega', badge: 'Pruébalo gratis 30 días', sm: true }
+    ] },
+
+  { n: 3, tipo: 'Carrusel · 2 láminas · fondo oscuro', nombre: 'Inventario y POS conectados', dark: true,
+    caption: 'Vende accesorios o repuestos y actualiza el inventario dentro del mismo flujo. Revisa las existencias por sucursal y evita registrar dos veces el mismo movimiento.',
+    cta: 'Vende con más control desde pixit.cl',
+    tags: '#puntodeventa #inventario #retail #pymechile',
+    slides: [{ h: 'Vende. Descuenta stock.<br><span class="g">Todo en un paso.</span>', sub: 'Ventas, repuestos y existencias por sucursal sin duplicar trabajo.', pantalla: 'pos', ghost: 'Un solo movimiento', sm: true },
+      { h: 'Y el inventario<br><span class="g">queda al día solo.</span>', sub: 'Costo, precio de venta y stock por sucursal.', pantalla: 'inventario', badge: 'Prueba gratis 30 días', sm: true }] },
+
+  { n: 4, tipo: 'Carrusel · 3 láminas', nombre: 'Clientes informados',
+    caption: 'Mantén informado al cliente desde el ingreso del equipo hasta el retiro. Pixit centraliza la comunicación y ayuda a entregar una experiencia más profesional.',
+    cta: 'Mejora la experiencia de tus clientes con Pixit.',
+    tags: '#experienciadelcliente #serviciotecnico #atencionalcliente',
+    slides: [
+      { h: 'Menos preguntas.<br><span class="g">Más confianza.</span>', sub: 'Tu cliente sabe en qué va su equipo, sin tener que llamar.', bloque: 'avisos', ghost: 'Desliza →' },
+      { h: 'El seguimiento<br><span class="g">lo hace Pixit.</span>', sub: 'Cada cambio de estado queda registrado en la orden.', pantalla: 'ficha', ghost: 'Desliza →', sm: true },
+      { h: 'Y cuando vuelve,<br><span class="g">ya sabes su historia.</span>', sub: 'Todas sus compras y reparaciones, en su ficha.', pantalla: 'ventas', badge: 'Prueba gratis 30 días', sm: true }
+    ] },
+
+  { n: 5, tipo: 'Comercial · fondo oscuro', nombre: 'Planes para crecer', dark: true,
+    caption: 'Digitaliza tu taller con usuarios ilimitados y elige las funciones que necesita tu operación. Planes Starter, PRO y Scale desde 0,5 UF + IVA al mes.',
+    cta: 'Prueba todas las funciones gratis durante 30 días.',
+    tags: '#software #pymechile #erp #emprendimiento',
+    slides: [{ h: 'Empieza simple.<br><span class="g">Crece sin límites.</span>', sub: 'Usuarios ilimitados en los tres planes.', bloque: 'planes', badge: '30 días gratis', sm: true }] },
+
+  { n: 6, tipo: 'Carrusel · 3 láminas', nombre: 'Comisiones para técnicos',
+    caption: 'Asigna el técnico responsable, define el porcentaje comisionable y deja que Pixit calcule el monto. Cuando registras el pago, la comisión queda marcada como pagada e incorporada como gasto.',
+    cta: 'Controla órdenes y comisiones en un solo lugar.',
+    tags: '#comisiones #equipodetrabajo #serviciotecnico #gestion',
+    slides: [
+      { h: 'Calcula comisiones.<br><span class="g">Sin planillas.</span>', sub: 'Asigna al técnico, define el porcentaje y registra el pago.', pantalla: 'comisiones', ghost: 'Desliza →' },
+      { h: 'Tres pasos<br><span class="g">y queda pagada.</span>', sub: 'El pago entra como gasto, sin que tengas que anotarlo aparte.', bloque: 'comisionPasos', ghost: 'Desliza →', sm: true },
+      { h: 'Cada técnico sabe<br><span class="g">cuánto ganó.</span>', sub: 'Y tú, cuánto llevas pagado en el mes.', pantalla: 'comisiones', badge: 'Pruébalo gratis 30 días', sm: true }
+    ] },
+
+  { n: 7, tipo: 'Carrusel · 2 láminas', nombre: 'Gastos y órdenes de compra',
+    caption: 'En Gastos registras y categorizas los egresos del negocio. En Órdenes de compra administras por separado las compras a proveedores y la recepción de productos en inventario.',
+    cta: 'Controla tus gastos y tu abastecimiento desde módulos independientes.',
+    tags: '#finanzas #rentabilidad #pymechile #gestion',
+    slides: [{ h: 'No basta con vender.<br><span class="g">Controla lo que gastas.</span>', sub: 'Registra, categoriza y revisa cada gasto del negocio.', pantalla: 'gastos', ghost: 'Desliza →', sm: true },
+      { h: 'Lo que compras<br><span class="g">entra al inventario.</span>', sub: 'Recibe la orden de compra y el stock se actualiza.', pantalla: 'compras', badge: 'Prueba gratis 30 días', sm: true }] },
+
+  { n: 8, tipo: 'Carrusel · 3 láminas · fondo oscuro', nombre: 'Fotografías mediante QR', dark: true,
+    caption: 'No necesitas descargar las fotografías ni enviártelas por WhatsApp. Escanea el QR de la orden con tu teléfono, toma las fotos y quedan guardadas en el ingreso, la inspección, la salida o una derivación.',
+    cta: 'Documenta cada reparación con Pixit.',
+    tags: '#serviciotecnico #respaldo #tallerdecelulares #tecnologia',
+    slides: [
+      { h: 'Escanea. Captura.<br><span class="g">Listo.</span>', sub: 'Sin descargar archivos ni enviarte fotos por WhatsApp.', bloque: 'qrReal', ghost: 'Desliza →', light: true },
+      { h: 'Tres pasos<br><span class="g">desde tu teléfono.</span>', sub: 'El QR vive dentro de la orden y dura 15 minutos.', bloque: 'qrPasos', ghost: 'Desliza →', sm: true },
+      { h: 'La foto queda<br><span class="g">donde corresponde.</span>', sub: 'Ingreso, inspección, salida o derivación.', pantalla: 'qr', badge: 'Prueba gratis 30 días', sm: true }
+    ] },
+
+  { n: 9, tipo: 'Producto', nombre: 'Accesos según el cargo',
+    caption: 'Crea cargos y decide qué módulos puede usar cada integrante del equipo. Taller, ventas, inventario, compras, estadísticas y configuración: cada persona ve lo necesario para hacer su trabajo.',
+    cta: 'Organiza tu equipo y protege la información del negocio.',
+    tags: '#equipodetrabajo #seguridad #gestion #pymechile',
+    slides: [{ h: 'Cada persona ve<br><span class="g">lo que necesita.</span>', sub: 'Crea cargos y controla el acceso a cada módulo.', ancho: true, pantalla: 'accesos', ghost: 'Tú decides quién ve qué', sm: true }] },
+
+  { n: 10, tipo: 'Carrusel · 3 láminas', nombre: 'Derivaciones con registro',
+    caption: '¿Necesitas enviar una reparación a otro taller? Deriva la orden sin perder su trazabilidad. Registra el destinatario, el motivo, el estado y las fotografías hasta que el equipo regrese.',
+    cta: 'Mantén el control incluso cuando el equipo sale de tu taller.',
+    tags: '#serviciotecnico #trazabilidad #gestion #tallerdecelulares',
+    slides: [
+      { h: 'Envía la reparación.<br><span class="g">No pierdas el control.</span>', sub: 'Deriva una orden a otro taller sin perder su historia.', pantalla: 'derivacion', ghost: 'Desliza →' },
+      { h: 'Queda escrito<br><span class="g">quién la tiene.</span>', sub: 'Taller, motivo, fecha de salida y fotos de respaldo.', bloque: 'derivaPasos', ghost: 'Desliza →', sm: true },
+      { h: 'Y cuando vuelve,<br><span class="g">sigue su curso.</span>', sub: 'La orden retoma su estado como si nunca hubiera salido.', ancho: true, pantalla: 'ordenes', badge: 'Prueba gratis 30 días', sm: true }
+    ] }
+];
+
+/* ─── Armado ──────────────────────────────────────────────────────────── */
+function slideHTML(post, s, i) {
+  var contenido = s.pantalla ? (REAL_SHOTS[s.pantalla] ? realChrome(s.pantalla) : PANTALLAS[s.pantalla]()) : BLOQUES[s.bloque];
+  var derecha = s.badge ? '<span class="badge">' + s.badge + '</span>' : '<span class="ghost">' + (s.ghost || '') + '</span>';
+  var indice = '';
+  return '<div class="stage"><div class="post' + (post.dark && !s.light ? ' dark' : '') + '" data-post>' +
+    '<div class="bg"></div><div class="grain"></div><div class="pad">' +
+    '<div class="top"><div class="logo"><img class="brand-logo" src="assets/logo-pixit-transparent.png" alt="Pixit"></div>' + indice + '</div>' +
+    '<h2 class="h' + (s.sm ? ' sm' : '') + '">' + s.h + '</h2>' +
+    '<p class="sub' + (s.ancho || s.bloque === 'avisos' || s.bloque === 'planes' ? ' ancho' : '') + '">' + s.sub + '</p>' +
+    contenido +
+    '<div class="foot">' + derecha + '</div>' +
+    '</div></div></div>';
+}
+
+document.getElementById('feed').innerHTML = POSTS.map(function (p) {
+  return '<section class="piece" id="p' + p.n + '">' +
+    '<div class="piece-head"><span class="tag' + (p.dark ? ' dark' : '') + '">' + p.n + ' · ' + p.tipo + '</span><h2>' + p.nombre + '</h2></div>' +
+    '<div class="slides' + (p.slides.length === 1 ? ' uno' : '') + '">' +
+    p.slides.map(function (s, i) { return slideHTML(p, s, i); }).join('') + '</div>' +
+    '<div class="cap"><p><b>Caption</b></p><p>' + p.caption + '</p><p class="cta">' + p.cta + '</p><p class="tags">' + p.tags + '</p></div>' +
+    '</section>';
+}).join('');
+
+document.getElementById('indice').innerHTML = POSTS.map(function (p) {
+  return '<li><a href="#p' + p.n + '">' + p.nombre + '</a> <span style="color:var(--faint)">· ' + p.tipo + '</span></li>';
+}).join('');
+
+// Cada pieza se dibuja a 1080×1080 reales y se escala para caber en su marco:
+// el diseño queda listo para exportar al tamaño de Instagram sin rehacerlo.
+// La ventana de producto crece hasta donde la retícula lo permite: nunca se
+// mete debajo del pie, y si su contenido es más alto, se recorta como una
+// captura de pantalla en vez de empujar el diseño.
+function encajarVentanas() {
+  document.querySelectorAll('[data-post]').forEach(function (p) {
+    var win = p.querySelector('.win');
+    if (!win) return;
+    var ui = win.querySelector('.ui');
+    // Si la pantalla trae más filas de las que caben, se quitan las últimas:
+    // nunca se corta una fila por la mitad.
+    var cuerpo = ui.querySelector('.body');
+    for (var k = 0; k < 8 && cuerpo && cuerpo.scrollHeight > APP_H; k++) {
+      var filas = cuerpo.querySelectorAll('tbody tr');
+      if (filas.length < 3) break;
+      filas[filas.length - 1].remove();
+    }
+    var foot = p.querySelector('.foot');
+    var disponible = 1080 - 76 - foot.offsetHeight - 46 - win.offsetTop;
+    var anchoMax = 924; // ancho útil de la pieza, entre los márgenes
+    var escala = Math.min(anchoMax / APP_W, (disponible - 52) / APP_H);
+    ui.style.transform = 'scale(' + escala + ')';
+    win.style.width = Math.round(APP_W * escala) + 'px';
+    win.querySelector('.scr').style.height = Math.round(APP_H * escala) + 'px';
+  });
+}
+
+function ajustar() {
+  encajarVentanas();
+  document.querySelectorAll('[data-post]').forEach(function (p) {
+    p.style.transform = 'scale(' + (p.parentElement.clientWidth / 1080) + ')';
+  });
+}
+ajustar();
+window.addEventListener('resize', ajustar);
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(ajustar);
+</script>
