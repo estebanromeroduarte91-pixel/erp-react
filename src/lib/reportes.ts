@@ -52,25 +52,30 @@ export function coincideBusqueda(texto: string, consulta: string): boolean {
 }
 
 /** Agrupa nombres comerciales por el trabajo o repuesto que representan. */
-export function clasificarTipoReparacion(nombre: string): string {
+export function clasificarTipoReparacion(nombre: string, categoria = '', tipo?: 'producto' | 'servicio'): string {
   const n = nombre
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLocaleLowerCase('es-CL')
     .replace(/[^a-z0-9]+/g, ' ')
     .trim()
+  const cat = categoria.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('es-CL').trim()
 
   if (/\b(face id|touch id|sensor|proximidad)\b/.test(n)) return 'Sensores y biometría'
   if (/\b(pantalla|display|lcd|oled|glass|touch)\b/.test(n)) return 'Pantallas'
   if (/\bbaterias?\b/.test(n)) return 'Baterías'
   if (/\b(camara|camaras)\b/.test(n)) return 'Cámaras'
   if (/(\b(conector|puerto|dock|flex)\b.*\bcarga\b)|(\bcarga\b.*\b(conector|puerto|dock|flex)\b)/.test(n)) return 'Conectores de carga'
-  if (/\b(tapa trasera|carcasa|chasis)\b/.test(n)) return 'Carcasas y chasis'
+  if (/\b(tapa trasera|carcasa|chasis|bisel)\b/.test(n)) return 'Carcasas y chasis'
+  if (/\b(mica|lamina|cable|holder|soporte|cargador|adaptador|funda)\b/.test(n) || cat.includes('accesorio')) return 'Accesorios'
   if (/\b(altavoz|parlante|auricular|microfono)\b/.test(n)) return 'Audio'
+  if (/\b(flex boton|boton home)\b/.test(n)) return 'Botones y flex'
   if (/\bmicrosoldadura\b/.test(n)) return 'Microsoldadura'
-  if (/\b(mantenimiento|limpieza|bano quimico)\b/.test(n)) return 'Mantenimiento'
-  if (/\b(sistema operativo|software|formateo|respaldo)\b/.test(n)) return 'Software'
-  return 'Otros productos y servicios'
+  if (/\b(mantenimiento|mantencion|limpieza|bano quimico)\b/.test(n)) return 'Mantenimiento'
+  if (/\b(sistema operativo|software|formateo|respaldo|virus|office|instalacion)\b/.test(n)) return 'Software'
+  if (tipo === 'servicio' || cat === 'servicio' || cat === 'servicios') return 'Otros servicios'
+  if (/\b(iphone|ipad|macbook|notebook|telefono|tablet|watch)\b/.test(cat)) return 'Equipos y repuestos'
+  return 'Otros productos'
 }
 
 /** Escala de cuatro intervalos que siempre incluye cero y todos los valores. */

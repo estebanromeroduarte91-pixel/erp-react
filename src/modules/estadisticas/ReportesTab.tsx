@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useBodegas, useReporteRentabilidad, useReporteSerie } from '@/lib/queries'
+import { useBodegas, useProductos, useReporteRentabilidad, useReporteSerie } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { Spinner } from '@/components/shared/Spinner'
 import { clasificarTipoReparacion, coincideBusqueda, rangoPeriodo, type Periodo } from '@/lib/reportes'
@@ -24,6 +24,7 @@ const uds = (n: number) => Math.round(n).toLocaleString('es-CL')
 export function ReportesTab() {
   const { esAdmin, branchId: userBranchId } = useAuth()
   const { data: bodegas } = useBodegas()
+  const { data: productos } = useProductos()
   const rangoMesActual = useMemo(() => rangoPeriodo('mes'), [])
   const [periodo, setPeriodo] = useState<Periodo>('mes')
   const [desdePersonalizado, setDesdePersonalizado] = useState(rangoMesActual.desde)
@@ -43,6 +44,7 @@ export function ReportesTab() {
   const branchId = branchPropio ?? (sucursal || null)
   const serieCategorias = useReporteSerie({ desde, hasta, agrupacion: 'categoria', productoIds: [], branchId })
   const rentabilidad = useReporteRentabilidad({ desde, hasta, branchId, activo: seccion === 'rentabilidad' })
+  const productosPorId = useMemo(() => new Map((productos ?? []).map(p => [p.id, p])), [productos])
 
   const totalesRentabilidad = useMemo(() => (rentabilidad.data?.filas ?? []).reduce((acc, f) => ({
     unidades: acc.unidades + (+f.unidades || 0),
@@ -62,7 +64,8 @@ export function ReportesTab() {
     if (agrupacion === 'reparacion') {
       const grupos = new Map<string, { id: string; nombre: string; unidades: number; neto: number; costo: number; margen: number }>()
       for (const f of rentabilidad.data?.filas ?? []) {
-        const nombre = clasificarTipoReparacion(f.nombre)
+        const producto = productosPorId.get(f.producto_id)
+        const nombre = clasificarTipoReparacion(f.nombre, producto?.categoria, producto?.tipo)
         const actual = grupos.get(nombre) ?? { id: nombre, nombre, unidades: 0, neto: 0, costo: 0, margen: 0 }
         actual.unidades += +f.unidades || 0
         actual.neto += +f.neto || 0
@@ -76,12 +79,13 @@ export function ReportesTab() {
       id: f.producto_id, nombre: f.nombre, unidades: +f.unidades || 0,
       neto: +f.neto || 0, costo: +f.costo || 0, margen: +f.margen || 0,
     }))
-  }, [agrupacion, serieCategorias.data, rentabilidad.data])
+  }, [agrupacion, serieCategorias.data, rentabilidad.data, productosPorId])
 
   const detalleReparacion = useMemo(() => {
     const tipos = new Map<string, Map<string, FilaRentabilidadVista>>()
     for (const f of rentabilidad.data?.filas ?? []) {
-      const tipo = clasificarTipoReparacion(f.nombre)
+      const producto = productosPorId.get(f.producto_id)
+      const tipo = clasificarTipoReparacion(f.nombre, producto?.categoria, producto?.tipo)
       const clave = f.nombre.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('es-CL').trim().replace(/\s+/g, ' ')
       const productos = tipos.get(tipo) ?? new Map<string, FilaRentabilidadVista>()
       const actual = productos.get(clave) ?? { id: `${tipo}:${clave}`, nombre: f.nombre, unidades: 0, neto: 0, costo: 0, margen: 0 }
@@ -93,7 +97,7 @@ export function ReportesTab() {
       tipos.set(tipo, productos)
     }
     return Object.fromEntries([...tipos].map(([tipo, productos]) => [tipo, [...productos.values()].sort((a, b) => b.unidades - a.unidades)]))
-  }, [rentabilidad.data])
+  }, [rentabilidad.data, productosPorId])
 
   const secciones: { id: SeccionReporte; label: string }[] = [
     { id: 'general', label: 'Vista general' }, { id: 'ventas', label: 'Ventas' },

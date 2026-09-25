@@ -40,7 +40,9 @@ describe('clasificarTipoReparacion', () => {
   })
 
   it('deja accesorios y nombres desconocidos en un grupo explícito', () => {
-    expect(clasificarTipoReparacion('Cable HOCO X51 Tipo C')).toBe('Otros productos y servicios')
+    expect(clasificarTipoReparacion('Cable HOCO X51 Tipo C')).toBe('Accesorios')
+    expect(clasificarTipoReparacion('Producto sin palabras clave', 'Accesorios')).toBe('Accesorios')
+    expect(clasificarTipoReparacion('Diagnóstico general', 'Servicios', 'servicio')).toBe('Otros servicios')
   })
 })
 
