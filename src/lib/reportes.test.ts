@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { coincideBusqueda, rangoPeriodo, etiquetaMes, escalaGrafico, ymd } from './reportes'
+import { clasificarTipoReparacion, coincideBusqueda, rangoPeriodo, etiquetaMes, escalaGrafico, ymd } from './reportes'
 
 describe('etiquetaMes', () => {
   it('no retrocede de mes al parsear (la trampa de UTC)', () => {
@@ -20,6 +20,27 @@ describe('coincideBusqueda', () => {
   it('acepta varios términos aunque se escriban en otro orden', () => {
     expect(coincideBusqueda('Lámina Hidrogel iPhone 15', 'iphone lam')).toBe(true)
     expect(coincideBusqueda('Lámina Hidrogel iPhone 15', 'samsung lamina')).toBe(false)
+  })
+})
+
+describe('clasificarTipoReparacion', () => {
+  it('agrupa modelos distintos por el repuesto o trabajo realizado', () => {
+    expect(clasificarTipoReparacion('iPhone 15 Pro Pantalla Original')).toBe('Pantallas')
+    expect(clasificarTipoReparacion('Samsung A05 Display OLED')).toBe('Pantallas')
+    expect(clasificarTipoReparacion('iPhone 13 Batería')).toBe('Baterías')
+    expect(clasificarTipoReparacion('MacBook Pro A1502 Bateria')).toBe('Baterías')
+  })
+
+  it('distingue otras reparaciones frecuentes', () => {
+    expect(clasificarTipoReparacion('iPhone 14 Pro Cámara Trasera')).toBe('Cámaras')
+    expect(clasificarTipoReparacion('iPhone 12 Conector de Carga')).toBe('Conectores de carga')
+    expect(clasificarTipoReparacion('iPhone 13 Tapa Trasera')).toBe('Carcasas y chasis')
+    expect(clasificarTipoReparacion('iPhone 8 Touch ID')).toBe('Sensores y biometría')
+    expect(clasificarTipoReparacion('Microsoldadura MacBook')).toBe('Microsoldadura')
+  })
+
+  it('deja accesorios y nombres desconocidos en un grupo explícito', () => {
+    expect(clasificarTipoReparacion('Cable HOCO X51 Tipo C')).toBe('Otros productos y servicios')
   })
 })
 

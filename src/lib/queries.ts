@@ -1951,7 +1951,9 @@ export function useReporteRentabilidad(p: {
     queryFn: async () => {
       const { data, error } = await supabase.rpc('fn_reporte_rentabilidad', {
         p_desde: p.desde, p_hasta: p.hasta, p_branch_id: p.branchId,
-        p_limite: 500, p_empresa_id: empresaId,
+        // El agrupamiento por reparación se calcula desde los nombres; usamos
+        // el máximo del RPC para no truncar los totales en períodos extensos.
+        p_limite: 2000, p_empresa_id: empresaId,
       })
       if (error) throw error
       return data as { filas: ReporteRentabilidadFila[] }

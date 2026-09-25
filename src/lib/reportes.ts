@@ -51,6 +51,28 @@ export function coincideBusqueda(texto: string, consulta: string): boolean {
   return terminos.every(termino => contenido.includes(termino))
 }
 
+/** Agrupa nombres comerciales por el trabajo o repuesto que representan. */
+export function clasificarTipoReparacion(nombre: string): string {
+  const n = nombre
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('es-CL')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+
+  if (/\b(face id|touch id|sensor|proximidad)\b/.test(n)) return 'Sensores y biometría'
+  if (/\b(pantalla|display|lcd|oled|glass|touch)\b/.test(n)) return 'Pantallas'
+  if (/\bbaterias?\b/.test(n)) return 'Baterías'
+  if (/\b(camara|camaras)\b/.test(n)) return 'Cámaras'
+  if (/(\b(conector|puerto|dock|flex)\b.*\bcarga\b)|(\bcarga\b.*\b(conector|puerto|dock|flex)\b)/.test(n)) return 'Conectores de carga'
+  if (/\b(tapa trasera|carcasa|chasis)\b/.test(n)) return 'Carcasas y chasis'
+  if (/\b(altavoz|parlante|auricular|microfono)\b/.test(n)) return 'Audio'
+  if (/\bmicrosoldadura\b/.test(n)) return 'Microsoldadura'
+  if (/\b(mantenimiento|limpieza|bano quimico)\b/.test(n)) return 'Mantenimiento'
+  if (/\b(sistema operativo|software|formateo|respaldo)\b/.test(n)) return 'Software'
+  return 'Otros productos y servicios'
+}
+
 /** Escala de cuatro intervalos que siempre incluye cero y todos los valores. */
 export function escalaGrafico(valores: number[]): { min: number; max: number; paso: number } {
   const finitos = valores.filter(Number.isFinite)

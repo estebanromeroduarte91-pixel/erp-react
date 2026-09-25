@@ -2,13 +2,13 @@ import { useMemo, useState } from 'react'
 import { useBodegas, useReporteRentabilidad, useReporteSerie } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { Spinner } from '@/components/shared/Spinner'
-import { coincideBusqueda, rangoPeriodo, type Periodo } from '@/lib/reportes'
+import { clasificarTipoReparacion, coincideBusqueda, rangoPeriodo, type Periodo } from '@/lib/reportes'
 import { useIsMobile } from '@/lib/useIsMobile'
 import { ResumenTab } from './ResumenTab'
 import { VentasBI } from './VentasBI'
 import { VistaGeneralBI } from './VistaGeneralBI'
 
-type Agrupacion = 'producto' | 'categoria'
+type Agrupacion = 'producto' | 'categoria' | 'reparacion'
 type SeccionReporte = 'general' | 'ventas' | 'rentabilidad' | 'gastos' | 'compras' | 'operacion'
 
 const PERIODO_LABEL: Record<Periodo, string> = {
@@ -58,6 +58,19 @@ export function ReportesTab() {
         return { id: s.clave, nombre: s.nombre, unidades, neto, costo: neto - margen, margen }
       })
     }
+    if (agrupacion === 'reparacion') {
+      const grupos = new Map<string, { id: string; nombre: string; unidades: number; neto: number; costo: number; margen: number }>()
+      for (const f of rentabilidad.data?.filas ?? []) {
+        const nombre = clasificarTipoReparacion(f.nombre)
+        const actual = grupos.get(nombre) ?? { id: nombre, nombre, unidades: 0, neto: 0, costo: 0, margen: 0 }
+        actual.unidades += +f.unidades || 0
+        actual.neto += +f.neto || 0
+        actual.costo += +f.costo || 0
+        actual.margen += +f.margen || 0
+        grupos.set(nombre, actual)
+      }
+      return [...grupos.values()]
+    }
     return (rentabilidad.data?.filas ?? []).map(f => ({
       id: f.producto_id, nombre: f.nombre, unidades: +f.unidades || 0,
       neto: +f.neto || 0, costo: +f.costo || 0, margen: +f.margen || 0,
@@ -92,7 +105,7 @@ export function ReportesTab() {
     <NavegacionBI seccion={seccion} secciones={secciones} onChange={setSeccion} />
     {seccion === 'ventas' ? <VentasBI desde={desde} hasta={hasta} branchId={branchId} /> : <>
       <div><h2 className="text-lg font-extrabold text-gray-900 m-0">Rentabilidad de productos</h2><p className="text-xs text-gray-500 mt-1 mb-0">Unidades, venta neta y margen bruto generado. El margen no descuenta gastos operacionales.</p></div>
-      <Campo label="Agrupar por"><Seg valor={agrupacion} onChange={setAgrupacion} opciones={[['producto', 'Producto'], ['categoria', 'Categoría']]} /></Campo>
+      <Campo label="Agrupar por"><Seg valor={agrupacion} onChange={setAgrupacion} opciones={[['producto', 'Producto'], ['categoria', 'Categoría'], ['reparacion', 'Reparación']]} /></Campo>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3"><Tile label="Unidades vendidas" valor={uds(totalesRentabilidad.unidades)} /><Tile label="Venta neta" valor={clp(totalesRentabilidad.neto)} /><Tile label="Margen bruto" valor={clp(totalesRentabilidad.margen)} /><Tile label="Margen %" valor={`${totalesRentabilidad.neto ? Math.round(totalesRentabilidad.margen / totalesRentabilidad.neto * 100) : 0}%`} /></div>
       {rentabilidad.isLoading || (agrupacion === 'categoria' && serieCategorias.isLoading) ? <div className="py-12"><Spinner /></div> : <TablaRentabilidad key={agrupacion} filas={filasRentabilidad} agrupacion={agrupacion} />}
     </>}
@@ -107,16 +120,22 @@ function TablaRentabilidad({ filas, agrupacion }: { filas: { id: string; nombre:
   const isMobile = useIsMobile()
   const [busqueda, setBusqueda] = useState('')
   const [mostrarTodos, setMostrarTodos] = useState(false)
-  const ordenadas = [...filas].sort((a, b) => b.margen - a.margen)
+  const ordenadas = [...filas].sort((a, b) => agrupacion === 'reparacion' ? b.unidades - a.unidades : b.margen - a.margen)
   const margenTotal = ordenadas.reduce((s, f) => s + f.margen, 0)
   const termino = busqueda.trim()
   const filtradas = termino ? ordenadas.filter(f => coincideBusqueda(f.nombre, termino)) : ordenadas
   const visibles = mostrarTodos || termino ? filtradas : filtradas.slice(0, 8)
+  const etiqueta = agrupacion === 'producto' ? 'producto' : agrupacion === 'categoria' ? 'categoría' : 'tipo de reparación'
+  const descripcion = agrupacion === 'producto'
+    ? 'Cuántos salieron y cuánto margen bruto dejaron.'
+    : agrupacion === 'categoria'
+      ? 'Venta, costo y margen bruto consolidado por categoría.'
+      : 'Cuántas pantallas, baterías y otras reparaciones se realizaron.'
   return <div className="bg-white rounded-xl border border-gray-200 p-4">
-    <div className="flex flex-wrap items-start justify-between gap-3 mb-3"><div><h3 className="text-sm font-extrabold text-gray-900 m-0">Rentabilidad por {agrupacion === 'producto' ? 'producto' : 'categoría'}</h3><p className="text-[11px] text-gray-400 mt-1 mb-0">{agrupacion === 'producto' ? 'Cuántos salieron y cuánto margen bruto dejaron.' : 'Venta, costo y margen bruto consolidado por categoría.'}</p></div><div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto"><input type="search" value={busqueda} onChange={e => { setBusqueda(e.target.value); setMostrarTodos(false) }} placeholder={`Buscar ${agrupacion === 'producto' ? 'producto' : 'categoría'}…`} aria-label={`Buscar por ${agrupacion === 'producto' ? 'producto' : 'categoría'}`} className="w-full sm:w-64 text-sm px-3 py-2 border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-blue-500" /><span className={`text-sm font-extrabold tabular-nums text-right ${margenTotal >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{clp(margenTotal)}</span></div></div>
+    <div className="flex flex-wrap items-start justify-between gap-3 mb-3"><div><h3 className="text-sm font-extrabold text-gray-900 m-0">Rentabilidad por {etiqueta}</h3><p className="text-[11px] text-gray-400 mt-1 mb-0">{descripcion}</p></div><div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto"><input type="search" value={busqueda} onChange={e => { setBusqueda(e.target.value); setMostrarTodos(false) }} placeholder={`Buscar ${etiqueta}…`} aria-label={`Buscar por ${etiqueta}`} className="w-full sm:w-64 text-sm px-3 py-2 border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-blue-500" /><span className={`text-sm font-extrabold tabular-nums text-right ${margenTotal >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{clp(margenTotal)}</span></div></div>
     {isMobile ? <div>
       {visibles.map(f => <RentabilidadMovil key={f.id} fila={f} />)}
-    </div> : <div className="overflow-x-auto"><table className="w-full text-[13px] border-collapse"><thead><tr className="border-b border-gray-200"><th className={TH_L}>{agrupacion === 'producto' ? 'Producto' : 'Categoría'}</th><th className={TH_R}>Unid.</th><th className={TH_R}>Venta neta</th><th className={TH_R}>Costo vendido</th><th className={TH_R}>Margen bruto</th><th className={TH_R}>Margen %</th></tr></thead><tbody>{visibles.map(f => { const pct = f.neto ? Math.round(f.margen / f.neto * 100) : 0; return <tr key={f.id} className="border-b border-gray-50 last:border-0"><td className="py-2.5 px-2 font-semibold text-gray-900">{f.nombre}</td><td className="py-2.5 px-2 text-right tabular-nums text-gray-600">{uds(f.unidades)}</td><td className="py-2.5 px-2 text-right tabular-nums text-gray-600">{clp(f.neto)}</td><td className="py-2.5 px-2 text-right tabular-nums text-gray-600">{clp(f.costo)}</td><td className={`py-2.5 px-2 text-right tabular-nums font-bold ${f.margen >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{clp(f.margen)}</td><td className={`py-2.5 px-2 text-right tabular-nums font-bold ${pct >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{pct}%</td></tr> })}</tbody></table></div>}
+    </div> : <div className="overflow-x-auto"><table className="w-full text-[13px] border-collapse"><thead><tr className="border-b border-gray-200"><th className={TH_L}>{agrupacion === 'producto' ? 'Producto' : agrupacion === 'categoria' ? 'Categoría' : 'Reparación'}</th><th className={TH_R}>Unid.</th><th className={TH_R}>Venta neta</th><th className={TH_R}>Costo vendido</th><th className={TH_R}>Margen bruto</th><th className={TH_R}>Margen %</th></tr></thead><tbody>{visibles.map(f => { const pct = f.neto ? Math.round(f.margen / f.neto * 100) : 0; return <tr key={f.id} className="border-b border-gray-50 last:border-0"><td className="py-2.5 px-2 font-semibold text-gray-900">{f.nombre}</td><td className="py-2.5 px-2 text-right tabular-nums text-gray-600">{uds(f.unidades)}</td><td className="py-2.5 px-2 text-right tabular-nums text-gray-600">{clp(f.neto)}</td><td className="py-2.5 px-2 text-right tabular-nums text-gray-600">{clp(f.costo)}</td><td className={`py-2.5 px-2 text-right tabular-nums font-bold ${f.margen >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{clp(f.margen)}</td><td className={`py-2.5 px-2 text-right tabular-nums font-bold ${pct >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{pct}%</td></tr> })}</tbody></table></div>}
     {filtradas.length === 0 && <p className="text-sm text-gray-400 py-8 text-center m-0">No hay resultados para “{busqueda.trim()}”.</p>}
     {!termino && filtradas.length > 8 && <button type="button" onClick={() => setMostrarTodos(v => !v)} className="mt-3 w-full px-4 py-2 border border-gray-200 rounded-lg text-xs font-bold text-blue-600 hover:bg-blue-50 transition">{mostrarTodos ? 'Mostrar sólo los primeros 8' : `Ver todos (${filtradas.length})`}</button>}
   </div>
