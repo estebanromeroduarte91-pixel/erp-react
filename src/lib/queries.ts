@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
+import { deltasDeStock, stockPorBodega, type StockPorBodega } from '@/lib/stock'
 import { useEffect, useId } from 'react'
 import { supabase } from './supabase'
 import { dbGet, dbSet } from './db'
@@ -542,16 +543,6 @@ function filaProducto(p: Producto, empresaId: string) {
   }
 }
 
-function filasStock(prods: Producto[]) {
-  const rows: { producto_id: string; bodega_id: string; cantidad: number }[] = []
-  for (const p of prods) {
-    for (const [bodega_id, cantidad] of Object.entries(p.stock_sucursales ?? {})) {
-      rows.push({ producto_id: p.id, bodega_id, cantidad: Number(cantidad) || 0 })
-    }
-  }
-  return rows
-}
-
 export function useProductos() {
   const { empresaId } = useAuth()
   const qc = useQueryClient()
@@ -684,23 +675,46 @@ export function useBuscarProductos(query: string) {
   })
 }
 
-// Crear o editar UN producto. El stock por sucursal se fija en valor absoluto
-// (el admin lo está definiendo explícitamente en el formulario).
+// Crear o editar UN producto. El stock NO se escribe en valor absoluto: solo
+// se aplican las bodegas que el usuario tocó, y como diferencia contra lo que
+// hay en la base en ese momento. Antes se hacía un upsert con el stock que
+// traía la pantalla en memoria, así que guardar un producto (aunque fuera solo
+// para cambiarle el precio) devolvía el stock al valor con que se había
+// cargado la pantalla y borraba en silencio los descuentos de las ventas
+// hechas mientras tanto desde otro computador.
+export interface GuardarProductoPayload {
+  producto: Producto
+  /** Solo las bodegas que el usuario editó: { bodega_id: cantidad final }. */
+  stockDeseado?: StockPorBodega
+}
+
 export function useGuardarProducto() {
   const { empresaId } = useAuth()
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (p: Producto) => {
+    mutationFn: async ({ producto: p, stockDeseado }: GuardarProductoPayload) => {
       const { error } = await supabase.from('productos').upsert(filaProducto(p, empresaId!), { onConflict: 'id' })
       if (error) throw error
-      const rows = filasStock([p])
-      if (rows.length) {
-        const { error: e2 } = await supabase.from('producto_stock').upsert(rows, { onConflict: 'producto_id,bodega_id' })
-        if (e2) throw e2
+
+      const pedido = p.tipo === 'servicio' ? {} : (stockDeseado ?? {})
+      if (Object.keys(pedido).length) {
+        const { data: filas, error: eStock } = await supabase
+          .from('producto_stock')
+          .select('bodega_id,cantidad')
+          .eq('producto_id', p.id)
+        if (eStock) throw eStock
+
+        const ajustes = deltasDeStock(p.id, pedido, stockPorBodega(filas))
+        if (ajustes.length) {
+          const { error: eAjuste } = await supabase.rpc('fn_fijar_stock_manual', {
+            ajustes, p_empresa_id: empresaId,
+          })
+          if (eAjuste) throw eAjuste
+        }
       }
     },
     // Sin invalidate: el eco de Realtime (arriba) refresca esa fila puntual.
-    onMutate: async (p: Producto) => {
+    onMutate: async ({ producto: p }: GuardarProductoPayload) => {
       await qc.cancelQueries({ queryKey: ['productos', empresaId] })
       const prev = qc.getQueryData<Producto[]>(['productos', empresaId])
       qc.setQueryData<Producto[]>(['productos', empresaId], (old = []) => {
@@ -763,10 +777,32 @@ export function useImportarProductos() {
         const { error } = await supabase.from('productos').upsert(rows.slice(i, i + 200), { onConflict: 'id' })
         if (error) throw error
       }
-      const stock = filasStock(productos)
-      for (let i = 0; i < stock.length; i += 200) {
-        const { error } = await supabase.from('producto_stock').upsert(stock.slice(i, i + 200), { onConflict: 'producto_id,bodega_id' })
-        if (error) throw error
+      // El stock de la planilla también entra como diferencia contra la base:
+      // una importación de precios no puede revivir el stock de ayer. En modo
+      // 'reemplazar' el catálogo se acaba de borrar, así que la diferencia es
+      // el valor completo de la planilla.
+      const conStock = productos.filter(p => p.tipo !== 'servicio' && Object.keys(p.stock_sucursales ?? {}).length > 0)
+      for (let i = 0; i < conStock.length; i += 200) {
+        const lote = conStock.slice(i, i + 200)
+        const { data: filas, error: eStock } = await supabase
+          .from('producto_stock')
+          .select('producto_id,bodega_id,cantidad')
+          .in('producto_id', lote.map(p => p.id))
+        if (eStock) throw eStock
+
+        const porProducto = new Map<string, { bodega_id: string; cantidad: number }[]>()
+        for (const f of filas ?? []) {
+          const lista = porProducto.get(f.producto_id) ?? []
+          lista.push({ bodega_id: f.bodega_id, cantidad: f.cantidad })
+          porProducto.set(f.producto_id, lista)
+        }
+
+        const ajustes = lote.flatMap(p =>
+          deltasDeStock(p.id, p.stock_sucursales ?? {}, stockPorBodega(porProducto.get(p.id))))
+        if (ajustes.length) {
+          const { error } = await supabase.rpc('fn_fijar_stock_manual', { ajustes, p_empresa_id: empresaId })
+          if (error) throw error
+        }
       }
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['productos', empresaId] }),
@@ -785,7 +821,17 @@ export function useFijarStock() {
     mutationFn: async ({ producto_id, bodega_id, cantidad }: { producto_id: string; bodega_id: string; cantidad: number }) => {
       const cant = Math.max(0, Math.round(cantidad))
       const productos = qc.getQueryData<Producto[]>(['productos', empresaId]) ?? []
-      const antes = productos.find(p => p.id === producto_id)?.stock_sucursales?.[bodega_id] ?? 0
+      // El "antes" se lee de la base, no de la caché: si entremedio hubo una
+      // venta, la caché está vieja y el delta calculado sobre ella devolvía el
+      // stock al valor anterior al descuento.
+      const { data: filaActual, error: eActual } = await supabase
+        .from('producto_stock')
+        .select('cantidad')
+        .eq('producto_id', producto_id)
+        .eq('bodega_id', bodega_id)
+        .maybeSingle()
+      if (eActual) throw eActual
+      const antes = Number(filaActual?.cantidad) || 0
       // Aplica solo la diferencia observada (delta), vía la misma función
       // atómica que usan venta/OC/traslados — nunca un SET absoluto. Antes
       // esto escribía el valor final directo (upsert de `cantidad`), así que

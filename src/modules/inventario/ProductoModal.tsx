@@ -46,6 +46,10 @@ export function ProductoModal({ producto, productos, bodegas, onClose, onGuardad
   const [stock, setStock] = useState(String(producto?.stock ?? ''))
   const [stockMin, setStockMin] = useState(String(producto?.stock_min ?? ''))
   const [stockSucs, setStockSucs] = useState<Record<string, number>>(producto?.stock_sucursales ?? {})
+  // Solo el stock que el usuario escribe acá se manda al guardar. Si no toca
+  // nada, el stock no se pisa: mientras el modal está abierto puede haberse
+  // vendido en otra caja, y ese descuento no se puede borrar.
+  const [bodegasTocadas, setBodegasTocadas] = useState<string[]>([])
   const [categoria, setCategoria] = useState(producto?.categoria ?? '')
   const [subcategoria, setSubcategoria] = useState(producto?.subcategoria ?? '')
   const [venderOnline, setVenderOnline] = useState(producto?.vender_online === true)
@@ -207,8 +211,15 @@ export function ProductoModal({ producto, productos, bodegas, onClose, onGuardad
       vender_online: esServicio ? false : venderOnline,
     }
 
+    // Un producto nuevo sí define su stock inicial completo; al editar, solo
+    // viajan las sucursales que se tocaron.
+    const stockDeseado = esServicio ? undefined : Object.fromEntries(
+      (producto ? bodegasTocadas : Object.keys(stockSucs))
+        .map((id) => [id, stockSucs[id] ?? 0]),
+    )
+
     try {
-      await guardar.mutateAsync(prod)
+      await guardar.mutateAsync({ producto: prod, stockDeseado })
       onGuardado?.(prod)
       onClose()
     } catch (e) {
@@ -479,7 +490,10 @@ export function ProductoModal({ producto, productos, bodegas, onClose, onGuardad
                       <input
                         type="number" min="0"
                         value={stockSucs[b.id] ?? 0}
-                        onChange={(e) => setStockSucs((s) => ({ ...s, [b.id]: +e.target.value || 0 }))}
+                        onChange={(e) => {
+                          setStockSucs((s) => ({ ...s, [b.id]: +e.target.value || 0 }))
+                          setBodegasTocadas((t) => (t.includes(b.id) ? t : [...t, b.id]))
+                        }}
                         className="w-24 border border-gray-200 rounded-lg px-3 py-1.5 text-base md:text-sm text-right bg-gray-50 focus:outline-none focus:border-blue-400"
                       />
                     </div>

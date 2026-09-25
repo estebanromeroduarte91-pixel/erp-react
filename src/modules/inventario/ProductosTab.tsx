@@ -328,10 +328,10 @@ export function ProductosTab() {
         }
         allSkus.add(skuFinal)
         const tipo = r.tipo ?? existente?.tipo ?? 'producto'
-        // Solo se pisa el stock de las sucursales que la planilla trae como columna.
-        const stockSucs = Object.keys(r.stockPorBodega).length > 0
-          ? { ...(existente?.stock_sucursales ?? {}), ...r.stockPorBodega }
-          : existente?.stock_sucursales
+        // Solo viajan las sucursales que la planilla trae como columna: el
+        // guardado las aplica como diferencia contra la base, así que mezclar
+        // acá el stock que tenía la pantalla devolvería valores viejos.
+        const stockSucs = Object.keys(r.stockPorBodega).length > 0 ? r.stockPorBodega : undefined
         return {
           id: existente?.id ?? ('imp-' + Date.now() + '-' + Math.random().toString(36).slice(2)),
           nombre: r.nombre || existente?.nombre || '',
