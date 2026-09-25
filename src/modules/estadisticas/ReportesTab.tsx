@@ -10,6 +10,7 @@ import { VistaGeneralBI } from './VistaGeneralBI'
 
 type Agrupacion = 'producto' | 'categoria' | 'reparacion'
 type SeccionReporte = 'general' | 'ventas' | 'rentabilidad' | 'gastos' | 'compras' | 'operacion'
+type FilaRentabilidadVista = { id: string; nombre: string; unidades: number; neto: number; costo: number; margen: number }
 
 const PERIODO_LABEL: Record<Periodo, string> = {
   mes: 'Este mes',
@@ -77,6 +78,23 @@ export function ReportesTab() {
     }))
   }, [agrupacion, serieCategorias.data, rentabilidad.data])
 
+  const detalleReparacion = useMemo(() => {
+    const tipos = new Map<string, Map<string, FilaRentabilidadVista>>()
+    for (const f of rentabilidad.data?.filas ?? []) {
+      const tipo = clasificarTipoReparacion(f.nombre)
+      const clave = f.nombre.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('es-CL').trim().replace(/\s+/g, ' ')
+      const productos = tipos.get(tipo) ?? new Map<string, FilaRentabilidadVista>()
+      const actual = productos.get(clave) ?? { id: `${tipo}:${clave}`, nombre: f.nombre, unidades: 0, neto: 0, costo: 0, margen: 0 }
+      actual.unidades += +f.unidades || 0
+      actual.neto += +f.neto || 0
+      actual.costo += +f.costo || 0
+      actual.margen += +f.margen || 0
+      productos.set(clave, actual)
+      tipos.set(tipo, productos)
+    }
+    return Object.fromEntries([...tipos].map(([tipo, productos]) => [tipo, [...productos.values()].sort((a, b) => b.unidades - a.unidades)]))
+  }, [rentabilidad.data])
+
   const secciones: { id: SeccionReporte; label: string }[] = [
     { id: 'general', label: 'Vista general' }, { id: 'ventas', label: 'Ventas' },
     { id: 'rentabilidad', label: 'Rentabilidad' }, { id: 'gastos', label: 'Gastos' },
@@ -107,7 +125,7 @@ export function ReportesTab() {
       <div><h2 className="text-lg font-extrabold text-gray-900 m-0">Rentabilidad de productos</h2><p className="text-xs text-gray-500 mt-1 mb-0">Unidades, venta neta y margen bruto generado. El margen no descuenta gastos operacionales.</p></div>
       <Campo label="Agrupar por"><Seg valor={agrupacion} onChange={setAgrupacion} opciones={[['producto', 'Producto'], ['categoria', 'Categoría'], ['reparacion', 'Reparación']]} /></Campo>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3"><Tile label="Unidades vendidas" valor={uds(totalesRentabilidad.unidades)} /><Tile label="Venta neta" valor={clp(totalesRentabilidad.neto)} /><Tile label="Margen bruto" valor={clp(totalesRentabilidad.margen)} /><Tile label="Margen %" valor={`${totalesRentabilidad.neto ? Math.round(totalesRentabilidad.margen / totalesRentabilidad.neto * 100) : 0}%`} /></div>
-      {rentabilidad.isLoading || (agrupacion === 'categoria' && serieCategorias.isLoading) ? <div className="py-12"><Spinner /></div> : <TablaRentabilidad key={agrupacion} filas={filasRentabilidad} agrupacion={agrupacion} />}
+      {rentabilidad.isLoading || (agrupacion === 'categoria' && serieCategorias.isLoading) ? <div className="py-12"><Spinner /></div> : <TablaRentabilidad key={agrupacion} filas={filasRentabilidad} agrupacion={agrupacion} detalles={agrupacion === 'reparacion' ? detalleReparacion : undefined} />}
     </>}
   </div>
 }
@@ -116,10 +134,11 @@ function NavegacionBI({ seccion, secciones, onChange }: { seccion: SeccionReport
   return <div className="flex gap-1 overflow-x-auto border-b border-gray-200">{secciones.map(item => <button key={item.id} type="button" onClick={() => onChange(item.id)} aria-pressed={seccion === item.id} className={`shrink-0 px-3.5 py-2.5 border-b-2 text-xs font-bold transition ${seccion === item.id ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-900'}`}>{item.label}</button>)}</div>
 }
 
-function TablaRentabilidad({ filas, agrupacion }: { filas: { id: string; nombre: string; unidades: number; neto: number; costo: number; margen: number }[]; agrupacion: Agrupacion }) {
+function TablaRentabilidad({ filas, agrupacion, detalles }: { filas: FilaRentabilidadVista[]; agrupacion: Agrupacion; detalles?: Record<string, FilaRentabilidadVista[]> }) {
   const isMobile = useIsMobile()
   const [busqueda, setBusqueda] = useState('')
   const [mostrarTodos, setMostrarTodos] = useState(false)
+  const [expandida, setExpandida] = useState<string | null>(null)
   const ordenadas = [...filas].sort((a, b) => agrupacion === 'reparacion' ? b.unidades - a.unidades : b.margen - a.margen)
   const margenTotal = ordenadas.reduce((s, f) => s + f.margen, 0)
   const termino = busqueda.trim()
@@ -130,31 +149,59 @@ function TablaRentabilidad({ filas, agrupacion }: { filas: { id: string; nombre:
     ? 'Cuántos salieron y cuánto margen bruto dejaron.'
     : agrupacion === 'categoria'
       ? 'Venta, costo y margen bruto consolidado por categoría.'
-      : 'Cuántas pantallas, baterías y otras reparaciones se realizaron.'
+      : 'Cuántas pantallas, baterías y otras reparaciones se realizaron. Haz clic en una fila para ver sus productos.'
   return <div className="bg-white rounded-xl border border-gray-200 p-4">
     <div className="flex flex-wrap items-start justify-between gap-3 mb-3"><div><h3 className="text-sm font-extrabold text-gray-900 m-0">Rentabilidad por {etiqueta}</h3><p className="text-[11px] text-gray-400 mt-1 mb-0">{descripcion}</p></div><div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto"><input type="search" value={busqueda} onChange={e => { setBusqueda(e.target.value); setMostrarTodos(false) }} placeholder={`Buscar ${etiqueta}…`} aria-label={`Buscar por ${etiqueta}`} className="w-full sm:w-64 text-sm px-3 py-2 border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-blue-500" /><span className={`text-sm font-extrabold tabular-nums text-right ${margenTotal >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{clp(margenTotal)}</span></div></div>
     {isMobile ? <div>
-      {visibles.map(f => <RentabilidadMovil key={f.id} fila={f} />)}
-    </div> : <div className="overflow-x-auto"><table className="w-full text-[13px] border-collapse"><thead><tr className="border-b border-gray-200"><th className={TH_L}>{agrupacion === 'producto' ? 'Producto' : agrupacion === 'categoria' ? 'Categoría' : 'Reparación'}</th><th className={TH_R}>Unid.</th><th className={TH_R}>Venta neta</th><th className={TH_R}>Costo vendido</th><th className={TH_R}>Margen bruto</th><th className={TH_R}>Margen %</th></tr></thead><tbody>{visibles.map(f => { const pct = f.neto ? Math.round(f.margen / f.neto * 100) : 0; return <tr key={f.id} className="border-b border-gray-50 last:border-0"><td className="py-2.5 px-2 font-semibold text-gray-900">{f.nombre}</td><td className="py-2.5 px-2 text-right tabular-nums text-gray-600">{uds(f.unidades)}</td><td className="py-2.5 px-2 text-right tabular-nums text-gray-600">{clp(f.neto)}</td><td className="py-2.5 px-2 text-right tabular-nums text-gray-600">{clp(f.costo)}</td><td className={`py-2.5 px-2 text-right tabular-nums font-bold ${f.margen >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{clp(f.margen)}</td><td className={`py-2.5 px-2 text-right tabular-nums font-bold ${pct >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{pct}%</td></tr> })}</tbody></table></div>}
+      {visibles.map(f => <RentabilidadMovil key={f.id} fila={f} detalles={detalles?.[f.nombre]} abierta={expandida === f.id} onToggle={() => setExpandida(v => v === f.id ? null : f.id)} />)}
+    </div> : <div className="overflow-x-auto"><table className="w-full text-[13px] border-collapse"><thead><tr className="border-b border-gray-200"><th className={TH_L}>{agrupacion === 'producto' ? 'Producto' : agrupacion === 'categoria' ? 'Categoría' : 'Reparación'}</th><th className={TH_R}>Unid.</th><th className={TH_R}>Venta neta</th><th className={TH_R}>Costo vendido</th><th className={TH_R}>Margen bruto</th><th className={TH_R}>Margen %</th></tr></thead><tbody>{visibles.map(f => <FilaRentabilidadEscritorio key={f.id} fila={f} detalles={detalles?.[f.nombre]} abierta={expandida === f.id} onToggle={() => setExpandida(v => v === f.id ? null : f.id)} />)}</tbody></table></div>}
     {filtradas.length === 0 && <p className="text-sm text-gray-400 py-8 text-center m-0">No hay resultados para “{busqueda.trim()}”.</p>}
     {!termino && filtradas.length > 8 && <button type="button" onClick={() => setMostrarTodos(v => !v)} className="mt-3 w-full px-4 py-2 border border-gray-200 rounded-lg text-xs font-bold text-blue-600 hover:bg-blue-50 transition">{mostrarTodos ? 'Mostrar sólo los primeros 8' : `Ver todos (${filtradas.length})`}</button>}
   </div>
 }
 
-function RentabilidadMovil({ fila }: { fila: { nombre: string; unidades: number; neto: number; costo: number; margen: number } }) {
+function FilaRentabilidadEscritorio({ fila, detalles, abierta, onToggle }: { fila: FilaRentabilidadVista; detalles?: FilaRentabilidadVista[]; abierta: boolean; onToggle: () => void }) {
+  const pct = fila.neto ? Math.round(fila.margen / fila.neto * 100) : 0
+  const desplegable = !!detalles?.length
+  const activar = () => { if (desplegable) onToggle() }
+  return <>
+    <tr className={`border-b border-gray-50 last:border-0 ${desplegable ? 'cursor-pointer hover:bg-blue-50/50' : ''} ${abierta ? 'bg-blue-50/60' : ''}`} onClick={activar} onKeyDown={e => { if (desplegable && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onToggle() } }} role={desplegable ? 'button' : undefined} tabIndex={desplegable ? 0 : undefined} aria-expanded={desplegable ? abierta : undefined}>
+      <td className="py-2.5 px-2 font-semibold text-gray-900"><span className="inline-flex items-center gap-2"><span className={`w-4 text-center text-blue-600 transition-transform ${abierta ? 'rotate-90' : ''}`}>{desplegable ? '›' : ''}</span>{fila.nombre}</span></td>
+      <td className="py-2.5 px-2 text-right tabular-nums text-gray-600">{uds(fila.unidades)}</td>
+      <td className="py-2.5 px-2 text-right tabular-nums text-gray-600">{clp(fila.neto)}</td>
+      <td className="py-2.5 px-2 text-right tabular-nums text-gray-600">{clp(fila.costo)}</td>
+      <td className={`py-2.5 px-2 text-right tabular-nums font-bold ${fila.margen >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{clp(fila.margen)}</td>
+      <td className={`py-2.5 px-2 text-right tabular-nums font-bold ${pct >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{pct}%</td>
+    </tr>
+    {abierta && detalles && <tr><td colSpan={6} className="p-0"><DetalleProductos filas={detalles} /></td></tr>}
+  </>
+}
+
+function RentabilidadMovil({ fila, detalles, abierta, onToggle }: { fila: FilaRentabilidadVista; detalles?: FilaRentabilidadVista[]; abierta: boolean; onToggle: () => void }) {
   const pct = fila.neto ? Math.round(fila.margen / fila.neto * 100) : 0
   const positivo = fila.margen >= 0
-  return <article className="border-t border-gray-100 py-3 first:border-t-0">
-    <div className="flex items-start justify-between gap-3">
-      <h4 className="min-w-0 flex-1 m-0 text-sm font-extrabold leading-5 text-gray-900">{fila.nombre}</h4>
+  const desplegable = !!detalles?.length
+  return <article className={`border-t border-gray-100 py-3 first:border-t-0 ${abierta ? 'bg-blue-50/50 -mx-2 px-2' : ''}`}>
+    <div className={desplegable ? 'cursor-pointer' : ''} onClick={() => { if (desplegable) onToggle() }} role={desplegable ? 'button' : undefined} tabIndex={desplegable ? 0 : undefined} onKeyDown={e => { if (desplegable && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onToggle() } }} aria-expanded={desplegable ? abierta : undefined}>
+      <div className="flex items-start justify-between gap-3">
+      <h4 className="min-w-0 flex-1 m-0 text-sm font-extrabold leading-5 text-gray-900"><span className={`inline-block w-4 text-blue-600 transition-transform ${abierta ? 'rotate-90' : ''}`}>{desplegable ? '›' : ''}</span>{fila.nombre}</h4>
       <span className="shrink-0 pt-0.5 text-xs text-gray-500 tabular-nums">{uds(fila.unidades)} {fila.unidades === 1 ? 'unidad' : 'unidades'}</span>
-    </div>
-    <div className="grid grid-cols-3 gap-2 mt-3">
+      </div>
+      <div className="grid grid-cols-3 gap-2 mt-3">
       <DatoMovil etiqueta="Venta neta" valor={clp(fila.neto)} />
       <DatoMovil etiqueta="Costo" valor={clp(fila.costo)} />
       <DatoMovil etiqueta={`Margen · ${pct}%`} valor={clp(fila.margen)} positivo={positivo} />
+      </div>
     </div>
+    {abierta && detalles && <DetalleProductos filas={detalles} compacto />}
   </article>
+}
+
+function DetalleProductos({ filas, compacto = false }: { filas: FilaRentabilidadVista[]; compacto?: boolean }) {
+  return <div className={`${compacto ? 'mt-3' : 'mx-2 mb-3'} rounded-lg border border-blue-100 bg-blue-50/70 p-3`}>
+    <p className="m-0 mb-2 text-[10px] font-extrabold uppercase tracking-wide text-blue-600">Productos incluidos</p>
+    <div className="max-h-96 overflow-auto"><table className="w-full min-w-[620px] text-xs border-collapse"><thead className="sticky top-0 bg-blue-50"><tr className="border-b border-blue-100"><th className={TH_L}>Producto</th><th className={TH_R}>Unid.</th><th className={TH_R}>Venta neta</th><th className={TH_R}>Costo</th><th className={TH_R}>Margen</th></tr></thead><tbody>{filas.map(f => <tr key={f.id} className="border-b border-blue-100/70 last:border-0"><td className="px-2 py-2 font-semibold text-gray-800">{f.nombre}</td><td className="px-2 py-2 text-right tabular-nums text-gray-600">{uds(f.unidades)}</td><td className="px-2 py-2 text-right tabular-nums text-gray-600">{clp(f.neto)}</td><td className="px-2 py-2 text-right tabular-nums text-gray-600">{clp(f.costo)}</td><td className={`px-2 py-2 text-right tabular-nums font-bold ${f.margen >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{clp(f.margen)}</td></tr>)}</tbody></table></div>
+  </div>
 }
 
 function DatoMovil({ etiqueta, valor, positivo }: { etiqueta: string; valor: string; positivo?: boolean }) {
