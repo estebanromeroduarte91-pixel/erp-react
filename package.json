@@ -9,7 +9,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "verificar:rpc": "node scripts/verificar-rpc.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.2",
