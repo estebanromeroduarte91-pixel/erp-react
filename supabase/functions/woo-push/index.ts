@@ -9,6 +9,7 @@
 // POS: el cambio queda encolado y se reintenta.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { empresaPermitida } from "../_shared/impersonacion.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -86,27 +87,63 @@ function secretosIguales(a: string, b: string): boolean {
 // así que `verify_jwt` sola no autoriza nada: dejaba que cualquiera disparara
 // sincronizaciones contra la tienda. Se exige o bien el secreto del cron, o bien
 // la service_role, o bien una persona con sesión real y perfil de la empresa.
-async function autorizado(req: Request): Promise<boolean> {
+interface Autorizacion {
+  ok: boolean;
+  empresaId: string | null;
+}
+
+function empresaOperativa(empresa: {
+  plan_estado?: string | null;
+  trial_termina?: string | null;
+  suscripcion_termina?: string | null;
+} | null): boolean {
+  if (!empresa || empresa.plan_estado === "suspendida" || empresa.plan_estado === "inactiva") return false;
+  const ahora = Date.now();
+  if (empresa.plan_estado === "trial" && empresa.trial_termina) {
+    return new Date(empresa.trial_termina).getTime() >= ahora;
+  }
+  if (empresa.plan_estado === "activo" && empresa.suscripcion_termina) {
+    return new Date(empresa.suscripcion_termina).getTime() >= ahora;
+  }
+  return true;
+}
+
+async function autorizado(req: Request, empresaSolicitada: unknown): Promise<Autorizacion> {
   // Va primero: el cron manda la anon key en Authorization solo para pasar el
   // control del gateway, y el rechazo de la anon de más abajo lo bloquearía.
   const tokenCron = req.headers.get("x-cron-token") ?? "";
-  if (CRON_TOKEN && tokenCron && secretosIguales(tokenCron, CRON_TOKEN)) return true;
+  if (CRON_TOKEN && tokenCron && secretosIguales(tokenCron, CRON_TOKEN)) return { ok: true, empresaId: null };
 
   const cabecera = req.headers.get("Authorization") ?? "";
   const jwt = cabecera.replace("Bearer ", "").trim();
-  if (!jwt || jwt === ANON_KEY) return false;
-  if (jwt === SERVICE_ROLE_KEY) return true;
+  if (!jwt || jwt === ANON_KEY) return { ok: false, empresaId: null };
+  if (jwt === SERVICE_ROLE_KEY) return { ok: true, empresaId: null };
 
   const userClient = createClient(SUPABASE_URL, ANON_KEY, {
     global: { headers: { Authorization: cabecera } },
   });
   const { data, error } = await userClient.auth.getUser(jwt);
-  if (error || !data?.user) return false;
+  if (error || !data?.user) return { ok: false, empresaId: null };
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
   const { data: perfil } = await admin
-    .from("user_profiles").select("empresa_id").eq("id", data.user.id).maybeSingle();
-  return !!perfil?.empresa_id;
+    .from("user_profiles").select("empresa_id,activo").eq("id", data.user.id).maybeSingle();
+  if (!perfil?.empresa_id || perfil.activo === false) return { ok: false, empresaId: null };
+
+  const { empresaId } = await empresaPermitida(
+    admin,
+    data.user.id,
+    perfil.empresa_id,
+    empresaSolicitada,
+  );
+  const { data: empresa } = await admin
+    .from("empresas")
+    .select("plan_estado,trial_termina,suscripcion_termina")
+    .eq("id", empresaId)
+    .maybeSingle();
+  return empresaOperativa(empresa)
+    ? { ok: true, empresaId }
+    : { ok: false, empresaId: null };
 }
 
 Deno.serve(async (req) => {
@@ -114,7 +151,10 @@ Deno.serve(async (req) => {
   // responderla antes de exigir autorización, o nunca llega la petición real.
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ ok: false, error: "Método no permitido" }, 405);
-  if (!await autorizado(req)) return json({ ok: false, error: "No autorizado" }, 401);
+  let body: { empresa_id?: string } = {};
+  try { body = await req.json(); } catch { /* cron o cuerpo vacío */ }
+  const autorizacion = await autorizado(req, body.empresa_id);
+  if (!autorizacion.ok) return json({ ok: false, error: "No autorizado o suscripción inactiva" }, 403);
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
   // 15 por llamada. La primera vez que se publica un producto hacen falta DOS
@@ -122,7 +162,10 @@ Deno.serve(async (req) => {
   // puede tardar más de un segundo en cada una: con tandas grandes la función
   // se pasaba del tiempo permitido y el botón quedaba girando. Lo que no entra
   // queda en la cola — solo se borra lo que se sincronizó bien.
-  const { data: pendientes, error } = await admin.rpc("fn_woo_pendientes", { p_limite: 15 });
+  const { data: pendientes, error } = await admin.rpc("fn_woo_pendientes", {
+    p_limite: 15,
+    p_empresa: autorizacion.empresaId,
+  });
   if (error) return json({ ok: false, error: error.message }, 500);
 
   const lista = (pendientes ?? []) as Pendiente[];

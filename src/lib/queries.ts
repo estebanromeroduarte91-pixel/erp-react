@@ -3658,7 +3658,9 @@ export function useSincronizarTienda() {
   const { empresaId } = useAuth()
   return useMutation({
     mutationFn: async (): Promise<ResultadoSync> => {
-      const { data, error } = await supabase.functions.invoke('woo-push')
+      const { data, error } = await supabase.functions.invoke('woo-push', {
+        body: { empresa_id: empresaId },
+      })
       // El motivo real viaja en el cuerpo de la respuesta, no en error.message
       // (ver src/lib/edgeError.ts).
       if (error) throw new Error(await extraerMensajeError(error, 'No se pudo sincronizar'))

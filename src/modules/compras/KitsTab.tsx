@@ -4,6 +4,7 @@ import { useKits, useGuardarKits, useProductos } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import type { Kit, KitComponente, Producto } from '@/types'
 import { fechaLocal } from '@/lib/fecha'
+import { HighlightText } from '@/components/shared/HighlightText'
 
 const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36)
 const today = fechaLocal
@@ -223,13 +224,6 @@ function ModalKit({ kit, productos, categoriasExistentes, onSave, onClose }: Mod
     })
   }
 
-  const hl = (text: string, q: string) => {
-    if (!q.trim()) return text
-    const idx = text.toLowerCase().indexOf(q.toLowerCase())
-    if (idx === -1) return text
-    return text.slice(0, idx) + '<strong style="color:#7c3aed">' + text.slice(idx, idx + q.length) + '</strong>' + text.slice(idx + q.length)
-  }
-
   // Detect if a component row is a generic (no color variant) for badge display
   const genericoNombres = new Set(genericosEnlace.map(p => p.nombre.toLowerCase()))
 
@@ -287,10 +281,9 @@ function ModalKit({ kit, productos, categoriasExistentes, onSave, onClose }: Mod
                         onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                       >
                         <span style={{ color: '#7c3aed', fontSize: 15 }}>🔗</span>
-                        <span
-                          style={{ fontWeight: 600, color: 'var(--gray-700)', flex: 1 }}
-                          dangerouslySetInnerHTML={{ __html: hl(g.enlace, nombre) }}
-                        />
+                        <span style={{ fontWeight: 600, color: 'var(--gray-700)', flex: 1 }}>
+                          <HighlightText text={g.enlace} query={nombre} />
+                        </span>
                         <span style={{ fontSize: 11, color: '#7c3aed', fontWeight: 600, background: '#ede9fe', padding: '2px 8px', borderRadius: 10, whiteSpace: 'nowrap' }}>
                           {g.count} componentes
                         </span>

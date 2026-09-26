@@ -3,6 +3,7 @@ import type { Session, User } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import { dbGet, dbSet } from '@/lib/db'
 import { EQUIPOS_SEED } from '@/lib/seed/equiposSeed'
+import { suscripcionExpirada as estaSuscripcionExpirada } from '@/lib/suscripcion'
 
 type Rol = 'admin' | 'encargado' | 'tecnico' | 'vendedor' | string
 
@@ -28,6 +29,7 @@ interface AuthContextValue extends AuthState {
   esPlatformAdmin: boolean // true solo para el dueño de Pixit — ve/gestiona TODAS las empresas
   recoveryMode: boolean  // true cuando el usuario llegó por el enlace de "olvidé mi contraseña"
   trialExpirado: boolean // true si el trial de 30 días ya venció y no hay plan activo
+  suscripcionExpirada: boolean // true si un plan pagado llegó a su fecha de término
   cuentaSuspendida: boolean // true si un platform admin marcó la empresa como 'suspendida'
   usuarioDesactivado: boolean // true si el admin de la empresa desactivó a este usuario
   login: (email: string, password: string) => Promise<string | null>
@@ -237,6 +239,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const esAdmin = estado.rol === 'admin'
   const trialExpirado = estado.planEstado === 'trial' && !!estado.trialTermina && new Date(estado.trialTermina) < new Date()
+  const suscripcionExpirada = estaSuscripcionExpirada(estado.planEstado, estado.suscripcionTermina)
   const cuentaSuspendida = estado.planEstado === 'suspendida'
   const usuarioDesactivado = !!estado.session && !!estado.empresaId && !estado.usuarioActivo
 
@@ -249,6 +252,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     esPlatformAdmin,
     recoveryMode,
     trialExpirado,
+    suscripcionExpirada,
     cuentaSuspendida,
     usuarioDesactivado,
     login,

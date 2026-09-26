@@ -147,10 +147,25 @@ async function pdfBoletaModerna(
 
   if (mostrarLogo) {
     try {
-      const respuestaLogo = await fetch(config.logoUrl!, { signal: AbortSignal.timeout(8_000) });
+      // `logoUrl` es configuración editable por el tenant. No se puede hacer
+      // fetch a una URL arbitraria desde el servidor: eso permitiría usar la
+      // función como SSRF contra servicios internos. Los logos subidos por la
+      // app siempre pasan por este endpoint público y acotado a /logo/.
+      const logo = new URL(config.logoUrl!);
+      const hostEsperado = new URL(SUPABASE_URL).host;
+      if (logo.protocol !== "https:" || logo.host !== hostEsperado || logo.pathname !== "/functions/v1/public-logo") {
+        throw new Error("Origen de logo no permitido");
+      }
+      const respuestaLogo = await fetch(logo, { signal: AbortSignal.timeout(8_000) });
       if (respuestaLogo.ok) {
+        const largo = Number(respuestaLogo.headers.get("content-length") ?? 0);
+        if (largo > 2 * 1024 * 1024) throw new Error("Logo demasiado grande");
         const logoBytes = new Uint8Array(await respuestaLogo.arrayBuffer());
+        if (logoBytes.byteLength > 2 * 1024 * 1024) throw new Error("Logo demasiado grande");
         const tipo = respuestaLogo.headers.get("content-type") ?? "";
+        if (!tipo.includes("png") && !tipo.includes("jpeg") && !tipo.includes("jpg")) {
+          throw new Error("Formato de logo no permitido");
+        }
         const imagen = tipo.includes("jpeg") || tipo.includes("jpg")
           ? await pdf.embedJpg(logoBytes)
           : await pdf.embedPng(logoBytes);

@@ -16,7 +16,7 @@ function moduleLossVsScale(tier: PlanTier): string[] {
     .map(m => MODULO_LABELS[m] ?? m)
 }
 
-export function TrialExpirado({ motivo = 'trial' }: { motivo?: 'trial' | 'suspendida' | 'desactivado' }) {
+export function TrialExpirado({ motivo = 'trial' }: { motivo?: 'trial' | 'suscripcion' | 'suspendida' | 'desactivado' }) {
   const { empresaNombre, esAdmin, logout } = useAuth()
   const [tierElegido, setTierElegido] = useState<PlanTier | null>(null)
 
@@ -46,7 +46,7 @@ export function TrialExpirado({ motivo = 'trial' }: { motivo?: 'trial' | 'suspen
     )
   }
 
-  if (motivo === 'suspendida' || !esAdmin) {
+  if (motivo === 'suscripcion' || motivo === 'suspendida' || !esAdmin) {
     return (
       <div className="flex items-center justify-center bg-gradient-to-br from-[#1a2f6e] to-[#3656e6] p-4" style={{ minHeight: '100dvh' }}>
         <div className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-2xl text-center space-y-4">
@@ -57,11 +57,17 @@ export function TrialExpirado({ motivo = 'trial' }: { motivo?: 'trial' | 'suspen
           </div>
           <div>
             <h1 className="text-xl font-extrabold text-gray-900">
-              {motivo === 'suspendida' ? 'Cuenta suspendida' : 'Tu prueba gratuita terminó'}
+              {motivo === 'suspendida'
+                ? 'Cuenta suspendida'
+                : motivo === 'suscripcion'
+                  ? 'Tu suscripción venció'
+                  : 'Tu prueba gratuita terminó'}
             </h1>
             <p className="mt-1 text-sm text-gray-500">
               {motivo === 'suspendida'
                 ? <>El acceso de <span className="font-semibold text-gray-700">{empresaNombre}</span> está suspendido.</>
+                : motivo === 'suscripcion'
+                  ? <>La suscripción de <span className="font-semibold text-gray-700">{empresaNombre}</span> llegó a su fecha de término.</>
                 : <>Los 30 días de prueba de <span className="font-semibold text-gray-700">{empresaNombre}</span> ya vencieron.</>}
             </p>
           </div>
