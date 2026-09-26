@@ -17,6 +17,26 @@ describe('extraerLlamadas', () => {
     expect([...encontradas.get('fn_x')].sort()).toEqual(['p_dos', 'p_uno'])
   })
 
+  it('no confunde un ternario con una clave', () => {
+    // `p_woo_id: esVariacion ? null : woo.id` traía parámetros inventados
+    // llamados "null" e "id", que después aparecían como faltantes en la base.
+    const encontradas = extraerLlamadas(`
+      supabase.rpc('fn_x', { p_empresa: e, p_woo_id: esVariacion ? null : woo.id })
+    `)
+    expect([...encontradas.get('fn_x')].sort()).toEqual(['p_empresa', 'p_woo_id'])
+  })
+
+  it('encuentra una propiedad escrita debajo de un comentario', () => {
+    const encontradas = extraerLlamadas(`
+      supabase.rpc('fn_x', {
+        p_uno: 1,
+        // por qué este parámetro existe
+        p_dos: 2,
+      })
+    `)
+    expect([...encontradas.get('fn_x')].sort()).toEqual(['p_dos', 'p_uno'])
+  })
+
   it('registra la función aunque se llame sin argumentos', () => {
     expect([...extraerLlamadas(`supabase.rpc('siguiente_folio')`).keys()]).toEqual(['siguiente_folio'])
   })

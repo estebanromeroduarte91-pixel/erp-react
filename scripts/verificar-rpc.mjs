@@ -22,12 +22,19 @@ const MARCADORES = {
     porque: 'la versión anterior descuenta stock solo si el navegador le manda los ajustes',
   },
   fn_registrar_traslado: {
-    marcadores: ['lotes_inventario'],
+    // 'cantidad_inicial' solo aparece en la versión que recrea las capas FIFO
+    // en el destino. Un marcador que la versión vieja también tiene (como
+    // 'lotes_inventario') no distingue nada y da una falsa tranquilidad.
+    marcadores: ['cantidad_inicial'],
     porque: 'el traslado tiene que mover las capas de costo junto con el stock',
   },
   fn_registrar_conteo: {
     marcadores: ['conteos_inventario'],
     porque: 'faltaba por completo en producción: la toma de inventario no podía guardar',
+  },
+  fn_upsert_asientos: {
+    marcadores: ['asientos_contables'],
+    porque: 'el Libro Diario la necesita para guardar sin pisar los asientos de otro usuario',
   },
   fn_fijar_stock_manual: {
     marcadores: ['fn_ajustar_stock'],
@@ -66,7 +73,13 @@ export function extraerLlamadas(codigo) {
         if (nivel === 1 && c !== '{' && c !== '}') cuerpo += c
         i++
       }
-      for (const p of cuerpo.matchAll(/(?:^|[,{\s])([a-z_][a-z0-9_]*)\s*:/gi)) previo.add(p[1])
+      // Sin comentarios: una propiedad escrita debajo de un comentario queda
+      // separada de su coma y se perdería.
+      const limpio = cuerpo.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '')
+      // Solo cuenta como parámetro lo que abre una propiedad: después de "{"
+      // o de una coma. Así un ternario dentro del argumento (`x ? id : null`)
+      // no se confunde con dos claves llamadas "id" y "null".
+      for (const p of limpio.matchAll(/(?:^|[,{])\s*([a-z_][a-z0-9_]*)\s*:/gi)) previo.add(p[1])
     }
     encontradas.set(nombre, previo)
   }
