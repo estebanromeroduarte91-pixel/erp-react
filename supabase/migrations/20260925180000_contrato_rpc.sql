@@ -27,9 +27,13 @@ declare
   v_faltan_param text[];
   v_faltan_marca text[];
 begin
-  -- Solo el dueño de la plataforma: el código fuente de las funciones puede
-  -- revelar reglas de negocio y nombres de tablas internas.
-  if not public.is_platform_admin() then
+  -- Desde la aplicación, solo el dueño de la plataforma: el código fuente de
+  -- las funciones puede revelar reglas de negocio y nombres de tablas
+  -- internas. Sin sesión (SQL Editor o un script con la service_role) se
+  -- permite: ahí ya se tiene acceso total a la base, y es donde se corre la
+  -- verificación antes de publicar. El EXECUTE está revocado para anon, así
+  -- que nadie llega acá sin credenciales.
+  if auth.uid() is not null and not public.is_platform_admin() then
     raise exception 'Solo Pixit puede revisar el contrato de las funciones';
   end if;
 
