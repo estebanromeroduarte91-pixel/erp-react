@@ -6,6 +6,7 @@ import { GASTO_GENERAL_ID } from '@/lib/gastos'
 import { Spinner } from '@/components/shared/Spinner'
 import { capFirst } from '@/lib/formatters'
 import { describirError } from '@/lib/errorUtils'
+import { coincideAsignacion, esVarianteAsignacion, normalizarAsignacion, SIN_ASIGNACION } from '@/lib/gastoFiltros'
 import type { Gasto, GastoCat, Bodega } from '@/types'
 
 function uid() { return Math.random().toString(36).slice(2) + Date.now().toString(36) }
@@ -13,15 +14,13 @@ function today() { return new Date().toISOString().split('T')[0] }
 function fmt(n: number) { return '$' + Math.round(n).toLocaleString('es-CL') }
 function mesActual() { return today().slice(0, 7) }
 // Normaliza para comparar subcategorías: sin tildes, minúsculas, espacios colapsados.
-function normalizar(s: string) {
-  return s.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ')
-}
+const normalizar = normalizarAsignacion
 
 // ¿"a" y "b" (ya normalizados) son la misma variante? Igual, o una es prefijo
 // de la otra respetando límite de palabra — así "enrique" unifica con
 // "enrique caramaro" pero "ana" no unifica con "anastasia".
 function esVariante(a: string, b: string) {
-  return a === b || a.startsWith(b + ' ') || b.startsWith(a + ' ')
+  return esVarianteAsignacion(a, b)
 }
 
 // Agrupa subcategorías crudas tratando variantes (mayúsculas/tildes/nombre
@@ -86,11 +85,13 @@ export function GastosTab() {
   const guardarCats = useGuardarGastoCats()
   const [busqueda, setBusqueda] = useState('')
   const [filtroCat, setFiltroCat] = useState<string | null>(null)
+  const [filtroAsignado, setFiltroAsignado] = useState<{ categoria: string; clave: string; nombre: string } | null>(null)
   const [periodo, setPeriodo] = useState<PeriodoGasto>('mes')
   const [desdePersonalizado, setDesdePersonalizado] = useState(`${mesActual()}-01`)
   const [hastaPersonalizado, setHastaPersonalizado] = useState(today())
   const [modalOpen, setModalOpen] = useState(false)
   const [editando, setEditando] = useState<Gasto | null>(null)
+  const listaRef = useRef<HTMLDivElement>(null)
 
   // Drag & drop de pills. `dragIdx` afecta el render (resalta el destino), así
   // que es estado real, no un ref — leerlo durante el render no está permitido para refs.
@@ -152,12 +153,21 @@ export function GastosTab() {
   const lista = useMemo(() => {
     let arr = [...gastosDelPeriodo].sort((a, b) => (b.fecha ?? '').localeCompare(a.fecha ?? ''))
     if (filtroCat) arr = arr.filter(g => g.categoria === filtroCat)
+    if (filtroAsignado) {
+      arr = arr.filter(g =>
+        g.categoria === filtroAsignado.categoria && coincideAsignacion(g.subcategoria, filtroAsignado),
+      )
+    }
     if (busqueda.trim()) {
       const q = busqueda.toLowerCase()
-      arr = arr.filter(g => g.descripcion.toLowerCase().includes(q) || (g.categoria ?? '').toLowerCase().includes(q))
+      arr = arr.filter(g =>
+        g.descripcion.toLowerCase().includes(q) ||
+        (g.categoria ?? '').toLowerCase().includes(q) ||
+        (g.subcategoria ?? '').toLowerCase().includes(q),
+      )
     }
     return arr
-  }, [gastosDelPeriodo, filtroCat, busqueda])
+  }, [gastosDelPeriodo, filtroCat, filtroAsignado, busqueda])
 
   const totalPeriodo = useMemo(() => gastosDelPeriodo.reduce((s, g) => s + (+g.monto || 0), 0), [gastosDelPeriodo])
   const totalMostrado = lista.reduce((s, g) => s + (+g.monto || 0), 0)
@@ -182,7 +192,7 @@ export function GastosTab() {
       g.descripcion.toLowerCase().includes(q) ||
       (g.categoria ?? '').toLowerCase().includes(q) ||
       (g.subcategoria ?? '').toLowerCase().includes(q))
-    const byCat: Record<string, { total: number; subs: Record<string, { nombre: string; monto: number }> }> = {}
+    const byCat: Record<string, { total: number; subs: Record<string, { clave: string; nombre: string; monto: number }> }> = {}
     base.forEach(g => {
       const cat = g.categoria || 'Sin categoría'
       const monto = +g.monto || 0
@@ -190,9 +200,9 @@ export function GastosTab() {
       byCat[cat].total += monto
       const raw = (g.subcategoria ?? '').trim()
       const canon = raw ? (buscarCanonico(subcatsPorCat[g.categoria ?? ''], raw) ?? raw) : undefined
-      const key = canon ? normalizar(canon) : '__none__'
+      const key = canon ? normalizar(canon) : SIN_ASIGNACION
       const nombre = canon || 'Sin subcategoría'
-      ;(byCat[cat].subs[key] ??= { nombre, monto: 0 }).monto += monto
+      ;(byCat[cat].subs[key] ??= { clave: key, nombre, monto: 0 }).monto += monto
     })
     return Object.entries(byCat)
       .map(([cat, d]) => ({ cat, total: d.total, subs: Object.values(d.subs).sort((a, b) => b.monto - a.monto) }))
@@ -257,6 +267,17 @@ export function GastosTab() {
           </svg>
           Nuevo gasto
         </button>
+        {filtroAsignado && (
+          <button
+            type="button"
+            onClick={() => setFiltroAsignado(null)}
+            className="flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100"
+            title="Quitar filtro por persona"
+          >
+            Asignado a: {filtroAsignado.nombre}
+            <span aria-hidden="true" className="text-base leading-none">×</span>
+          </button>
+        )}
       </div>
 
       {/* Resumen por categoría (expandible) */}
@@ -264,7 +285,7 @@ export function GastosTab() {
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden mb-4">
           <div className="px-4 py-2.5 border-b border-gray-100">
             <h3 className="text-sm font-bold text-gray-800">Resumen por categoría</h3>
-            <p className="text-xs text-gray-400">{rango.desde && rango.hasta ? `${fmtFecha(rango.desde)} al ${fmtFecha(rango.hasta)} · ` : ''}Clic en una categoría para ver el desglose por subcategoría</p>
+            <p className="text-xs text-gray-400">{rango.desde && rango.hasta ? `${fmtFecha(rango.desde)} al ${fmtFecha(rango.hasta)} · ` : ''}Abre una categoría y pulsa una persona para ver sus gastos</p>
           </div>
           {resumen.map(r => {
             const abierta = expandidas.has(r.cat)
@@ -288,7 +309,17 @@ export function GastosTab() {
                     {r.subs.map((s, i) => {
                       const pct = r.total > 0 ? Math.round((s.monto / r.total) * 100) : 0
                       return (
-                        <div key={i}>
+                        <button
+                          type="button"
+                          key={s.clave || i}
+                          onClick={() => {
+                            setFiltroCat(r.cat)
+                            setFiltroAsignado({ categoria: r.cat, clave: s.clave, nombre: s.nombre })
+                            requestAnimationFrame(() => listaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+                          }}
+                          className={`block w-full rounded-lg p-1.5 text-left transition hover:bg-white ${filtroAsignado?.categoria === r.cat && filtroAsignado.clave === s.clave ? 'bg-white ring-1 ring-blue-200' : ''}`}
+                          aria-label={`Ver gastos asignados a ${s.nombre}`}
+                        >
                           <div className="flex items-center gap-2 mb-1">
                             <span className="text-sm font-semibold text-gray-700">{s.nombre}</span>
                             <span className="text-xs text-gray-400">{pct}%</span>
@@ -297,7 +328,7 @@ export function GastosTab() {
                           <div className="h-1.5 bg-gray-200 rounded overflow-hidden">
                             <div className="h-1.5 rounded" style={{ width: `${pct}%`, background: color }} />
                           </div>
-                        </div>
+                        </button>
                       )
                     })}
                   </div>
@@ -312,7 +343,7 @@ export function GastosTab() {
       {(cats ?? []).length > 0 && (
         <div className="flex flex-wrap gap-2 mb-4">
           <button
-            onClick={() => setFiltroCat(null)}
+            onClick={() => { setFiltroCat(null); setFiltroAsignado(null) }}
             className={['px-3 py-1 rounded-full text-xs font-semibold border transition',
               filtroCat === null ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'].join(' ')}>
             Todas
@@ -325,7 +356,7 @@ export function GastosTab() {
               onDragEnter={() => onDragEnter(i)}
               onDragOver={e => e.preventDefault()}
               onDragEnd={onDragEnd}
-              onClick={() => setFiltroCat(filtroCat === c.nombre ? null : c.nombre)}
+              onClick={() => { setFiltroCat(filtroCat === c.nombre ? null : c.nombre); setFiltroAsignado(null) }}
               className={['px-3 py-1 rounded-full text-xs font-semibold border transition flex items-center gap-1.5 cursor-grab active:cursor-grabbing select-none',
                 filtroCat === c.nombre ? 'text-white border-transparent' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400',
                 dragOver === i && dragIdx !== i ? 'ring-2 ring-offset-1 ring-blue-400 scale-105' : '',
@@ -339,10 +370,10 @@ export function GastosTab() {
       )}
 
       {/* Lista agrupada por fecha */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div ref={listaRef} className="bg-white rounded-xl border border-gray-200 overflow-hidden scroll-mt-4">
         {grupos.length === 0 ? (
           <p className="text-center text-sm text-gray-400 py-16">
-            {busqueda || filtroCat ? 'Sin resultados' : 'No hay gastos registrados'}
+            {busqueda || filtroCat || filtroAsignado ? 'Sin resultados' : 'No hay gastos registrados'}
           </p>
         ) : (
           <>
