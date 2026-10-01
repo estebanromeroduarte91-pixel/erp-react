@@ -53,6 +53,44 @@ const ESTADOS_MAIN: { value: EstadoOrden | 'todos' | 'Derivado'; label: string }
   { value: 'Derivado', label: 'Derivados' },
 ]
 
+const RESULTADOS_REPARACION = ['Reparado', 'Sin solución', 'No reparado', 'No presento falla'] as const
+
+const RESULTADO_COLOR: Record<string, string> = {
+  'Reparado': 'bg-green-100 text-green-700 border-green-200',
+  'Sin solución': 'bg-amber-100 text-amber-700 border-amber-200',
+  'No reparado': 'bg-red-100 text-red-700 border-red-200',
+  'No presento falla': 'bg-purple-100 text-purple-700 border-purple-200',
+}
+
+function ResultadoRapido({ orden, guardando, onChange }: {
+  orden: OrdenLista
+  guardando: boolean
+  onChange: (resultado: string) => void
+}) {
+  if (orden.status !== 'Listo') return <EstadoBadge estado={orden.status} subestado={orden.subestado} />
+
+  return (
+    <span className="relative inline-flex" onClick={e => e.stopPropagation()}>
+      <select
+        value={orden.subestado ?? ''}
+        onChange={e => onChange(e.target.value)}
+        disabled={guardando}
+        aria-label={`Cambiar resultado de la orden ${orden.num}`}
+        title="Cambiar resultado de la reparación"
+        className={`appearance-none cursor-pointer rounded-full border py-0.5 pl-2 pr-6 text-xs font-medium outline-none transition focus:ring-2 focus:ring-blue-300 disabled:cursor-wait disabled:opacity-60 ${RESULTADO_COLOR[orden.subestado ?? ''] ?? 'bg-gray-100 text-gray-600 border-gray-200'}`}
+      >
+        <option value="" disabled>Elegir resultado</option>
+        {RESULTADOS_REPARACION.map(resultado => (
+          <option key={resultado} value={resultado}>{resultado}</option>
+        ))}
+      </select>
+      <svg className="pointer-events-none absolute right-1.5 top-1/2 h-3 w-3 -translate-y-1/2" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+        <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+      </svg>
+    </span>
+  )
+}
+
 
 function fmtFecha(iso: string) {
   try {
@@ -101,6 +139,7 @@ export function TallerPage() {
   const [eliminando, setEliminando] = useState(false)
   const [ordenAReabrir, setOrdenAReabrir] = useState<OrdenLista | null>(null)
   const [reabriendo, setReabriendo] = useState(false)
+  const [cambiandoResultadoId, setCambiandoResultadoId] = useState<string | null>(null)
 
   // Deep-link desde Buscar: ?abrir=<num de orden> abre el detalle directo.
   const [abrirSynced, setAbrirSynced] = useState(false)
@@ -247,6 +286,22 @@ export function TallerPage() {
     }
   }
 
+  async function cambiarResultadoRapido(orden: OrdenLista, subestado: string) {
+    if (orden.status !== 'Listo' || !RESULTADOS_REPARACION.includes(subestado as typeof RESULTADOS_REPARACION[number])) return
+    if (orden.subestado === subestado) return
+    setCambiandoResultadoId(orden.id)
+    try {
+      await actualizarOrden.mutateAsync({ id: orden.id, subestado })
+    } catch (e) {
+      const mensaje = e && typeof e === 'object' && 'message' in e && typeof e.message === 'string'
+        ? e.message
+        : 'No se pudo cambiar el resultado de la reparación.'
+      alert(mensaje)
+    } finally {
+      setCambiandoResultadoId(null)
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -383,9 +438,17 @@ export function TallerPage() {
                   </div>
                   <div style={{ background: '#fff', borderRadius: 14, overflow: 'hidden', border: '0.5px solid #e5e7eb' }}>
                     {grupo.ordenes.map((o, i) => (
-                      <button
+                      <div
                         key={o.id}
+                        role="button"
+                        tabIndex={0}
                         onClick={() => setDetalleNum(o.num)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault()
+                            setDetalleNum(o.num)
+                          }
+                        }}
                         style={{
                           display: 'flex', alignItems: 'center', gap: 10, width: '100%',
                           padding: '12px 14px', background: 'none', border: 'none', cursor: 'pointer',
@@ -400,13 +463,19 @@ export function TallerPage() {
                           <div style={{ fontSize: 12, color: '#8e8e93', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{o.modelo ?? o.trabajo ?? ''}</div>
                         </div>
                         <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                          <span style={{ display: 'block', marginBottom: 4 }}><EstadoBadge estado={o.status} subestado={o.subestado} /></span>
+                          <span style={{ display: 'block', marginBottom: 4 }}>
+                            <ResultadoRapido
+                              orden={o}
+                              guardando={cambiandoResultadoId === o.id}
+                              onChange={resultado => void cambiarResultadoRapido(o, resultado)}
+                            />
+                          </span>
                           <span style={{ fontSize: 11, color: '#8e8e93' }}>{fmtFecha(o.fecha)}</span>
                           <span style={{ display: 'block', marginTop: 3, fontSize: 12, fontWeight: 700, color: '#3656e6' }}>
                             Total <Money value={totalOrden(o)} />
                           </span>
                         </div>
-                      </button>
+                      </div>
                     ))}
                   </div>
                 </section>
@@ -688,7 +757,11 @@ export function TallerPage() {
                           <td className="px-4 py-3 text-gray-600">{o.modelo || '—'}</td>
                           <td className="px-4 py-3">
                             <div className="flex items-center flex-wrap gap-1.5">
-                              <EstadoBadge estado={o.status} subestado={o.subestado} />
+                              <ResultadoRapido
+                                orden={o}
+                                guardando={cambiandoResultadoId === o.id}
+                                onChange={resultado => void cambiarResultadoRapido(o, resultado)}
+                              />
                               {isDerived && (
                                 <span className="inline-flex items-center gap-1 bg-amber-100 text-amber-800 rounded-full px-2 py-0.5 text-xs font-semibold">
                                   <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
