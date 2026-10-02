@@ -4,7 +4,7 @@ import { useClientes, useCrearCliente, useActualizarCliente, useEliminarCliente,
 import { useAuth } from '@/context/AuthContext'
 import { useIsMobile } from '@/lib/useIsMobile'
 import { Spinner } from '@/components/shared/Spinner'
-import { buscarSimilar } from '@/lib/texto'
+import { buscarSimilar, normalizar } from '@/lib/texto'
 import { formatRut, soloRutDigits } from '@/lib/rut'
 import { capWords, capFirst } from '@/lib/formatters'
 import { OrdenDetallePage } from '@/modules/taller/OrdenDetallePage'
@@ -184,17 +184,25 @@ export function ClientesTab() {
 
   const lista = useMemo(() => {
     if (!busqueda.trim()) return clientes ?? []
-    const q = busqueda.toLowerCase()
+    const terminos = normalizar(busqueda).split(' ').filter(Boolean)
     // RUT guardado con puntos ("19.078.135-K"): comparar dígitos contra dígitos
     // (sin puntos) para que buscar "1907813" sí encuentre el RUT con puntos.
     const qRut = soloRutDigits(busqueda)
-    return (clientes ?? []).filter(c =>
-      `${c.nombre} ${c.apellido ?? ''}`.toLowerCase().includes(q) ||
-      (c.rut ?? '').includes(q) || (c.email ?? '').toLowerCase().includes(q) ||
-      (c.tel ?? '').includes(q) ||
-      (qRut.length > 0 && soloRutDigits(c.rut ?? '').includes(qRut))
-    )
+    return (clientes ?? []).filter(c => {
+      const texto = normalizar([
+        c.nombre,
+        c.apellido,
+        c.rut,
+        c.email,
+        c.tel,
+      ].filter(Boolean).join(' '))
+      const coincideTexto = terminos.every(termino => texto.includes(termino))
+      const coincideRut = qRut.length > 0 && soloRutDigits(c.rut ?? '').includes(qRut)
+      return coincideTexto || coincideRut
+    })
   }, [clientes, busqueda])
+
+  const clientesVisibles = useMemo(() => new Set(lista.map(c => c.id)), [lista])
 
   // Se deriva siempre de la lista fresca (nunca una copia local) para que los
   // cambios que llegan por refetch/realtime se reflejen de inmediato en el panel.
@@ -309,18 +317,21 @@ export function ClientesTab() {
           <p style={{ fontSize: 11, color: '#9ca3af', margin: 0 }}>{lista.length} clientes</p>
         </div>
 
-        <div style={{ flex: 1, overflowY: 'auto' }}>
+        <div translate="no" className="notranslate" style={{ flex: 1, overflowY: 'auto' }}>
           {lista.length === 0 ? (
             <p style={{ textAlign: 'center', padding: '40px 16px', fontSize: 13, color: '#9ca3af' }}>
               {busqueda ? 'Sin resultados' : 'No hay clientes'}
             </p>
-          ) : lista.map(c => {
+          ) : (clientes ?? []).map(c => {
             const p = avatarPalette(c.id)
             const nombre = `${c.nombre} ${c.apellido ?? ''}`.trim()
             const activo = seleccionado?.id === c.id
+            const visible = clientesVisibles.has(c.id)
             return (
               <button key={c.id} onClick={() => setSeleccionado(c)}
-                style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', border: 'none', borderBottom: '0.5px solid #f0f0f0', cursor: 'pointer', background: activo ? '#eff6ff' : 'transparent', textAlign: 'left' }}>
+                aria-hidden={!visible}
+                tabIndex={visible ? 0 : -1}
+                style={{ width: '100%', display: visible ? 'flex' : 'none', alignItems: 'center', gap: 10, padding: '10px 12px', border: 'none', borderBottom: '0.5px solid #f0f0f0', cursor: 'pointer', background: activo ? '#eff6ff' : 'transparent', textAlign: 'left' }}>
                 <div style={{ width: 36, height: 36, borderRadius: '50%', background: p.bg, color: p.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 600, flexShrink: 0 }}>
                   {initials(nombre)}
                 </div>
