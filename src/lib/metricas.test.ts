@@ -1,11 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import type { Gasto, Venta, VentaItem } from '@/types'
+import type { Venta, VentaItem } from '@/types'
 import {
   calcularCostoVentas,
-  calcularResumenOperacional,
+  calcularResumenVentas,
   periodoAnteriorEquivalente,
   fechaEfectivaOC,
-  gastoQueAfectaResultado,
   separarIva,
 } from './metricas'
 
@@ -15,11 +14,11 @@ function venta(estado: Venta['estado'], total = 1000, totalIva = 1190, items: Ve
 
 describe('métricas operacionales', () => {
   it('sólo reconoce ventas pagadas', () => {
-    const resumen = calcularResumenOperacional([
+    const resumen = calcularResumenVentas([
       venta('pagada'),
       venta('pendiente', 5000, 5950),
       venta('anulada', 7000, 8330),
-    ], [])
+    ])
 
     expect(resumen.ventasNetas).toBe(1000)
     expect(resumen.ventasBrutas).toBe(1190)
@@ -27,14 +26,11 @@ describe('métricas operacionales', () => {
     expect(resumen.ticketPromedio).toBe(1190)
   })
 
-  it('calcula el resultado sobre venta neta, costo vendido y gastos', () => {
+  it('calcula el costo vendido de las ventas pagadas', () => {
     const item = { cantidad: 2, producto_id: 'p1', costo_total: 300 } as VentaItem
-    const gasto = { monto: 200 } as Gasto
-    const resumen = calcularResumenOperacional([venta('pagada', 1000, 1190, [item])], [gasto])
+    const resumen = calcularResumenVentas([venta('pagada', 1000, 1190, [item])])
 
     expect(resumen.costoVentas).toBe(300)
-    expect(resumen.resultadoOperacional).toBe(500)
-    expect(resumen.margen).toBe(50)
   })
 
   it('prioriza el costo FIFO congelado aunque el costo actual sea distinto', () => {
@@ -100,26 +96,6 @@ describe('fechaEfectivaOC', () => {
 
   it('recorta marcas de tiempo a solo la fecha', () => {
     expect(fechaEfectivaOC({ fecha: '2026-07-01', fecha_recepcion: '2026-08-03T14:22:00Z' })).toBe('2026-08-03')
-  })
-})
-
-describe('gastoQueAfectaResultado', () => {
-  const base = { id: '1', fecha: '2026-08-01', descripcion: 'x', categoria: 'Otros' }
-
-  // Ningún gasto anterior a este cambio debe moverse: sin clasificar se
-  // descuenta completo, igual que siempre.
-  it('descuenta el total cuando no está clasificado', () => {
-    expect(gastoQueAfectaResultado({ ...base, monto: 119000 })).toBe(119000)
-  })
-
-  it('descuenta solo el neto cuando hay factura', () => {
-    expect(gastoQueAfectaResultado({
-      ...base, monto: 119000, con_credito_fiscal: true, monto_neto: 100000, iva: 19000,
-    })).toBe(100000)
-  })
-
-  it('descuenta el total si dice tener factura pero no trae el neto', () => {
-    expect(gastoQueAfectaResultado({ ...base, monto: 119000, con_credito_fiscal: true })).toBe(119000)
   })
 })
 

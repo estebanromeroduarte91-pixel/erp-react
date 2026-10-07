@@ -40,6 +40,10 @@ const MARCADORES = {
     marcadores: ['fn_soy_admin_de'],
     porque: 'guarda cargo, mapa y rol en una transacción y solo para administradores',
   },
+  fn_rentabilidad_sucursales: {
+    marcadores: ['resultado_cuatro_paredes'],
+    porque: 'Dashboard, Resumen ejecutivo y Reportes BI leen el resultado desde acá; sin ella muestran "—"',
+  },
   fn_fijar_stock_manual: {
     marcadores: ['fn_ajustar_stock'],
     porque: 'los ajustes manuales deben pasar por el delta atómico',

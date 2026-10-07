@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { resumenProductos, nombresProductos } from '@/lib/venta'
-import { useVentasEnRango, useUltimasVentas, useGastosEnRango, useBodegas, useMetodosPago, useOCsEnRango, useCostosProductos } from '@/lib/queries'
-import { distribuirGastosPorSucursal } from '@/lib/gastos'
-import { calcularCostoVentas, calcularResumenOperacional, fechaEfectivaOC, filtrarVentasPagadas, periodoAnteriorEquivalente, restarDias, MARGEN_OC_DIAS } from '@/lib/metricas'
+import { useVentasEnRango, useUltimasVentas, useRentabilidadSucursales, useBodegas, useMetodosPago, useOCsEnRango, useCostosProductos } from '@/lib/queries'
+import { cascada, resultadoPorSucursal } from '@/lib/rentabilidad'
+import { calcularResumenVentas, fechaEfectivaOC, filtrarVentasPagadas, periodoAnteriorEquivalente, restarDias, MARGEN_OC_DIAS } from '@/lib/metricas'
 import { nombreMetodoPago } from '@/lib/metodoPago'
 import { Spinner } from '@/components/shared/Spinner'
 import { useIsMobile } from '@/lib/useIsMobile'
@@ -77,14 +77,17 @@ type DashboardStats = {
   ventasBrutasPrev: number
   ventasNetas: number
   totalOC: number
-  totalGastos: number
+  // null = la cuenta no puede ver estadísticas (fn_rentabilidad_sucursales lo
+  // rechaza): se muestra "—" en vez de un $0 que parecería real.
+  totalGastos: number | null
   totalCosto: number
-  totalSalida: number
-  utilidad: number
+  totalSalida: number | null
+  utilidad: number | null
+  fueraOperacion: number | null
   margen: number
   txCount: number
   ticketProm: number
-  sucursales: { id: string; nombre: string; total: number; totalPrev: number; neto: number; count: number; part: number; utilidad: number; color: string }[]
+  sucursales: { id: string; nombre: string; total: number; totalPrev: number; neto: number; count: number; part: number; utilidad: number | null; color: string }[]
   mpPorSuc: { totalSuc: number; sorted: [string, number][] }[]
   mpGlobalSorted: [string, number][]
 }
@@ -169,7 +172,7 @@ function KpiGrid({ cols, stats }: { cols: number; stats: DashboardStats }) {
       {[
         { label: 'Ventas con IVA', value: fmt(stats.ventasBrutas), sub: `${stats.txCount} transacciones`, curr: stats.ventasBrutas, prev: stats.ventasBrutasPrev },
         { label: 'Ventas netas', value: fmt(stats.ventasNetas), sub: 'sin IVA' },
-        { label: 'Resultado operacional', value: fmt(stats.utilidad), sub: `margen ${stats.margen}%`, green: stats.utilidad >= 0 },
+        { label: 'Resultado operacional', value: stats.utilidad == null ? '—' : fmt(stats.utilidad), sub: stats.utilidad == null ? 'sin acceso a estadísticas' : `margen ${stats.margen}%`, green: stats.utilidad != null && stats.utilidad >= 0 },
         { label: 'Transacciones', value: String(stats.txCount), sub: stats.ticketProm > 0 ? `${fmt(stats.ticketProm)} prom. con IVA` : '—' },
       ].map(k => (
         <div key={k.label} style={{ background: C.card, borderRadius: 12, padding: '12px 14px', border: `0.5px solid ${C.border}` }}>
@@ -212,12 +215,14 @@ function SucursalCards({ stack = false, stats, setSucDetalle }: { stack?: boolea
                   </div>
                 ))}
               </div>
-              <div style={{ marginTop: 8, padding: '6px 8px', background: s.utilidad >= 0 ? C.greenBg : C.redBg, borderRadius: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: 11, color: C.textSecondary }}>Resultado</span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: s.utilidad >= 0 ? C.green : C.red }}>
-                  {s.utilidad >= 0 ? '+' : ''}{fmt(s.utilidad)}
-                </span>
-              </div>
+              {s.utilidad != null && (
+                <div style={{ marginTop: 8, padding: '6px 8px', background: s.utilidad >= 0 ? C.greenBg : C.redBg, borderRadius: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 11, color: C.textSecondary }}>Resultado</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: s.utilidad >= 0 ? C.green : C.red }}>
+                    {s.utilidad >= 0 ? '+' : ''}{fmt(s.utilidad)}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         ))}
@@ -334,19 +339,27 @@ function GastosCard({ stats }: { stats: DashboardStats }) {
       ].map((row, i, arr) => (
         <Link key={row.label} to={row.to} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: i < arr.length - 1 ? `0.5px solid ${C.border}` : 'none', textDecoration: 'none' }}>
           <span style={{ fontSize: 13, color: '#2563eb' }}>{row.label}</span>
-          <span style={{ fontSize: 13, fontWeight: 600, color: C.textPrimary }}>{fmt(row.value)}</span>
+          <span style={{ fontSize: 13, fontWeight: 600, color: C.textPrimary }}>{row.value == null ? '—' : fmt(row.value)}</span>
         </Link>
       ))}
       <div style={{ marginTop: 10, paddingTop: 10, borderTop: `0.5px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
         <span style={{ fontSize: 13, color: C.textSecondary }}>Costos + gastos</span>
-        <span style={{ fontSize: 17, fontWeight: 700, color: C.red }}>{fmt(stats.totalSalida)}</span>
+        <span style={{ fontSize: 17, fontWeight: 700, color: C.red }}>{stats.totalSalida == null ? '—' : fmt(stats.totalSalida)}</span>
       </div>
-      <div style={{ marginTop: 8, padding: '8px 10px', background: stats.utilidad >= 0 ? C.greenBg : C.redBg, borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span style={{ fontSize: 12, color: C.textSecondary }}>Resultado operacional estimado</span>
-        <span style={{ fontSize: 14, fontWeight: 700, color: stats.utilidad >= 0 ? C.green : C.red }}>
-          {stats.utilidad >= 0 ? '+' : ''}{fmt(stats.utilidad)}
-        </span>
-      </div>
+      {stats.utilidad != null && (
+        <div style={{ marginTop: 8, padding: '8px 10px', background: stats.utilidad >= 0 ? C.greenBg : C.redBg, borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontSize: 12, color: C.textSecondary }}>Resultado operacional estimado</span>
+          <span style={{ fontSize: 14, fontWeight: 700, color: stats.utilidad >= 0 ? C.green : C.red }}>
+            {stats.utilidad >= 0 ? '+' : ''}{fmt(stats.utilidad)}
+          </span>
+        </div>
+      )}
+      {stats.fueraOperacion != null && stats.fueraOperacion > 0 && (
+        <div style={{ marginTop: 8, padding: '8px 10px', background: C.bg, borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontSize: 11, color: C.textMuted }}>Fuera de operación (crédito, banco, equipos)</span>
+          <span style={{ fontSize: 12, fontWeight: 600, color: C.textSecondary }}>{fmt(stats.fueraOperacion)}</span>
+        </div>
+      )}
       <Link to="/compras" style={{ marginTop: 8, padding: '8px 10px', background: C.bg, borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center', textDecoration: 'none' }}>
         <span style={{ fontSize: 11, color: C.textMuted }}>Compras del período (inversión en stock, no es gasto)</span>
         <span style={{ fontSize: 12, fontWeight: 600, color: C.textSecondary }}>{fmt(stats.totalOC)}</span>
@@ -375,7 +388,8 @@ export function DashboardPage() {
 
   const { data: ventas,  isLoading: loadV } = useVentasEnRango(rangoDesde, rangoHasta)
   const { data: ultimasVentasData = [] } = useUltimasVentas(5)
-  const { data: gastos,  isLoading: loadG } = useGastosEnRango(rangoDesde, rangoHasta)
+  // Resultado, gastos y corporativo por sucursal: fuente única en SQL.
+  const { data: rentabilidad, isLoading: loadG } = useRentabilidadSucursales({ desde, hasta })
   // Las OC se piden con margen hacia atrás porque se cuentan por la fecha en
   // que se recibieron, no por la de creación: una creada en junio y recibida
   // en agosto tiene que aparecer en agosto, y el servidor filtra por creación.
@@ -416,33 +430,30 @@ export function DashboardPage() {
 
   const stats = useMemo(() => {
     const vArr  = filtrarVentasPagadas(ventas ?? [])
-    const gArr  = gastos  ?? []
     const ocArr = ocs     ?? []
 
     const vPer  = vArr.filter(v => inPeriod(v.fecha, desde, hasta))
     const vPrev = vArr.filter(v => inPeriod(v.fecha, pDesde, pHasta))
-    const gPer  = gArr.filter(g => inPeriod(g.fecha, desde, hasta))
     const ocPer = ocArr.filter(o => ['recibida', 'confirmada'].includes(o.estado) && inPeriod(fechaEfectivaOC(o), desde, hasta))
 
     const prodCostoMap = new Map(costosProductos.map(p => [p.id, p.precio_compra]))
-    const resumen = calcularResumenOperacional(vPer, gPer, prodCostoMap)
+    const resumen = calcularResumenVentas(vPer, prodCostoMap)
+    const resultado = rentabilidad ? cascada(rentabilidad, null) : null
     const ventasBrutas     = resumen.ventasBrutas
     const ventasBrutasPrev = vPrev.reduce((s, v) => s + (+v.total_iva || 0), 0)
     const ventasNetas      = resumen.ventasNetas
     const totalOC          = ocPer.reduce((s, o) => s + (+o.total || 0), 0)
-    const totalGastos      = resumen.gastos
+    const totalGastos      = resultado ? resultado.gastosTienda + resultado.corporativo : null
     const totalCosto       = resumen.costoVentas
-    const totalSalida      = totalCosto + totalGastos
-    const utilidad         = resumen.resultadoOperacional
-    const margen           = resumen.margen
+    const totalSalida      = totalGastos == null ? null : totalCosto + totalGastos
+    const utilidad         = resultado ? resultado.resultado : null
+    const fueraOperacion   = resultado?.fueraDeOperacion ?? null
+    const margen           = utilidad != null && ventasNetas > 0 ? Math.round(utilidad / ventasNetas * 100) : 0
     const txCount          = resumen.cantidadVentas
     const ticketProm       = resumen.ticketPromedio
 
-    // Gastos directos de cada sucursal + prorrateo de los "General/Compartido" según % de ventas netas.
-    const ventasNetasPorSucursal: Record<string, number> = {}
-    bodegas.forEach(b => { ventasNetasPorSucursal[b.id] = vPer.filter(v => v.branchId === b.id).reduce((s, v) => s + (+v.total || 0), 0) })
-    const distribucionGastos = distribuirGastosPorSucursal(gPer, bodegas, ventasNetasPorSucursal)
-    const gastosPorSuc = distribucionGastos.porSucursal
+    // Resultado completo de cada sucursal (con su parte del corporativo).
+    const resultadoSuc = rentabilidad ? resultadoPorSucursal(rentabilidad) : null
 
     const totalGeneral = ventasBrutas || 1
     const sucursales = bodegas.map((b, i) => {
@@ -457,7 +468,7 @@ export function DashboardPage() {
         neto:   bNeta,
         count:  bVPer.length,
         part:   Math.round(bVPer.reduce((s, v) => s + (+v.total_iva || 0), 0) / totalGeneral * 100),
-        utilidad: bNeta - calcularCostoVentas(bVPer, prodCostoMap) - (gastosPorSuc[b.id] ?? 0),
+        utilidad: resultadoSuc ? (resultadoSuc.get(b.id) ?? 0) : null,
         color:  SUC_COLORS[i] ?? '#64748b',
       }
     })
@@ -477,8 +488,8 @@ export function DashboardPage() {
     vPer.forEach(v => { const mp = v.metodo_pago || 'otro'; mpGlobal[mp] = (mpGlobal[mp] ?? 0) + (+v.total_iva || 0) })
     const mpGlobalSorted = Object.entries(mpGlobal).sort((a, b) => b[1] - a[1])
 
-    return { ventasBrutas, ventasBrutasPrev, ventasNetas, totalOC, totalGastos, totalCosto, totalSalida, utilidad, margen, txCount, ticketProm, sucursales, mpPorSuc, mpGlobalSorted }
-  }, [ventas, gastos, ocs, costosProductos, bodegas, desde, hasta, pDesde, pHasta])
+    return { ventasBrutas, ventasBrutasPrev, ventasNetas, totalOC, totalGastos, totalCosto, totalSalida, utilidad, fueraOperacion, margen, txCount, ticketProm, sucursales, mpPorSuc, mpGlobalSorted }
+  }, [ventas, rentabilidad, ocs, costosProductos, bodegas, desde, hasta, pDesde, pHasta])
   // Actividad reciente: siempre las últimas ventas reales, sin importar el
   // período seleccionado (consulta chica aparte, no depende del rango visible).
   const ultimasVentas = useMemo(

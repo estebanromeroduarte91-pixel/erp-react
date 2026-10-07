@@ -1,7 +1,7 @@
 import { useMemo, useState, useRef } from 'react'
-import { useVentasEnRango, useGastosEnRango, useOrdenesEntregadasEnRango, useBodegas, useOCsEnRango, useCostosProductos, useMetodosPago } from '@/lib/queries'
-import { distribuirGastosPorSucursal } from '@/lib/gastos'
-import { calcularCostoVentas, calcularResumenOperacional, fechaEfectivaOC, filtrarVentasPagadas, periodoAnteriorEquivalente, restarDias, MARGEN_OC_DIAS, type RangoComparacion } from '@/lib/metricas'
+import { useVentasEnRango, useGastosEnRango, useOrdenesEntregadasEnRango, useBodegas, useOCsEnRango, useCostosProductos, useMetodosPago, useRentabilidadSucursales } from '@/lib/queries'
+import { cascada } from '@/lib/rentabilidad'
+import { calcularResumenVentas, fechaEfectivaOC, filtrarVentasPagadas, periodoAnteriorEquivalente, restarDias, MARGEN_OC_DIAS, type RangoComparacion } from '@/lib/metricas'
 import { nombreMetodoPago } from '@/lib/metodoPago'
 import { Spinner } from '@/components/shared/Spinner'
 import { useIsMobile } from '@/lib/useIsMobile'
@@ -288,7 +288,10 @@ export function ResumenTab({ seccion = 'resumen', mostrarEncabezado = true, most
   // getRange() siempre devuelve fechas válidas (cae al mes actual), así que
   // la query nunca queda deshabilitada.
   const { data: ventas, isLoading: loadV } = useVentasEnRango(rangoVentas.from, range.to)
+  // Los gastos se siguen pidiendo para los desgloses por categoría; el
+  // resultado sale de la fuente única (fn_rentabilidad_sucursales).
   const { data: gastos, isLoading: loadG } = useGastosEnRango(queryRange.from, queryRange.to)
+  const { data: rentabilidad, isLoading: loadR } = useRentabilidadSucursales({ desde: range.from, hasta: range.to })
   const { data: ordenes, isLoading: loadO } = useOrdenesEntregadasEnRango(queryRange.from, queryRange.to)
   // Ver el comentario del Dashboard: margen hacia atrás porque las compras se
   // cuentan por la fecha de recepción y el servidor filtra por la de creación.
@@ -318,13 +321,14 @@ export function ResumenTab({ seccion = 'resumen', mostrarEncabezado = true, most
     const ordeArr = (ordenes ?? []).filter(o => inRange(fechaEntrega(o)) && (!branchId || o.branchId === branchId))
 
     const prodCostoMap = new Map(costosProductos.map(p => [p.id, p.precio_compra]))
-    const resumen = calcularResumenOperacional(ventasArr, gastosArr, prodCostoMap)
+    const resumen = calcularResumenVentas(ventasArr, prodCostoMap)
+    const resultado = rentabilidad ? cascada(rentabilidad, branchId) : null
     const totalVentas = resumen.ventasBrutas
     const ventasNetas = resumen.ventasNetas
-    const totalGastos = resumen.gastos
+    const totalGastos = resultado ? resultado.gastosTienda + resultado.corporativo : null
     const totalCompras = ocsArr.reduce((s, o) => s + (+o.total || 0), 0)
     const totalCosto = resumen.costoVentas
-    const utilidad = resumen.resultadoOperacional
+    const utilidad = resultado ? resultado.resultado : null
     const ordenesOk = ordeArr.length
     const ticketProm = resumen.ticketPromedio
 
@@ -343,34 +347,16 @@ export function ResumenTab({ seccion = 'resumen', mostrarEncabezado = true, most
       .reduce((s, v) => s + (+v.total_iva || 0), 0)
     if (totalSinSucursal > 0) bSales.push({ nombre: 'Sin sucursal', total: totalSinSucursal })
 
-    // Utilidad por sucursal: ventas de la sucursal menos sus gastos (directos + prorrateo
-    // de los gastos "General/Compartido" según % de ventas netas). El costo de compras (OC)
-    // no se resta acá: eso ya lo maneja el costeo FIFO al momento de la venta.
-    const ventasNetasPorSucursal: Record<string, number> = {}
-    bodegas.forEach(b => {
-      ventasNetasPorSucursal[b.id] = ventasArr.filter(v => v.branchId === b.id).reduce((s, v) => s + (+v.total || 0), 0)
-    })
-    const distribucionGastos = distribuirGastosPorSucursal(gastosArr, bodegas, ventasNetasPorSucursal)
-    const gastosPorSuc = distribucionGastos.porSucursal
-    const bUtil = bodegas
-      .map(b => {
-        const bV = ventasArr.filter(v => v.branchId === b.id)
-        return {
-          nombre: b.nombre ?? b.name ?? '—',
-          util: bV.reduce((s, v) => s + (+v.total || 0), 0) - calcularCostoVentas(bV, prodCostoMap) - (gastosPorSuc[b.id] ?? 0),
-        }
-      })
+    // Resultado por sucursal: después de sus gastos de tienda y de su parte
+    // del corporativo. Sale de la función SQL para que sucursales + no
+    // asignado cuadren con el total.
+    const bUtil = (rentabilidad?.sucursales ?? [])
+      .filter(s => !branchId || s.branch_id === branchId)
+      .map(s => ({ nombre: s.nombre, util: +s.resultado_completo || 0 }))
       .filter(b => b.util !== 0)
       .sort((a, b) => b.util - a.util)
-    const ventasSinSucursal = ventasArr.filter(v => !v.branchId || !idsBodegasVentas.has(v.branchId))
-    if (ventasSinSucursal.length > 0 || distribucionGastos.noAsignado > 0) {
-      bUtil.push({
-        nombre: 'Sin sucursal / no asignado',
-        util: ventasSinSucursal.reduce((s, v) => s + (+v.total || 0), 0)
-          - calcularCostoVentas(ventasSinSucursal, prodCostoMap)
-          - distribucionGastos.noAsignado,
-      })
-    }
+    const noAsignado = rentabilidad?.no_asignado?.resultado ?? 0
+    if (!branchId && noAsignado !== 0) bUtil.push({ nombre: 'Sin sucursal / no asignado', util: noAsignado })
 
     // Comparación con el período anterior.
     const ventasPrev = filtrarVentasPagadas(ventas ?? [])
@@ -476,11 +462,11 @@ export function ResumenTab({ seccion = 'resumen', mostrarEncabezado = true, most
       ocsPeriodo: ocsArr,
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ventas, gastos, ordenes, ocs, costosProductos, bodegas, range, range6, last6, previo, nombreMetodo, branchId])
+  }, [ventas, gastos, rentabilidad, ordenes, ocs, costosProductos, bodegas, range, range6, last6, previo, nombreMetodo, branchId])
 
   const isMobile = useIsMobile()
 
-  if (loadV || loadG || loadO || loadOC || loadCostos) return <div className="flex justify-center py-16"><Spinner className="w-8 h-8" /></div>
+  if (loadV || loadG || loadR || loadO || loadOC || loadCostos) return <div className="flex justify-center py-16"><Spinner className="w-8 h-8" /></div>
 
   const TABS: { id: Tab; label: string }[] = [
     { id: 'hoy', label: 'Hoy' },
@@ -558,8 +544,8 @@ export function ResumenTab({ seccion = 'resumen', mostrarEncabezado = true, most
         </div>
         <div style={CARD}>
           <p style={KPI_LAB}>Resultado operacional</p>
-          <p style={{ ...KPI_VAL, color: stats.utilidad >= 0 ? '#10b981' : '#ef4444' }}>{fmt(stats.utilidad)}</p>
-          <p style={KPI_SUB}>Ventas netas − costo vendido − gastos</p>
+          <p style={{ ...KPI_VAL, color: stats.utilidad == null ? '#9ca3af' : stats.utilidad >= 0 ? '#10b981' : '#ef4444' }}>{stats.utilidad == null ? '—' : fmt(stats.utilidad)}</p>
+          <p style={KPI_SUB}>{branchId ? 'Después de gastos de tienda y su parte del corporativo' : 'Ventas netas − costo − gastos de tienda − corporativo'}</p>
         </div>
         <div style={CARD}>
           <p style={KPI_LAB}>Órdenes entregadas</p>
@@ -590,7 +576,7 @@ export function ResumenTab({ seccion = 'resumen', mostrarEncabezado = true, most
         {/* Utilidad por sucursal */}
         <div style={CARD}>
           <p style={CT}>Resultado por sucursal</p>
-          <p style={CS}>Ventas netas − Costo de productos − Gastos asignados</p>
+          <p style={CS}>Ventas netas − costo − gastos de tienda − corporativo asignado</p>
           {stats.bUtil.length ? stats.bUtil.map((b, i) => (
             <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11, padding: '5px 0', borderBottom: '1px solid #f3f4f6' }}>
               <span style={{ color: '#374151', fontWeight: 600 }}>{b.nombre}</span>

@@ -1,15 +1,12 @@
-import type { Gasto, Venta } from '@/types'
+import type { Venta } from '@/types'
 import { fechaLocal } from './fecha'
 
 export type RangoComparacion = 'hoy' | 'mes' | 'año' | 'rango'
 
-export interface ResumenOperacional {
+export interface ResumenVentas {
   ventasBrutas: number
   ventasNetas: number
   costoVentas: number
-  gastos: number
-  resultadoOperacional: number
-  margen: number
   cantidadVentas: number
   ticketPromedio: number
 }
@@ -40,29 +37,23 @@ export function calcularCostoVentas(
 }
 
 /**
- * Resultado operacional estimado, no utilidad contable final:
- * ventas netas - costo de ventas - gastos operacionales registrados.
+ * Ventas, costo vendido y ticket del período. El resultado (gastos de tienda,
+ * corporativo, fuera de operación) NO se calcula acá: sale de
+ * fn_rentabilidad_sucursales — ver src/lib/rentabilidad.ts.
  */
-export function calcularResumenOperacional(
+export function calcularResumenVentas(
   ventas: Venta[],
-  gastos: Gasto[],
   costosActuales: ReadonlyMap<string, number> = new Map(),
-): ResumenOperacional {
+): ResumenVentas {
   const pagadas = filtrarVentasPagadas(ventas)
   const ventasBrutas = pagadas.reduce((s, venta) => s + (+venta.total_iva || 0), 0)
   const ventasNetas = pagadas.reduce((s, venta) => s + (+venta.total || 0), 0)
-  const costoVentas = calcularCostoVentas(pagadas, costosActuales)
-  const totalGastos = gastos.reduce((s, gasto) => s + gastoQueAfectaResultado(gasto), 0)
-  const resultadoOperacional = ventasNetas - costoVentas - totalGastos
   const cantidadVentas = pagadas.length
 
   return {
     ventasBrutas,
     ventasNetas,
-    costoVentas,
-    gastos: totalGastos,
-    resultadoOperacional,
-    margen: ventasNetas > 0 ? Math.round(resultadoOperacional / ventasNetas * 100) : 0,
+    costoVentas: calcularCostoVentas(pagadas, costosActuales),
     cantidadVentas,
     ticketPromedio: cantidadVentas > 0 ? Math.round(ventasBrutas / cantidadVentas) : 0,
   }
@@ -146,22 +137,6 @@ export const MARGEN_OC_DIAS = 120
 
 export function restarDias(fecha: string, dias: number): string {
   return moverDias(fecha, -dias)
-}
-
-/**
- * Cuánto de un gasto descuenta de verdad el resultado.
- *
- * Con factura, el IVA no es un costo: es crédito fiscal que se recupera contra
- * el IVA de las ventas. Restar el monto total contra ingresos netos infla los
- * costos y deja la utilidad más baja de la real.
- *
- * Sin clasificar (todos los gastos anteriores a este cambio) se descuenta el
- * total, que es el comportamiento que ya tenían: ningún número del pasado se
- * mueve por haber agregado esto.
- */
-export function gastoQueAfectaResultado(gasto: Gasto): number {
-  if (gasto.con_credito_fiscal && gasto.monto_neto != null) return +gasto.monto_neto || 0
-  return +gasto.monto || 0
 }
 
 /** Neto e IVA a partir de un monto con IVA incluido. */

@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
-import { useVentasResumen, useGastosEnRango, useBodegas, useReporteSerie, useReporteRentabilidad, useReporteSucursales } from '@/lib/queries'
+import { useVentasResumen, useBodegas, useReporteSerie, useReporteRentabilidad, useReporteSucursales, useRentabilidadSucursales } from '@/lib/queries'
+import { cascada } from '@/lib/rentabilidad'
 import { periodoAnteriorEquivalente } from '@/lib/metricas'
 import { Spinner } from '@/components/shared/Spinner'
 
@@ -11,38 +12,29 @@ export function VistaGeneralBI({ desde, hasta, branchId }: {
   branchId: string | null
 }) {
   const anterior = useMemo(() => periodoAnteriorEquivalente('rango', desde, hasta), [desde, hasta])
-  const inicioConsulta = anterior.desde < desde ? anterior.desde : desde
   const ventas = useVentasResumen(desde, hasta, branchId)
   const ventasAnteriores = useVentasResumen(anterior.desde, anterior.hasta, branchId)
-  const gastos = useGastosEnRango(inicioConsulta, hasta)
+  // Resultado, gastos y corporativo salen de la función SQL, no de sumar gastos acá.
+  const rentabilidadSucursales = useRentabilidadSucursales({ desde, hasta })
   const { data: bodegas = [] } = useBodegas()
   const serie = useReporteSerie({ desde, hasta, agrupacion: 'categoria', productoIds: [], branchId })
   const rentabilidad = useReporteRentabilidad({ desde, hasta, branchId, activo: true })
   const sucursales = useReporteSucursales({ desde, hasta, branchId })
 
   const data = useMemo(() => {
-    const gastosActuales = (gastos.data ?? []).filter(g => g.fecha >= desde && g.fecha <= hasta && (!branchId || g.bodega_id === branchId))
-    const gastosPrevios = (gastos.data ?? []).filter(g => g.fecha >= anterior.desde && g.fecha <= anterior.hasta && (!branchId || g.bodega_id === branchId))
     const periodo = ventas.data?.periodo ?? { count: 0, total_iva: 0, total_neto: 0, utilidad: 0 }
     const periodoPrevio = ventasAnteriores.data?.periodo ?? { count: 0, total_iva: 0, total_neto: 0, utilidad: 0 }
-    const totalGastos = gastosActuales.reduce((s, g) => s + (+g.monto || 0), 0)
-    const totalGastosPrevios = gastosPrevios.reduce((s, g) => s + (+g.monto || 0), 0)
     const actual = {
       ventasBrutas: +periodo.total_iva || 0,
       ventasNetas: +periodo.total_neto || 0,
-      costoVentas: (+periodo.total_neto || 0) - (+periodo.utilidad || 0),
-      gastos: totalGastos,
-      resultadoOperacional: (+periodo.utilidad || 0) - totalGastos,
       cantidadVentas: +periodo.count || 0,
     }
     const previo = {
       ventasBrutas: +periodoPrevio.total_iva || 0,
       ventasNetas: +periodoPrevio.total_neto || 0,
-      costoVentas: (+periodoPrevio.total_neto || 0) - (+periodoPrevio.utilidad || 0),
-      gastos: totalGastosPrevios,
-      resultadoOperacional: (+periodoPrevio.utilidad || 0) - totalGastosPrevios,
       cantidadVentas: +periodoPrevio.count || 0,
     }
+    const resultado = cascada(rentabilidadSucursales.data, branchId)
 
     const nombresBodegas = new Map(bodegas.map(b => [b.id, b.nombre ?? b.name ?? 'Sin nombre']))
     const porSucursal = (sucursales.data?.filas ?? []).map(s => ({
@@ -62,13 +54,14 @@ export function VistaGeneralBI({ desde, hasta, branchId }: {
       (serie.data?.series ?? []).reduce((s, categoria) => s + (+categoria.neto[i] || 0), 0),
     ] as [string, number])
 
-    return { actual, previo, porSucursal, topProductos, meses }
-  }, [gastos.data, ventas.data, ventasAnteriores.data, rentabilidad.data, serie.data, sucursales.data, desde, hasta, branchId, anterior, bodegas])
+    return { actual, previo, resultado, porSucursal, topProductos, meses }
+  }, [rentabilidadSucursales.data, ventas.data, ventasAnteriores.data, rentabilidad.data, serie.data, sucursales.data, branchId, bodegas])
 
-  if (ventas.isLoading || ventasAnteriores.isLoading || gastos.isLoading || serie.isLoading || rentabilidad.isLoading || sucursales.isLoading) return <div className="py-16"><Spinner /></div>
+  if (ventas.isLoading || ventasAnteriores.isLoading || rentabilidadSucursales.isLoading || serie.isLoading || rentabilidad.isLoading || sucursales.isLoading) return <div className="py-16"><Spinner /></div>
 
-  const margenBruto = data.actual.ventasNetas - data.actual.costoVentas
-  const margenPct = data.actual.ventasNetas ? margenBruto / data.actual.ventasNetas * 100 : 0
+  const r = data.resultado
+  const margenBruto = r.margenBruto
+  const margenPct = r.ventasNetas ? margenBruto / r.ventasNetas * 100 : 0
   const delta = (actual: number, previo: number) => previo ? (actual - previo) / Math.abs(previo) * 100 : null
   const maxSucursal = Math.max(1, ...data.porSucursal.map(b => b.neto))
 
@@ -78,7 +71,7 @@ export function VistaGeneralBI({ desde, hasta, branchId }: {
         <Kpi label="Ventas brutas" unidad="CLP" valor={clp(data.actual.ventasBrutas)} variacion={delta(data.actual.ventasBrutas, data.previo.ventasBrutas)} />
         <Kpi label="Ventas netas" unidad="sin IVA" valor={clp(data.actual.ventasNetas)} variacion={delta(data.actual.ventasNetas, data.previo.ventasNetas)} />
         <Kpi label="Margen bruto" unidad={`${margenPct.toLocaleString('es-CL', { maximumFractionDigits: 1 })}%`} valor={clp(margenBruto)} />
-        <Kpi label="Resultado operacional" unidad="CLP" valor={clp(data.actual.resultadoOperacional)} negativo={data.actual.resultadoOperacional < 0} />
+        <Kpi label="Resultado operacional" unidad={branchId ? 'con corporativo' : 'CLP'} valor={clp(r.resultado)} negativo={r.resultado < 0} />
         <Kpi label="Transacciones" unidad="ventas" valor={data.actual.cantidadVentas.toLocaleString('es-CL')} variacion={delta(data.actual.cantidadVentas, data.previo.cantidadVentas)} />
       </div>
 
@@ -86,14 +79,21 @@ export function VistaGeneralBI({ desde, hasta, branchId }: {
         <Panel titulo="Ventas netas" bajada="Evolución mensual del período seleccionado">
           <Tendencia meses={data.meses} />
         </Panel>
-        <Panel titulo="Puente de rentabilidad" bajada="De la venta al resultado operacional">
+        <Panel titulo="Puente de rentabilidad" bajada={branchId ? 'Incluye su parte de los gastos corporativos' : 'De la venta al resultado operacional'}>
           <Puente filas={[
-            ['Ventas netas', data.actual.ventasNetas, 'blue'],
-            ['− Costo vendido', -data.actual.costoVentas, 'amber'],
+            ['Ventas netas', r.ventasNetas, 'blue'],
+            ['− Costo vendido', -r.costo, 'amber'],
             ['= Margen bruto', margenBruto, 'green'],
-            ['− Gastos operación', -data.actual.gastos, 'red'],
-            ['Resultado', data.actual.resultadoOperacional, data.actual.resultadoOperacional >= 0 ? 'green' : 'red'],
+            ['− Gastos de tienda', -r.gastosTienda, 'red'],
+            ['= Cuatro paredes', r.cuatroParedes, r.cuatroParedes >= 0 ? 'green' : 'red'],
+            [branchId ? '− Corporativo asignado' : '− Corporativo', -r.corporativo, 'red'],
+            ['Resultado', r.resultado, r.resultado >= 0 ? 'green' : 'red'],
           ]} />
+          {r.fueraDeOperacion != null && r.fueraDeOperacion > 0 && (
+            <p className="mt-3 pt-3 border-t border-gray-100 text-[11px] text-gray-500 m-0">
+              Fuera de la operación: <strong className="text-gray-700 tabular-nums">{clp(r.fueraDeOperacion)}</strong> en créditos, banco y equipos. No se restan al resultado.
+            </p>
+          )}
         </Panel>
       </div>
 

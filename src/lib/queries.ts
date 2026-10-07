@@ -7,6 +7,7 @@ import { MSG_DEFAULTS } from './msgTemplatesDefaults'
 import { reconciliarLotes } from './lotes'
 import { soloRutDigits } from './rut'
 import { claveCategoria, type ConfigNaturaleza } from './naturalezaGasto'
+import type { RentabilidadSucursales } from './rentabilidad'
 import { extraerMensajeError } from './edgeError'
 import { errorEnResultadosDte, type ResultadoProcesoDte } from './dteProceso'
 import { DEFAULT_PLAN_LIMITS, type PlanTier } from './queries/usePlanLimits'
@@ -2033,6 +2034,27 @@ export function useReporteSucursales(p: {
       return data as { filas: ReporteSucursalFila[] }
     },
     enabled: !!empresaId,
+    placeholderData: keepPreviousData,
+  })
+}
+
+// Única fuente del resultado por sucursal y consolidado (gastos de tienda,
+// corporativo repartido por ventas, fuera de operación). Ver src/lib/rentabilidad.ts.
+export function useRentabilidadSucursales(p: { desde: string; hasta: string }) {
+  const { empresaId } = useAuth()
+  return useQuery({
+    queryKey: ['rentabilidad-sucursales', empresaId, p.desde, p.hasta],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('fn_rentabilidad_sucursales', {
+        p_desde: p.desde, p_hasta: p.hasta, p_empresa_id: empresaId,
+      })
+      if (error) throw error
+      return data as RentabilidadSucursales
+    },
+    enabled: !!empresaId && !!p.desde && !!p.hasta,
+    // "Sin permiso" no se arregla reintentando, y el Dashboard esperaría los
+    // reintentos antes de pintar para quien no ve estadísticas.
+    retry: (intentos, error) => intentos < 2 && !/permiso/i.test((error as Error)?.message ?? ''),
     placeholderData: keepPreviousData,
   })
 }
