@@ -1,6 +1,7 @@
 import { useState, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useGuardarProducto, useCategorias, useGuardarCategorias } from '@/lib/queries'
+import { tipoSugeridoPorCategoria } from '@/lib/tipoProducto'
 import { buscarSimilar } from '@/lib/texto'
 import type { Producto, Bodega } from '@/types'
 
@@ -37,7 +38,14 @@ export function ProductoModal({ producto, productos, bodegas, onClose, onGuardad
   const guardar = useGuardarProducto()
   const isEditing = !!producto
 
-  const [tipo, setTipo] = useState<'producto' | 'servicio'>(producto?.tipo ?? 'producto')
+  // Al crear desde el POS no se preselecciona nada: el valor por defecto
+  // "producto" hacía que un servicio hecho al vuelo terminara descontando
+  // stock y quedando en negativo. Pasó dos veces en Steve Docs.
+  const [tipo, setTipo] = useState<'producto' | 'servicio' | null>(
+    producto?.tipo ?? (compacto ? null : 'producto'),
+  )
+  // Si el usuario ya eligió a mano, la categoría deja de sugerir.
+  const [tipoElegido, setTipoElegido] = useState(!!producto?.tipo)
   const [nombre, setNombre] = useState(producto?.nombre ?? nombreInicial ?? '')
   const [sku, setSku] = useState(() => producto?.sku ?? (isEditing ? '' : nextSku(productos)))
   const [unidad, setUnidad] = useState(producto?.unidad ?? 'unidad')
@@ -160,12 +168,21 @@ export function ProductoModal({ producto, productos, bodegas, onClose, onGuardad
   // y las que aparecen en las listas solo porque algún producto las usa.
   const subSimilar = useMemo(() => buscarSimilar(subcategoria, subcats), [subcategoria, subcats])
 
+  // La categoría sabe la respuesta: si todas las "Microsoldadura" del catálogo
+  // son servicios, la siguiente también lo es.
+  function aplicarSugerencia(cat: string) {
+    if (tipoElegido) return
+    const sugerido = tipoSugeridoPorCategoria(productos, cat)
+    if (sugerido) setTipo(sugerido)
+  }
+
   async function crearCategoria(nombre: string) {
     const limpio = nombre.trim()
     if (!limpio) return
     setCategoria(limpio)
     setSubcategoria('')
     setCategoriaOpen(false)
+    aplicarSugerencia(limpio)
     const yaEsta = categoriasCuradas.some(c => c.nombre.toLowerCase() === limpio.toLowerCase())
     if (yaEsta) return
     try {
@@ -181,6 +198,7 @@ export function ProductoModal({ producto, productos, bodegas, onClose, onGuardad
 
   async function handleGuardar() {
     if (!nombre.trim()) { setError('El nombre es obligatorio'); return }
+    if (!tipo) { setError('Elige si es un producto o un servicio'); return }
     // El precio de venta sí es obligatorio: sin él la venta saldría en $0.
     // El costo NO lo es, por decisión de producto — pero se avisa abajo,
     // porque sin costo el margen y el costo de lo vendido quedan mal.
@@ -252,9 +270,14 @@ export function ProductoModal({ producto, productos, bodegas, onClose, onGuardad
         <div className="overflow-y-auto px-6 py-4 space-y-4">
 
           {/* Tipo */}
+          {!tipo && (
+            <p className="text-sm font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              ¿Es un producto o un servicio? Un servicio no descuenta stock.
+            </p>
+          )}
           <div className="flex gap-2 p-1 bg-gray-100 rounded-xl w-fit">
             {(['producto', 'servicio'] as const).map(t => (
-              <button key={t} onClick={() => setTipo(t)}
+              <button key={t} onClick={() => { setTipo(t); setTipoElegido(true) }}
                 className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition ${
                   tipo === t
                     ? t === 'producto' ? 'bg-blue-600 text-white shadow-sm' : 'bg-violet-600 text-white shadow-sm'
@@ -316,7 +339,7 @@ export function ProductoModal({ producto, productos, bodegas, onClose, onGuardad
                       <div className="max-h-48 overflow-y-auto">
                         {catsFiltradas.map(c => (
                           <button key={c} type="button"
-                            onClick={() => { setCategoria(c); setSubcategoria(''); setCategoriaOpen(false) }}
+                            onClick={() => { setCategoria(c); setSubcategoria(''); setCategoriaOpen(false); aplicarSugerencia(c) }}
                             className={`w-full flex items-center justify-between px-3.5 py-2.5 text-sm hover:bg-blue-50 hover:text-blue-700 transition ${c === categoria ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-700'}`}>
                             <span>{c}</span>
                             {/* El conteo distingue la categoría buena de un
@@ -337,7 +360,7 @@ export function ProductoModal({ producto, productos, bodegas, onClose, onGuardad
                           </p>
                           <div className="flex flex-wrap gap-2 mt-2">
                             <button type="button"
-                              onClick={() => { setCategoria(catSimilar); setSubcategoria(''); setCategoriaOpen(false) }}
+                              onClick={() => { setCategoria(catSimilar); setSubcategoria(''); setCategoriaOpen(false); aplicarSugerencia(catSimilar) }}
                               className="px-3 py-1.5 text-xs font-semibold text-white bg-amber-600 rounded-lg hover:bg-amber-700 transition">
                               Usar &quot;{catSimilar}&quot;
                             </button>

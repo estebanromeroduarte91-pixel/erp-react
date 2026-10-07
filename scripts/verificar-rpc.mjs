@@ -36,6 +36,10 @@ const MARCADORES = {
     marcadores: ['asientos_contables'],
     porque: 'el Libro Diario la necesita para guardar sin pisar los asientos de otro usuario',
   },
+  fn_guardar_usuario_config: {
+    marcadores: ['fn_soy_admin_de'],
+    porque: 'guarda cargo, mapa y rol en una transacción y solo para administradores',
+  },
   fn_fijar_stock_manual: {
     marcadores: ['fn_ajustar_stock'],
     porque: 'los ajustes manuales deben pasar por el delta atómico',

@@ -2585,15 +2585,6 @@ export const CARGOS_DEFAULT: Cargo[] = [
   { id: 'encargado', nombre: 'Encargado', sistema: true, rol: 'encargado', permisos: { dashboard: true,  ventas: true,  taller: true,  clientes: true,  inventario: true,  compras: true,  estadisticas: true,  configuracion: true  } },
 ]
 
-const ROLE_MAP: Record<string, string> = { tecnico: 'tecnico', vendedor: 'vendedor', encargado: 'encargado' }
-
-function resolveRol(cargoId: string | undefined, cargos: Cargo[]): string {
-  if (!cargoId) return 'tecnico'
-  if (ROLE_MAP[cargoId]) return ROLE_MAP[cargoId]
-  const cargo = cargos.find(c => c.id === cargoId)
-  return cargo?.rol ?? 'tecnico'
-}
-
 export function useCargos() {
   const { empresaId } = useAuth()
   return useQuery({
@@ -3336,25 +3327,14 @@ export function useGuardarUserConfig() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({ userId, cfg }: { userId: string; cfg: UserConfig }) => {
-      // Guardar ucfg_<userId>
-      await dbSet(empresaId!, `ucfg_${userId}`, cfg)
-      // Actualizar user_cargo_map
-      const { data: current } = await supabase
-        .from('erp_data')
-        .select('datos')
-        .eq('empresa_id', empresaId!)
-        .eq('clave', 'user_cargo_map')
-        .maybeSingle()
-      const map = (current?.datos ?? {}) as Record<string, UserConfig>
-      map[userId] = cfg
-      await dbSet(empresaId!, 'user_cargo_map', map)
-      // Actualizar role en user_profiles si corresponde
-      const cargosData = await dbGet<Cargo[]>(empresaId!, 'cargos')
-      const allCargos = [...CARGOS_DEFAULT, ...parseArr<Cargo>(cargosData as Cargo[] | string | null).filter(c => !c.sistema)]
-      if (cfg.cargoId && cfg.cargoId !== '__admin') {
-        const newRole = resolveRol(cfg.cargoId, allCargos)
-        await supabase.from('user_profiles').update({ role: newRole }).eq('id', userId)
-      }
+      // Una sola transacción en el servidor: ucfg_, user_cargo_map y el rol
+      // quedan guardados juntos o no queda nada. Solo la acepta un administrador.
+      const { error } = await supabase.rpc('fn_guardar_usuario_config', {
+        p_user_id: userId,
+        p_cfg: cfg,
+        p_empresa_id: empresaId!,
+      })
+      if (error) throw new Error(error.message)
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['user_profiles', empresaId] })
