@@ -13,27 +13,36 @@ export const NATURALEZAS: { id: NaturalezaGasto; etiqueta: string; ayuda: string
   { id: 'inversion', etiqueta: 'Inversión', ayuda: 'Equipos y activos. No es gasto del mes.' },
 ]
 
-/** categoría (normalizada) → naturaleza sugerida */
+/**
+ * Sugerencias: clave `categoria` o `categoria|subcategoria` (normalizadas). La
+ * de subcategoría gana: "Sueldos" es de tienda, pero "Sueldos|Esteban Romero"
+ * es corporativo porque administra todas las sucursales.
+ */
 export type ConfigNaturaleza = Map<string, NaturalezaGasto>
 
-export function claveCategoria(categoria: string | undefined): string {
-  return (categoria ?? '').trim().toLocaleLowerCase('es')
+export function claveCategoria(categoria: string | undefined, subcategoria?: string): string {
+  const cat = (categoria ?? '').trim().toLocaleLowerCase('es')
+  const sub = (subcategoria ?? '').trim().toLocaleLowerCase('es')
+  return sub ? `${cat}|${sub}` : cat
 }
 
 export function naturalezaSugerida(
   categoria: string | undefined,
   config: ConfigNaturaleza | undefined,
+  subcategoria?: string,
 ): NaturalezaGasto | undefined {
-  return config?.get(claveCategoria(categoria))
+  if (!config) return undefined
+  return (subcategoria?.trim() ? config.get(claveCategoria(categoria, subcategoria)) : undefined)
+    ?? config.get(claveCategoria(categoria))
 }
 
 /** Lo que vale para un gasto: su propia decisión, luego la categoría, luego su sucursal. */
 export function naturalezaEfectiva(
-  g: Pick<Gasto, 'naturaleza' | 'categoria' | 'bodega_id'>,
+  g: Pick<Gasto, 'naturaleza' | 'categoria' | 'subcategoria' | 'bodega_id'>,
   config: ConfigNaturaleza | undefined,
 ): NaturalezaGasto {
   if (g.naturaleza) return g.naturaleza
-  const sugerida = naturalezaSugerida(g.categoria, config)
+  const sugerida = naturalezaSugerida(g.categoria, config, g.subcategoria)
   if (sugerida) return sugerida
   return !g.bodega_id || g.bodega_id === GASTO_GENERAL_ID ? 'corporativo' : 'tienda'
 }

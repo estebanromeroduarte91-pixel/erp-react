@@ -2325,7 +2325,7 @@ export function useGastoCategoriaConfig() {
     enabled: !!empresaId,
     retry: false,
     select: (rows): ConfigNaturaleza =>
-      new Map(rows.filter(r => !r.subcategoria).map(r => [claveCategoria(r.categoria), r.naturaleza])),
+      new Map(rows.map(r => [claveCategoria(r.categoria, r.subcategoria), r.naturaleza])),
   })
 }
 

@@ -501,13 +501,25 @@ function GastoModal({ cats, bodegas, config, personasComisionables, gasto, subca
     setBodegaId(b => bodegaAlCambiarNaturaleza(n, b))
   }
 
-  function elegirCategoria(nombre: string) {
-    setCategoria(nombre)
+  // Mientras el usuario no elija el tipo a mano, lo propone la categoría y,
+  // si hay regla, la persona (ej. el sueldo del administrador es corporativo).
+  function sugerirNaturaleza(cat: string, sub: string) {
     if (naturalezaTocada) return
-    const sugerida = naturalezaSugerida(nombre, config)
+    const canon = sub.trim() ? (buscarCanonico(subcatsPorCat[cat], sub) ?? sub) : ''
+    const sugerida = naturalezaSugerida(cat, config, canon)
     if (!sugerida) return
     setNaturaleza(sugerida)
     setBodegaId(b => bodegaAlCambiarNaturaleza(sugerida, b))
+  }
+
+  function elegirCategoria(nombre: string) {
+    setCategoria(nombre)
+    sugerirNaturaleza(nombre, subcategoria)
+  }
+
+  function elegirSubcategoria(sub: string) {
+    setSubcategoria(sub)
+    sugerirNaturaleza(categoria, sub)
   }
 
   async function handleGuardar() {
@@ -587,7 +599,7 @@ function GastoModal({ cats, bodegas, config, personasComisionables, gasto, subca
                 A quién se paga <span className="normal-case font-normal text-gray-300">(opcional)</span>
               </label>
               {esComisiones ? (
-                <select value={subcategoria} onChange={e => setSubcategoria(e.target.value)}
+                <select value={subcategoria} onChange={e => elegirSubcategoria(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400 transition">
                   <option value="">-- Elegir persona --</option>
                   {personasComisionables.map(p => <option key={p.id} value={p.nombre}>{p.nombre}</option>)}
@@ -595,7 +607,7 @@ function GastoModal({ cats, bodegas, config, personasComisionables, gasto, subca
               ) : <>
                 <div className="relative">
                   <input ref={subInputRef} type="text" value={subcategoria}
-                    onChange={e => { const v = e.target.value; setSubcategoria(v.charAt(0).toUpperCase() + v.slice(1)); setSubOpen(true) }}
+                    onChange={e => { const v = e.target.value; elegirSubcategoria(v.charAt(0).toUpperCase() + v.slice(1)); setSubOpen(true) }}
                     onFocus={() => {
                       setSubOpen(true)
                       // El teclado mobile tarda en animarse; sin el delay, scrollIntoView
@@ -609,7 +621,7 @@ function GastoModal({ cats, bodegas, config, personasComisionables, gasto, subca
                   {subOpen && subSugerencias.length > 0 && (
                     <div className="absolute z-10 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
                       {subSugerencias.map((s, i) => (
-                        <button key={s} type="button" onMouseDown={() => { setSubcategoria(s); setSubOpen(false) }}
+                        <button key={s} type="button" onMouseDown={() => { elegirSubcategoria(s); setSubOpen(false) }}
                           className={['w-full text-left px-4 py-2.5 text-sm flex items-center gap-2 transition',
                             s === subCanonica ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700 hover:bg-gray-50',
                             i > 0 ? 'border-t border-gray-50' : ''].join(' ')}>

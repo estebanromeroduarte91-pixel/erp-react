@@ -10,11 +10,21 @@ const config: ConfigNaturaleza = new Map([
   ['publicidad y marketing', 'corporativo'],
   ['gastos banco', 'financiero'],
   ['compra equipo', 'inversion'],
+  ['sueldos', 'tienda'],
+  ['sueldos|esteban romero', 'corporativo'],
 ])
 
 describe('naturalezaSugerida', () => {
   it('ignora mayúsculas y espacios', () => {
     expect(naturalezaSugerida('  ARRIENDO ', config)).toBe('tienda')
+  })
+  it('la persona manda sobre la categoría', () => {
+    expect(naturalezaSugerida('Sueldos', config, 'Esteban Romero')).toBe('corporativo')
+    expect(naturalezaSugerida('Sueldos', config, ' esteban ROMERO ')).toBe('corporativo')
+  })
+  it('sin regla para la persona, vale la de la categoría', () => {
+    expect(naturalezaSugerida('Sueldos', config, 'Candela Rodriguez')).toBe('tienda')
+    expect(naturalezaSugerida('Sueldos', config, '')).toBe('tienda')
   })
   it('no inventa nada para una categoría desconocida o sin config', () => {
     expect(naturalezaSugerida('Otros', config)).toBeUndefined()
@@ -29,6 +39,9 @@ describe('naturalezaEfectiva', () => {
   })
   it('un gasto histórico usa la sugerencia de su categoría', () => {
     expect(naturalezaEfectiva({ categoria: 'Gastos Banco', bodega_id: 'general' }, config)).toBe('financiero')
+  })
+  it('un sueldo histórico del administrador es corporativo', () => {
+    expect(naturalezaEfectiva({ categoria: 'Sueldos', subcategoria: 'Esteban Romero', bodega_id: 'suc-a' }, config)).toBe('corporativo')
   })
   it('sin categoría conocida, deduce por la sucursal', () => {
     expect(naturalezaEfectiva({ categoria: 'Otros', bodega_id: GASTO_GENERAL_ID }, config)).toBe('corporativo')
