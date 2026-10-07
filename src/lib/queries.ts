@@ -6,11 +6,12 @@ import { dbGet, dbSet } from './db'
 import { MSG_DEFAULTS } from './msgTemplatesDefaults'
 import { reconciliarLotes } from './lotes'
 import { soloRutDigits } from './rut'
+import { claveCategoria, type ConfigNaturaleza } from './naturalezaGasto'
 import { extraerMensajeError } from './edgeError'
 import { errorEnResultadosDte, type ResultadoProcesoDte } from './dteProceso'
 import { DEFAULT_PLAN_LIMITS, type PlanTier } from './queries/usePlanLimits'
 import { useAuth } from '@/context/AuthContext'
-import type { Orden, Repuesto, Cliente, Producto, Bodega, Movimiento, Proveedor, Venta, VentaItem, MetodoPago, Caja, CajaSesion, Gasto, GastoCat, CuentaContable, Asiento, SeguimientoConfig, SmtpConfig, MsgTemplates, Cargo, UserProfile, UserConfig, PendingInvite, EmailDomain, OC, OCLogEntry, OCRecepcion, Categoria, Kit, Traslado, TecnicoExterno, Equipo, FichaUsuario, LoteInventario, ConteoInventario, Cotizacion } from '@/types'
+import type { Orden, Repuesto, Cliente, Producto, Bodega, Movimiento, Proveedor, Venta, VentaItem, MetodoPago, Caja, CajaSesion, Gasto, GastoCat, NaturalezaGasto, CuentaContable, Asiento, SeguimientoConfig, SmtpConfig, MsgTemplates, Cargo, UserProfile, UserConfig, PendingInvite, EmailDomain, OC, OCLogEntry, OCRecepcion, Categoria, Kit, Traslado, TecnicoExterno, Equipo, FichaUsuario, LoteInventario, ConteoInventario, Cotizacion } from '@/types'
 
 // ── Órdenes de Taller ─────────────────────────────────────────
 // Tabla relacional `ordenes` (migrada desde el blob erp_data/tp_orders).
@@ -2146,6 +2147,7 @@ function hidratarGasto(row: Record<string, unknown>): Gasto {
     con_credito_fiscal: row.con_credito_fiscal == null ? undefined : Boolean(row.con_credito_fiscal),
     monto_neto: row.monto_neto == null ? undefined : Number(row.monto_neto),
     iva: row.iva == null ? undefined : Number(row.iva),
+    naturaleza: (row.naturaleza as NaturalezaGasto | null) ?? undefined,
   }
 }
 
@@ -2154,6 +2156,7 @@ const GASTO_FIELD_MAP: Record<string, string> = {
   fecha: 'fecha', descripcion: 'descripcion', monto: 'monto', categoria: 'categoria',
   subcategoria: 'subcategoria', metodo: 'metodo', bodega_id: 'bodega_id', bodega_nombre: 'bodega_nombre',
   con_credito_fiscal: 'con_credito_fiscal', monto_neto: 'monto_neto', iva: 'iva',
+  naturaleza: 'naturaleza',
 }
 
 function filaGastoParcial(g: Partial<Gasto>): Record<string, unknown> {
@@ -2302,6 +2305,27 @@ export function useEliminarGasto() {
       return { prev }
     },
     onError: (_e, _id, ctx) => { if (ctx?.prev) qc.setQueryData(['gastos', empresaId], ctx.prev) },
+  })
+}
+
+// Sugerencia de naturaleza por categoría (tabla gasto_categoria_config). Si la
+// tabla aún no existe o falla la lectura, el formulario simplemente no sugiere.
+export function useGastoCategoriaConfig() {
+  const { empresaId } = useAuth()
+  return useQuery({
+    queryKey: ['gasto_categoria_config', empresaId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('gasto_categoria_config')
+        .select('categoria,subcategoria,naturaleza')
+        .eq('empresa_id', empresaId!)
+      if (error) throw error
+      return (data ?? []) as { categoria: string; subcategoria: string; naturaleza: NaturalezaGasto }[]
+    },
+    enabled: !!empresaId,
+    retry: false,
+    select: (rows): ConfigNaturaleza =>
+      new Map(rows.filter(r => !r.subcategoria).map(r => [claveCategoria(r.categoria), r.naturaleza])),
   })
 }
 

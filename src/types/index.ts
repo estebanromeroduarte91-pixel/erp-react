@@ -309,6 +309,9 @@ export interface CajaSesion {
 }
 
 // ── Contabilidad + Gastos ────────────────────────────────────
+/** Cómo cuenta un gasto en la rentabilidad. Ver gasto_categoria_config. */
+export type NaturalezaGasto = 'tienda' | 'corporativo' | 'financiero' | 'inversion'
+
 export interface Gasto {
   id: string
   fecha: string         // 'YYYY-MM-DD'
@@ -324,6 +327,9 @@ export interface Gasto {
   con_credito_fiscal?: boolean
   monto_neto?: number
   iva?: number
+  // Decisión de quien registró el gasto. Undefined = histórico: vale la
+  // sugerencia de su categoría (gasto_categoria_config).
+  naturaleza?: NaturalezaGasto
 }
 
 export interface GastoCat {

@@ -1,13 +1,17 @@
 import { useState, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { useGastos, useCrearGasto, useActualizarGasto, useEliminarGasto, useGastoCats, useGuardarGastoCats, useBodegas, useUserProfiles } from '@/lib/queries'
+import { useGastos, useCrearGasto, useActualizarGasto, useEliminarGasto, useGastoCats, useGuardarGastoCats, useBodegas, useUserProfiles, useGastoCategoriaConfig } from '@/lib/queries'
 import { separarIva } from '@/lib/metricas'
 import { GASTO_GENERAL_ID } from '@/lib/gastos'
+import {
+  NATURALEZAS, bodegaAlCambiarNaturaleza, errorDeClasificacion, naturalezaEfectiva, naturalezaSugerida,
+  type ConfigNaturaleza,
+} from '@/lib/naturalezaGasto'
 import { Spinner } from '@/components/shared/Spinner'
 import { capFirst } from '@/lib/formatters'
 import { describirError } from '@/lib/errorUtils'
 import { coincideAsignacion, esVarianteAsignacion, normalizarAsignacion, SIN_ASIGNACION } from '@/lib/gastoFiltros'
-import type { Gasto, GastoCat, Bodega } from '@/types'
+import type { Gasto, GastoCat, Bodega, NaturalezaGasto } from '@/types'
 
 function uid() { return Math.random().toString(36).slice(2) + Date.now().toString(36) }
 function today() { return new Date().toISOString().split('T')[0] }
@@ -60,6 +64,8 @@ function fmtFecha(f: string) {
   return `${+d} ${meses[+m - 1]} ${y}`
 }
 
+// Sin sugerencias (tabla no disponible o aún cargando): el formulario parte en 'tienda'.
+const SIN_CONFIG: ConfigNaturaleza = new Map()
 const METODOS = ['Efectivo', 'Transferencia', 'Tarjeta', 'Crédito', 'Cheque']
 type PeriodoGasto = 'hoy' | 'mes' | 'año' | 'rango' | 'todo'
 
@@ -78,6 +84,7 @@ export function GastosTab() {
   const { data: bodegas } = useBodegas()
   const { data: usuarios = [] } = useUserProfiles()
   const { data: cats } = useGastoCats()
+  const { data: configNaturaleza } = useGastoCategoriaConfig()
   const crearGasto = useCrearGasto()
   const actualizarGasto = useActualizarGasto()
   const eliminarGasto = useEliminarGasto()
@@ -422,6 +429,7 @@ export function GastosTab() {
         <GastoModal
           cats={cats ?? []}
           bodegas={bodegas ?? []}
+          config={configNaturaleza ?? SIN_CONFIG}
           personasComisionables={usuarios.filter(u => u.activo && ['tecnico', 'vendedor', 'encargado'].includes(u.role))}
           gasto={editando}
           subcatsPorCat={subcatsPorCat}
@@ -440,8 +448,9 @@ export function GastosTab() {
   )
 }
 
-function GastoModal({ cats, bodegas, personasComisionables, gasto, subcatsPorCat, onClose, onGuardar }: {
+function GastoModal({ cats, bodegas, config, personasComisionables, gasto, subcatsPorCat, onClose, onGuardar }: {
   cats: GastoCat[]
+  config: ConfigNaturaleza
   bodegas: Bodega[]
   personasComisionables: { id: string; nombre: string; role: string }[]
   gasto: Gasto | null
@@ -456,7 +465,17 @@ function GastoModal({ cats, bodegas, personasComisionables, gasto, subcatsPorCat
   const [subOpen, setSubOpen] = useState(false)
   const subInputRef = useRef<HTMLInputElement>(null)
   const [metodo, setMetodo] = useState(gasto?.metodo ?? 'Efectivo')
-  const [bodegaId, setBodegaId] = useState(gasto?.bodega_id ?? '')
+  // Lo que el gasto es para la rentabilidad. Al crear, la categoría propone el
+  // valor inicial; mientras el usuario no lo toque, cambiar de categoría lo
+  // actualiza. Al editar un gasto viejo vale su categoría o, a falta de ella, su sucursal.
+  const naturalezaInicial: NaturalezaGasto = gasto
+    ? naturalezaEfectiva(gasto, config)
+    : (naturalezaSugerida(cats[0]?.nombre, config) ?? 'tienda')
+  const [naturaleza, setNaturaleza] = useState<NaturalezaGasto>(naturalezaInicial)
+  const [naturalezaTocada, setNaturalezaTocada] = useState(!!gasto?.naturaleza)
+  const [bodegaId, setBodegaId] = useState(
+    bodegaAlCambiarNaturaleza(naturalezaInicial, gasto?.bodega_id ?? ''),
+  )
   const [fecha, setFecha] = useState(gasto?.fecha ?? today())
   // Por defecto NO: si no se marca, el gasto se descuenta completo, que es el
   // comportamiento de siempre. Marcar de más sería inflar la utilidad.
@@ -476,11 +495,27 @@ function GastoModal({ cats, bodegas, personasComisionables, gasto, subcatsPorCat
     return (q ? todas.filter(s => normalizar(s).includes(q)) : todas).slice(0, 8)
   }, [canonMap, subcategoria])
 
+  function elegirNaturaleza(n: NaturalezaGasto) {
+    setNaturaleza(n)
+    setNaturalezaTocada(true)
+    setBodegaId(b => bodegaAlCambiarNaturaleza(n, b))
+  }
+
+  function elegirCategoria(nombre: string) {
+    setCategoria(nombre)
+    if (naturalezaTocada) return
+    const sugerida = naturalezaSugerida(nombre, config)
+    if (!sugerida) return
+    setNaturaleza(sugerida)
+    setBodegaId(b => bodegaAlCambiarNaturaleza(sugerida, b))
+  }
+
   async function handleGuardar() {
     if (guardando) return
     if (!monto || +monto <= 0) { setError('Ingresa un monto válido'); return }
     if (!descripcion.trim()) { setError('Agrega una descripción'); return }
-    if (!bodegaId) { setError('Elige a qué sucursal corresponde este gasto'); return }
+    const errClasificacion = errorDeClasificacion(naturaleza, bodegaId)
+    if (errClasificacion) { setError(errClasificacion); return }
     setError(''); setGuardando(true)
     try {
       const bodega = bodegas.find(b => b.id === bodegaId)
@@ -495,6 +530,7 @@ function GastoModal({ cats, bodegas, personasComisionables, gasto, subcatsPorCat
         monto_neto: conFactura ? separarIva(+monto).neto : undefined,
         iva: conFactura ? separarIva(+monto).iva : undefined,
         categoria,
+        naturaleza,
         subcategoria: subCanonica,
         metodo,
         bodega_id: bodegaId,
@@ -605,7 +641,7 @@ function GastoModal({ cats, bodegas, personasComisionables, gasto, subcatsPorCat
               {cats.map(c => {
                 const sel = categoria === c.nombre
                 return (
-                  <button key={c.id} type="button" onClick={() => setCategoria(c.nombre)}
+                  <button key={c.id} type="button" onClick={() => elegirCategoria(c.nombre)}
                     className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition border"
                     style={sel
                       ? { borderColor: c.color, background: c.color, color: '#fff' }
@@ -619,15 +655,36 @@ function GastoModal({ cats, bodegas, personasComisionables, gasto, subcatsPorCat
             </div>
           </div>
 
-          {/* Sucursal (obligatorio, para separar utilidad por sucursal) */}
+          {/* Tipo de gasto: define si cuenta en el resultado de una tienda, se
+              reparte entre todas, o queda fuera de la operación. */}
           <div>
-            <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider block mb-1.5">Sucursal</label>
-            <select value={bodegaId} onChange={e => setBodegaId(e.target.value)}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400 transition">
-              <option value="">-- Elegir sucursal --</option>
-              {bodegas.map(b => <option key={b.id} value={b.id}>{b.nombre ?? b.name}</option>)}
-              <option value={GASTO_GENERAL_ID}>General / Compartido (se reparte entre sucursales)</option>
-            </select>
+            <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider block mb-1.5">Tipo de gasto</label>
+            <div role="radiogroup" aria-label="Tipo de gasto" className="grid grid-cols-4 gap-1 p-1 rounded-lg bg-gray-100">
+              {NATURALEZAS.map(n => {
+                const sel = naturaleza === n.id
+                return (
+                  <button key={n.id} type="button" role="radio" aria-checked={sel}
+                    onClick={() => elegirNaturaleza(n.id)}
+                    className={['py-1.5 rounded-md text-xs font-medium transition',
+                      sel ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'].join(' ')}>
+                    {n.etiqueta}
+                  </button>
+                )
+              })}
+            </div>
+            <p className="text-[11px] text-gray-400 mt-1.5">{NATURALEZAS.find(n => n.id === naturaleza)?.ayuda}</p>
+
+            {naturaleza !== 'corporativo' && (
+              <div className="mt-3">
+                <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider block mb-1.5">Sucursal</label>
+                <select value={bodegaId} onChange={e => setBodegaId(e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400 transition">
+                  {naturaleza === 'tienda' && <option value="">-- Elegir sucursal --</option>}
+                  {bodegas.map(b => <option key={b.id} value={b.id}>{b.nombre ?? b.name}</option>)}
+                  {naturaleza !== 'tienda' && <option value={GASTO_GENERAL_ID}>General / Compartido</option>}
+                </select>
+              </div>
+            )}
           </div>
 
           {/* Con factura, el IVA no es costo sino crédito fiscal. Va acá, al
