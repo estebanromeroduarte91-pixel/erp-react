@@ -518,6 +518,30 @@ export interface Traslado {
   tecnico_ext_id?: string
 }
 
+// ── Traslados internos de órdenes entre sucursales ───────────
+export type EstadoTrasladoInterno = 'en_transito' | 'recibido' | 'cancelado'
+
+export interface TrasladoInternoOrden {
+  id: string
+  empresa_id: string
+  orden_id: string
+  orden_num: string
+  origen_id: string
+  origen_nombre: string
+  destino_id: string
+  destino_nombre: string
+  estado: EstadoTrasladoInterno
+  nota?: string | null
+  enviado_por?: string | null
+  enviado_por_nombre?: string | null
+  recibido_por?: string | null
+  recibido_por_nombre?: string | null
+  cancelado_por?: string | null
+  creado_en: string
+  recibido_en?: string | null
+  cancelado_en?: string | null
+}
+
 // ── Kits de Equipos ──────────────────────────────────────────
 export interface KitComponente {
   id: string

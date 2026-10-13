@@ -1,6 +1,6 @@
 import { useState, useMemo, Suspense, lazy } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { useOrdenesLite, useTraslados, useActualizarOrden, useEliminarOrden, useBodegas, fetchOrdenCompletaPorId, type OrdenLista } from '@/lib/queries'
+import { useOrdenesLite, useTraslados, useTrasladosInternos, useActualizarOrden, useEliminarOrden, useBodegas, fetchOrdenCompletaPorId, type OrdenLista } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { soloRutDigits } from '@/lib/rut'
 import { useIsMobile } from '@/lib/useIsMobile'
@@ -21,10 +21,11 @@ import { TerminosTab } from '@/modules/config/TerminosTab'
 import { EquiposConfigTab } from './EquiposConfigTab'
 import { HistorialImportTab } from './HistorialImportTab'
 import { ComisionesTab } from './ComisionesTab'
+import { TrasladoInternoModal, TrasladosInternosTab } from './TrasladosInternosTab'
 import { totalOrden } from './utils'
 import type { Bodega, EstadoOrden, Orden } from '@/types'
 
-type TallerTab = 'ordenes' | 'derivados' | 'equipos' | 'comisiones' | 'settings'
+type TallerTab = 'ordenes' | 'derivados' | 'traslados-internos' | 'equipos' | 'comisiones' | 'settings'
 type TallerConfigTab = 'seguimiento' | 'checklist' | 'notificaciones' | 'terminos' | 'equipos-config' | 'historial'
 
 const CONFIG_TABS: { id: TallerConfigTab; label: string }[] = [
@@ -39,6 +40,7 @@ const CONFIG_TABS: { id: TallerConfigTab; label: string }[] = [
 
 function resolveTallerTab(param: string | null): TallerTab {
   if (param === 'derivados') return 'derivados'
+  if (param === 'traslados-internos') return 'traslados-internos'
   if (param === 'equipos') return 'equipos'
   if (param === 'comisiones') return 'comisiones'
   if (param === 'settings') return 'settings'
@@ -123,10 +125,11 @@ export function TallerPage() {
 
   const { data: ordenes, isLoading, error } = useOrdenesLite()
   const { data: traslados } = useTraslados()
+  const { data: trasladosInternos = [] } = useTrasladosInternos(tallerTab === 'ordenes')
   const { data: bodegas = [] } = useBodegas()
   const actualizarOrden = useActualizarOrden()
   const eliminarOrden = useEliminarOrden()
-  const { esAdmin, empresaId, branchId: userBranchId } = useAuth()
+  const { esAdmin, rol, empresaId, branchId: userBranchId } = useAuth()
   const [configTab, setConfigTab] = useState<TallerConfigTab>('seguimiento')
   const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null)
   const [filtroEstado, setFiltroEstado] = useState<EstadoOrden | 'todos' | 'Derivado'>('Chequeo')
@@ -140,6 +143,13 @@ export function TallerPage() {
   const [ordenAReabrir, setOrdenAReabrir] = useState<OrdenLista | null>(null)
   const [reabriendo, setReabriendo] = useState(false)
   const [cambiandoResultadoId, setCambiandoResultadoId] = useState<string | null>(null)
+  const [ordenATrasladar, setOrdenATrasladar] = useState<OrdenLista | null>(null)
+
+  const trasladoInternoPorOrden = useMemo(
+    () => new Map(trasladosInternos.filter(t => t.estado === 'en_transito').map(t => [t.orden_id, t])),
+    [trasladosInternos],
+  )
+  const puedeTrasladar = esAdmin || rol === 'encargado'
 
   // Deep-link desde Buscar: ?abrir=<num de orden> abre el detalle directo.
   const [abrirSynced, setAbrirSynced] = useState(false)
@@ -318,6 +328,8 @@ export function TallerPage() {
     )
   }
 
+  if (tallerTab === 'traslados-internos') return <TrasladosInternosTab />
+
   const STATUS_DOT: Record<string, string> = {
     Chequeo: '#f59e0b', Reparación: '#8b5cf6', Listo: '#10b981',
     Entregado: '#6b7280', 'No reparable': '#ef4444',
@@ -437,7 +449,9 @@ export function TallerPage() {
                     </span>
                   </div>
                   <div style={{ background: '#fff', borderRadius: 14, overflow: 'hidden', border: '0.5px solid #e5e7eb' }}>
-                    {grupo.ordenes.map((o, i) => (
+                    {grupo.ordenes.map((o, i) => {
+                      const trasladoInterno = trasladoInternoPorOrden.get(o.id)
+                      return (
                       <div
                         key={o.id}
                         role="button"
@@ -461,6 +475,9 @@ export function TallerPage() {
                           <div style={{ fontSize: 11, fontWeight: 700, color: '#8e8e93', marginBottom: 1 }}>#{o.num}</div>
                           <div style={{ fontSize: 14, fontWeight: 600, color: '#1c1c1e', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{[o.nombre, o.apellido].filter(Boolean).join(' ')}</div>
                           <div style={{ fontSize: 12, color: '#8e8e93', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{o.modelo ?? o.trabajo ?? ''}</div>
+                          {trasladoInterno && (
+                            <div style={{ marginTop: 4, fontSize: 11, fontWeight: 600, color: '#b45309' }}>En tránsito a {trasladoInterno.destino_nombre}</div>
+                          )}
                         </div>
                         <div style={{ textAlign: 'right', flexShrink: 0 }}>
                           <span style={{ display: 'block', marginBottom: 4 }}>
@@ -474,9 +491,15 @@ export function TallerPage() {
                           <span style={{ display: 'block', marginTop: 3, fontSize: 12, fontWeight: 700, color: '#3656e6' }}>
                             Total <Money value={totalOrden(o)} />
                           </span>
+                          {puedeTrasladar && o.status !== 'Entregado' && o.branchId && bodegas.length > 1 && !trasladoInterno && (
+                            <button
+                              onClick={e => { e.stopPropagation(); setOrdenATrasladar(o) }}
+                              style={{ marginTop: 5, border: 'none', background: 'none', padding: 0, color: '#2563eb', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
+                            >Trasladar</button>
+                          )}
                         </div>
                       </div>
-                    ))}
+                    )})}
                   </div>
                 </section>
               ))}
@@ -500,6 +523,9 @@ export function TallerPage() {
               onClose={() => setDetalleNum(null)}
             />
           </Suspense>
+        )}
+        {ordenATrasladar && (
+          <TrasladoInternoModal orden={ordenATrasladar} bodegas={bodegas} onClose={() => setOrdenATrasladar(null)} />
         )}
       </div>
     )
@@ -726,6 +752,7 @@ export function TallerPage() {
                   <tbody className="divide-y divide-gray-50">
                     {lista.map((o) => {
                       const isDerived = derivadoIds.has(o.id)
+                      const trasladoInterno = trasladoInternoPorOrden.get(o.id)
                       const derivedTsl = isDerived
                         ? (traslados ?? []).find((t) => t.order_id === o.id && t.estado !== 'retornado')
                         : null
@@ -770,6 +797,12 @@ export function TallerPage() {
                                   {derivedTsl?.tecnico ?? 'Derivado'}
                                 </span>
                               )}
+                              {trasladoInterno && (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700">
+                                  <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2}><path d="M5 12h14M14 7l5 5-5 5" /></svg>
+                                  En tránsito a {trasladoInterno.destino_nombre}
+                                </span>
+                              )}
                             </div>
                           </td>
                           <td className="px-4 py-3 text-right font-semibold text-gray-800">
@@ -788,6 +821,14 @@ export function TallerPage() {
                                 className="mr-2 text-xs text-amber-600 hover:underline font-medium"
                               >
                                 Reabrir
+                              </button>
+                            )}
+                            {puedeTrasladar && o.status !== 'Entregado' && o.branchId && bodegas.length > 1 && !trasladoInterno && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setOrdenATrasladar(o) }}
+                                className="mr-3 text-xs font-medium text-blue-600 hover:underline"
+                              >
+                                Trasladar
                               </button>
                             )}
                             <button
@@ -835,6 +876,10 @@ export function TallerPage() {
           <Suspense fallback={<div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/30"><Spinner className="w-8 h-8 text-white" /></div>}>
             <OrdenDetallePage num={detalleNum} onClose={() => setDetalleNum(null)} />
           </Suspense>
+        )}
+
+        {ordenATrasladar && (
+          <TrasladoInternoModal orden={ordenATrasladar} bodegas={bodegas} onClose={() => setOrdenATrasladar(null)} />
         )}
 
         {/* Confirmación eliminar orden */}

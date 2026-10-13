@@ -12,7 +12,7 @@ import { extraerMensajeError } from './edgeError'
 import { errorEnResultadosDte, type ResultadoProcesoDte } from './dteProceso'
 import { DEFAULT_PLAN_LIMITS, type PlanTier } from './queries/usePlanLimits'
 import { useAuth } from '@/context/AuthContext'
-import type { Orden, Repuesto, Cliente, Producto, Bodega, Movimiento, Proveedor, Venta, VentaItem, MetodoPago, Caja, CajaSesion, Gasto, GastoCat, NaturalezaGasto, CuentaContable, Asiento, SeguimientoConfig, SmtpConfig, MsgTemplates, Cargo, UserProfile, UserConfig, PendingInvite, EmailDomain, OC, OCLogEntry, OCRecepcion, Categoria, Kit, Traslado, TecnicoExterno, Equipo, FichaUsuario, LoteInventario, ConteoInventario, Cotizacion } from '@/types'
+import type { Orden, Repuesto, Cliente, Producto, Bodega, Movimiento, Proveedor, Venta, VentaItem, MetodoPago, Caja, CajaSesion, Gasto, GastoCat, NaturalezaGasto, CuentaContable, Asiento, SeguimientoConfig, SmtpConfig, MsgTemplates, Cargo, UserProfile, UserConfig, PendingInvite, EmailDomain, OC, OCLogEntry, OCRecepcion, Categoria, Kit, Traslado, TrasladoInternoOrden, TecnicoExterno, Equipo, FichaUsuario, LoteInventario, ConteoInventario, Cotizacion } from '@/types'
 
 // ── Órdenes de Taller ─────────────────────────────────────────
 // Tabla relacional `ordenes` (migrada desde el blob erp_data/tp_orders).
@@ -3436,6 +3436,104 @@ export function useCancelarInvitacion() {
       if (error) throw error
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['pending_invites', empresaId] }),
+  })
+}
+
+// ── Traslados internos de órdenes entre sucursales ────────────
+
+export function useTrasladosInternos(enabled = true) {
+  const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  const instanceId = useId()
+
+  useEffect(() => {
+    if (!empresaId || !enabled) return
+    const channel = supabase
+      .channel(`rt-traslados-internos-${empresaId}-${instanceId}-${Math.random().toString(36).slice(2, 8)}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'orden_traslados_internos', filter: `empresa_id=eq.${empresaId}` },
+        () => {
+          void qc.invalidateQueries({ queryKey: ['traslados-internos', empresaId] })
+          void qc.invalidateQueries({ queryKey: ['ordenes-lite', empresaId] })
+        },
+      )
+      .subscribe()
+    return () => { void supabase.removeChannel(channel) }
+  }, [empresaId, qc, instanceId, enabled])
+
+  return useQuery({
+    queryKey: ['traslados-internos', empresaId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('orden_traslados_internos')
+        .select('*')
+        .eq('empresa_id', empresaId!)
+        .order('creado_en', { ascending: false })
+        .limit(500)
+      if (error) throw error
+      return (data ?? []) as TrasladoInternoOrden[]
+    },
+    enabled: !!empresaId && enabled,
+  })
+}
+
+export function useCrearTrasladoInterno() {
+  const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ ordenId, destinoId, nota }: { ordenId: string; destinoId: string; nota?: string }) => {
+      const { data, error } = await supabase.rpc('fn_crear_traslado_interno', {
+        p_orden_id: ordenId,
+        p_destino_id: destinoId,
+        p_nota: nota?.trim() || null,
+        p_empresa_id: empresaId,
+      })
+      if (error) throw new Error(error.message)
+      return data as TrasladoInternoOrden
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['traslados-internos', empresaId] })
+      void qc.invalidateQueries({ queryKey: ['ordenes-lite', empresaId] })
+    },
+  })
+}
+
+export function useRecibirTrasladoInterno() {
+  const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (trasladoId: string) => {
+      const { data, error } = await supabase.rpc('fn_recibir_traslado_interno', {
+        p_traslado_id: trasladoId,
+        p_empresa_id: empresaId,
+      })
+      if (error) throw new Error(error.message)
+      return data as TrasladoInternoOrden
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['traslados-internos', empresaId] })
+      void qc.invalidateQueries({ queryKey: ['ordenes-lite', empresaId] })
+    },
+  })
+}
+
+export function useCancelarTrasladoInterno() {
+  const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (trasladoId: string) => {
+      const { data, error } = await supabase.rpc('fn_cancelar_traslado_interno', {
+        p_traslado_id: trasladoId,
+        p_empresa_id: empresaId,
+      })
+      if (error) throw new Error(error.message)
+      return data as TrasladoInternoOrden
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['traslados-internos', empresaId] })
+      void qc.invalidateQueries({ queryKey: ['ordenes-lite', empresaId] })
+    },
   })
 }
 
