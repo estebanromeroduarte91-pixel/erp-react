@@ -81,6 +81,12 @@ h2{font-size:20px;font-weight:800;letter-spacing:-.01em;margin:0}
 .scr{position:relative;overflow:hidden}
 .real-win .scr{height:430px;background:#f5f6fa}
 .real-shot{display:block;width:100%;height:100%;object-fit:cover;object-position:top left}
+.real-label{position:absolute;z-index:2;padding:1px 4px;background:#fff;color:#1c1c1e;font-size:13px;font-weight:500;line-height:1.35;white-space:nowrap}
+.real-label.branch-a{left:2.4%;top:39.1%;width:17%;}
+.real-label.branch-b{left:51.1%;top:39.1%;width:17%;}
+.real-label.tab-a,.real-label.tab-b{top:80%;height:7.5%;display:flex;align-items:center;justify-content:center;padding:0;text-align:center;}
+.real-label.tab-a{left:3.4%;width:22%;background:#f2f2f7;}
+.real-label.tab-b{left:28.2%;width:18%;background:#fff;}
 .real-win .bar .tit{font-size:13px;color:#687084}
 .ui{position:relative;display:flex;font-size:13px;transform-origin:top left}
 .side{position:absolute;top:0;bottom:0;left:0;width:190px;background:#fff;border-right:1px solid #e5e7eb;padding:14px 10px;display:flex;flex-direction:column;gap:2px;overflow:hidden}
@@ -257,7 +263,7 @@ td b{color:#1c1c1e;font-weight:700}
 
 <div class="wrap">
   <div class="eyebrow">Pixit · Instagram</div>
-  <h1>Feed completo: 10 publicaciones</h1>
+  <h1>Feed completo: 24 publicaciones individuales</h1>
   <p class="lead">Todas las piezas están dibujadas a 1080×1080 reales, el tamaño de Instagram. Las pantallas de Pixit están recreadas con la interfaz del ERP y datos de ejemplo; cuando quieras las cambiamos por capturas de tu cuenta.</p>
 
   <div class="sys">
@@ -281,7 +287,7 @@ td b{color:#1c1c1e;font-weight:700}
   </div>
 
   <div class="indice">
-    <b class="eyebrow">Las 10 publicaciones</b>
+    <b class="eyebrow">Las 24 publicaciones individuales</b>
     <ol id="indice"></ol>
   </div>
 
@@ -330,10 +336,15 @@ var REAL_TITLES = {
 };
 var realChrome = function (clave) {
   var archivo = REAL_SHOTS[clave];
+  var etiquetas = clave === 'dashboard' ?
+    '<span class="real-label branch-a">Santiago Centro</span>' +
+    '<span class="real-label branch-b">Providencia</span>' +
+    '<span class="real-label tab-a">Santiago Centro</span>' +
+    '<span class="real-label tab-b">Providencia</span>' : '';
   return '<div class="win real-win">' +
     '<div class="bar"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i>' +
     '<span class="tit">' + REAL_TITLES[clave] + '</span></div>' +
-    '<div class="scr"><img class="real-shot" src="real-ui-captures/' + archivo + '-sanitized.png" alt="Pantalla real de Pixit"></div></div>';
+    '<div class="scr"><img class="real-shot" src="real-ui-captures/' + archivo + '-sanitized.png" alt="Pantalla real de Pixit">' + etiquetas + '</div></div>';
 };
 var menu = function (activo) {
   var op = ['Dashboard', 'Ventas', 'Taller', 'Inventario'];
@@ -376,8 +387,8 @@ var PANTALLAS = {
       '</div>' +
       '<p class="slabel">Ventas por sucursal</p>' +
       '<div class="grid2">' +
-      sucursal('Sucursal Centro', '#3656e6', '$6.857.240', '$5.762.385', '63', '64%') +
-      sucursal('Sucursal Norte', '#7c3aed', '$3.807.520', '$3.199.595', '46', '36%') +
+      sucursal('Santiago Centro', '#3656e6', '$6.857.240', '$5.762.385', '63', '64%') +
+      sucursal('Providencia', '#7c3aed', '$3.807.520', '$3.199.595', '46', '36%') +
       '</div></div>');
   },
   ventas: function () {
@@ -626,7 +637,7 @@ var BLOQUES = {
     '</div>'
 };
 
-/* ─── Las 10 publicaciones ────────────────────────────────────────────── */
+/* ─── Temas de contenido que se exportan como posts independientes ───── */
 var POSTS = [
   { n: 1, tipo: 'Marca', nombre: 'Simplifica tu taller',
     caption: '¿Tu servicio técnico todavía depende de papeles, planillas y mensajes sueltos? Pixit conecta órdenes, clientes, inventario y ventas en una sola plataforma hecha para talleres de servicio técnico.',
@@ -634,33 +645,33 @@ var POSTS = [
     tags: '#serviciotecnico #tallerdecelulares #erp #pymechile #reparaciondecelulares',
     slides: [{ h: 'Simplifica tu taller,<br><span class="g">multiplica tus ventas.</span>', sub: 'Órdenes, clientes, inventario y ventas en un solo lugar.', ancho: true, pantalla: 'dashboard', badge: 'Prueba gratis 30 días' }] },
 
-  { n: 2, tipo: 'Carrusel · 5 láminas', nombre: 'Órdenes sin caos',
+  { n: 2, tipo: 'Serie temática', nombre: 'Órdenes sin caos',
     caption: 'Registra al cliente, el equipo, la falla, el técnico responsable y cada cambio de estado dentro de una orden digital. Tu equipo encuentra lo que necesita sin buscar entre mensajes.',
     cta: 'Ordena la operación de tu taller con Pixit.',
     tags: '#ordendetrabajo #serviciotecnico #gestion #tallerdecelulares',
     slides: [
-      { h: 'Cada reparación.<br><span class="g">Siempre bajo control.</span>', sub: 'Cliente, equipo, falla, técnico y estado en una orden digital.', pantalla: 'ordenes', ghost: 'Desliza →' },
-      { h: 'Todo el <span class="g">ingreso</span>,<br>dentro de una sola orden.', sub: 'Cliente, equipo, estado físico, checklist y fotos de ingreso.', bloque: 'ordenResguardo', ghost: 'Desliza →', sm: true },
-      { h: 'El presupuesto<br><span class="g">lo aprueba el cliente.</span>', sub: 'Y queda registrado en la orden, con fecha y hora.', bloque: 'aprobacionCliente', ghost: 'Desliza →', sm: true },
-      { h: 'Los repuestos salen<br><span class="g">del inventario solos.</span>', sub: 'Con el técnico y su comisión ya calculada.', pantalla: 'reparacion', ghost: 'Desliza →', sm: true },
-      { h: 'Se entrega,<br><span class="g">se cobra, se cierra.</span>', sub: 'La boleta sale desde la misma orden.', ancho: true, pantalla: 'entrega', badge: 'Pruébalo gratis 30 días', sm: true }
+      { h: 'Cada reparación.<br><span class="g">Siempre bajo control.</span>', sub: 'Cliente, equipo, falla, técnico y estado en una orden digital.', pantalla: 'ordenes', badge: 'Conoce Pixit' },
+      { h: 'Todo el <span class="g">ingreso</span>,<br>dentro de una sola orden.', sub: 'Cliente, equipo, estado físico, checklist y fotos de ingreso.', bloque: 'ordenResguardo', badge: 'Todo queda respaldado', sm: true },
+      { h: 'El presupuesto<br><span class="g">lo aprueba el cliente.</span>', sub: 'La aprobación queda registrada en la orden, con fecha y hora.', bloque: 'aprobacionCliente', badge: 'Aprobación digital', sm: true },
+      { h: 'Los repuestos salen<br><span class="g">del inventario solos.</span>', sub: 'Registra el técnico y calcula su comisión en la misma orden.', pantalla: 'reparacion', badge: 'Todo conectado', sm: true },
+      { h: 'Entrega, cobra<br><span class="g">y cierra la orden.</span>', sub: 'Emite la boleta desde la misma orden de trabajo.', ancho: true, pantalla: 'entrega', badge: 'Pruébalo gratis 30 días', sm: true }
     ] },
 
-  { n: 3, tipo: 'Carrusel · 2 láminas · fondo oscuro', nombre: 'Inventario y POS conectados', dark: true,
+  { n: 3, tipo: 'Serie temática · fondo oscuro', nombre: 'Inventario y POS conectados', dark: true,
     caption: 'Vende accesorios o repuestos y actualiza el inventario dentro del mismo flujo. Revisa las existencias por sucursal y evita registrar dos veces el mismo movimiento.',
     cta: 'Vende con más control desde pixit.cl',
     tags: '#puntodeventa #inventario #retail #pymechile',
-    slides: [{ h: 'Vende. Descuenta stock.<br><span class="g">Todo en un paso.</span>', sub: 'Ventas, repuestos y existencias por sucursal sin duplicar trabajo.', pantalla: 'pos', ghost: 'Un solo movimiento', sm: true },
-      { h: 'Y el inventario<br><span class="g">queda al día solo.</span>', sub: 'Costo, precio de venta y stock por sucursal.', pantalla: 'inventario', badge: 'Prueba gratis 30 días', sm: true }] },
+    slides: [{ h: 'Vende. Descuenta stock.<br><span class="g">Todo en un paso.</span>', sub: 'Ventas, repuestos y existencias por sucursal sin duplicar trabajo.', pantalla: 'pos', badge: 'Un solo movimiento', sm: true },
+      { h: 'Inventario<br><span class="g">siempre al día.</span>', sub: 'Controla costo, precio de venta y stock por sucursal.', pantalla: 'inventario', badge: 'Prueba gratis 30 días', sm: true }] },
 
-  { n: 4, tipo: 'Carrusel · 3 láminas', nombre: 'Clientes informados',
+  { n: 4, tipo: 'Serie temática', nombre: 'Clientes informados',
     caption: 'Mantén informado al cliente desde el ingreso del equipo hasta el retiro. Pixit centraliza la comunicación y ayuda a entregar una experiencia más profesional.',
     cta: 'Mejora la experiencia de tus clientes con Pixit.',
     tags: '#experienciadelcliente #serviciotecnico #atencionalcliente',
     slides: [
-      { h: 'Menos preguntas.<br><span class="g">Más confianza.</span>', sub: 'Tu cliente sabe en qué va su equipo, sin tener que llamar.', bloque: 'avisos', ghost: 'Desliza →' },
-      { h: 'El seguimiento<br><span class="g">lo hace Pixit.</span>', sub: 'Cada cambio de estado queda registrado en la orden.', pantalla: 'ficha', ghost: 'Desliza →', sm: true },
-      { h: 'Y cuando vuelve,<br><span class="g">ya sabes su historia.</span>', sub: 'Todas sus compras y reparaciones, en su ficha.', pantalla: 'ventas', badge: 'Prueba gratis 30 días', sm: true }
+      { h: 'Menos preguntas.<br><span class="g">Más confianza.</span>', sub: 'Tu cliente sabe en qué va su equipo, sin tener que llamar.', bloque: 'avisos', badge: 'Comunicación clara' },
+      { h: 'El seguimiento<br><span class="g">lo hace Pixit.</span>', sub: 'Cada cambio de estado queda registrado en la orden.', pantalla: 'ficha', badge: 'Historial de la orden', sm: true },
+      { h: 'Cada cliente.<br><span class="g">Toda su historia.</span>', sub: 'Consulta sus compras y reparaciones desde una sola ficha.', pantalla: 'ventas', badge: 'Prueba gratis 30 días', sm: true }
     ] },
 
   { n: 5, tipo: 'Comercial · fondo oscuro', nombre: 'Planes para crecer', dark: true,
@@ -669,31 +680,31 @@ var POSTS = [
     tags: '#software #pymechile #erp #emprendimiento',
     slides: [{ h: 'Empieza simple.<br><span class="g">Crece sin límites.</span>', sub: 'Usuarios ilimitados en los tres planes.', bloque: 'planes', badge: '30 días gratis', sm: true }] },
 
-  { n: 6, tipo: 'Carrusel · 3 láminas', nombre: 'Comisiones para técnicos',
+  { n: 6, tipo: 'Serie temática', nombre: 'Comisiones para técnicos',
     caption: 'Asigna el técnico responsable, define el porcentaje comisionable y deja que Pixit calcule el monto. Cuando registras el pago, la comisión queda marcada como pagada e incorporada como gasto.',
     cta: 'Controla órdenes y comisiones en un solo lugar.',
     tags: '#comisiones #equipodetrabajo #serviciotecnico #gestion',
     slides: [
-      { h: 'Calcula comisiones.<br><span class="g">Sin planillas.</span>', sub: 'Asigna al técnico, define el porcentaje y registra el pago.', pantalla: 'comisiones', ghost: 'Desliza →' },
-      { h: 'Tres pasos<br><span class="g">y queda pagada.</span>', sub: 'El pago entra como gasto, sin que tengas que anotarlo aparte.', bloque: 'comisionPasos', ghost: 'Desliza →', sm: true },
+      { h: 'Calcula comisiones.<br><span class="g">Sin planillas.</span>', sub: 'Asigna al técnico, define el porcentaje y registra el pago.', pantalla: 'comisiones', badge: 'Cálculo automático' },
+      { h: 'Tres pasos<br><span class="g">y queda pagada.</span>', sub: 'El pago entra como gasto, sin que tengas que anotarlo aparte.', bloque: 'comisionPasos', badge: 'Comisiones bajo control', sm: true },
       { h: 'Cada técnico sabe<br><span class="g">cuánto ganó.</span>', sub: 'Y tú, cuánto llevas pagado en el mes.', pantalla: 'comisiones', badge: 'Pruébalo gratis 30 días', sm: true }
     ] },
 
-  { n: 7, tipo: 'Carrusel · 2 láminas', nombre: 'Gastos y órdenes de compra',
+  { n: 7, tipo: 'Serie temática', nombre: 'Gastos y órdenes de compra',
     caption: 'En Gastos registras y categorizas los egresos del negocio. En Órdenes de compra administras por separado las compras a proveedores y la recepción de productos en inventario.',
     cta: 'Controla tus gastos y tu abastecimiento desde módulos independientes.',
     tags: '#finanzas #rentabilidad #pymechile #gestion',
-    slides: [{ h: 'No basta con vender.<br><span class="g">Controla lo que gastas.</span>', sub: 'Registra, categoriza y revisa cada gasto del negocio.', pantalla: 'gastos', ghost: 'Desliza →', sm: true },
+    slides: [{ h: 'No basta con vender.<br><span class="g">Controla lo que gastas.</span>', sub: 'Registra, categoriza y revisa cada gasto del negocio.', pantalla: 'gastos', badge: 'Conoce tus resultados', sm: true },
       { h: 'Lo que compras<br><span class="g">entra al inventario.</span>', sub: 'Recibe la orden de compra y el stock se actualiza.', pantalla: 'compras', badge: 'Prueba gratis 30 días', sm: true }] },
 
-  { n: 8, tipo: 'Carrusel · 3 láminas · fondo oscuro', nombre: 'Fotografías mediante QR', dark: true,
+  { n: 8, tipo: 'Serie temática', nombre: 'Fotografías mediante QR', dark: false,
     caption: 'No necesitas descargar las fotografías ni enviártelas por WhatsApp. Escanea el QR de la orden con tu teléfono, toma las fotos y quedan guardadas en el ingreso, la inspección, la salida o una derivación.',
     cta: 'Documenta cada reparación con Pixit.',
     tags: '#serviciotecnico #respaldo #tallerdecelulares #tecnologia',
     slides: [
-      { h: 'Escanea. Captura.<br><span class="g">Listo.</span>', sub: 'Sin descargar archivos ni enviarte fotos por WhatsApp.', bloque: 'qrReal', ghost: 'Desliza →', light: true },
-      { h: 'Tres pasos<br><span class="g">desde tu teléfono.</span>', sub: 'El QR vive dentro de la orden y dura 15 minutos.', bloque: 'qrPasos', ghost: 'Desliza →', sm: true },
-      { h: 'La foto queda<br><span class="g">donde corresponde.</span>', sub: 'Ingreso, inspección, salida o derivación.', pantalla: 'qr', badge: 'Prueba gratis 30 días', sm: true }
+      { h: 'Escanea. Captura.<br><span class="g">Listo.</span>', sub: 'Sin descargar archivos ni enviarte fotos por WhatsApp.', bloque: 'qrReal', badge: 'Fotos directas a la orden', light: true },
+      { h: 'Tres pasos<br><span class="g">desde tu teléfono.</span>', sub: 'El QR vive dentro de la orden y dura 15 minutos.', bloque: 'qrPasos', badge: 'Sin instalar aplicaciones', sm: true, light: true },
+      { h: 'La foto queda<br><span class="g">donde corresponde.</span>', sub: 'Ingreso, inspección, salida o derivación.', pantalla: 'qr', badge: 'Prueba gratis 30 días', sm: true, light: true }
     ] },
 
   { n: 9, tipo: 'Producto', nombre: 'Accesos según el cargo',
@@ -702,14 +713,14 @@ var POSTS = [
     tags: '#equipodetrabajo #seguridad #gestion #pymechile',
     slides: [{ h: 'Cada persona ve<br><span class="g">lo que necesita.</span>', sub: 'Crea cargos y controla el acceso a cada módulo.', ancho: true, pantalla: 'accesos', ghost: 'Tú decides quién ve qué', sm: true }] },
 
-  { n: 10, tipo: 'Carrusel · 3 láminas', nombre: 'Derivaciones con registro',
+  { n: 10, tipo: 'Serie temática', nombre: 'Derivaciones con registro',
     caption: '¿Necesitas enviar una reparación a otro taller? Deriva la orden sin perder su trazabilidad. Registra el destinatario, el motivo, el estado y las fotografías hasta que el equipo regrese.',
     cta: 'Mantén el control incluso cuando el equipo sale de tu taller.',
     tags: '#serviciotecnico #trazabilidad #gestion #tallerdecelulares',
     slides: [
-      { h: 'Envía la reparación.<br><span class="g">No pierdas el control.</span>', sub: 'Deriva una orden a otro taller sin perder su historia.', pantalla: 'derivacion', ghost: 'Desliza →' },
-      { h: 'Queda escrito<br><span class="g">quién la tiene.</span>', sub: 'Taller, motivo, fecha de salida y fotos de respaldo.', bloque: 'derivaPasos', ghost: 'Desliza →', sm: true },
-      { h: 'Y cuando vuelve,<br><span class="g">sigue su curso.</span>', sub: 'La orden retoma su estado como si nunca hubiera salido.', ancho: true, pantalla: 'ordenes', badge: 'Prueba gratis 30 días', sm: true }
+      { h: 'Envía la reparación.<br><span class="g">No pierdas el control.</span>', sub: 'Deriva una orden a otro taller sin perder su historia.', pantalla: 'derivacion', badge: 'Trazabilidad completa' },
+      { h: 'Queda escrito<br><span class="g">quién la tiene.</span>', sub: 'Taller, motivo, fecha de salida y fotos de respaldo.', bloque: 'derivaPasos', badge: 'Todo queda registrado', sm: true },
+      { h: 'Cuando regresa,<br><span class="g">la orden sigue su curso.</span>', sub: 'Retoma el proceso con todo su historial disponible.', ancho: true, pantalla: 'ordenes', badge: 'Prueba gratis 30 días', sm: true }
     ] }
 ];
 
@@ -728,17 +739,37 @@ function slideHTML(post, s, i) {
     '</div></div></div>';
 }
 
-document.getElementById('feed').innerHTML = POSTS.map(function (p) {
-  return '<section class="piece" id="p' + p.n + '">' +
-    '<div class="piece-head"><span class="tag' + (p.dark ? ' dark' : '') + '">' + p.n + ' · ' + p.tipo + '</span><h2>' + p.nombre + '</h2></div>' +
-    '<div class="slides' + (p.slides.length === 1 ? ' uno' : '') + '">' +
-    p.slides.map(function (s, i) { return slideHTML(p, s, i); }).join('') + '</div>' +
-    '<div class="cap"><p><b>Caption</b></p><p>' + p.caption + '</p><p class="cta">' + p.cta + '</p><p class="tags">' + p.tags + '</p></div>' +
+function textoPlano(html) {
+  var nodo = document.createElement('div');
+  nodo.innerHTML = html;
+  return nodo.textContent.replace(/\s+/g, ' ').trim();
+}
+
+var PUBLICACIONES = POSTS.flatMap(function (tema) {
+  return tema.slides.map(function (slide) {
+    return {
+      tema: tema,
+      slide: slide,
+      nombre: textoPlano(slide.h),
+      caption: slide.caption || tema.caption,
+      cta: slide.cta || tema.cta,
+      tags: slide.tags || tema.tags
+    };
+  });
+});
+
+document.getElementById('feed').innerHTML = PUBLICACIONES.map(function (pub, i) {
+  var numero = String(i + 1).padStart(2, '0');
+  return '<section class="piece" id="p' + numero + '" data-export-name="' + pub.nombre.replace(/&/g, 'y') + '">' +
+    '<div class="piece-head"><span class="tag' + (pub.tema.dark && !pub.slide.light ? ' dark' : '') + '">' + numero + ' · Publicación individual</span><h2>' + pub.nombre + '</h2></div>' +
+    '<div class="slides uno">' + slideHTML(pub.tema, pub.slide, 0) + '</div>' +
+    '<div class="cap"><p><b>Caption</b></p><p>' + pub.caption + '</p><p class="cta">' + pub.cta + '</p><p class="tags">' + pub.tags + '</p></div>' +
     '</section>';
 }).join('');
 
-document.getElementById('indice').innerHTML = POSTS.map(function (p) {
-  return '<li><a href="#p' + p.n + '">' + p.nombre + '</a> <span style="color:var(--faint)">· ' + p.tipo + '</span></li>';
+document.getElementById('indice').innerHTML = PUBLICACIONES.map(function (pub, i) {
+  var numero = String(i + 1).padStart(2, '0');
+  return '<li><a href="#p' + numero + '">' + pub.nombre + '</a> <span style="color:var(--faint)">· Post individual</span></li>';
 }).join('');
 
 // Cada pieza se dibuja a 1080×1080 reales y se escala para caber en su marco:

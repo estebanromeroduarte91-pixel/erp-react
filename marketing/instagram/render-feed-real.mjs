@@ -5,13 +5,14 @@
 // Las piezas se dibujan a 1080 px reales dentro de la página; acá solo se
 // desactiva el escalado de la vista previa y se fotografía cada una.
 import { chromium } from '@playwright/test'
-import { mkdir } from 'node:fs/promises'
+import { mkdir, rm } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const root = dirname(fileURLToPath(import.meta.url))
 const scale = Number(process.env.PIXIT_EXPORT_SCALE || 1)
 const output = join(root, scale > 1 ? 'exports-feed-real-2x' : 'exports-feed-real')
+await rm(output, { recursive: true, force: true })
 await mkdir(output, { recursive: true })
 
 const browser = await chromium.launch({ headless: true })
@@ -20,15 +21,13 @@ await page.goto(pathToFileURL(join(root, 'feed-instagram-real.html')).href)
 await page.waitForFunction(() => document.fonts.status === 'loaded')
 await page.waitForTimeout(400)
 
-// Nombre de archivo por pieza: 01-simplifica-tu-taller-1.png
+// Nombre de archivo por publicación independiente: 01-simplifica-tu-taller.png
 const nombres = await page.evaluate(() => {
   const limpia = t => t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
     .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 42)
-  return [...document.querySelectorAll('.piece')].flatMap((piece, i) => {
-    const titulo = limpia(piece.querySelector('h2').textContent)
-    const laminas = piece.querySelectorAll('[data-post]')
-    return [...laminas].map((_, j) =>
-      `${String(i + 1).padStart(2, '0')}-${titulo}${laminas.length > 1 ? `-${j + 1}` : ''}.png`)
+  return [...document.querySelectorAll('.piece')].map((piece, i) => {
+    const titulo = limpia(piece.dataset.exportName || piece.querySelector('h2').textContent)
+    return `${String(i + 1).padStart(2, '0')}-${titulo}.png`
   })
 })
 
