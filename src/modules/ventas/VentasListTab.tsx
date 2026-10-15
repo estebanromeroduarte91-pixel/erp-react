@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useVentasResumen, useVentasPaginadas, useVentaPorId, useAnularVenta, useActualizarMetodoPago, useMetodosPago, useVentasRealtime, useDteDeVenta, useBodegas } from '@/lib/queries'
-import { nombreMetodoPago } from '@/lib/metodoPago'
+import { descripcionPagoVenta, nombreMetodoPago, pagosDeVenta } from '@/lib/metodoPago'
 import { resumenProductos, nombresProductos } from '@/lib/venta'
 import { useAuth } from '@/context/AuthContext'
 import { Spinner } from '@/components/shared/Spinner'
@@ -131,6 +131,7 @@ export function VentasListTab() {
   // venta cuyo método de pago se había borrado mostraba el id interno tal cual
   // ("mpt7zej50ss1s") en vez de algo legible.
   const mp = (id: string | undefined) => nombreMetodoPago(id, metodos ?? [])
+  const pago = (venta: Venta, incluirMontos = false) => descripcionPagoVenta(venta, metodos ?? [], incluirMontos)
 
 
   const historico = resumen.data?.historico ?? { count: 0, total: 0, utilidad: 0 }
@@ -194,7 +195,7 @@ export function VentasListTab() {
     setErrorMetodo('')
     try {
       await actualizarMetodoPago.mutateAsync({ id: v.id, metodoPago })
-      setDetalle({ ...v, metodo_pago: metodoPago })
+      setDetalle({ ...v, metodo_pago: metodoPago, pagos: [{ metodo_pago: metodoPago, monto: v.total_iva }] })
       setEditandoMetodo(null)
     } catch (e) {
       setErrorMetodo(e instanceof Error ? e.message : 'No se pudo cambiar el método de pago')
@@ -220,7 +221,7 @@ export function VentasListTab() {
           folio: dte.folio,
           tipo_dte: dte.tipo_dte,
           regenerar: true,
-          forma_pago: mp(v.metodo_pago),
+          forma_pago: pago(v, pagosDeVenta(v).length > 1),
           empresa_id: empresaId,
         },
       })
@@ -451,7 +452,7 @@ export function VentasListTab() {
                     </span>
                   </div>
                   <p className="text-xs text-gray-400 mt-0.5">
-                    {mp(v.metodo_pago)} · {v.tipo_doc ?? 'boleta'} · {v.fecha}
+                    {pago(v)} · {v.tipo_doc ?? 'boleta'} · {v.fecha}
                   </p>
                   {(() => {
                     const r = resumenProductos(v.items)
@@ -500,7 +501,7 @@ export function VentasListTab() {
                           )
                         })()}
                       </td>
-                      <td className="px-4 py-3 text-gray-500 text-xs">{mp(v.metodo_pago)}</td>
+                      <td className="px-4 py-3 text-gray-500 text-xs">{pago(v)}</td>
                       <td className="px-4 py-3 text-xs text-gray-400 capitalize">{v.tipo_doc ?? 'boleta'}</td>
                       <td className="px-4 py-3 text-right">
                         <span className={`font-semibold ${v.estado === 'anulada' ? 'line-through text-gray-400' : 'text-gray-900'}`}>
@@ -562,8 +563,8 @@ export function VentasListTab() {
                   <span className="flex-shrink-0">Método de pago</span>
                   {editandoMetodo === null ? (
                     <span className="flex items-center gap-2 min-w-0">
-                      <span className="font-medium truncate">{mp(detalle.metodo_pago)}</span>
-                      {esAdmin && detalle.estado === 'pagada' && (
+                      <span className="font-medium text-right">{pago(detalle, pagosDeVenta(detalle).length > 1)}</span>
+                      {esAdmin && detalle.estado === 'pagada' && pagosDeVenta(detalle).length <= 1 && (
                         <button
                           onClick={() => setEditandoMetodo(detalle.metodo_pago ?? '')}
                           className="text-xs text-blue-600 hover:underline font-medium flex-shrink-0"

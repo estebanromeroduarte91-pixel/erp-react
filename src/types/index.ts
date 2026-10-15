@@ -208,6 +208,11 @@ export interface VentaItem {
   costo_total?: number     // cantidad * costo_unitario
 }
 
+export interface VentaPago {
+  metodo_pago: string
+  monto: number
+}
+
 // ── Toma de inventario (conteo físico) ──────────────────────
 export interface ConteoItem {
   producto_id: string
@@ -249,7 +254,8 @@ export interface Venta {
   fecha: string           // 'YYYY-MM-DD'
   estado: 'pagada' | 'anulada' | 'pendiente'
   cliente: string
-  metodo_pago: string     // id del método ('efectivo', 'tarjeta', 'transfer')
+  metodo_pago: string     // método único antiguo o 'mixto' cuando hay más de uno
+  pagos?: VentaPago[]     // desglose real; las ventas antiguas usan metodo_pago + total_iva
   branchId: string
   branchNombre: string
   bodega_id: string

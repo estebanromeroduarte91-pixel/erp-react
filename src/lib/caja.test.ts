@@ -57,4 +57,23 @@ describe('calcularTotalesCaja', () => {
       monto: 9_990,
     })
   })
+
+  it('distribuye una venta mixta entre los métodos sin duplicar el total de ventas', () => {
+    const mixta = venta('1', 'mixto', 100_000)
+    mixta.pagos = [
+      { metodo_pago: 'transfer', monto: 40_000 },
+      { metodo_pago: 'getnet', monto: 60_000 },
+    ]
+    const resultado = calcularTotalesCaja([mixta], metodos)
+
+    expect(resultado._total).toBe(100_000)
+    expect(resultado._count).toBe(1)
+    expect(resultado.transferencia).toBe(40_000)
+    expect(resultado.desgloseMetodos).toContainEqual({
+      metodoId: 'transfer', nombre: 'Transferencia', cantidad: 1, monto: 40_000,
+    })
+    expect(resultado.desgloseMetodos).toContainEqual({
+      metodoId: 'getnet', nombre: 'GetNet', cantidad: 1, monto: 60_000,
+    })
+  })
 })

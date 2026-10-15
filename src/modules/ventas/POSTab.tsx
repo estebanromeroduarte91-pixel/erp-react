@@ -170,6 +170,9 @@ export function POSTab() {
   }, [])
   const [tipoDoc, setTipoDoc] = useState<'boleta' | 'factura' | 'ticket'>('boleta')
   const [metodoSel, setMetodoSel] = useState<string>('')
+  const [pagoDividido, setPagoDividido] = useState(false)
+  const [segundoMetodo, setSegundoMetodo] = useState<string>('')
+  const [montoPrimerPago, setMontoPrimerPago] = useState('')
   const [guardando, setGuardando] = useState(false)
   const [ventaError, setVentaError] = useState('')
   // Aviso separado del error de venta: acá la venta SÍ se guardó y lo que falló
@@ -294,6 +297,14 @@ export function POSTab() {
   }
 
   const totalIva = items.reduce((s, it) => s + lineTotal(it), 0)
+  const segundoMetodoActual = segundoMetodo && segundoMetodo !== metodoActual
+    ? segundoMetodo
+    : (metodos ?? []).find(m => m.id !== metodoActual)?.id ?? ''
+  const montoPrimero = Number(montoPrimerPago.replace(/\D/g, '')) || 0
+  const montoSegundo = Math.max(0, totalIva - montoPrimero)
+  const pagoDivididoValido = !pagoDividido || (
+    !!segundoMetodoActual && segundoMetodoActual !== metodoActual && montoPrimero > 0 && montoPrimero < totalIva
+  )
   const totalNeto = items.reduce((s, it) => s + lineNeto(it), 0)
   const faltantesStock = useMemo(() => {
     const bodegaId = cajaAbierta?.bodegaId
@@ -432,6 +443,9 @@ export function POSTab() {
     setClienteTel('')
     setClienteEmail('')
     setOtSeleccionada(null)
+    setPagoDividido(false)
+    setSegundoMetodo('')
+    setMontoPrimerPago('')
   }
 
   function mensajeDeError(error: unknown, fallback: string) {
@@ -535,6 +549,10 @@ export function POSTab() {
 
   async function confirmarVenta() {
     if (!metodoActual || !items.length) return
+    if (!pagoDivididoValido) {
+      setVentaError('Para dividir el pago, indica un monto válido y un segundo método distinto.')
+      return
+    }
     if (bloquearPorStock) {
       setVentaError(`Stock insuficiente: ${faltantesStock.map(f => `${f.nombre} (${f.disponible} disponible${f.disponible === 1 ? '' : 's'}, ${f.solicitado} solicitado${f.solicitado === 1 ? '' : 's'})`).join(', ')}.`)
       return
@@ -549,13 +567,25 @@ export function POSTab() {
       const nextNum = await incrementarContador.mutateAsync()
       const numero = 'VTA-' + String(nextNum).padStart(5, '0')
 
+      const pagos = pagoDividido
+        ? [
+            { metodo_pago: metodoActual, monto: montoPrimero },
+            { metodo_pago: segundoMetodoActual, monto: montoSegundo },
+          ]
+        : [{ metodo_pago: metodoActual, monto: totalIva }]
+      const formaPagoImpresion = pagos.map(p => {
+        const nombre = (metodos ?? []).find(m => m.id === p.metodo_pago)?.label ?? p.metodo_pago
+        return pagoDividido ? `${nombre} ${fmt(p.monto)}` : nombre
+      }).join(' + ')
+
       const venta: Venta = {
         id: uid(),
         numero,
         fecha: today(),
         estado: 'pagada',
         cliente: cliente.trim() || 'Cliente genérico',
-        metodo_pago: metodoActual,
+        metodo_pago: pagoDividido ? 'mixto' : metodoActual,
+        pagos,
         tipo_doc: tipoDoc,
         branchId: cajaAbierta?.sucursalId ?? '',
         branchNombre: '',
@@ -618,11 +648,11 @@ export function POSTab() {
           tipo: tipoDoc,
           clienteRut: clienteRut.trim(),
           clienteNombre: cliente.trim(),
-          metodoPago: metodoActual,
+          metodoPago: formaPagoImpresion,
           items: [...items],
         })
       } else {
-        void imprimirComprobante(venta, metodoActual)
+        void imprimirComprobante(venta, formaPagoImpresion)
       }
 
       if (otSeleccionada) setOtSeleccionada(null)
@@ -632,6 +662,9 @@ export function POSTab() {
       setClienteTel('')
       setClienteEmail('')
       setBusqueda('')
+      setPagoDividido(false)
+      setSegundoMetodo('')
+      setMontoPrimerPago('')
     } catch (error) {
       setVentaError(mensajeDeError(error, 'No se pudo confirmar la venta.'))
     } finally {
@@ -1129,7 +1162,22 @@ export function POSTab() {
 
           {/* Método de pago */}
           <div>
-            <label className="text-xs font-semibold text-gray-500 uppercase block mb-1.5">Método de pago</label>
+            <div className="mb-1.5 flex items-center justify-between gap-3">
+              <label className="text-xs font-semibold text-gray-500 uppercase">Método de pago</label>
+              {(metodos?.length ?? 0) > 1 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPagoDividido(v => !v)
+                    setMontoPrimerPago('')
+                    setVentaError('')
+                  }}
+                  className="text-xs font-semibold text-blue-600 hover:text-blue-800"
+                >
+                  {pagoDividido ? 'Usar un método' : '+ Dividir pago'}
+                </button>
+              )}
+            </div>
             <div className="flex flex-col gap-1.5">
               {(metodos ?? []).map(m => {
                 const active = metodoActual === m.id
@@ -1161,6 +1209,46 @@ export function POSTab() {
                 )
               })}
             </div>
+            {pagoDividido && (
+              <div className="mt-3 rounded-xl border border-blue-200 bg-blue-50 p-3">
+                <p className="mb-2 text-xs font-semibold text-blue-900">¿Cuánto paga con el primer método?</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="block">
+                    <span className="mb-1 block text-[11px] text-blue-700">
+                      {(metodos ?? []).find(m => m.id === metodoActual)?.label ?? 'Primer método'}
+                    </span>
+                    <input
+                      inputMode="numeric"
+                      value={montoPrimerPago ? Number(montoPrimerPago.replace(/\D/g, '')).toLocaleString('es-CL') : ''}
+                      onChange={e => setMontoPrimerPago(e.target.value.replace(/\D/g, ''))}
+                      placeholder="$0"
+                      className="w-full rounded-lg border border-blue-200 bg-white px-3 py-2 text-base font-semibold outline-none focus:border-blue-500 md:text-sm"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="mb-1 block text-[11px] text-blue-700">Segundo método</span>
+                    <select
+                      value={segundoMetodoActual}
+                      onChange={e => setSegundoMetodo(e.target.value)}
+                      className="w-full rounded-lg border border-blue-200 bg-white px-2 py-2 text-base outline-none focus:border-blue-500 md:text-sm"
+                    >
+                      {(metodos ?? []).filter(m => m.id !== metodoActual).map(m => (
+                        <option key={m.id} value={m.id}>{m.label}</option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <div className="mt-2 flex items-center justify-between rounded-lg bg-white px-3 py-2 text-xs">
+                  <span className="text-gray-500">Resto con el segundo método</span>
+                  <span className={montoPrimero > 0 && montoPrimero < totalIva ? 'font-bold text-blue-700' : 'font-semibold text-gray-400'}>
+                    {fmt(montoSegundo)}
+                  </span>
+                </div>
+                {!pagoDivididoValido && montoPrimerPago && (
+                  <p className="mt-2 text-[11px] text-red-600">El primer monto debe ser mayor a $0 y menor al total.</p>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Tipo de documento */}
@@ -1228,7 +1316,7 @@ export function POSTab() {
           )}
           <button
             onClick={confirmarVenta}
-            disabled={!items.length || guardando || bloquearPorStock}
+            disabled={!items.length || guardando || bloquearPorStock || !pagoDivididoValido}
             className="w-full bg-gray-900 text-white font-bold py-3.5 rounded-xl text-base hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition"
           >
             {guardando ? 'Registrando…' : `Cobrar ${items.length > 0 ? fmt(totalIva) : ''}`}

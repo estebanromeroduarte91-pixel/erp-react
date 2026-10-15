@@ -1,5 +1,5 @@
 import type { CajaMetodoPagoResumen, MetodoPago, Venta } from '@/types'
-import { nombreMetodoPago } from '@/lib/metodoPago'
+import { nombreMetodoPago, pagosDeVenta } from '@/lib/metodoPago'
 
 export interface TotalesCaja {
   efectivo: number
@@ -45,29 +45,27 @@ export function calcularTotalesCaja(ventas: Venta[], metodos: MetodoPago[]): Tot
   for (const venta of ventas) {
     if (venta.estado === 'anulada') continue
 
-    const metodoId = venta.metodo_pago || 'sin-metodo'
-    const nombre = nombreMetodoPago(venta.metodo_pago, metodos)
-    const monto = Number(venta.total_iva) || 0
-    const actual = desglose.get(metodoId) ?? {
-      metodoId,
-      nombre,
-      cantidad: 0,
-      monto: 0,
+    const pagos = pagosDeVenta(venta)
+    for (const pago of pagos) {
+      const metodoId = pago.metodo_pago || 'sin-metodo'
+      const nombre = nombreMetodoPago(pago.metodo_pago, metodos)
+      const monto = Number(pago.monto) || 0
+      const actual = desglose.get(metodoId) ?? { metodoId, nombre, cantidad: 0, monto: 0 }
+
+      actual.cantidad += 1
+      actual.monto += monto
+      desglose.set(metodoId, actual)
+
+      const etiqueta = nombre.toLowerCase()
+      if (etiqueta.includes('efect')) totales.efectivo += monto
+      else if (etiqueta.includes('debit') || etiqueta.includes('débito')) totales.debito += monto
+      else if (etiqueta.includes('credit') || etiqueta.includes('crédito')) totales.credito += monto
+      else if (etiqueta.includes('transf')) totales.transferencia += monto
+      else totales.otro += monto
     }
 
-    actual.cantidad += 1
-    actual.monto += monto
-    desglose.set(metodoId, actual)
-
-    totales._total += monto
+    totales._total += Number(venta.total_iva) || 0
     totales._count += 1
-
-    const etiqueta = nombre.toLowerCase()
-    if (etiqueta.includes('efect')) totales.efectivo += monto
-    else if (etiqueta.includes('debit') || etiqueta.includes('débito')) totales.debito += monto
-    else if (etiqueta.includes('credit') || etiqueta.includes('crédito')) totales.credito += monto
-    else if (etiqueta.includes('transf')) totales.transferencia += monto
-    else totales.otro += monto
   }
 
   totales.desgloseMetodos = [...desglose.values()]

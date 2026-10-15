@@ -4,7 +4,7 @@ import {
   useBodegas, useMetodosPago, useReporteSerie, useReporteSucursales,
   useVentasEnRango, useVentasPaginadas, useVentasResumen,
 } from '@/lib/queries'
-import { nombreMetodoPago } from '@/lib/metodoPago'
+import { descripcionPagoVenta, nombreMetodoPago } from '@/lib/metodoPago'
 import { periodoAnteriorEquivalente } from '@/lib/metricas'
 import { Spinner } from '@/components/shared/Spinner'
 import type { Venta } from '@/types'
@@ -145,7 +145,7 @@ export function VentasBI({ desde, hasta, branchId }: { desde: string; hasta: str
           {ventasVisibles.length === 0 ? <Vacio /> : <div className="overflow-x-auto"><table className="w-full text-xs border-collapse">
             <thead><tr className="border-b border-gray-200"><Th>Venta / cliente</Th><Th right>Fecha</Th><Th right>Sucursal</Th><Th right>Pago</Th><Th right>Total</Th></tr></thead>
             <tbody>{ventasVisibles.map(v => <tr key={v.id} onClick={() => navigate(`/ventas?abrir=${encodeURIComponent(v.id)}`)} className="border-b border-gray-50 last:border-0 cursor-pointer hover:bg-gray-50">
-              <td className="py-2.5 font-semibold text-gray-800 whitespace-nowrap">{v.numero} · {v.cliente || 'Sin cliente'}</td><Td>{etiquetaFecha(v.fecha)}</Td><Td>{v.branchNombre || bodegas.find(b => b.id === (v.branchId || v.bodega_id))?.nombre || 'Sin sucursal'}</Td><Td>{nombreMetodoPago(v.metodo_pago, metodos)}</Td><Td>{clp(v.total_iva)}</Td>
+              <td className="py-2.5 font-semibold text-gray-800 whitespace-nowrap">{v.numero} · {v.cliente || 'Sin cliente'}</td><Td>{etiquetaFecha(v.fecha)}</Td><Td>{v.branchNombre || bodegas.find(b => b.id === (v.branchId || v.bodega_id))?.nombre || 'Sin sucursal'}</Td><Td>{descripcionPagoVenta(v, metodos)}</Td><Td>{clp(v.total_iva)}</Td>
             </tr>)}</tbody>
           </table></div>}
         </Panel>

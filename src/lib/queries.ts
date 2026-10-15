@@ -1450,13 +1450,12 @@ export function useMetodosPago() {
 // tiempo. Se usa `count: 'exact', head: true` para no traer ninguna fila,
 // solo el número.
 export async function contarVentasConMetodo(empresaId: string, metodoId: string): Promise<number> {
-  const { count, error } = await supabase
-    .from('ventas')
-    .select('id', { count: 'exact', head: true })
-    .eq('empresa_id', empresaId)
-    .eq('metodo_pago', metodoId)
+  const { data, error } = await supabase.rpc('fn_contar_ventas_metodo_pago', {
+    p_metodo_pago: metodoId,
+    p_empresa_id: empresaId,
+  })
   if (error) throw error
-  return count ?? 0
+  return Number(data) || 0
 }
 
 export interface VentasConfig {
@@ -1487,7 +1486,7 @@ export function useGuardarVentasConfig() {
 // Ventas: tabla relacional `ventas` + `venta_items` (migradas desde el blob erp_data).
 // Mismo patrón que Productos: id TEXT (preserva los ids generados por uid()), paginación
 // server-side con .range(), y una fila por venta en vez de reescribir un array completo.
-const VENTA_COLS = 'id,numero,fecha,estado,cliente,metodo_pago,branch_id,branch_nombre,bodega_id,caja_id,ot_id,ot_num,tipo_doc,total,total_iva,fecha_creacion,venta_items(id,producto_id,producto_nombre,cantidad,precio_neto,precio_iva,descuento,subtotal,costo_unitario,costo_total)'
+const VENTA_COLS = 'id,numero,fecha,estado,cliente,metodo_pago,pagos,branch_id,branch_nombre,bodega_id,caja_id,ot_id,ot_num,tipo_doc,total,total_iva,fecha_creacion,venta_items(id,producto_id,producto_nombre,cantidad,precio_neto,precio_iva,descuento,subtotal,costo_unitario,costo_total)'
 
 function hidratarVenta(row: Record<string, unknown>): Venta {
   const items = (row.venta_items as VentaItem[] | undefined) ?? []
@@ -1498,6 +1497,12 @@ function hidratarVenta(row: Record<string, unknown>): Venta {
     estado: row.estado as Venta['estado'],
     cliente: (row.cliente as string) ?? '',
     metodo_pago: (row.metodo_pago as string) ?? '',
+    pagos: Array.isArray(row.pagos)
+      ? (row.pagos as { metodo_pago?: unknown; monto?: unknown }[]).map(p => ({
+          metodo_pago: String(p.metodo_pago ?? ''),
+          monto: Number(p.monto) || 0,
+        }))
+      : undefined,
     branchId: (row.branch_id as string) ?? '',
     branchNombre: (row.branch_nombre as string) ?? '',
     bodega_id: (row.bodega_id as string) ?? '',
@@ -1521,6 +1526,7 @@ function filaVenta(v: Venta, empresaId: string) {
     estado: v.estado,
     cliente: v.cliente,
     metodo_pago: v.metodo_pago,
+    pagos: v.pagos ?? null,
     branch_id: v.branchId,
     branch_nombre: v.branchNombre,
     bodega_id: v.bodega_id,
@@ -1723,11 +1729,14 @@ export function useVentasResumen(desde: string | null, hasta: string | null, bra
       // platform admin impersonando veía SU PROPIA empresa en vez de la
       // impersonada. El servidor solo honra este valor si quien llama es
       // platform admin; para cualquier otro usuario se ignora.
-      const { data, error } = await supabase.rpc('fn_ventas_resumen', {
-        p_desde: desde, p_hasta: hasta, p_branch_id: branchId, p_empresa_id: empresaId,
-      })
-      if (error) throw error
-      return data as VentasResumen
+      const args = { p_desde: desde, p_hasta: hasta, p_branch_id: branchId, p_empresa_id: empresaId }
+      const [resumen, metodos] = await Promise.all([
+        supabase.rpc('fn_ventas_resumen', args),
+        supabase.rpc('fn_ventas_pagos_resumen', args),
+      ])
+      if (resumen.error) throw resumen.error
+      if (metodos.error) throw metodos.error
+      return { ...(resumen.data as VentasResumen), metodos: (metodos.data ?? []) as VentasResumen['metodos'] }
     },
     enabled: !!empresaId,
   })
@@ -1808,6 +1817,7 @@ export function useConfirmarVenta() {
         p_ajustes_stock: p.ajustesStock?.length ? p.ajustesStock : null,
         p_lotes: p.lotes?.length ? p.lotes : null,
         p_orden: p.orden ?? null,
+        p_pagos: p.venta.pagos?.length ? p.venta.pagos : null,
         p_empresa_id: empresaId,
       })
       if (error) throw error
@@ -1884,7 +1894,9 @@ export function useActualizarMetodoPago() {
       await qc.cancelQueries({ queryKey: ['ventas', empresaId] })
       const prev = qc.getQueryData<Venta[]>(['ventas', empresaId])
       qc.setQueryData<Venta[]>(['ventas', empresaId], (old = []) =>
-        old.map((v) => (v.id === id ? { ...v, metodo_pago: metodoPago } : v)))
+        old.map((v) => (v.id === id
+          ? { ...v, metodo_pago: metodoPago, pagos: [{ metodo_pago: metodoPago, monto: v.total_iva }] }
+          : v)))
       return { prev }
     },
     onError: (_e, _vars, ctx) => { if (ctx?.prev) qc.setQueryData(['ventas', empresaId], ctx.prev) },

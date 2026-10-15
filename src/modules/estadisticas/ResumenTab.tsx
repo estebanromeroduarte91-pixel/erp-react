@@ -2,7 +2,7 @@ import { useMemo, useState, useRef } from 'react'
 import { useVentasEnRango, useGastosEnRango, useOrdenesEntregadasEnRango, useBodegas, useOCsEnRango, useCostosProductos, useMetodosPago, useRentabilidadSucursales } from '@/lib/queries'
 import { cascada } from '@/lib/rentabilidad'
 import { calcularResumenVentas, fechaEfectivaOC, filtrarVentasPagadas, periodoAnteriorEquivalente, restarDias, MARGEN_OC_DIAS, type RangoComparacion } from '@/lib/metricas'
-import { nombreMetodoPago } from '@/lib/metodoPago'
+import { nombreMetodoPago, pagosDeVenta } from '@/lib/metodoPago'
 import { Spinner } from '@/components/shared/Spinner'
 import { useIsMobile } from '@/lib/useIsMobile'
 import { fechaLocal } from '@/lib/fecha'
@@ -371,10 +371,10 @@ export function ResumenTab({ seccion = 'resumen', mostrarEncabezado = true, most
 
     // Métodos de pago del período (esto solo existía en el Dashboard).
     const mpMap: Record<string, number> = {}
-    ventasArr.forEach(v => {
-      const mp = nombreMetodo(v.metodo_pago || '')
-      mpMap[mp] = (mpMap[mp] ?? 0) + (+v.total_iva || 0)
-    })
+    ventasArr.forEach(v => pagosDeVenta(v).forEach(p => {
+      const mp = nombreMetodo(p.metodo_pago)
+      mpMap[mp] = (mpMap[mp] ?? 0) + p.monto
+    }))
     const mpSorted = Object.entries(mpMap).sort((a, b) => b[1] - a[1])
 
     // Top productos

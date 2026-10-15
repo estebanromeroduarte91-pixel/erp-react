@@ -4,7 +4,7 @@ import { resumenProductos, nombresProductos } from '@/lib/venta'
 import { useVentasEnRango, useUltimasVentas, useRentabilidadSucursales, useBodegas, useMetodosPago, useOCsEnRango, useCostosProductos } from '@/lib/queries'
 import { cascada, resultadoPorSucursal } from '@/lib/rentabilidad'
 import { calcularResumenVentas, fechaEfectivaOC, filtrarVentasPagadas, periodoAnteriorEquivalente, restarDias, MARGEN_OC_DIAS } from '@/lib/metricas'
-import { nombreMetodoPago } from '@/lib/metodoPago'
+import { descripcionPagoVenta, nombreMetodoPago, pagosDeVenta } from '@/lib/metodoPago'
 import { Spinner } from '@/components/shared/Spinner'
 import { useIsMobile } from '@/lib/useIsMobile'
 import { fechaLocal } from '@/lib/fecha'
@@ -424,7 +424,7 @@ export function DashboardPage() {
     const bId = bodegas[tabMp]?.id
     const byBranch = bodegas.length > 0 && bId ? vArr.filter(v => v.branchId === bId) : vArr
     return byBranch
-      .filter(v => (v.metodo_pago || 'otro') === expandedMp)
+      .filter(v => pagosDeVenta(v).some(p => p.metodo_pago === expandedMp))
       .sort((a, b) => b.fecha.localeCompare(a.fecha))
   }, [ventas, desde, hasta, tabMp, expandedMp, bodegas])
 
@@ -480,12 +480,18 @@ export function DashboardPage() {
       const bV = vPer.filter(v => v.branchId === b.id)
       const totales: Record<string, number> = {}
       const totalSuc = bV.reduce((s, v) => s + (+v.total_iva || 0), 0)
-      bV.forEach(v => { const mp = v.metodo_pago || 'otro'; totales[mp] = (totales[mp] ?? 0) + (+v.total_iva || 0) })
+      bV.forEach(v => pagosDeVenta(v).forEach(p => {
+        const mp = p.metodo_pago || 'otro'
+        totales[mp] = (totales[mp] ?? 0) + p.monto
+      }))
       return { totalSuc, sorted: Object.entries(totales).sort((a, b) => b[1] - a[1]) }
     })
 
     const mpGlobal: Record<string, number> = {}
-    vPer.forEach(v => { const mp = v.metodo_pago || 'otro'; mpGlobal[mp] = (mpGlobal[mp] ?? 0) + (+v.total_iva || 0) })
+    vPer.forEach(v => pagosDeVenta(v).forEach(p => {
+      const mp = p.metodo_pago || 'otro'
+      mpGlobal[mp] = (mpGlobal[mp] ?? 0) + p.monto
+    }))
     const mpGlobalSorted = Object.entries(mpGlobal).sort((a, b) => b[1] - a[1])
 
     return { ventasBrutas, ventasBrutasPrev, ventasNetas, totalOC, totalGastos, totalCosto, totalSalida, utilidad, fueraOperacion, margen, txCount, ticketProm, sucursales, mpPorSuc, mpGlobalSorted }
@@ -614,7 +620,7 @@ export function DashboardPage() {
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <p style={{ fontSize: 13, fontWeight: 600, color: C.textPrimary, margin: 0 }}>{fmt(+v.total_iva)}</p>
-                    <p style={{ fontSize: 11, color: C.textMuted, margin: 0 }}>{getMpLabel(v.metodo_pago)}</p>
+                    <p style={{ fontSize: 11, color: C.textMuted, margin: 0 }}>{descripcionPagoVenta(v, metodos)}</p>
                   </div>
                 </div>
               ))
@@ -684,7 +690,7 @@ export function DashboardPage() {
                       })()}
                     </td>
                     <td style={{ padding: '9px 14px', fontSize: 12, color: C.textMuted }}>{v.fecha}</td>
-                    <td style={{ padding: '9px 14px', fontSize: 12, color: C.textSecondary }}>{getMpLabel(v.metodo_pago)}</td>
+                    <td style={{ padding: '9px 14px', fontSize: 12, color: C.textSecondary }}>{descripcionPagoVenta(v, metodos)}</td>
                     <td style={{ padding: '9px 14px', fontSize: 13, fontWeight: 600, color: C.textPrimary, textAlign: 'right' }}>{fmt(+v.total_iva)}</td>
                   </tr>
                 ))}
