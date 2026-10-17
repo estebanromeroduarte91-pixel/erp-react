@@ -332,12 +332,15 @@ export function POSTab() {
   }, [ordenes, cajaAbierta])
   const otResultados = useMemo(() => {
     const q = busquedaOT.trim().toLowerCase()
-    if (!q) return otsListas.slice(0, 6)
+    // El contenedor tiene scroll propio: se renderizan todas las OTs. Antes se
+    // cortaban a seis con slice(), por eso el encabezado decía "12 listas"
+    // pero no había más filas sobre las cuales desplazarse.
+    if (!q) return otsListas
     return otsListas.filter(o =>
       o.nombre?.toLowerCase().includes(q) ||
       o.num?.toLowerCase().includes(q) ||
       o.modelo?.toLowerCase().includes(q)
-    ).slice(0, 6)
+    )
   }, [otsListas, busquedaOT])
 
   // Búsqueda server-side (ilike + índice) en vez de filtrar el catálogo
