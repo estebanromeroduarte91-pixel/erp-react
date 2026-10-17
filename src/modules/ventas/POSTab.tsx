@@ -910,7 +910,12 @@ export function POSTab() {
                   {otsListas.length === 0 ? (
                     <p className="text-sm text-gray-400 text-center py-3">No hay OTs en estado "Listo"</p>
                   ) : (
-                    <ul className="border border-gray-100 rounded-lg overflow-hidden shadow-sm">
+                    <ul
+                      tabIndex={0}
+                      aria-label={`Órdenes listas para vincular (${otResultados.length})`}
+                      className="max-h-80 md:max-h-[22rem] overflow-y-auto overscroll-y-contain touch-pan-y border border-gray-100 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+                      style={{ scrollbarGutter: 'stable' }}
+                    >
                       {otResultados.map(ot => (
                         <li key={ot.id}>
                           <button
