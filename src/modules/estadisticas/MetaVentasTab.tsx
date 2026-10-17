@@ -159,6 +159,8 @@ export function MetaVentasTab() {
     ? 'Toda la empresa'
     : nombreSucursal(bodegas.find(b => b.id === alcance) ?? { id: alcance, nombre: 'Mi sucursal' })
   const sinBase = baseContribucion.ventas <= 0
+  const faltaPorVender = Math.max(0, resultado.metaMensual - resultado.ventas)
+  const metaSuperada = resultado.metaMensual > 0 && resultado.ventas >= resultado.metaMensual
 
   return (
     <div className="space-y-4 pb-8">
@@ -187,101 +189,116 @@ export function MetaVentasTab() {
       {(cargandoRentabilidad || cargandoConfig) ? (
         <div className="rounded-xl border border-gray-200 bg-white p-12 text-center text-sm text-gray-400">Calculando metas…</div>
       ) : <>
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <Kpi label="Ventas acumuladas" value={fmt(resultado.ventas)} sub={`${pct(resultado.avancePct)} de la meta`} color="blue" />
-          <Kpi label="Meta del mes" value={fmt(resultado.metaMensual)} sub={configMeta?.meta_mensual ? 'configurada' : 'igual al punto de equilibrio'} />
-          <Kpi label="Punto de equilibrio" value={fmt(resultado.puntoEquilibrio)} sub="ventas netas necesarias" color="amber" />
-          <Kpi label="Necesario desde hoy" value={fmt(resultado.metaNecesariaDiaria)} sub={`${resultado.diasRestantes} días de operación`} color={resultado.holgura >= 0 ? 'green' : 'red'} />
-        </div>
-
-        <div className="grid gap-4 lg:grid-cols-[1.45fr_1fr]">
-          <section className="rounded-xl border border-gray-200 bg-white p-5">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h2 className="font-bold text-gray-900">Ritmo de {nombreAlcance}</h2>
-                <p className="text-xs text-gray-400 mt-1">La meta base no cambia; el ritmo necesario sí absorbe lo vendido de más o de menos.</p>
+        <section className="rounded-2xl border border-gray-200 bg-white p-5 md:p-7">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Meta de {nombreAlcance}</p>
+              <div className="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                <span className="text-3xl font-extrabold text-gray-900 md:text-4xl">{fmt(resultado.ventas)}</span>
+                <span className="text-sm text-gray-400">de {fmt(resultado.metaMensual)}</span>
               </div>
-              <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${resultado.holgura >= 0 ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
-                {resultado.holgura >= 0 ? 'Sobre el ritmo' : 'Bajo el ritmo'} {fmt(Math.abs(resultado.holgura))}
-              </span>
+              <p className="mt-2 text-xs text-gray-400">
+                {configMeta?.meta_mensual
+                  ? `Meta configurada · Punto de equilibrio ${fmt(resultado.puntoEquilibrio)}`
+                  : 'Meta automática para cubrir todos los costos del mes'}
+              </p>
             </div>
-            <div className="mt-5 h-3 overflow-hidden rounded-full bg-gray-100">
-              <div className={`h-full rounded-full ${resultado.holgura >= 0 ? 'bg-green-500' : 'bg-blue-600'}`}
-                style={{ width: `${Math.min(100, Math.max(0, resultado.avancePct))}%` }} />
-            </div>
-            <div className="mt-5 grid grid-cols-2 gap-4 md:grid-cols-4">
-              <Mini label="Meta base diaria" value={fmt(resultado.metaBaseDiaria)} />
-              <Mini label="Esperado a la fecha" value={fmt(resultado.esperadoALaFecha)} />
-              <Mini label="Proyección de cierre" value={fmt(resultado.proyeccionCierre)} />
-              <Mini label="Margen contribución" value={pct(resultado.margenContribucionPct * 100)} />
-            </div>
-            {sinBase && <p className="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">Aún no hay ventas suficientes para calcular el margen de contribución. Pixit usará el mes anterior cuando exista información.</p>}
-          </section>
+            <span className={`self-start rounded-full px-3 py-1.5 text-xs font-bold ${
+              metaSuperada ? 'bg-green-50 text-green-700'
+                : resultado.holgura >= 0 ? 'bg-blue-50 text-blue-700' : 'bg-amber-50 text-amber-700'
+            }`}>
+              {metaSuperada ? 'Meta cumplida' : resultado.holgura >= 0 ? 'Vas bien' : 'Hay que recuperar ritmo'}
+            </span>
+          </div>
 
-          <section className="rounded-xl border border-gray-200 bg-white p-5">
-            <h2 className="font-bold text-gray-900">Cómo se calcula</h2>
-            <div className="mt-4 space-y-3 text-sm">
-              <Formula label="Ventas netas" value={fmt(baseContribucion.ventas)} />
-              <Formula label="− Costo de productos" value={fmt(baseContribucion.costo)} />
-              <Formula label="− Gastos variables" value={fmt(baseContribucion.variable)} />
-              <div className="border-t border-gray-100 pt-3"><Formula label="= Margen de contribución" value={fmt(baseContribucion.ventas - baseContribucion.costo - baseContribucion.variable)} strong /></div>
-              <Formula label="Costos fijos base" value={fmt(resultado.costosFijosBase)} />
-            </div>
-            <p className="mt-4 text-[11px] leading-relaxed text-gray-400">Punto de equilibrio = costos fijos ÷ porcentaje de margen de contribución. Financiamiento e inversiones no entran en este cálculo.</p>
-          </section>
-        </div>
+          <div className="mt-6 h-4 overflow-hidden rounded-full bg-gray-100">
+            <div className={`h-full rounded-full transition-all ${metaSuperada ? 'bg-green-500' : 'bg-blue-600'}`}
+              style={{ width: `${Math.min(100, Math.max(0, resultado.avancePct))}%` }} />
+          </div>
+          <div className="mt-2 flex items-center justify-between text-xs">
+            <span className="font-bold text-blue-600">{pct(resultado.avancePct)} cumplido</span>
+            <span className="text-gray-400">{resultado.diasRestantes} días de venta disponibles</span>
+          </div>
+
+          <div className="mt-6 grid gap-3 sm:grid-cols-3">
+            <DatoSimple label={metaSuperada ? 'Superaste la meta por' : 'Falta por vender'} value={fmt(metaSuperada ? resultado.ventas - resultado.metaMensual : faltaPorVender)} />
+            <DatoSimple label="Necesitas vender por día" value={fmt(resultado.metaNecesariaDiaria)} destacado />
+            <DatoSimple label="Proyección al cierre" value={fmt(resultado.proyeccionCierre)} />
+          </div>
+
+          {!metaSuperada && (
+            <p className={`mt-5 rounded-xl px-4 py-3 text-sm ${resultado.holgura >= 0 ? 'bg-blue-50 text-blue-700' : 'bg-amber-50 text-amber-800'}`}>
+              {resultado.holgura >= 0
+                ? `Llevas ${fmt(resultado.holgura)} de ventaja. Por eso la venta diaria necesaria bajó.`
+                : `Vas ${fmt(Math.abs(resultado.holgura))} bajo el avance esperado. Pixit ya repartió esa diferencia entre los días restantes.`}
+            </p>
+          )}
+          {sinBase && <p className="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">Todavía no hay ventas suficientes para estimar los costos. Pixit usará el mes anterior cuando exista información.</p>}
+        </section>
 
         {puedeConfigurar && (
-          <ConfiguracionMeta
-            key={`${periodo}-${alcance}-${configMeta?.meta_mensual ?? 'nueva'}-${configMeta?.costos_fijos_presupuestados ?? 'auto'}`}
-            periodo={periodo}
-            alcance={alcance}
-            config={configMeta}
-            fijoAnterior={gastoPrevio.fijos}
-            guardando={guardarMeta.isPending}
-            onGuardar={async p => { await guardarMeta.mutateAsync(p) }}
-          />
+          <details className="group rounded-xl border border-gray-200 bg-white">
+            <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4">
+              <div><p className="text-sm font-bold text-gray-900">Configurar meta</p><p className="mt-0.5 text-xs text-gray-400">Cambiar monto mensual, costos previstos o días de trabajo</p></div>
+              <span className="text-xl text-gray-400 transition group-open:rotate-45">＋</span>
+            </summary>
+            <div className="border-t border-gray-100 p-4">
+              <ConfiguracionMeta
+                key={`${periodo}-${alcance}-${configMeta?.meta_mensual ?? 'nueva'}-${configMeta?.costos_fijos_presupuestados ?? 'auto'}`}
+                periodo={periodo}
+                alcance={alcance}
+                config={configMeta}
+                fijoAnterior={gastoPrevio.fijos}
+                guardando={guardarMeta.isPending}
+                onGuardar={async p => { await guardarMeta.mutateAsync(p) }}
+              />
+            </div>
+          </details>
         )}
 
-        <section className="overflow-hidden rounded-xl border border-gray-200 bg-white">
-          <div className="flex items-start justify-between gap-3 border-b border-gray-100 px-5 py-4">
+        <details className="group overflow-hidden rounded-xl border border-gray-200 bg-white">
+          <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4">
+            <div><p className="text-sm font-bold text-gray-900">Ver cómo se calculó</p><p className="mt-0.5 text-xs text-gray-400">Punto de equilibrio y clasificación de costos</p></div>
+            <span className="text-xl text-gray-400 transition group-open:rotate-45">＋</span>
+          </summary>
+          <div className="grid gap-5 border-t border-gray-100 p-5 lg:grid-cols-2">
             <div>
-              <h2 className="font-bold text-gray-900">Clasificación de costos</h2>
-              <p className="text-xs text-gray-400 mt-1">Pixit propone una clasificación por categoría. El administrador puede corregirla aquí para todos los gastos futuros e históricos sin decisión propia.</p>
+              <h3 className="text-sm font-bold text-gray-800">Cálculo del punto de equilibrio</h3>
+              <div className="mt-4 space-y-3 text-sm">
+                <Formula label="Ventas netas" value={fmt(baseContribucion.ventas)} />
+                <Formula label="− Costo de productos" value={fmt(baseContribucion.costo)} />
+                <Formula label="− Gastos variables" value={fmt(baseContribucion.variable)} />
+                <div className="border-t border-gray-100 pt-3"><Formula label="= Margen disponible" value={fmt(baseContribucion.ventas - baseContribucion.costo - baseContribucion.variable)} strong /></div>
+                <Formula label="Costos fijos" value={fmt(resultado.costosFijosBase)} />
+                <Formula label="Punto de equilibrio" value={fmt(resultado.puntoEquilibrio)} strong />
+              </div>
             </div>
-            <Link to="/contabilidad?tab=gastos" className="text-xs font-semibold text-blue-600 hover:underline">Ver gastos</Link>
-          </div>
-          {mensaje && <p className="border-b border-red-100 bg-red-50 px-5 py-2 text-xs text-red-600">{mensaje}</p>}
-          {categorias.length === 0 ? <p className="p-8 text-center text-sm text-gray-400">No hay gastos operacionales en este mes.</p> : (
-            <div className="divide-y divide-gray-100">
-              {categorias.map(c => (
-                <div key={c.categoria} className="flex items-center gap-3 px-5 py-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-gray-800">{c.categoria}</p>
-                    <p className="text-xs text-gray-400">{fmt(c.monto)} este mes · {c.explicita ? 'clasificación confirmada' : 'sugerencia de Pixit'}</p>
-                  </div>
-                  {puedeConfigurar ? (
-                    <select value={c.comportamiento} onChange={e => void cambiarCategoria(c, e.target.value as ComportamientoGasto)}
-                      disabled={guardarCategoria.isPending}
-                      className={`rounded-lg border px-3 py-2 text-xs font-bold ${c.comportamiento === 'variable' ? 'border-amber-200 bg-amber-50 text-amber-700' : 'border-gray-200 bg-gray-50 text-gray-700'}`}>
-                      <option value="fijo">Fijo</option><option value="variable">Variable</option>
-                    </select>
-                  ) : <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${c.comportamiento === 'variable' ? 'bg-amber-50 text-amber-700' : 'bg-gray-100 text-gray-600'}`}>{c.comportamiento === 'variable' ? 'Variable' : 'Fijo'}</span>}
+            <div>
+              <div className="flex items-center justify-between"><h3 className="text-sm font-bold text-gray-800">Costos por categoría</h3><Link to="/contabilidad?tab=gastos" className="text-xs font-semibold text-blue-600 hover:underline">Ver gastos</Link></div>
+              {mensaje && <p className="mt-2 rounded bg-red-50 px-3 py-2 text-xs text-red-600">{mensaje}</p>}
+              {categorias.length === 0 ? <p className="py-6 text-sm text-gray-400">No hay gastos operacionales este mes.</p> : (
+                <div className="mt-3 max-h-72 divide-y divide-gray-100 overflow-y-auto">
+                  {categorias.map(c => (
+                    <div key={c.categoria} className="flex items-center gap-3 py-2.5">
+                      <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold text-gray-700">{c.categoria}</p><p className="text-xs text-gray-400">{fmt(c.monto)}</p></div>
+                      {puedeConfigurar ? <select value={c.comportamiento} onChange={e => void cambiarCategoria(c, e.target.value as ComportamientoGasto)} disabled={guardarCategoria.isPending}
+                        className="rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-xs font-bold text-gray-700"><option value="fijo">Fijo</option><option value="variable">Variable</option></select>
+                        : <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-bold text-gray-600">{c.comportamiento === 'variable' ? 'Variable' : 'Fijo'}</span>}
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
-          )}
-        </section>
+          </div>
+        </details>
       </>}
     </div>
   )
 }
 
-function Kpi({ label, value, sub, color = 'default' }: { label: string; value: string; sub: string; color?: 'default' | 'blue' | 'amber' | 'green' | 'red' }) {
-  const colores = { default: 'text-gray-900', blue: 'text-blue-600', amber: 'text-amber-600', green: 'text-green-600', red: 'text-red-600' }
-  return <div className="rounded-xl border border-gray-200 bg-white p-4"><p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">{label}</p><p className={`mt-2 text-xl font-extrabold ${colores[color]}`}>{value}</p><p className="mt-1 text-xs text-gray-400">{sub}</p></div>
+function DatoSimple({ label, value, destacado = false }: { label: string; value: string; destacado?: boolean }) {
+  return <div className={`rounded-xl p-4 ${destacado ? 'bg-blue-600 text-white' : 'bg-gray-50 text-gray-900'}`}><p className={`text-[11px] font-semibold uppercase tracking-wide ${destacado ? 'text-blue-100' : 'text-gray-400'}`}>{label}</p><p className="mt-1 text-xl font-extrabold">{value}</p></div>
 }
-function Mini({ label, value }: { label: string; value: string }) { return <div><p className="text-[11px] uppercase tracking-wide text-gray-400">{label}</p><p className="mt-1 text-base font-bold text-gray-900">{value}</p></div> }
 function Formula({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) { return <div className={`flex items-center justify-between gap-3 ${strong ? 'font-bold text-gray-900' : 'text-gray-600'}`}><span>{label}</span><span className="font-semibold tabular-nums">{value}</span></div> }
 
 function ConfiguracionMeta({ periodo, alcance, config, fijoAnterior, guardando, onGuardar }: {
@@ -313,7 +330,7 @@ function ConfiguracionMeta({ periodo, alcance, config, fijoAnterior, guardando, 
     }
   }
 
-  return <section className="rounded-xl border border-gray-200 bg-white p-5">
+  return <div>
     <div className="flex flex-col gap-5 lg:flex-row lg:items-end">
       <div className="flex-1">
         <h2 className="font-bold text-gray-900">Configuración mensual</h2>
@@ -338,5 +355,5 @@ function ConfiguracionMeta({ periodo, alcance, config, fijoAnterior, guardando, 
         className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50">{guardando ? 'Guardando…' : 'Guardar'}</button>
     </div>
     {mensaje && <p className={`mt-3 text-xs ${mensaje === 'Configuración guardada' ? 'text-green-700' : 'text-red-600'}`}>{mensaje}</p>}
-  </section>
+  </div>
 }
