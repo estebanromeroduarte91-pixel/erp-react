@@ -863,9 +863,9 @@ export function POSTab() {
       </div>
       <div className="flex flex-col md:flex-row gap-3 md:gap-4 min-h-[calc(100dvh-11.5rem)] md:h-[calc(100vh-10.5rem)]">
       {/* Panel izquierdo: buscador + carrito */}
-      <div className="flex-1 flex flex-col gap-4 min-w-0">
+      <div className="flex-1 flex flex-col gap-4 min-w-0 md:min-h-0">
         {/* Buscador OT */}
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div className="flex-shrink-0 bg-white rounded-xl border border-gray-200 overflow-hidden">
           {otSeleccionada ? (
             <div className="flex items-center gap-3 px-4 py-3">
               <span className="flex items-center gap-2 flex-1 text-sm font-medium text-emerald-700 bg-emerald-50 rounded-lg px-3 py-1.5 min-w-0">
@@ -916,11 +916,11 @@ export function POSTab() {
                     <ul
                       tabIndex={0}
                       aria-label={`Órdenes listas para vincular (${otResultados.length})`}
-                      className="max-h-80 md:max-h-[22rem] overflow-y-auto overscroll-y-contain touch-pan-y border border-gray-100 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+                      className="max-h-80 md:max-h-72 overflow-y-auto overscroll-y-contain touch-pan-y border border-gray-100 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
                       style={{ scrollbarGutter: 'stable' }}
                     >
                       {otResultados.map(ot => (
-                        <li key={ot.id}>
+                        <li key={ot.id} className="last:pb-2">
                           <button
                             onClick={() => void seleccionarOT(ot)}
                             className="w-full flex items-center gap-3 px-3 py-2.5 text-sm hover:bg-blue-50 transition-colors text-left border-b border-gray-50 last:border-0"
