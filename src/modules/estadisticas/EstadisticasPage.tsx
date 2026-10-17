@@ -1,11 +1,12 @@
 import { useSearchParams } from 'react-router-dom'
 import { ResumenTab } from './ResumenTab'
 import { ReportesTab } from './ReportesTab'
+import { MetaVentasTab } from './MetaVentasTab'
 
-type Tab = 'resumen' | 'reportes'
+type Tab = 'resumen' | 'metas' | 'reportes'
 
 function resolveTab(param: string | null): Tab {
-  return param === 'reportes' ? 'reportes' : 'resumen'
+  return param === 'reportes' || param === 'metas' ? param : 'resumen'
 }
 
 export function EstadisticasPage() {
@@ -17,6 +18,7 @@ export function EstadisticasPage() {
   // siempre, encargado por su cargo, técnico y vendedor no.
   const TABS: { id: Tab; label: string }[] = [
     { id: 'resumen', label: 'Resumen ejecutivo' },
+    { id: 'metas', label: 'Metas' },
     { id: 'reportes', label: 'Reportes BI' },
   ]
 
@@ -37,6 +39,7 @@ export function EstadisticasPage() {
         ))}
       </div>
       {tab === 'resumen' && <ResumenTab />}
+      {tab === 'metas' && <MetaVentasTab />}
       {tab === 'reportes' && <ReportesTab />}
     </div>
   )

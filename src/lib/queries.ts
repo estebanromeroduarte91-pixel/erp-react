@@ -7,12 +7,14 @@ import { MSG_DEFAULTS } from './msgTemplatesDefaults'
 import { reconciliarLotes } from './lotes'
 import { soloRutDigits } from './rut'
 import { claveCategoria, type ConfigNaturaleza } from './naturalezaGasto'
+import type { ConfigComportamiento } from './comportamientoGasto'
+import type { MetaVentasConfig } from './metaVentas'
 import type { RentabilidadSucursales } from './rentabilidad'
 import { extraerMensajeError } from './edgeError'
 import { errorEnResultadosDte, type ResultadoProcesoDte } from './dteProceso'
 import { DEFAULT_PLAN_LIMITS, type PlanTier } from './queries/usePlanLimits'
 import { useAuth } from '@/context/AuthContext'
-import type { Orden, Repuesto, Cliente, Producto, Bodega, Movimiento, Proveedor, Venta, VentaItem, MetodoPago, Caja, CajaSesion, Gasto, GastoCat, NaturalezaGasto, CuentaContable, Asiento, SeguimientoConfig, SmtpConfig, MsgTemplates, Cargo, UserProfile, UserConfig, PendingInvite, EmailDomain, OC, OCLogEntry, OCRecepcion, Categoria, Kit, Traslado, TrasladoInternoOrden, TecnicoExterno, Equipo, FichaUsuario, LoteInventario, ConteoInventario, Cotizacion } from '@/types'
+import type { Orden, Repuesto, Cliente, Producto, Bodega, Movimiento, Proveedor, Venta, VentaItem, MetodoPago, Caja, CajaSesion, Gasto, GastoCat, NaturalezaGasto, ComportamientoGasto, CuentaContable, Asiento, SeguimientoConfig, SmtpConfig, MsgTemplates, Cargo, UserProfile, UserConfig, PendingInvite, EmailDomain, OC, OCLogEntry, OCRecepcion, Categoria, Kit, Traslado, TrasladoInternoOrden, TecnicoExterno, Equipo, FichaUsuario, LoteInventario, ConteoInventario, Cotizacion } from '@/types'
 
 // ── Órdenes de Taller ─────────────────────────────────────────
 // Tabla relacional `ordenes` (migrada desde el blob erp_data/tp_orders).
@@ -2182,6 +2184,7 @@ function hidratarGasto(row: Record<string, unknown>): Gasto {
     monto_neto: row.monto_neto == null ? undefined : Number(row.monto_neto),
     iva: row.iva == null ? undefined : Number(row.iva),
     naturaleza: (row.naturaleza as NaturalezaGasto | null) ?? undefined,
+    comportamiento: (row.comportamiento as ComportamientoGasto | null) ?? undefined,
   }
 }
 
@@ -2190,7 +2193,7 @@ const GASTO_FIELD_MAP: Record<string, string> = {
   fecha: 'fecha', descripcion: 'descripcion', monto: 'monto', categoria: 'categoria',
   subcategoria: 'subcategoria', metodo: 'metodo', bodega_id: 'bodega_id', bodega_nombre: 'bodega_nombre',
   con_credito_fiscal: 'con_credito_fiscal', monto_neto: 'monto_neto', iva: 'iva',
-  naturaleza: 'naturaleza',
+  naturaleza: 'naturaleza', comportamiento: 'comportamiento',
 }
 
 function filaGastoParcial(g: Partial<Gasto>): Record<string, unknown> {
@@ -2360,6 +2363,105 @@ export function useGastoCategoriaConfig() {
     retry: false,
     select: (rows): ConfigNaturaleza =>
       new Map(rows.map(r => [claveCategoria(r.categoria, r.subcategoria), r.naturaleza])),
+  })
+}
+
+// Misma tabla de reglas que la naturaleza, pero para el comportamiento frente
+// a las ventas. Se mantiene como hook separado para no cambiar el contrato de
+// las pantallas de rentabilidad existentes.
+export function useGastoComportamientoConfig() {
+  const { empresaId } = useAuth()
+  return useQuery({
+    queryKey: ['gasto_comportamiento_config', empresaId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('gasto_categoria_config')
+        .select('categoria,subcategoria,comportamiento')
+        .eq('empresa_id', empresaId!)
+      if (error) throw error
+      return (data ?? []) as { categoria: string; subcategoria: string; comportamiento: ComportamientoGasto | null }[]
+    },
+    enabled: !!empresaId,
+    retry: false,
+    select: (rows): ConfigComportamiento => new Map(
+      rows.filter(r => !!r.comportamiento).map(r => [claveCategoria(r.categoria, r.subcategoria), r.comportamiento!]),
+    ),
+  })
+}
+
+export function useGuardarClasificacionCategoria() {
+  const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (p: {
+      categoria: string
+      subcategoria?: string
+      naturaleza: NaturalezaGasto
+      comportamiento: ComportamientoGasto
+    }) => {
+      const { error } = await supabase.from('gasto_categoria_config').upsert({
+        empresa_id: empresaId!,
+        categoria: p.categoria,
+        subcategoria: p.subcategoria ?? '',
+        naturaleza: p.naturaleza,
+        comportamiento: p.comportamiento,
+        origen: 'confirmada',
+        actualizado_en: new Date().toISOString(),
+      }, { onConflict: 'empresa_id,categoria,subcategoria' })
+      if (error) throw error
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['gasto_categoria_config', empresaId] })
+      void qc.invalidateQueries({ queryKey: ['gasto_comportamiento_config', empresaId] })
+    },
+  })
+}
+
+// ── Metas comerciales ─────────────────────────────────────────
+export function useMetaVentasConfig(periodo: string, branchId: string) {
+  const { empresaId } = useAuth()
+  return useQuery({
+    queryKey: ['meta-ventas-config', empresaId, periodo, branchId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('metas_ventas_config')
+        .select('periodo,branch_id,meta_mensual,costos_fijos_presupuestados,dias_operacion')
+        .eq('empresa_id', empresaId!)
+        .eq('periodo', `${periodo.slice(0, 7)}-01`)
+        .eq('branch_id', branchId)
+        .maybeSingle()
+      if (error) throw error
+      if (!data) return null
+      return {
+        ...data,
+        meta_mensual: Number(data.meta_mensual ?? 0),
+        costos_fijos_presupuestados: data.costos_fijos_presupuestados == null
+          ? null : Number(data.costos_fijos_presupuestados),
+        dias_operacion: (data.dias_operacion as number[] | null) ?? [1, 2, 3, 4, 5, 6],
+      } as MetaVentasConfig
+    },
+    enabled: !!empresaId && !!periodo && !!branchId,
+    retry: false,
+  })
+}
+
+export function useGuardarMetaVentasConfig() {
+  const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (p: Omit<MetaVentasConfig, 'periodo'> & { periodo: string }) => {
+      const { error } = await supabase.from('metas_ventas_config').upsert({
+        empresa_id: empresaId!,
+        periodo: `${p.periodo.slice(0, 7)}-01`,
+        branch_id: p.branch_id,
+        meta_mensual: p.meta_mensual,
+        costos_fijos_presupuestados: p.costos_fijos_presupuestados,
+        dias_operacion: p.dias_operacion,
+        actualizado_en: new Date().toISOString(),
+      }, { onConflict: 'empresa_id,periodo,branch_id' })
+      if (error) throw error
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['meta-ventas-config', empresaId] }),
   })
 }
 

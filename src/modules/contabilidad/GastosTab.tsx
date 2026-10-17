@@ -1,17 +1,21 @@
 import { useState, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { useGastos, useCrearGasto, useActualizarGasto, useEliminarGasto, useGastoCats, useGuardarGastoCats, useBodegas, useUserProfiles, useGastoCategoriaConfig } from '@/lib/queries'
+import { useGastos, useCrearGasto, useActualizarGasto, useEliminarGasto, useGastoCats, useGuardarGastoCats, useBodegas, useUserProfiles, useGastoCategoriaConfig, useGastoComportamientoConfig } from '@/lib/queries'
 import { separarIva } from '@/lib/metricas'
 import { GASTO_GENERAL_ID } from '@/lib/gastos'
 import {
   NATURALEZAS, bodegaAlCambiarNaturaleza, errorDeClasificacion, naturalezaEfectiva, naturalezaSugerida,
   type ConfigNaturaleza,
 } from '@/lib/naturalezaGasto'
+import {
+  COMPORTAMIENTOS, comportamientoEfectivo, comportamientoSugerido,
+  type ConfigComportamiento,
+} from '@/lib/comportamientoGasto'
 import { Spinner } from '@/components/shared/Spinner'
 import { capFirst } from '@/lib/formatters'
 import { describirError } from '@/lib/errorUtils'
 import { coincideAsignacion, esVarianteAsignacion, normalizarAsignacion, SIN_ASIGNACION } from '@/lib/gastoFiltros'
-import type { Gasto, GastoCat, Bodega, NaturalezaGasto } from '@/types'
+import type { Gasto, GastoCat, Bodega, NaturalezaGasto, ComportamientoGasto } from '@/types'
 
 function uid() { return Math.random().toString(36).slice(2) + Date.now().toString(36) }
 function today() { return new Date().toISOString().split('T')[0] }
@@ -66,6 +70,7 @@ function fmtFecha(f: string) {
 
 // Sin sugerencias (tabla no disponible o aún cargando): el formulario parte en 'tienda'.
 const SIN_CONFIG: ConfigNaturaleza = new Map()
+const SIN_CONFIG_COMPORTAMIENTO: ConfigComportamiento = new Map()
 const METODOS = ['Efectivo', 'Transferencia', 'Tarjeta', 'Crédito', 'Cheque']
 type PeriodoGasto = 'hoy' | 'mes' | 'año' | 'rango' | 'todo'
 
@@ -85,6 +90,7 @@ export function GastosTab() {
   const { data: usuarios = [] } = useUserProfiles()
   const { data: cats } = useGastoCats()
   const { data: configNaturaleza } = useGastoCategoriaConfig()
+  const { data: configComportamiento } = useGastoComportamientoConfig()
   const crearGasto = useCrearGasto()
   const actualizarGasto = useActualizarGasto()
   const eliminarGasto = useEliminarGasto()
@@ -406,6 +412,14 @@ export function GastosTab() {
                           {g.subcategoria && <span className="ml-1 text-gray-300">· {g.subcategoria}</span>}
                           {g.metodo && <span className="ml-1 text-gray-300">· {g.metodo}</span>}
                         </p>
+                        {['tienda', 'corporativo'].includes(naturalezaEfectiva(g, configNaturaleza ?? SIN_CONFIG)) && (
+                          <span className={`mt-1 inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
+                            comportamientoEfectivo(g, configComportamiento ?? SIN_CONFIG_COMPORTAMIENTO) === 'variable'
+                              ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-600'
+                          }`}>
+                            {comportamientoEfectivo(g, configComportamiento ?? SIN_CONFIG_COMPORTAMIENTO) === 'variable' ? 'Variable' : 'Fijo'}
+                          </span>
+                        )}
                       </div>
                       <p className="text-sm font-bold text-gray-900 flex-shrink-0">{fmt(+g.monto || 0)}</p>
                       <div className="flex gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
@@ -430,6 +444,7 @@ export function GastosTab() {
           cats={cats ?? []}
           bodegas={bodegas ?? []}
           config={configNaturaleza ?? SIN_CONFIG}
+          configComportamiento={configComportamiento ?? SIN_CONFIG_COMPORTAMIENTO}
           personasComisionables={usuarios.filter(u => u.activo && ['tecnico', 'vendedor', 'encargado'].includes(u.role))}
           gasto={editando}
           subcatsPorCat={subcatsPorCat}
@@ -448,9 +463,10 @@ export function GastosTab() {
   )
 }
 
-function GastoModal({ cats, bodegas, config, personasComisionables, gasto, subcatsPorCat, onClose, onGuardar }: {
+function GastoModal({ cats, bodegas, config, configComportamiento, personasComisionables, gasto, subcatsPorCat, onClose, onGuardar }: {
   cats: GastoCat[]
   config: ConfigNaturaleza
+  configComportamiento: ConfigComportamiento
   bodegas: Bodega[]
   personasComisionables: { id: string; nombre: string; role: string }[]
   gasto: Gasto | null
@@ -476,6 +492,11 @@ function GastoModal({ cats, bodegas, config, personasComisionables, gasto, subca
   const [bodegaId, setBodegaId] = useState(
     bodegaAlCambiarNaturaleza(naturalezaInicial, gasto?.bodega_id ?? ''),
   )
+  const comportamientoInicial = gasto
+    ? comportamientoEfectivo(gasto, configComportamiento)
+    : (comportamientoSugerido(cats[0]?.nombre, configComportamiento) ?? 'fijo')
+  const [comportamiento, setComportamiento] = useState<ComportamientoGasto>(comportamientoInicial)
+  const [comportamientoTocado, setComportamientoTocado] = useState(!!gasto?.comportamiento)
   const [fecha, setFecha] = useState(gasto?.fecha ?? today())
   // Por defecto NO: si no se marca, el gasto se descuenta completo, que es el
   // comportamiento de siempre. Marcar de más sería inflar la utilidad.
@@ -512,14 +533,23 @@ function GastoModal({ cats, bodegas, config, personasComisionables, gasto, subca
     setBodegaId(b => bodegaAlCambiarNaturaleza(sugerida, b))
   }
 
+  function sugerirComportamiento(cat: string, sub: string) {
+    if (comportamientoTocado) return
+    const canon = sub.trim() ? (buscarCanonico(subcatsPorCat[cat], sub) ?? sub) : ''
+    const sugerido = comportamientoSugerido(cat, configComportamiento, canon)
+    if (sugerido) setComportamiento(sugerido)
+  }
+
   function elegirCategoria(nombre: string) {
     setCategoria(nombre)
     sugerirNaturaleza(nombre, subcategoria)
+    sugerirComportamiento(nombre, subcategoria)
   }
 
   function elegirSubcategoria(sub: string) {
     setSubcategoria(sub)
     sugerirNaturaleza(categoria, sub)
+    sugerirComportamiento(categoria, sub)
   }
 
   async function handleGuardar() {
@@ -543,6 +573,7 @@ function GastoModal({ cats, bodegas, config, personasComisionables, gasto, subca
         iva: conFactura ? separarIva(+monto).iva : undefined,
         categoria,
         naturaleza,
+        comportamiento: ['tienda', 'corporativo'].includes(naturaleza) ? comportamiento : undefined,
         subcategoria: subCanonica,
         metodo,
         bodega_id: bodegaId,
@@ -695,6 +726,28 @@ function GastoModal({ cats, bodegas, config, personasComisionables, gasto, subca
                   {bodegas.map(b => <option key={b.id} value={b.id}>{b.nombre ?? b.name}</option>)}
                   {naturaleza !== 'tienda' && <option value={GASTO_GENERAL_ID}>General / Compartido</option>}
                 </select>
+              </div>
+            )}
+
+            {['tienda', 'corporativo'].includes(naturaleza) && (
+              <div className="mt-3">
+                <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider block mb-1.5">
+                  Comportamiento del costo
+                </label>
+                <div role="radiogroup" aria-label="Comportamiento del costo" className="grid grid-cols-2 gap-1 p-1 rounded-lg bg-gray-100">
+                  {COMPORTAMIENTOS.map(c => {
+                    const sel = comportamiento === c.id
+                    return (
+                      <button key={c.id} type="button" role="radio" aria-checked={sel}
+                        onClick={() => { setComportamiento(c.id); setComportamientoTocado(true) }}
+                        className={['py-1.5 rounded-md text-xs font-medium transition',
+                          sel ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'].join(' ')}>
+                        {c.etiqueta}
+                      </button>
+                    )
+                  })}
+                </div>
+                <p className="text-[11px] text-gray-400 mt-1.5">{COMPORTAMIENTOS.find(c => c.id === comportamiento)?.ayuda}</p>
               </div>
             )}
           </div>

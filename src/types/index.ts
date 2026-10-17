@@ -317,6 +317,8 @@ export interface CajaSesion {
 // ── Contabilidad + Gastos ────────────────────────────────────
 /** Cómo cuenta un gasto en la rentabilidad. Ver gasto_categoria_config. */
 export type NaturalezaGasto = 'tienda' | 'corporativo' | 'financiero' | 'inversion'
+/** Cómo se comporta un gasto operacional frente al nivel de actividad. */
+export type ComportamientoGasto = 'fijo' | 'variable'
 
 export interface Gasto {
   id: string
@@ -336,6 +338,9 @@ export interface Gasto {
   // Decisión de quien registró el gasto. Undefined = histórico: vale la
   // sugerencia de su categoría (gasto_categoria_config).
   naturaleza?: NaturalezaGasto
+  // Fijo = se mantiene aunque cambien las ventas; variable = crece con la
+  // actividad. El costo de los productos vendidos se calcula aparte.
+  comportamiento?: ComportamientoGasto
 }
 
 export interface GastoCat {
