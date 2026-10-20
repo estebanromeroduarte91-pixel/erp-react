@@ -1602,14 +1602,28 @@ export function useVentasEnRango(desde: string, hasta: string, activo = true) {
   return useQuery({
     queryKey: ['ventas', empresaId, 'rango', desde, hasta],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('ventas')
-        .select(VENTA_COLS)
-        .eq('empresa_id', empresaId!)
-        .gte('fecha', desde)
-        .lte('fecha', hasta)
-      if (error) throw error
-      return (data ?? []).map(hidratarVenta)
+      // Supabase limita cada respuesta a 1.000 filas. El Dashboard pide el
+      // período visible más el comparable anterior y una empresa con muchas
+      // ventas puede superar ese límite: antes se recibía solo una parte del
+      // rango y el mes actual podía aparecer en $0 aunque sí tuviera ventas.
+      // Se pagina con un orden estable para no omitir ni repetir registros.
+      const PAGE = 500
+      const filas: Record<string, unknown>[] = []
+      for (let from = 0; ; from += PAGE) {
+        const { data, error } = await supabase
+          .from('ventas')
+          .select(VENTA_COLS)
+          .eq('empresa_id', empresaId!)
+          .gte('fecha', desde)
+          .lte('fecha', hasta)
+          .order('fecha', { ascending: true })
+          .order('id', { ascending: true })
+          .range(from, from + PAGE - 1)
+        if (error) throw error
+        filas.push(...(data ?? []))
+        if (!data || data.length < PAGE) break
+      }
+      return filas.map(hidratarVenta)
     },
     enabled: !!empresaId && !!desde && !!hasta && activo,
   })
