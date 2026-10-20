@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buscarSimilar, esCasiIgual, normalizar } from './texto'
+import { buscarSimilar, esCasiIgual, normalizar, puntuarBusqueda } from './texto'
 
 describe('normalizar', () => {
   it('ignora mayúsculas, tildes y espacios de más', () => {
@@ -56,6 +56,34 @@ describe('buscarSimilar', () => {
 
   it('tolera texto vacío', () => {
     expect(buscarSimilar('   ', existentes)).toBeUndefined()
+  })
+})
+
+describe('puntuarBusqueda', () => {
+  const puntuar = (consulta: string, principal: string, codigo = '', secundarios: string[] = []) =>
+    puntuarBusqueda(consulta, { principal, codigo, secundarios })
+
+  it('no confunde una generación numérica con un dígito dentro del modelo', () => {
+    expect(puntuar('ipad air 5', 'iPad Air 5 A2488 Botón Bloqueo', '2312', ['iPad', 'iPad Air 5'])).not.toBeNull()
+    expect(puntuar('ipad air 5', 'iPad Air 2 A1566 Batería', '2282', ['iPad', 'iPad Air 2'])).toBeNull()
+    expect(puntuar('ipad air 5', 'iPad Air 3 A2152 Pantalla', '2294', ['iPad', 'iPad Air 3'])).toBeNull()
+  })
+
+  it('prioriza una frase en el nombre sobre palabras dispersas', () => {
+    const exacta = puntuar('iphone 13 pro max', 'Mica iPhone 13 Pro Max', '2054')!
+    const dispersa = puntuar('iphone 13 pro max', 'iPhone carcasa 13 protección Pro modelo Max', '9999')!
+    expect(exacta).toBeGreaterThan(dispersa)
+  })
+
+  it('permite búsquedas parciales y sin tilde', () => {
+    expect(puntuar('bater', 'Batería iPhone 13')).not.toBeNull()
+    expect(puntuar('lamina', 'Lámina HD iPhone 14')).not.toBeNull()
+  })
+
+  it('pone un SKU exacto por encima de una coincidencia secundaria', () => {
+    const skuExacto = puntuar('2054', 'Mica 3D iPhone 13 Pro Max', '2054')!
+    const otro = puntuar('2054', 'Repuesto modelo 2054', '9999')!
+    expect(skuExacto).toBeGreaterThan(otro)
   })
 })
 

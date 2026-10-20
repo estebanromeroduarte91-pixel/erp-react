@@ -9,7 +9,7 @@ import { ProductoModal } from './ProductoModal'
 import type { Producto, LoteInventario, Bodega } from '@/types'
 import { validarArchivoImport, validarContenidoImport } from '@/lib/importArchivo'
 import { fechaLocal } from '@/lib/fecha'
-import { normalizar } from '@/lib/texto'
+import { puntuarBusqueda } from '@/lib/texto'
 
 function uidLote() { return Math.random().toString(36).slice(2) + Date.now().toString(36) }
 
@@ -230,15 +230,23 @@ export function ProductosTab() {
       return st <= (p.stock_min ?? 0)
     })
     if (busqueda.trim()) {
-      // No exige una frase idéntica: cada palabra escrita debe aparecer en el
-      // nombre, SKU o categoría. La normalización también elimina tildes, por
-      // lo que "lamina" encuentra "Lámina" y "macbook pro 13" encuentra
-      // "MacBook Pro M1 13".
-      const palabras = normalizar(busqueda).split(' ').filter(Boolean)
-      r = r.filter(p => {
-        const indice = normalizar([p.nombre, p.sku, p.categoria, p.subcategoria].filter(Boolean).join(' '))
-        return palabras.every(palabra => indice.includes(palabra))
-      })
+      // Cada palabra debe coincidir, pero los números son términos completos:
+      // buscar "iPad Air 5" ya no confunde el 5 con códigos como A1566.
+      // Los resultados se ordenan por relevancia (nombre/frase/SKU) para que el
+      // repuesto correcto quede arriba sin tener que recorrer toda la tabla.
+      r = r
+        .map((producto, posicion) => ({
+          producto,
+          posicion,
+          puntaje: puntuarBusqueda(busqueda, {
+            principal: producto.nombre,
+            codigo: producto.sku,
+            secundarios: [producto.categoria, producto.subcategoria],
+          }),
+        }))
+        .filter((item): item is typeof item & { puntaje: number } => item.puntaje !== null)
+        .sort((a, b) => b.puntaje - a.puntaje || a.posicion - b.posicion)
+        .map(item => item.producto)
     }
     return r
   }, [productos, filtroBodega, filtroCat, filtroSub, filtroTipo, bajosStock, busqueda])

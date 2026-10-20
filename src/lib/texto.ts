@@ -16,6 +16,73 @@ export function normalizar(texto: string): string {
     .replace(/\s+/g, ' ')
 }
 
+/** Palabras y números comparables de un texto ya normalizado. */
+function tokenizar(texto: string): string[] {
+  return normalizar(texto).match(/[a-z0-9]+/g) ?? []
+}
+
+export type CamposBusqueda = {
+  principal: string
+  codigo?: string | null
+  secundarios?: Array<string | null | undefined>
+}
+
+function calidadCoincidencia(consulta: string, candidato: string): number {
+  if (consulta === candidato) return 30
+
+  // Un número representa normalmente una generación o modelo. Debe coincidir
+  // como palabra completa: "5" no puede encontrar el 5 escondido en A1566.
+  if (/^\d+$/.test(consulta)) return 0
+
+  if (consulta.length >= 2 && candidato.startsWith(consulta)) return 20
+  if (consulta.length >= 3 && candidato.includes(consulta)) return 10
+  return 0
+}
+
+/**
+ * Puntúa una coincidencia para poder mostrar primero el resultado más útil.
+ * Devuelve `null` si falta cualquiera de las palabras buscadas.
+ *
+ * El nombre pesa más que categoría/subcategoría y un SKU exacto queda arriba.
+ * La búsqueda sigue siendo flexible: no exige tildes, frase exacta ni que las
+ * palabras estén escritas en el mismo orden.
+ */
+export function puntuarBusqueda(consulta: string, campos: CamposBusqueda): number | null {
+  const limpio = normalizar(consulta)
+  const palabras = tokenizar(limpio)
+  if (!palabras.length) return 0
+
+  const nombreLimpio = normalizar(campos.principal)
+  const nombreTokens = tokenizar(campos.principal)
+  const codigoLimpio = normalizar(campos.codigo ?? '')
+  const codigoTokens = tokenizar(campos.codigo ?? '')
+  const secundariosTokens = tokenizar((campos.secundarios ?? []).filter(Boolean).join(' '))
+
+  let puntaje = 0
+  for (const palabra of palabras) {
+    const enNombre = Math.max(0, ...nombreTokens.map(token => calidadCoincidencia(palabra, token)))
+    const enCodigo = Math.max(0, ...codigoTokens.map(token => calidadCoincidencia(palabra, token)))
+    const enSecundarios = Math.max(0, ...secundariosTokens.map(token => calidadCoincidencia(palabra, token)))
+    const mejor = Math.max(enNombre * 4, enCodigo * 3, enSecundarios)
+    if (!mejor) return null
+    puntaje += mejor
+  }
+
+  if (codigoLimpio && codigoLimpio === limpio) puntaje += 1_000
+  if (nombreLimpio === limpio) puntaje += 800
+  else if (nombreLimpio.includes(limpio)) puntaje += 400
+
+  // Premia que las palabras estén juntas y en el orden escrito, sin volverlo
+  // un requisito. Así "iPad Air 5" aparece antes que coincidencias dispersas.
+  const posiciones = palabras.map(palabra =>
+    nombreTokens.findIndex(token => calidadCoincidencia(palabra, token) > 0),
+  )
+  if (posiciones.every((pos, i) => i === 0 || pos > posiciones[i - 1])) puntaje += 100
+  if (posiciones.every((pos, i) => i === 0 || pos === posiciones[i - 1] + 1)) puntaje += 150
+
+  return puntaje
+}
+
 /**
  * Raíces posibles de una palabra en español.
  *
