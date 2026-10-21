@@ -102,9 +102,16 @@ function ProveedorCombo({
 }) {
   const [q, setQ] = useState(value.nombre)
   const { anchorRef, open, setOpen, openMenu, rect } = useAnchoredMenu()
-  const results = q.length
-    ? proveedores.filter(p => p.nombre.toLowerCase().includes(q.toLowerCase())).slice(0, 10)
-    : proveedores.slice(0, 10)
+  // El menú ya tiene altura máxima y scroll, por lo que no corresponde cortar
+  // los datos: el slice(0, 10) anterior hacía imposible llegar al proveedor 11
+  // o posterior aunque el usuario desplazara la lista.
+  const termino = q.trim().toLocaleLowerCase('es-CL')
+  const results = termino
+    ? proveedores.filter(p =>
+        p.nombre.toLocaleLowerCase('es-CL').includes(termino)
+        || (p.rut ?? '').toLocaleLowerCase('es-CL').includes(termino),
+      )
+    : proveedores
 
   return (
     <div style={{ position: 'relative' }}>
