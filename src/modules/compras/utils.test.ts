@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { calcularEstadoOC } from './utils'
+import { calcularEstadoOC, lineasSinProducto, mensajeLineasSinProducto } from './utils'
 import type { OC, OCItem, OCRecepcion } from '@/types'
 
 function item(overrides: Partial<OCItem> = {}): OCItem {
@@ -70,5 +70,26 @@ describe('calcularEstadoOC', () => {
       recepciones: [recepcion('a', 5)],
     })
     expect(calcularEstadoOC(dosItems)).toBe('parcial')
+  })
+})
+
+describe('lineasSinProducto', () => {
+  it('detecta la línea escrita a mano sin elegir el producto de la lista', () => {
+    const items = [
+      { producto_id: 'p1', producto_nombre: 'iPhone 11 Batería' },
+      { producto_id: '', producto_nombre: 'Glass iPhone 13' },
+      { producto_id: undefined, producto_nombre: 'Vidrio Cámara' },
+    ]
+    expect(lineasSinProducto(items).map(i => i.producto_nombre)).toEqual(['Glass iPhone 13', 'Vidrio Cámara'])
+  })
+
+  it('ignora las filas vacías (se descartan al guardar)', () => {
+    expect(lineasSinProducto([{ producto_id: '', producto_nombre: '   ' }])).toHaveLength(0)
+  })
+
+  it('el mensaje nombra cada línea para poder corregirla', () => {
+    const m = mensajeLineasSinProducto(['Glass iPhone 13 ', 'Vidrio Cámara'], 'recibir')
+    expect(m).toContain('• Glass iPhone 13\n• Vidrio Cámara')
+    expect(m).toContain('no sumarían stock')
   })
 })

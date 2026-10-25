@@ -8,7 +8,7 @@ import {
   useProveedores, useGuardarProveedores, useRecibirOC,
 } from '@/lib/queries'
 import { formatRut } from '@/lib/rut'
-import { calcularEstadoOC, getCantRecibida } from './utils'
+import { calcularEstadoOC, getCantRecibida, lineasSinProducto, mensajeLineasSinProducto } from './utils'
 import type { OC, OCItem, OCRecepcion, OCLogEntry, EstadoOC, Producto, Bodega, Proveedor, Movimiento, LoteInventario } from '@/types'
 
 // ─── Helpers ──────────────────────────────────────────────────
@@ -189,6 +189,11 @@ const ItemRow = memo(function ItemRow({
             onBlur={() => setTimeout(() => setOpen(false), 200)}
             style={{ width: '100%', minWidth: 270 }}
           />
+          {item.producto_nombre.trim() && !item.producto_id && !open && (
+            <div style={{ fontSize: 11, color: '#b45309', marginTop: 3 }}>
+              ⚠ No está enlazado al catálogo: elige el producto de la lista o no sumará stock
+            </div>
+          )}
           {open && results.length > 0 && (
             <div style={menuStyle(rect)}>
               {results.map(p => (
@@ -382,6 +387,8 @@ function ModalNuevaOC({
     if (!fecha) return alert('Ingresa una fecha')
     const validItems = items.filter(it => it.producto_nombre.trim())
     if (!validItems.length) return alert('Agrega al menos un producto')
+    const sinProducto = lineasSinProducto(validItems)
+    if (sinProducto.length) return alert(mensajeLineasSinProducto(sinProducto.map(it => it.producto_nombre), 'guardar'))
     onSave({
       id: ocEdit?.id,
       proveedor_id: prov.id,
@@ -530,6 +537,8 @@ function ModalRecibirOC({
         _bodega_id: itemBodegas[it.id] || '',
       }))
     if (!recItems.length) return alert('Ingresa al menos una cantidad mayor a 0')
+    const sinProducto = lineasSinProducto(recItems)
+    if (sinProducto.length) return alert(mensajeLineasSinProducto(sinProducto.map(ri => ri.producto_nombre), 'recibir'))
     const sinBodega = recItems.filter(ri => !ri._bodega_id)
     if (sinBodega.length > 0) return alert(`Selecciona bodega para: ${sinBodega.map(r => r.producto_nombre).join(', ')}`)
     const byBodega = new Map<string, typeof recItems>()
