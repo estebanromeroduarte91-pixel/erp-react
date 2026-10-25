@@ -7,7 +7,7 @@ import type { Movimiento, MovProducto, Producto } from '@/types'
 
 function uid() { return Math.random().toString(36).slice(2) + Date.now().toString(36) }
 
-type LineaTraslado = { producto_id: string; cantidad: number; producto_nombre?: string }
+export type LineaTraslado = { producto_id: string; cantidad: number; producto_nombre?: string }
 
 const LineaTrasladoRow = memo(function LineaTrasladoRow({
   linea, stockOrigen, onUpdate, onRemove
@@ -69,17 +69,29 @@ const LineaTrasladoRow = memo(function LineaTrasladoRow({
   )
 })
 
-function ModalTraslado({ onClose }: { onClose: () => void }) {
-  const { data: productos = [] } = useProductos()
+export interface TrasladoInicial {
+  origenId: string
+  destinoId: string
+  lineas: LineaTraslado[]
+  notas?: string
+}
+
+/** `inicial` precarga el traslado (lo usa Reposición); se puede editar igual. */
+export function ModalTraslado({ onClose, inicial }: { onClose: () => void; inicial?: TrasladoInicial }) {
+  // Hasta que carguen los productos el stock de origen se lee como 0 y la
+  // validación rechazaría un traslado válido (pasa al abrirlo precargado).
+  const { data: productos = [], isLoading: cargandoProductos } = useProductos()
   const { data: bodegas = [] } = useBodegas()
   const registrarTraslado = useRegistrarTraslado()
   const { nombre: usuarioNombre } = useAuth()
 
   const bodegasActivas = useMemo(() => bodegas.filter(b => b.activo !== false), [bodegas])
-  const [origenId, setOrigenId] = useState('')
-  const [destinoId, setDestinoId] = useState('')
-  const [lineas, setLineas] = useState<LineaTraslado[]>([{ producto_id: '', cantidad: 1 }])
-  const [notas, setNotas] = useState('')
+  const [origenId, setOrigenId] = useState(inicial?.origenId ?? '')
+  const [destinoId, setDestinoId] = useState(inicial?.destinoId ?? '')
+  const [lineas, setLineas] = useState<LineaTraslado[]>(
+    inicial?.lineas.length ? inicial.lineas : [{ producto_id: '', cantidad: 1 }],
+  )
+  const [notas, setNotas] = useState(inicial?.notas ?? '')
   const [error, setError] = useState('')
   const [guardando, setGuardando] = useState(false)
 
@@ -109,6 +121,7 @@ function ModalTraslado({ onClose }: { onClose: () => void }) {
   }, [lineas])
 
   async function confirmar() {
+    if (cargandoProductos) return
     setError('')
     const validas = lineas.filter(l => l.producto_id && l.cantidad > 0)
     if (!validas.length) { setError('Agrega al menos un producto válido'); return }
@@ -230,9 +243,9 @@ function ModalTraslado({ onClose }: { onClose: () => void }) {
             <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
               Cancelar
             </button>
-            <button onClick={confirmar} disabled={guardando}
+            <button onClick={confirmar} disabled={guardando || cargandoProductos}
               className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition disabled:opacity-60">
-              {guardando ? 'Guardando…' : 'Confirmar traslado'}
+              {guardando ? 'Guardando…' : cargandoProductos ? 'Cargando stock…' : 'Confirmar traslado'}
             </button>
           </div>
         </div>

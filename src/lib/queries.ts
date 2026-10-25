@@ -10,6 +10,7 @@ import { claveCategoria, type ConfigNaturaleza } from './naturalezaGasto'
 import type { ConfigComportamiento } from './comportamientoGasto'
 import type { MetaVentasConfig } from './metaVentas'
 import type { RentabilidadSucursales } from './rentabilidad'
+import type { Reposicion } from './reposicion'
 import { extraerMensajeError } from './edgeError'
 import { errorEnResultadosDte, type ResultadoProcesoDte } from './dteProceso'
 import { DEFAULT_PLAN_LIMITS, type PlanTier } from './queries/usePlanLimits'
@@ -2084,6 +2085,21 @@ export function useRentabilidadSucursales(p: { desde: string; hasta: string }) {
     // reintentos antes de pintar para quien no ve estadísticas.
     retry: (intentos, error) => intentos < 2 && !/permiso/i.test((error as Error)?.message ?? ''),
     placeholderData: keepPreviousData,
+  })
+}
+
+// Reposición sugerida por sucursal (solo lectura). Ver src/lib/reposicion.ts.
+export function useReposicionSugerida() {
+  const { empresaId } = useAuth()
+  return useQuery({
+    queryKey: ['reposicion', empresaId],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('fn_reposicion_sugerida', { p_empresa_id: empresaId })
+      if (error) throw error
+      return data as Reposicion
+    },
+    enabled: !!empresaId,
+    retry: (intentos, error) => intentos < 2 && !/permiso|encargados/i.test((error as Error)?.message ?? ''),
   })
 }
 

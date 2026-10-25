@@ -44,6 +44,10 @@ const MARCADORES = {
     marcadores: ['resultado_cuatro_paredes'],
     porque: 'Dashboard, Resumen ejecutivo y Reportes BI leen el resultado desde acá; sin ella muestran "—"',
   },
+  fn_reposicion_sugerida: {
+    marcadores: ['trasladar_desde', 'p_costo_bajo_pedido'],
+    porque: 'Inventario → Reposición; la versión sin el límite de costo sugería stockear repuestos caros',
+  },
   fn_fijar_stock_manual: {
     marcadores: ['fn_ajustar_stock'],
     porque: 'los ajustes manuales deben pasar por el delta atómico',
