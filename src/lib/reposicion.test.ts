@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cantidadInicial, comprasPorProveedor, filasTabla, secciones, trasladosPorRuta, type FilaReposicion } from './reposicion'
+import { agruparPorCategoria, cantidadInicial, comprasPorProveedor, contarModos, filasTabla, secciones, trasladosPorRuta, type FilaReposicion } from './reposicion'
 
 // Casos reales de la prueba del 2026-10-25 (Steve Docs).
 const LD = { id: 'ld', nombre: 'Los Dominicos' }
@@ -88,19 +88,19 @@ describe('tabla de reposición', () => {
   const todas = [mica, cables, bateria13, lamina, pantalla, quieto]
 
   it('lo que hay que reponer, de lo más urgente a lo menos', () => {
-    const t = filasTabla(todas, { bodegaId: null, soloReponer: true, busqueda: '' })
+    const t = filasTabla(todas, { bodegaId: null, modo: 'pedir', busqueda: '' })
     expect(t.map(f => f.producto_id)).toEqual(['lam', 'b13', 'cab'])
   })
 
   it('sin el filtro aparece todo lo vendido, pero no lo que no se vendió', () => {
-    const t = filasTabla(todas, { bodegaId: null, soloReponer: false, busqueda: '' })
+    const t = filasTabla(todas, { bodegaId: null, modo: 'todo', busqueda: '' })
     expect(t.map(f => f.producto_id)).toContain('mic')
     expect(t.map(f => f.producto_id)).toContain('pant')
     expect(t.map(f => f.producto_id)).not.toContain('q')
   })
 
   it('busca por nombre o categoría', () => {
-    expect(filasTabla(todas, { bodegaId: null, soloReponer: false, busqueda: 'accesor' }).map(f => f.producto_id)).toEqual(['cab'])
+    expect(filasTabla(todas, { bodegaId: null, modo: 'todo', busqueda: 'accesor' }).map(f => f.producto_id)).toEqual(['cab'])
   })
 
   it('lo bajo pedido arranca en 0 y lo demás en lo sugerido menos lo trasladable', () => {
@@ -125,7 +125,7 @@ describe('rebalanceo entre tiendas', () => {
     // La Dehesa vende 10 al mes y le quedan 3; Los Dominicos tiene de sobra.
     const dh = fila({ producto_id: 'x', nombre: 'Mica', estado: 'ok', stock: 3, vendidas_periodo: 10,
       cobertura_dias: 9, sugerido: 0, trasladar: 7, trasladar_desde: LD, comprar: 0 })
-    expect(filasTabla([dh], { bodegaId: null, soloReponer: true, busqueda: '' })).toHaveLength(1)
+    expect(filasTabla([dh], { bodegaId: null, modo: 'pedir', busqueda: '' })).toHaveLength(1)
     expect(trasladosPorRuta([dh])[0]).toMatchObject({ origen_id: 'ld', destino_id: 'dh', unidades: 7 })
     expect(cantidadInicial(dh)).toBe(0)
   })
@@ -135,7 +135,33 @@ describe('negativos bajo pedido', () => {
   it('una pieza cara en −1 va a "corregir", no a la lista de reposición', () => {
     const pantallaMac = fila({ producto_id: 'mac', nombre: 'MacBook Pantalla', estado: 'stock_negativo', stock: -1,
       vendidas_periodo: 1, se_repone: false })
-    expect(filasTabla([pantallaMac], { bodegaId: null, soloReponer: true, busqueda: '' })).toHaveLength(0)
+    expect(filasTabla([pantallaMac], { bodegaId: null, modo: 'pedir', busqueda: '' })).toHaveLength(0)
     expect(secciones([pantallaMac], null).corregir).toHaveLength(1)
+  })
+})
+
+describe('modos y categorías', () => {
+  const cab = fila({ producto_id: 'cab', nombre: 'Cable', categoria: 'Accesorios', estado: 'reponer', stock: 2,
+    vendidas_periodo: 10, cobertura_dias: 6, sugerido: 8, comprar: 8 })
+  const lam = fila({ producto_id: 'lam', nombre: 'Lámina', categoria: 'Accesorios', estado: 'stock_negativo', stock: -7,
+    vendidas_periodo: 13, sugerido: 7, comprar: 7 })
+  const bat = fila({ producto_id: 'bat', nombre: 'Batería', categoria: 'Baterías', estado: 'ok', stock: 6,
+    vendidas_periodo: 2, cobertura_dias: 90, sugerido: 0 })
+  const suelta = fila({ producto_id: 's', nombre: 'Suelta', categoria: null, estado: 'agotado', stock: 0,
+    vendidas_periodo: 1, sugerido: 1, comprar: 1 })
+  const todas = [cab, lam, bat, suelta]
+
+  it('cuenta cada modo para los botones', () => {
+    expect(contarModos(todas, 'dh')).toEqual({ todo: 4, pedir: 3, sin_stock: 2 })
+  })
+
+  it('"sin stock" incluye los negativos', () => {
+    expect(filasTabla(todas, { bodegaId: 'dh', modo: 'sin_stock', busqueda: '' }).map(f => f.producto_id)).toEqual(['lam', 's'])
+  })
+
+  it('agrupa por categoría, primero la que tiene más por pedir, y "Sin categoría" al final a igualdad', () => {
+    const g = agruparPorCategoria(filasTabla(todas, { bodegaId: 'dh', modo: 'todo', busqueda: '' }))
+    expect(g.map(x => [x.categoria, x.porPedir])).toEqual([['Accesorios', 2], ['Sin categoría', 1], ['Baterías', 0]])
+    expect(g[0].filas.map(f => f.producto_id)).toEqual(['lam', 'cab'])
   })
 })

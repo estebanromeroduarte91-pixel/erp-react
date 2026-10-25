@@ -109,13 +109,34 @@ export function cantidadInicial(f: FilaReposicion): number {
   return Math.max(0, +f.comprar || 0)
 }
 
+/** Qué muestra la tabla: todo lo vendido, solo lo que hay que pedir, o lo que no tiene stock. */
+export type ModoTabla = 'todo' | 'pedir' | 'sin_stock'
+
+function enModo(f: FilaReposicion, modo: ModoTabla): boolean {
+  const relevante = +f.vendidas_periodo > 0 || hayQueReponer(f)
+  if (!relevante) return false
+  if (modo === 'pedir') return hayQueReponer(f)
+  if (modo === 'sin_stock') return f.stock <= 0
+  return true
+}
+
+/** Cuántas filas tiene cada modo en la tienda elegida (para los botones). */
+export function contarModos(filas: FilaReposicion[], bodegaId: string | null): Record<ModoTabla, number> {
+  const visibles = filas.filter(f => !bodegaId || f.bodega_id === bodegaId)
+  return {
+    todo: visibles.filter(f => enModo(f, 'todo')).length,
+    pedir: visibles.filter(f => enModo(f, 'pedir')).length,
+    sin_stock: visibles.filter(f => enModo(f, 'sin_stock')).length,
+  }
+}
+
 /**
- * Tabla principal: todo lo vendido en el período (y lo que pide acción), de lo
- * más urgente a lo menos. Agotado o negativo arriba; después lo que alcanza
- * para menos días; a igualdad, lo que más se vende.
+ * Filas de la tabla, de lo más urgente a lo menos: sin stock primero (el más
+ * negativo antes), después lo que alcanza para menos días; a igualdad, lo que
+ * más se vende.
  */
 export function filasTabla(filas: FilaReposicion[], o: {
-  bodegaId: string | null; soloReponer: boolean; busqueda: string
+  bodegaId: string | null; modo: ModoTabla; busqueda: string
 }): FilaReposicion[] {
   const q = o.busqueda.trim().toLocaleLowerCase('es')
   // Sin stock va antes que cualquier cobertura; y entre esos, el más negativo primero.
@@ -123,10 +144,37 @@ export function filasTabla(filas: FilaReposicion[], o: {
     f.stock <= 0 ? +f.stock - 1 : f.cobertura_dias == null ? Number.MAX_SAFE_INTEGER : +f.cobertura_dias
   return filas
     .filter(f => !o.bodegaId || f.bodega_id === o.bodegaId)
-    .filter(f => +f.vendidas_periodo > 0 || hayQueReponer(f))
-    .filter(f => !o.soloReponer || hayQueReponer(f))
+    .filter(f => enModo(f, o.modo))
     .filter(f => !q || f.nombre.toLocaleLowerCase('es').includes(q) || (f.categoria ?? '').toLocaleLowerCase('es').includes(q))
     .sort((a, b) => urgencia(a) - urgencia(b) || +b.vendidas_periodo - +a.vendidas_periodo || a.nombre.localeCompare(b.nombre, 'es'))
+}
+
+export const SIN_CATEGORIA = 'Sin categoría'
+
+export interface GrupoCategoria {
+  categoria: string
+  filas: FilaReposicion[]
+  /** Productos del grupo que hay que pedir o traer. */
+  porPedir: number
+}
+
+/**
+ * Agrupa por categoría conservando el orden de urgencia dentro de cada grupo.
+ * Primero las categorías con más por pedir; a igualdad, por nombre.
+ */
+export function agruparPorCategoria(filas: FilaReposicion[]): GrupoCategoria[] {
+  const grupos = new Map<string, GrupoCategoria>()
+  for (const f of filas) {
+    const cat = f.categoria?.trim() || SIN_CATEGORIA
+    const g = grupos.get(cat) ?? { categoria: cat, filas: [], porPedir: 0 }
+    g.filas.push(f)
+    if (hayQueReponer(f)) g.porPedir += 1
+    grupos.set(cat, g)
+  }
+  return [...grupos.values()].sort((a, b) =>
+    b.porPedir - a.porPedir
+    || (a.categoria === SIN_CATEGORIA ? 1 : 0) - (b.categoria === SIN_CATEGORIA ? 1 : 0)
+    || a.categoria.localeCompare(b.categoria, 'es'))
 }
 
 export interface LineaCompra {
