@@ -1,0 +1,177 @@
+La Dehesa|iPhone 13 Mini Altavoz|0|1|0|2026-08-27
+La Dehesa|iPhone 13 Mini Antena Wifi/GPS|0|1|0|2026-08-27
+La Dehesa|iPhone 13 Mini Auricular|0|1|0|2026-08-27
+La Dehesa|iPhone 13 Mini Batería|1|1|0|2026-08-27
+La Dehesa|iPhone 13 Mini Botón Bloqueo/Volumen|0|1|0|2026-08-27
+La Dehesa|iPhone 13 Mini Cámara Frontal|0|1|0|2026-08-27
+La Dehesa|iPhone 13 Mini Cámara Trasera|0|1|0|2026-08-27
+La Dehesa|iPhone 13 Mini Chasis Verde|0|1|0|2026-08-27
+La Dehesa|iPhone 13 Mini Conector de Carga|0|1|0|2026-08-27
+La Dehesa|iPhone 13 Mini Face ID|0|1|0|2026-08-27
+La Dehesa|iPhone 13 Mini Pantalla Original|0|1|0|2026-08-27
+La Dehesa|iPhone 13 Mini Sensor Proximidad|0|1|0|2026-08-27
+La Dehesa|iPhone 13 Mini Tapa Trasera Verde|0|1|0|2026-08-27
+La Dehesa|iPhone 13 Mini Vibrador|0|1|0|2026-08-27
+La Dehesa|iPhone 13 Pro Altavoz|0|1|0|2026-08-28
+La Dehesa|iPhone 13 Pro Antena Wifi/GPS|0|1|0|2026-08-28
+La Dehesa|iPhone 13 Pro Auricular|0|1|0|2026-08-28
+La Dehesa|iPhone 13 Pro Batería|-1|1|1|2026-08-28
+La Dehesa|iPhone 13 Pro Botón Bloqueo/Volumen|0|1|0|2026-08-28
+La Dehesa|iPhone 13 Pro Cámara Frontal|0|1|0|2026-08-28
+La Dehesa|iPhone 13 Pro Cámara Trasera|0|1|0|2026-08-28
+La Dehesa|iPhone 13 Pro Conector de Carga|0|1|0|2026-08-28
+La Dehesa|iPhone 13 Pro Face ID|0|1|0|2026-08-28
+La Dehesa|iPhone 13 Pro Pantalla Original|0|1|0|2026-08-28
+La Dehesa|iPhone 13 Pro Sensor Proximidad|0|1|0|2026-08-28
+La Dehesa|iPhone 13 Pro Tapa Trasera Negro|0|1|0|2026-08-28
+La Dehesa|iPhone 13 Pro Vibrador|0|1|0|2026-08-28
+La Dehesa|iPhone 14 Pro Max Altavoz|0|1|0|2026-09-25
+La Dehesa|iPhone 14 Pro Max Antena Wifi/GPS|0|1|0|2026-09-25
+La Dehesa|iPhone 14 Pro Max Auricular|0|1|0|2026-09-25
+La Dehesa|iPhone 14 Pro Max Batería|0|1|0|2026-09-25
+La Dehesa|iPhone 14 Pro Max Botón Bloqueo/Volumen|0|1|0|2026-09-25
+La Dehesa|iPhone 14 Pro Max Cámara Frontal|0|1|0|2026-09-25
+La Dehesa|iPhone 14 Pro Max Cámara Trasera|0|1|0|2026-09-25
+La Dehesa|iPhone 14 Pro Max Chasis Dorado|0|1|0|2026-09-25
+La Dehesa|iPhone 14 Pro Max Conector de Carga|0|1|0|2026-09-25
+La Dehesa|iPhone 14 Pro Max Face ID|0|1|0|2026-09-25
+La Dehesa|iPhone 14 Pro Max Pantalla Original|0|1|1|2026-09-25
+La Dehesa|iPhone 14 Pro Max Sensor Proximidad|0|1|0|2026-09-25
+La Dehesa|iPhone 14 Pro Max Tapa Trasera Dorado|0|1|0|2026-09-25
+La Dehesa|iPhone 14 Pro Max Vibrador|0|1|0|2026-09-25
+Los Dominicos|iPad Air 4 A2316 Batería|0|1|0|2026-08-13
+Los Dominicos|iPad Air 4 A2316 Botón Bloqueo|0|1|0|2026-08-13
+Los Dominicos|iPad Air 4 A2316 Botón Volumen|0|1|0|2026-08-13
+Los Dominicos|iPad Air 4 A2316 Cámara Trasera|0|1|0|2026-08-13
+Los Dominicos|iPad Air 4 A2316 Conector Carga|0|1|0|2026-08-13
+Los Dominicos|iPad Air 4 A2316 Glass|0|1|0|2026-08-13
+Los Dominicos|iPad Air 4 A2316 Pantalla Azul Cielo|0|1|0|2026-08-13
+Los Dominicos|iPad Air 4 A2316 Pantalla Space Gray|0|1|0|2026-08-13
+Los Dominicos|iPad Pro 11" 4G A2759 M2 Batería|0|1|0|2026-08-17
+Los Dominicos|iPad Pro 11" 4G A2759 M2 Botón Bloqueo|0|1|0|2026-08-17
+Los Dominicos|iPad Pro 11" 4G A2759 M2 Botón Volumen|0|1|0|2026-08-17
+Los Dominicos|iPad Pro 11" 4G A2759 M2 Cámara Trasera|0|1|0|2026-08-17
+Los Dominicos|iPad Pro 11" 4G A2759 M2 Conector Carga|0|1|0|2026-08-17
+Los Dominicos|iPad Pro 11" 4G A2759 M2 Pantalla Original|0|1|0|2026-08-17
+Los Dominicos|iPhone 11 Altavoz|30|3|0|2026-07-23
+Los Dominicos|iPhone 11 Antena Wifi/GPS|22|3|0|2026-07-23
+Los Dominicos|iPhone 11 Auricular|4|3|0|2026-07-23
+Los Dominicos|iPhone 11 Batería|1|3|3|2026-07-23
+Los Dominicos|iPhone 11 Botón Bloqueo/Volumen|22|3|0|2026-07-23
+Los Dominicos|iPhone 11 Cámara Frontal|24|3|0|2026-07-23
+Los Dominicos|iPhone 11 Cámara Trasera|30|3|0|2026-07-23
+Los Dominicos|iPhone 11 Chasis Negro|12|3|0|2026-07-23
+Los Dominicos|iPhone 11 Conector de Carga|20|3|0|2026-07-23
+Los Dominicos|iPhone 11 Pantalla Original|1|3|2|2026-07-23
+Los Dominicos|iPhone 11 Tapa Trasera Negra|0|3|0|2026-07-23
+Los Dominicos|iPhone 11 Vibrador|34|3|0|2026-07-23
+Los Dominicos|iPhone 13 Altavoz|13|1|0|2026-09-15
+Los Dominicos|iPhone 13 Antena Wifi/GPS|7|1|0|2026-09-15
+Los Dominicos|iPhone 13 Auricular|13|1|0|2026-09-15
+Los Dominicos|iPhone 13 Batería|2|1|4|2026-09-15
+Los Dominicos|iPhone 13 Botón Bloqueo/Volumen|7|1|0|2026-09-15
+Los Dominicos|iPhone 13 Cámara Frontal|15|1|0|2026-09-15
+Los Dominicos|iPhone 13 Cámara Trasera|12|1|0|2026-09-15
+Los Dominicos|iPhone 13 Conector de Carga|11|1|0|2026-09-15
+Los Dominicos|iPhone 13 Face ID|1|1|0|2026-09-15
+Los Dominicos|iPhone 13 Pantalla Original|0|1|1|2026-09-15
+Los Dominicos|iPhone 13 Pro Max Altavoz|7|1|0|2026-08-28
+Los Dominicos|iPhone 13 Pro Max Antena Wifi/GPS|2|1|0|2026-08-28
+Los Dominicos|iPhone 13 Pro Max Auricular|4|1|0|2026-08-28
+Los Dominicos|iPhone 13 Pro Max Batería|0|1|3|2026-08-28
+Los Dominicos|iPhone 13 Pro Max Botón Bloqueo/Volumen|2|1|0|2026-08-28
+Los Dominicos|iPhone 13 Pro Max Cámara Frontal|6|1|0|2026-08-28
+Los Dominicos|iPhone 13 Pro Max Cámara Trasera|0|1|0|2026-08-28
+Los Dominicos|iPhone 13 Pro Max Conector de Carga|0|1|0|2026-08-28
+Los Dominicos|iPhone 13 Pro Max Face ID|0|1|0|2026-08-28
+Los Dominicos|iPhone 13 Pro Max Pantalla Original|0|1|1|2026-08-28
+Los Dominicos|iPhone 13 Pro Max Sensor Proximidad|0|1|0|2026-08-28
+Los Dominicos|iPhone 13 Pro Max Tapa Trasera Negro|0|1|0|2026-08-28
+Los Dominicos|iPhone 13 Pro Max Vibrador|7|1|0|2026-08-28
+Los Dominicos|iPhone 13 Pro Pantalla Original|0|1|0|2026-08-28
+Los Dominicos|iPhone 13 Sensor Proximidad|2|1|0|2026-09-15
+Los Dominicos|iPhone 13 Tapa Trasera Blanca|0|1|0|2026-09-15
+Los Dominicos|iPhone 13 Vibrador|15|1|0|2026-09-15
+Los Dominicos|iPhone 14 Altavoz|10|1|0|2026-07-15
+Los Dominicos|iPhone 14 Antena Wifi/GPS|9|1|0|2026-07-15
+Los Dominicos|iPhone 14 Auricular|9|1|0|2026-07-15
+Los Dominicos|iPhone 14 Batería|0|1|1|2026-07-15
+Los Dominicos|iPhone 14 Botón Bloqueo/Volumen|8|1|0|2026-07-15
+Los Dominicos|iPhone 14 Cámara Frontal|9|1|0|2026-07-15
+Los Dominicos|iPhone 14 Cámara Trasera|4|1|3|2026-07-15
+Los Dominicos|iPhone 14 Conector de Carga|5|1|0|2026-07-15
+Los Dominicos|iPhone 14 Face ID|0|1|0|2026-07-15
+Los Dominicos|iPhone 14 Pantalla Original|2|1|1|2026-07-15
+Los Dominicos|iPhone 14 Pro Altavoz|6|2|0|2026-08-03
+Los Dominicos|iPhone 14 Pro Antena Wifi/GPS|1|2|0|2026-08-03
+Los Dominicos|iPhone 14 Pro Auricular|5|2|0|2026-08-03
+Los Dominicos|iPhone 14 Pro Batería|0|2|1|2026-08-03
+Los Dominicos|iPhone 14 Pro Botón Bloqueo/Volumen|1|2|0|2026-08-03
+Los Dominicos|iPhone 14 Pro Cámara Frontal|5|2|0|2026-08-03
+Los Dominicos|iPhone 14 Pro Cámara Trasera|2|2|0|2026-08-03
+Los Dominicos|iPhone 14 Pro Chasis Negro|1|1|1|2026-08-03
+Los Dominicos|iPhone 14 Pro Conector de Carga|0|2|1|2026-08-03
+Los Dominicos|iPhone 14 Pro Face ID|0|2|0|2026-08-03
+Los Dominicos|iPhone 14 Pro Max Altavoz|17|1|0|2026-08-03
+Los Dominicos|iPhone 14 Pro Max Antena Wifi/GPS|11|1|0|2026-08-03
+Los Dominicos|iPhone 14 Pro Max Auricular|16|1|0|2026-08-03
+Los Dominicos|iPhone 14 Pro Max Batería|1|1|1|2026-08-03
+Los Dominicos|iPhone 14 Pro Max Botón Bloqueo/Volumen|11|1|0|2026-08-03
+Los Dominicos|iPhone 14 Pro Max Cámara Frontal|13|1|0|2026-08-03
+Los Dominicos|iPhone 14 Pro Max Cámara Trasera|12|1|0|2026-08-03
+Los Dominicos|iPhone 14 Pro Max Chasis Dorado|4|1|0|2026-08-03
+Los Dominicos|iPhone 14 Pro Max Conector de Carga|13|1|0|2026-08-03
+Los Dominicos|iPhone 14 Pro Max Face ID|0|1|0|2026-08-03
+Los Dominicos|iPhone 14 Pro Max Pantalla Original|0|1|0|2026-08-03
+Los Dominicos|iPhone 14 Pro Max Sensor Proximidad|4|1|0|2026-08-03
+Los Dominicos|iPhone 14 Pro Max Tapa Trasera Dorado|0|1|0|2026-08-03
+Los Dominicos|iPhone 14 Pro Max Vibrador|16|1|0|2026-08-03
+Los Dominicos|iPhone 14 Pro Pantalla Original|-1|2|2|2026-08-03
+Los Dominicos|iPhone 14 Pro Sensor Proximidad|0|2|1|2026-08-03
+Los Dominicos|iPhone 14 Pro Tapa Trasera Negro|0|1|0|2026-08-03
+Los Dominicos|iPhone 14 Pro Vibrador|7|2|0|2026-08-03
+Los Dominicos|iPhone 14 Sensor Proximidad|1|1|0|2026-07-15
+Los Dominicos|iPhone 14 Tapa Trasera Blanco|1|1|0|2026-07-15
+Los Dominicos|iPhone 14 Tapa Trasera Celeste|0|1|0|2026-07-15
+Los Dominicos|iPhone 14 Vibrador|7|1|0|2026-07-15
+Los Dominicos|iPhone 16 Pro Altavoz|2|1|0|2026-07-23
+Los Dominicos|iPhone 16 Pro Antena WIFI/GPS|2|1|0|2026-07-23
+Los Dominicos|iPhone 16 Pro Auricular|2|1|0|2026-07-23
+Los Dominicos|iPhone 16 Pro Batería|0|1|0|2026-07-23
+Los Dominicos|iPhone 16 Pro Botón Bloqueo/Volumen|2|1|0|2026-07-23
+Los Dominicos|iPhone 16 Pro Cámara Frontal|2|1|0|2026-07-23
+Los Dominicos|iPhone 16 Pro Cámara Trasera|1|1|0|2026-07-23
+Los Dominicos|iPhone 16 Pro Chasis Titanio Negro|2|1|0|2026-07-23
+Los Dominicos|iPhone 16 Pro Conector de Carga|2|1|0|2026-07-23
+Los Dominicos|iPhone 16 Pro Face ID|0|1|0|2026-07-23
+Los Dominicos|iPhone 16 Pro Max Altavoz|6|2|0|2026-08-03
+Los Dominicos|iPhone 16 Pro Max Antena WIFI/GPS|8|2|0|2026-08-03
+Los Dominicos|iPhone 16 Pro Max Auricular|6|2|0|2026-08-03
+Los Dominicos|iPhone 16 Pro Max Batería|0|2|0|2026-08-03
+Los Dominicos|iPhone 16 Pro Max Botón Bloqueo/Volumen|7|2|0|2026-08-03
+Los Dominicos|iPhone 16 Pro Max Cámara Frontal|3|2|0|2026-08-03
+Los Dominicos|iPhone 16 Pro Max Cámara Trasera|5|2|0|2026-08-03
+Los Dominicos|iPhone 16 Pro Max Chasis Titanio Desierto|1|1|0|2026-08-03
+Los Dominicos|iPhone 16 Pro Max Chasis Titanio Negro|3|1|0|2026-09-16
+Los Dominicos|iPhone 16 Pro Max Conector de Carga|5|2|0|2026-08-03
+Los Dominicos|iPhone 16 Pro Max Face ID|0|2|0|2026-08-03
+Los Dominicos|iPhone 16 Pro Max Pantalla Original|-1|2|1|2026-08-03
+Los Dominicos|iPhone 16 Pro Max Sensor Proximidad|1|2|0|2026-08-03
+Los Dominicos|iPhone 16 Pro Max Tapa Trasera Desierto|1|1|0|2026-08-03
+Los Dominicos|iPhone 16 Pro Max Tapa Trasera Negro|2|1|0|2026-09-16
+Los Dominicos|iPhone 16 Pro Max Vibrador|6|2|0|2026-08-03
+Los Dominicos|iPhone 16 Pro Pantalla Original|0|1|1|2026-07-23
+Los Dominicos|iPhone 16 Pro Sensor Proximidad|1|1|0|2026-07-23
+Los Dominicos|iPhone 16 Pro Tapa Trasera Negro|1|1|0|2026-07-23
+Los Dominicos|iPhone 16 Pro Vibrador|2|1|0|2026-07-23
+Los Dominicos|MacBook Air A1466 Batería|0|1|2|2026-07-08
+Los Dominicos|MacBook Pro 13'' M1 A2338 Altavoz|0|1|0|2026-09-22
+Los Dominicos|MacBook Pro 13'' M1 A2338 Batería|0|1|0|2026-09-22
+Los Dominicos|MacBook Pro 13'' M1 A2338 Conector Carga|0|1|0|2026-09-22
+Los Dominicos|MacBook Pro 13'' M1 A2338 Flex Trackpad|0|1|0|2026-09-22
+Los Dominicos|MacBook Pro 13'' M1 A2338 Pantalla Space Gray|-1|1|0|2026-09-22
+Los Dominicos|MacBook Pro 13'' M1 A2338 Tarjeta WIFI|0|1|0|2026-09-22
+Los Dominicos|MacBook Pro 13'' M1 A2338 Teclado|0|1|0|2026-09-22
+Los Dominicos|MacBook Pro 13'' M1 A2338 Trackpad|0|1|0|2026-09-22
+Los Dominicos|MacBook Pro 13'' M1 A2338 Ventilador|0|1|0|2026-09-22
+Los Dominicos|Samsung S23 Ultra Pantalla Original|0|1|0|2026-07-07
