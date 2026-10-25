@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { calcularEstadoOC, lineasSinProducto, mensajeLineasSinProducto } from './utils'
+import { calcularEstadoOC, lineasSinProducto, mensajeLineasSinProducto, productoDeComponente } from './utils'
 import type { OC, OCItem, OCRecepcion } from '@/types'
 
 function item(overrides: Partial<OCItem> = {}): OCItem {
@@ -91,5 +91,32 @@ describe('lineasSinProducto', () => {
     const m = mensajeLineasSinProducto(['Glass iPhone 13 ', 'Vidrio Cámara'], 'recibir')
     expect(m).toContain('• Glass iPhone 13\n• Vidrio Cámara')
     expect(m).toContain('no sumarían stock')
+  })
+})
+
+describe('productoDeComponente', () => {
+  const catalogo = [
+    { id: 'bat14', nombre: 'iPhone 14 Batería' },
+    { id: 'alt14', nombre: 'iPhone 14 Altavoz' },
+    { id: 'dupA', nombre: 'Flex Genérico' },
+    { id: 'dupB', nombre: 'flex genérico' },
+    { id: 'srv', nombre: 'Cambio Batería iPhone 14', tipo: 'servicio' },
+  ]
+
+  it('usa el producto enlazado en el kit', () => {
+    expect(productoDeComponente({ producto_id: 'alt14', nombre: 'otro nombre' }, catalogo)).toBe('alt14')
+  })
+
+  it('sin enlace, encuentra el producto por nombre (como en OC-00010)', () => {
+    expect(productoDeComponente({ nombre: '  iPhone 14   Batería ' }, catalogo)).toBe('bat14')
+  })
+
+  it('con dos productos del mismo nombre no adivina', () => {
+    expect(productoDeComponente({ nombre: 'Flex Genérico' }, catalogo)).toBe('')
+  })
+
+  it('nunca enlaza un servicio y no acepta un enlace a un producto borrado', () => {
+    expect(productoDeComponente({ nombre: 'Cambio Batería iPhone 14' }, catalogo)).toBe('')
+    expect(productoDeComponente({ producto_id: 'borrado', nombre: 'iPhone 14 Batería' }, catalogo)).toBe('bat14')
   })
 })

@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext'
 import type { Kit, KitComponente, Producto } from '@/types'
 import { fechaLocal } from '@/lib/fecha'
 import { HighlightText } from '@/components/shared/HighlightText'
+import { productoDeComponente } from './utils'
 
 const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36)
 const today = fechaLocal
@@ -514,7 +515,8 @@ export function KitsTab() {
     if (!kit || !kit.componentes.length) { setToast('Este kit no tiene componentes'); return }
     const items = kit.componentes.map(c => ({
       id: uid(),
-      producto_id: '',
+      // Sin producto enlazado la línea se "recibe" pero no suma stock.
+      producto_id: productoDeComponente(c, productos),
       producto_nombre: c.nombre,
       cantidad: c.cantidad,
       precio_neto: 0,

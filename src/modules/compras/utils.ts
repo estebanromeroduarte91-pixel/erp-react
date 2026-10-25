@@ -46,3 +46,23 @@ export function mensajeLineasSinProducto(nombres: string[], accion: 'guardar' | 
     ? `Estos productos no están enlazados al catálogo, así que al recibirlos no sumarían stock:\n\n${lista}\n\nBórralos y vuelve a escribirlos eligiendo el producto de la lista. Si no existe, créalo primero en Inventario.`
     : `No se puede recibir: estas líneas no están enlazadas a un producto del catálogo y no sumarían stock:\n\n${lista}\n\nEdita la orden y elige el producto de la lista en cada una.`
 }
+
+const normalizarNombre = (s: string) => s.trim().replace(/\s+/g, ' ').toLocaleLowerCase('es')
+
+/**
+ * Producto del catálogo para un componente de kit: el enlazado en el kit o, si
+ * no tiene, el único producto con el mismo nombre. "Crear OC" desde Kits
+ * ponía producto_id '' en todas las líneas y las 22 OC armadas desde kits
+ * (255 líneas, julio–octubre 2026) se recibieron sin sumar stock.
+ * Con dos productos del mismo nombre no adivina: deja la línea sin enlazar
+ * y el formulario de la OC pide elegirlo.
+ */
+export function productoDeComponente(
+  componente: { producto_id?: string; nombre: string },
+  productos: { id: string; nombre: string; tipo?: string }[],
+): string {
+  if (componente.producto_id && productos.some(p => p.id === componente.producto_id)) return componente.producto_id
+  const buscado = normalizarNombre(componente.nombre)
+  const iguales = productos.filter(p => p.tipo !== 'servicio' && normalizarNombre(p.nombre) === buscado)
+  return iguales.length === 1 ? iguales[0].id : ''
+}
