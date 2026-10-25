@@ -7,6 +7,8 @@
 export type EstadoReposicion =
   | 'stock_negativo' | 'agotado' | 'reponer' | 'en_camino'
   | 'bajo_pedido' | 'exceso' | 'sin_movimiento'
+  /** Vendido en el período y con stock suficiente: aparece al ver "todo lo vendido". */
+  | 'ok'
 
 export interface FilaReposicion {
   bodega_id: string
@@ -29,7 +31,10 @@ export interface FilaReposicion {
   sugerido: number
   costo_unitario: number
   costo_registrado: boolean
-  motivo_bajo_pedido: 'caro' | 'poca_rotacion' | null
+  /** La regla lo mantiene en stock. El motivo no se expone (decisión del dueño). */
+  se_repone?: boolean
+  /** Stock del producto en las otras sucursales (solo las que tienen). */
+  stock_otras?: { id: string; nombre: string; stock: number }[]
   trasladar: number
   trasladar_desde: { id: string; nombre: string } | null
   comprar: number
@@ -55,8 +60,7 @@ export interface ResumenReposicion {
 
 export interface Reposicion {
   parametros: {
-    hoy: string; dias_historia: number; dias_objetivo: number
-    dias_reorden: number; min_ventas: number; costo_bajo_pedido: number
+    hoy: string; dias_historia: number; dias_objetivo: number; dias_reorden: number
   }
   sucursales: { id: string; nombre: string }[]
   resumen: ResumenReposicion[]
@@ -88,6 +92,43 @@ export function secciones(filas: FilaReposicion[], bodegaId: string | null): Sec
   }
 }
 
+/**
+ * Necesita acción: hay que comprarla, se puede traer de otra tienda que la
+ * tiene de sobra, o su stock es negativo y se sigue vendiendo.
+ */
+export function hayQueReponer(f: FilaReposicion): boolean {
+  // Un negativo bajo pedido (pieza cara de una sola reparación) no es para
+  // reponer sino para contar: queda solo en "Corregir stock".
+  return +f.sugerido > 0 || +f.trasladar > 0
+    || (f.estado === 'stock_negativo' && +f.vendidas_periodo > 0 && f.se_repone !== false)
+}
+
+/** Cuánto comprar por defecto: lo sugerido menos lo que se puede trasladar. */
+export function cantidadInicial(f: FilaReposicion): number {
+  if (f.se_repone === false) return 0
+  return Math.max(0, +f.comprar || 0)
+}
+
+/**
+ * Tabla principal: todo lo vendido en el período (y lo que pide acción), de lo
+ * más urgente a lo menos. Agotado o negativo arriba; después lo que alcanza
+ * para menos días; a igualdad, lo que más se vende.
+ */
+export function filasTabla(filas: FilaReposicion[], o: {
+  bodegaId: string | null; soloReponer: boolean; busqueda: string
+}): FilaReposicion[] {
+  const q = o.busqueda.trim().toLocaleLowerCase('es')
+  // Sin stock va antes que cualquier cobertura; y entre esos, el más negativo primero.
+  const urgencia = (f: FilaReposicion) =>
+    f.stock <= 0 ? +f.stock - 1 : f.cobertura_dias == null ? Number.MAX_SAFE_INTEGER : +f.cobertura_dias
+  return filas
+    .filter(f => !o.bodegaId || f.bodega_id === o.bodegaId)
+    .filter(f => +f.vendidas_periodo > 0 || hayQueReponer(f))
+    .filter(f => !o.soloReponer || hayQueReponer(f))
+    .filter(f => !q || f.nombre.toLocaleLowerCase('es').includes(q) || (f.categoria ?? '').toLocaleLowerCase('es').includes(q))
+    .sort((a, b) => urgencia(a) - urgencia(b) || +b.vendidas_periodo - +a.vendidas_periodo || a.nombre.localeCompare(b.nombre, 'es'))
+}
+
 export interface LineaCompra {
   producto_id: string
   producto_nombre: string
@@ -106,16 +147,24 @@ export interface CompraPorProveedor {
   total_neto: number
 }
 
-/** Una OC por proveedor con lo que hay que comprar de las filas elegidas. */
-export function comprasPorProveedor(filas: FilaReposicion[]): CompraPorProveedor[] {
+export interface LineaElegida {
+  fila: FilaReposicion
+  cantidad: number
+  /** Proveedor elegido en el momento; por defecto el de la última compra. */
+  proveedor?: { id: string; nombre: string } | null
+}
+
+/** Una OC por proveedor elegido; cada línea conserva su tienda como destino. */
+export function comprasPorProveedor(lineas: LineaElegida[]): CompraPorProveedor[] {
   const grupos = new Map<string, CompraPorProveedor>()
-  for (const f of filas) {
-    const cantidad = +f.comprar || 0
+  for (const { fila: f, cantidad: c, proveedor } of lineas) {
+    const cantidad = Math.floor(+c || 0)
     if (cantidad <= 0) continue
-    const id = f.proveedor?.id ?? ''
+    const prov = proveedor === undefined ? f.proveedor : proveedor
+    const id = prov?.id ?? ''
     const g = grupos.get(id) ?? {
       proveedor_id: id,
-      proveedor_nombre: f.proveedor?.nombre?.trim() ?? '',
+      proveedor_nombre: prov?.nombre?.trim() ?? '',
       lineas: [], unidades: 0, total_neto: 0,
     }
     const costo = +f.costo_unitario || 0

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { comprasPorProveedor, secciones, trasladosPorRuta, type FilaReposicion } from './reposicion'
+import { cantidadInicial, comprasPorProveedor, filasTabla, secciones, trasladosPorRuta, type FilaReposicion } from './reposicion'
 
 // Casos reales de la prueba del 2026-10-25 (Steve Docs).
 const LD = { id: 'ld', nombre: 'Los Dominicos' }
@@ -9,7 +9,7 @@ function fila(p: Partial<FilaReposicion>): FilaReposicion {
     sku: null, categoria: null, estado: 'agotado', stock: 0, ya_viene: 0, ocs_pendientes: null,
     vendidas_periodo: 0, ventas_distintas: 0, venta_diaria: 0, cobertura_dias: null,
     punto_reorden: 0, objetivo: 0, stock_min_manual: 0, sugerido: 0, costo_unitario: 0,
-    costo_registrado: true, motivo_bajo_pedido: null, trasladar: 0, trasladar_desde: null,
+    costo_registrado: true, se_repone: true, stock_otras: [], trasladar: 0, trasladar_desde: null,
     comprar: 0, costo_compra_estimado: 0, proveedor: null, ...p,
   }
 }
@@ -23,7 +23,7 @@ const bateria13 = fila({ producto_id: 'b13', nombre: 'iPhone 13 Batería', suger
 const lamina = fila({ bodega_id: 'ld', bodega_nombre: 'Los Dominicos', producto_id: 'lam', nombre: 'Lámina Hidrogel',
   estado: 'stock_negativo', stock: -7, sugerido: 7, comprar: 7, costo_unitario: 924 })
 const pantalla = fila({ producto_id: 'pant', nombre: 'iPhone 15 Pro Pantalla', estado: 'bajo_pedido',
-  motivo_bajo_pedido: 'caro', costo_unitario: 184874 })
+  se_repone: false, vendidas_periodo: 2, costo_unitario: 184874 })
 const vidrio = fila({ bodega_id: 'ld', bodega_nombre: 'Los Dominicos', producto_id: 'vid', nombre: 'Vidrio Cámara',
   sugerido: 2, comprar: 2, costo_unitario: 1681 })
 
@@ -50,7 +50,7 @@ describe('secciones', () => {
 
 describe('comprasPorProveedor', () => {
   it('agrupa por proveedor y deja fuera lo que solo se traslada', () => {
-    const compras = comprasPorProveedor([cable, bateria11, bateria13])
+    const compras = comprasPorProveedor([cable, bateria11, bateria13].map(f => ({ fila: f, cantidad: f.comprar })))
     expect(compras).toHaveLength(1)
     expect(compras[0].proveedor_nombre).toBe('ProMobile SpA')
     expect(compras[0].unidades).toBe(3)
@@ -58,14 +58,14 @@ describe('comprasPorProveedor', () => {
   })
 
   it('lo que no tiene proveedor va en su propia OC, al final', () => {
-    const compras = comprasPorProveedor([vidrio, bateria13])
+    const compras = comprasPorProveedor([vidrio, bateria13].map(f => ({ fila: f, cantidad: f.comprar })))
     expect(compras.map(c => c.proveedor_id)).toEqual(['pm', ''])
     expect(compras[1].lineas[0].bodega_id).toBe('ld')
   })
 
   it('limpia espacios del nombre del proveedor', () => {
     const conEspacio = fila({ comprar: 1, proveedor: { id: 'cc', nombre: 'Clinic Cel ' } })
-    expect(comprasPorProveedor([conEspacio])[0].proveedor_nombre).toBe('Clinic Cel')
+    expect(comprasPorProveedor([{ fila: conEspacio, cantidad: 1 }])[0].proveedor_nombre).toBe('Clinic Cel')
   })
 })
 
@@ -75,5 +75,67 @@ describe('trasladosPorRuta', () => {
     expect(t).toHaveLength(1)
     expect(t[0]).toMatchObject({ origen_id: 'ld', destino_id: 'dh', unidades: 5 })
     expect(t[0].lineas.map(l => l.cantidad)).toEqual([4, 1])
+  })
+})
+
+describe('tabla de reposición', () => {
+  // El ejemplo del dueño: 10 cables vendidos en 30 días y quedan 2.
+  const cables = fila({ producto_id: 'cab', nombre: 'Cable USB-C', estado: 'reponer', stock: 2,
+    vendidas_periodo: 10, cobertura_dias: 6, sugerido: 8, comprar: 8, categoria: 'Accesorios' })
+  const mica = fila({ producto_id: 'mic', nombre: 'Mica 3D', estado: 'ok', stock: 20,
+    vendidas_periodo: 3, cobertura_dias: 200, sugerido: 0 })
+  const quieto = fila({ producto_id: 'q', nombre: 'Funda vieja', estado: 'sin_movimiento', stock: 5, vendidas_periodo: 0 })
+  const todas = [mica, cables, bateria13, lamina, pantalla, quieto]
+
+  it('lo que hay que reponer, de lo más urgente a lo menos', () => {
+    const t = filasTabla(todas, { bodegaId: null, soloReponer: true, busqueda: '' })
+    expect(t.map(f => f.producto_id)).toEqual(['lam', 'b13', 'cab'])
+  })
+
+  it('sin el filtro aparece todo lo vendido, pero no lo que no se vendió', () => {
+    const t = filasTabla(todas, { bodegaId: null, soloReponer: false, busqueda: '' })
+    expect(t.map(f => f.producto_id)).toContain('mic')
+    expect(t.map(f => f.producto_id)).toContain('pant')
+    expect(t.map(f => f.producto_id)).not.toContain('q')
+  })
+
+  it('busca por nombre o categoría', () => {
+    expect(filasTabla(todas, { bodegaId: null, soloReponer: false, busqueda: 'accesor' }).map(f => f.producto_id)).toEqual(['cab'])
+  })
+
+  it('lo bajo pedido arranca en 0 y lo demás en lo sugerido menos lo trasladable', () => {
+    expect(cantidadInicial(pantalla)).toBe(0)
+    expect(cantidadInicial(cables)).toBe(8)
+    expect(cantidadInicial(bateria11)).toBe(1)
+  })
+
+  it('la orden usa la cantidad y el proveedor que eligió el usuario', () => {
+    const c = comprasPorProveedor([
+      { fila: cables, cantidad: 12, proveedor: { id: 'pm', nombre: 'ProMobile SpA' } },
+      { fila: bateria13, cantidad: 2 },
+    ])
+    expect(c).toHaveLength(1)
+    expect(c[0].unidades).toBe(14)
+    expect(c[0].lineas.map(l => l.bodega_id)).toEqual(['dh', 'dh'])
+  })
+})
+
+describe('rebalanceo entre tiendas', () => {
+  it('sugiere trasladar aunque la tienda todavía no llegue a cero', () => {
+    // La Dehesa vende 10 al mes y le quedan 3; Los Dominicos tiene de sobra.
+    const dh = fila({ producto_id: 'x', nombre: 'Mica', estado: 'ok', stock: 3, vendidas_periodo: 10,
+      cobertura_dias: 9, sugerido: 0, trasladar: 7, trasladar_desde: LD, comprar: 0 })
+    expect(filasTabla([dh], { bodegaId: null, soloReponer: true, busqueda: '' })).toHaveLength(1)
+    expect(trasladosPorRuta([dh])[0]).toMatchObject({ origen_id: 'ld', destino_id: 'dh', unidades: 7 })
+    expect(cantidadInicial(dh)).toBe(0)
+  })
+})
+
+describe('negativos bajo pedido', () => {
+  it('una pieza cara en −1 va a "corregir", no a la lista de reposición', () => {
+    const pantallaMac = fila({ producto_id: 'mac', nombre: 'MacBook Pantalla', estado: 'stock_negativo', stock: -1,
+      vendidas_periodo: 1, se_repone: false })
+    expect(filasTabla([pantallaMac], { bodegaId: null, soloReponer: true, busqueda: '' })).toHaveLength(0)
+    expect(secciones([pantallaMac], null).corregir).toHaveLength(1)
   })
 })

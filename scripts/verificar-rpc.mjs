@@ -45,8 +45,8 @@ const MARCADORES = {
     porque: 'Dashboard, Resumen ejecutivo y Reportes BI leen el resultado desde acá; sin ella muestran "—"',
   },
   fn_reposicion_sugerida: {
-    marcadores: ['trasladar_desde', 'p_costo_bajo_pedido'],
-    porque: 'Inventario → Reposición; la versión sin el límite de costo sugería stockear repuestos caros',
+    marcadores: ['stock_otras', 'falta_objetivo'],
+    porque: 'Inventario → Reposición: la v2 muestra todo lo vendido, sugiere rebalancear entre tiendas y no expone la regla de bajo pedido',
   },
   fn_fijar_stock_manual: {
     marcadores: ['fn_ajustar_stock'],

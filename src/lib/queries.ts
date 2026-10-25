@@ -2089,17 +2089,20 @@ export function useRentabilidadSucursales(p: { desde: string; hasta: string }) {
 }
 
 // Reposición sugerida por sucursal (solo lectura). Ver src/lib/reposicion.ts.
-export function useReposicionSugerida() {
+export function useReposicionSugerida(diasHistoria = 30) {
   const { empresaId } = useAuth()
   return useQuery({
-    queryKey: ['reposicion', empresaId],
+    queryKey: ['reposicion', empresaId, diasHistoria],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('fn_reposicion_sugerida', { p_empresa_id: empresaId })
+      const { data, error } = await supabase.rpc('fn_reposicion_sugerida', {
+        p_dias_historia: diasHistoria, p_empresa_id: empresaId,
+      })
       if (error) throw error
       return data as Reposicion
     },
     enabled: !!empresaId,
     retry: (intentos, error) => intentos < 2 && !/permiso|encargados/i.test((error as Error)?.message ?? ''),
+    placeholderData: keepPreviousData,
   })
 }
 
