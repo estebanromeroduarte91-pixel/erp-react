@@ -1,0 +1,137 @@
+﻿n,id_terramovil,marca_terramovil,modelo_terramovil,marca_steve_docs,modelo_steve_docs,modelo_resultante_propuesto,estado,observacion,id_referencia_steve_docs
+1,1787509541965,,SAMSUNG A17,,,SAMSUNG A17,Sin equivalencia segura,A17 no existe en el catálogo de Steve Docs.,
+2,1787585266399,Samsung,A22 5G,Samsung,A22 5G,A22 5G,Coincidencia clara,Conservar ID; no fusionar registros.,1783481998423gsi2sep9fmp
+3,1787593478329,,ACER ASPIRE LITE 14,,,ACER ASPIRE LITE 14,Sin equivalencia segura,No existe ese Acer en tu catálogo.,
+4,1787670015722,,MOTOROLA E22I,,,MOTOROLA E22I,Sin equivalencia segura,No existe Moto E22i en tu catálogo.,
+5,1787697912898,Samsung,S5E,,,S5E,Sin equivalencia segura,S5E no tiene equivalencia segura; no confundir con S25.,
+6,1787769102687,Xiaomi,REDMI 10C,Xiaomi,Redmi 10C,Redmi 10C,Coincidencia clara,Conservar ID; no fusionar registros.,1783481998423zkhywwvfsa
+7,1787784530475,Honor,HONOR 400SMART 5G,,,HONOR 400SMART 5G,Sin equivalencia segura,No existe Honor 400 Smart 5G; no sustituir por 200 Smart.,
+8,1787843271965,Samsung,SAMSUNG A06,Samsung,A06,A06,Coincidencia clara,Conservar ID; no fusionar registros.,1783481998423brsr8xt46nu
+9,1787863571336,,A35,Samsung,A35 5G,A35,Revisar,El nombre original no especifica 5G.,178348199842348xvulbo134
+10,1787870121224,Oppo,RENO 7 4G,Oppo,Reno 7,RENO 7 4G,Revisar,El original especifica 4G; confirmar variante.,1783481998423uvsoqxise8
+11,1787928003216,Samsung,A52S,Samsung,A52s 5G,A52S,Revisar,El original no especifica 5G.,1783481998423u1vjm4xq76r
+12,1787929993366,,ZTE BLADE A3 2020,,,ZTE BLADE A3 2020,Sin equivalencia segura,Tu catálogo no contiene marca ZTE.,
+13,1787950058264,,LAPTOP HP ENVI15,,,LAPTOP HP ENVI15,Sin equivalencia segura,No existe ese HP; no sustituir por otro notebook.,
+14,1788023314060,Samsung,J 5 PRIME,Samsung,J5 Prime,J5 Prime,Coincidencia clara,Conservar ID; no fusionar registros.,1783481998423f832bzmyunb
+15,1788032504900,Apple,IPHONE 12,Apple,iPhone 12,iPhone 12,Coincidencia clara,Conservar ID; no fusionar registros.,eq-17799320128839fbd1395k8w
+16,1788035161279,Apple,IPHONE 15 PRO MAX,Apple,iPhone 15 Pro Max,iPhone 15 Pro Max,Coincidencia clara,Conservar ID; no fusionar registros.,eq-17799320128838d7pwu0q4o
+17,1788110179890,Xiaomi,12 PRO 5G,Xiaomi,12 Pro,12 PRO 5G,Revisar,El original especifica 5G; confirmar variante.,1783481998423e12i7fvj4sn
+18,1788186905123,Huawei,P20,Huawei,P20,P20,Coincidencia clara,Conservar ID; no fusionar registros.,1783481998423e6pit3eyhye
+19,1788187741895,Apple,XS MAX,Apple,iPhone XS Max,XS MAX,Revisar,Falta iPhone en el original; confirmar.,eq-1779932012883u81i24p23f8
+20,1788192438152,Xiaomi,REDMI 13C,Xiaomi,Redmi 13C,Redmi 13C,Coincidencia clara,Conservar ID; no fusionar registros.,1783481998423iy9bb1mknps
+21,1788279148803,Xiaomi,POCO F3 5G,Xiaomi,POCO F3,POCO F3 5G,Revisar,El original especifica 5G; confirmar variante.,17834819984239p7h3gz7ftl
+22,1788289565165,Samsung,A7 LITE,,,A7 LITE,Sin equivalencia segura,No existe A7 Lite en tu catálogo.,
+23,1788292739869,Xiaomi,REDMI NOTE 14,Xiaomi,Redmi Note 14,Redmi Note 14,Coincidencia clara,Conservar ID; no fusionar registros.,1783481998423m0ken961jf
+24,1788295870989,Huawei,Y9,,,Y9,Sin equivalencia segura,"No existe Y9 exacto; hay otras variantes, no equivalentes.",
+25,1788297543141,Motorola,MOTO G56,,,MOTO G56,Sin equivalencia segura,No existe Moto G56; no confundir con Moto G5 o G6.,
+26,1788299611275,Huawei,p30,Huawei,P30,P30,Coincidencia clara,Conservar ID; no fusionar registros.,1783481998423l4rol3pmrgi
+27,1788460271097,Samsung,A03 CORE,Samsung,A03 Core,A03 Core,Coincidencia clara,Conservar ID; no fusionar registros.,1783481998423oauqu3d7r4m
+28,1788533647897,,REDMI NOTE 13 PRO 5G,Xiaomi,Redmi Note 13 Pro 5G,Redmi Note 13 Pro 5G,Coincidencia clara,Conservar ID; no fusionar registros.,178348199842387qzm6vzwxq
+29,1788534339478,,REDMI A3,,,REDMI A3,Sin equivalencia segura,No existe Redmi A3 exacto; Redmi 3 es distinto.,
+30,1788539278158,,INFINIX NOTE 40 5G,,,INFINIX NOTE 40 5G,Sin equivalencia segura,Tu catálogo no contiene marca Infinix.,
+31,1788553246384,Motorola,g53,,,g53,Sin equivalencia segura,No existe Moto G53 en tu catálogo.,
+32,1788554272251,,redmi note 14 pro 5g,Xiaomi,Redmi Note 14 Pro 5G,Redmi Note 14 Pro 5G,Coincidencia clara,Conservar ID; no fusionar registros.,17834819984232yypaa7o038
+33,1788557660906,HP,14-ck00511a,,,14-ck00511a,Sin equivalencia segura,No existe ese modelo HP.,
+34,1788634911073,,NINTENDO SWITCH,,,NINTENDO SWITCH,Sin equivalencia segura,Tu catálogo no contiene Nintendo Switch.,
+35,1788638271640,Samsung,A05 4G,Samsung,A05,A05 4G,Revisar,El original especifica 4G; confirmar variante.,1783481998423ye54wgxw3xq
+36,1788717100744,,S20 FE,Samsung,S20 FE,S20 FE,Coincidencia clara,Conservar ID; no fusionar registros.,17834819984233zckbin0y8x
+37,1788812717402,,IPHONE 13,Apple,iPhone 13,iPhone 13,Coincidencia clara,Conservar ID; no fusionar registros.,eq-177993201288337qfrbxrgsw
+38,1788813695431,,A26,Samsung,A26 5G,A26,Revisar,Sin marca ni versión en el original.,17834819984234amn2xc64lp
+39,1788818220530,,Pavilion 14-av033la,,,Pavilion 14-av033la,Sin equivalencia segura,No existe ese Pavilion.,
+40,1788874886383,Motorola,g56,,,g56,Sin equivalencia segura,No existe Moto G56.,
+41,1788994858184,,14 PRO MAX,Apple,iPhone 14 Pro Max,14 PRO MAX,Revisar,Sin marca ni familia en el original.,eq-1779932012883xwztjoyeb2
+42,1789147043428,Apple,IPHONE 13,Apple,iPhone 13,iPhone 13,Coincidencia clara,Conservar ID; no fusionar registros.,eq-177993201288337qfrbxrgsw
+43,1789221327530,,REDMI NOTE 10S,Xiaomi,Redmi Note 10S,Redmi Note 10S,Coincidencia clara,Conservar ID; no fusionar registros.,1783481998423xo8x9h1ige
+44,1789231522399,,POCO X5 5G,Xiaomi,POCO X5,POCO X5 5G,Revisar,El original especifica 5G; confirmar variante.,1783481998423ietti10fb8
+45,1789232695994,,MOTOROLA,,,MOTOROLA,Sin equivalencia segura,"Solo indica marca, falta el modelo.",
+46,1789236727570,Apple,11,Apple,iPhone 11,11,Revisar,Solo dice 11; confirmar que es iPhone.,eq-1779932012883sf354t6qa2e
+47,1789237058664,,SONY MANDO PS5,,,SONY MANDO PS5,Sin equivalencia segura,No hay mandos PS5 en tu catálogo.,
+48,1789237286103,Samsung,NOTE 8,Samsung,Note 8,Note 8,Coincidencia clara,Conservar ID; no fusionar registros.,17834819984234uggiad6e8k
+49,1789238558423,,EVO FUSE 4K,,,EVO FUSE 4K,Sin equivalencia segura,Sin equivalencia identificable.,
+50,1789312157790,Xiaomi,REDMI NOTE 10S,Xiaomi,Redmi Note 10S,Redmi Note 10S,Coincidencia clara,Conservar ID; no fusionar registros.,1783481998423xo8x9h1ige
+51,1789330804855,,G20,Motorola,Moto G20,G20,Revisar,Sin marca en el original; confirmar.,1783481998423oypqa8aip18
+52,1789330974412,,MOTO G20,Motorola,Moto G20,Moto G20,Coincidencia clara,Conservar ID; no fusionar registros.,1783481998423oypqa8aip18
+53,1789402747818,,POLAROID,,,POLAROID,Sin equivalencia segura,"Solo indica marca, falta el modelo.",
+54,1789425945201,,SAMSUNG A02S,Samsung,A02s,A02s,Coincidencia clara,Conservar ID; no fusionar registros.,178348199842313f13j8pclj
+55,1789652905096,,XBOX 360,,,XBOX 360,Sin equivalencia segura,No hay Xbox 360 en tu catálogo.,
+56,1789655559606,,TABLET S6 LITE,,,TABLET S6 LITE,Sin equivalencia segura,No hay una tablet S6 Lite equivalente.,
+57,1789656818513,,A14 4G,Samsung,A14,A14 4G,Revisar,Sin marca; el original especifica 4G.,1783481998423qv8a5n8jnt
+58,1789669799755,,POCO X3 PRO,Xiaomi,POCO X3 Pro,POCO X3 Pro,Coincidencia clara,Conservar ID; no fusionar registros.,1783481998423ba5887lbyi9
+59,1789680043946,,A11,Samsung,A11,A11,Coincidencia clara,Conservar ID; no fusionar registros.,1783481998423u3tlpak8dm
+60,1790005528204,,LENOVO YOGA10,,,LENOVO YOGA10,Sin equivalencia segura,No existe Lenovo Yoga10.,
+61,1790008958102,,IPHONE 17,Apple,iPhone 17,iPhone 17,Coincidencia clara,Conservar ID; no fusionar registros.,eq-1779932012883wkmd89yrhi
+62,1790016027259,,SAMSUNG A15,Samsung,A15,A15,Coincidencia clara,Conservar ID; no fusionar registros.,1783481998423u3olteql3we
+63,1790021190720,,HONOR X6B,Honor,X6b,X6b,Coincidencia clara,Conservar ID; no fusionar registros.,178348199842396peb4873eo
+64,1790101817638,,ASUS A556U,,,ASUS A556U,Sin equivalencia segura,No existe Asus A556U.,
+65,1790106522229,,OPPO A54,Oppo,A54,A54,Coincidencia clara,Conservar ID; no fusionar registros.,1783481998423p8vxljnfdpi
+66,1790109570656,,MANDO DE NINTENDO SWITCH,,,MANDO DE NINTENDO SWITCH,Sin equivalencia segura,No hay mandos Nintendo en tu catálogo.,
+67,1790176913655,,IPHONE 11,Apple,iPhone 11,iPhone 11,Coincidencia clara,Conservar ID; no fusionar registros.,eq-1779932012883sf354t6qa2e
+68,1790180141761,,SAMSUNG S23 ULTRA,Samsung,S23 Ultra,S23 Ultra,Coincidencia clara,Conservar ID; no fusionar registros.,1783481998423ixu6l2nrhca
+69,1790193293625,,X8A 4G,Honor,X8a,X8A 4G,Revisar,Sin marca; el original especifica 4G.,1783481998423t0y71hvprrr
+70,1790198772463,Samsung,A32,Samsung,A32,A32,Coincidencia clara,Conservar ID; no fusionar registros.,17834819984233loabw0zfso
+71,1790208913379,Apple,IPHONE 11,Apple,iPhone 11,iPhone 11,Coincidencia clara,Conservar ID; no fusionar registros.,eq-1779932012883sf354t6qa2e
+72,1790275530283,,PLAY 4,,,PLAY 4,Sin equivalencia segura,Puede referirse a PlayStation 4; no asignar al teléfono Honor Play 4.,
+73,1790355242655,,A21S,Samsung,A21s,A21s,Coincidencia clara,Conservar ID; no fusionar registros.,1783481998423ngz8xd0mowr
+74,1790362468861,,A13 4G,Samsung,A13,A13 4G,Revisar,Sin marca; el original especifica 4G.,17834819984236mi26o19nf3
+75,1790370939890,,P30 PRO,Huawei,P30 Pro,P30 Pro,Coincidencia clara,Conservar ID; no fusionar registros.,1783481998423piuwibzw85n
+76,1790426339257,,infinix hot 40 neo,,,infinix hot 40 neo,Sin equivalencia segura,Tu catálogo no contiene marca Infinix.,
+77,1790436025035,Motorola,g85,,,g85,Sin equivalencia segura,No existe Moto G85; Moto G84 5G no es equivalencia segura.,
+78,1790438010373,Motorola,moto e32,Motorola,Moto E32,Moto E32,Coincidencia clara,Conservar ID; no fusionar registros.,1783481998423lipvogikeqr
+79,1790441384109,,SAMSUMG A50,Samsung,A50,A50,Coincidencia clara,Conservar ID; no fusionar registros.,17834819984235f45qg0khuc
+80,1790450483933,,SAMSUNG A21S,Samsung,A21s,A21s,Coincidencia clara,Conservar ID; no fusionar registros.,1783481998423ngz8xd0mowr
+81,1790455684056,Samsung,A7 LITE,,,A7 LITE,Sin equivalencia segura,No existe A7 Lite en tu catálogo.,
+82,1790604618269,,IPHONE 15,Apple,iPhone 15,iPhone 15,Coincidencia clara,Conservar ID; no fusionar registros.,eq-1779932012883dlvn6t2j2fs
+83,1790611252119,,SAMSUNG S24,Samsung,S24,S24,Coincidencia clara,Conservar ID; no fusionar registros.,17834819984233am9cxzugt2
+84,1790618155761,,IPHONE 13 MINI,Apple,iPhone 13 mini,iPhone 13 mini,Coincidencia clara,Conservar ID; no fusionar registros.,eq-177993201288377kux7ulz5o
+85,1790625054599,,S23 ULTRA,Samsung,S23 Ultra,S23 Ultra,Coincidencia clara,Conservar ID; no fusionar registros.,1783481998423ixu6l2nrhca
+86,1790627269647,,SAMSUNG A07,,,SAMSUNG A07,Sin equivalencia segura,No existe Samsung A07.,
+87,1790631844927,,IPHONE 12 PRO MAX,Apple,iPhone 12 Pro Max,iPhone 12 Pro Max,Coincidencia clara,Conservar ID; no fusionar registros.,eq-17799320128831wj6s6o7jg5
+88,1790685031392,Honor,x6a,Honor,X6a,X6a,Coincidencia clara,Conservar ID; no fusionar registros.,1783481998423upgcu6gdvtf
+89,1790704684836,Apple,IPHONE 14 PRO,Apple,iPhone 14 Pro,iPhone 14 Pro,Coincidencia clara,Conservar ID; no fusionar registros.,eq-17799320128833h877pzwerk
+90,1790778030682,,A70,Samsung,A70,A70,Coincidencia clara,Conservar ID; no fusionar registros.,1783481998423973tna57xx4
+91,1790781908026,,G05,,,G05,Sin equivalencia segura,No existe Moto G05; no confundir con Moto G5.,
+92,1790814230688,,IPAD 9 GEN,,,IPAD 9 GEN,Sin equivalencia segura,Tu catálogo distingue iPad 9 por código A2602/A2603/A2604; falta identificarlo.,
+93,1791042463412,Samsung,TABLET S7 FE,,,TABLET S7 FE,Sin equivalencia segura,No hay tablet S7 FE equivalente.,
+94,1791125677212,,REDMI NOTE 11S 4G,Xiaomi,Redmi Note 11S,REDMI NOTE 11S 4G,Revisar,El original especifica 4G; confirmar variante.,1783481998423xvb8ncv188
+95,1791306342165,Samsung,A8S PEN P200,,,A8S PEN P200,Sin equivalencia segura,No hay coincidencia segura para A8S PEN P200.,
+96,1791313142653,,SAMSUNG A51,Samsung,A51,A51,Coincidencia clara,Conservar ID; no fusionar registros.,17834819984230flbkrthqb0m
+97,1791319527004,Samsung,ZFOLD 5,Samsung,Z Fold 5,Z Fold 5,Coincidencia clara,Conservar ID; no fusionar registros.,1783481998423r9ape7tsz1e
+98,1791471658859,Apple,IPHONE 15,Apple,iPhone 15,iPhone 15,Coincidencia clara,Conservar ID; no fusionar registros.,eq-1779932012883dlvn6t2j2fs
+99,1791730440927,Sony,MANDO PS4,,,MANDO PS4,Sin equivalencia segura,No hay mandos PS4 en tu catálogo.,
+100,1791733397189,,A04S,Samsung,A04s,A04s,Coincidencia clara,Conservar ID; no fusionar registros.,17834819984234a84o2289cw
+101,1791734014787,,XBOX SERIE X,,,XBOX SERIE X,Sin equivalencia segura,No hay Xbox Series X en tu catálogo.,
+102,1791734528044,,REDMI NOTE 11 4G,Xiaomi,Redmi Note 11,REDMI NOTE 11 4G,Revisar,El original especifica 4G; confirmar variante.,1783481998423uog4ag0ijwk
+103,1791735219783,,A17,,,A17,Sin equivalencia segura,No existe A17; además falta marca.,
+104,1791742949737,,XIAOMI 13T,Xiaomi,13T,13T,Coincidencia clara,Conservar ID; no fusionar registros.,1783481998423jcgbjmybhcm
+105,1791752417363,,XR,Apple,iPhone XR,XR,Revisar,Solo dice XR; confirmar que es iPhone.,eq-17799320128835vkzfeg7s5n
+106,1791894655532,tecno spark,tecno spark 20 pro,,,tecno spark 20 pro,Sin equivalencia segura,Tu catálogo no contiene Tecno.,
+107,1791897668438,Honor,400 SMART,,,400 SMART,Sin equivalencia segura,No existe Honor 400 Smart; no sustituir por 200 Smart.,
+108,1791926821955,Motorola,G53,,,G53,Sin equivalencia segura,No existe Moto G53.,
+109,1791986159379,,DISCO DURO ESTERNO TOSHIBA,,,DISCO DURO ESTERNO TOSHIBA,Sin equivalencia segura,Falta modelo exacto y no hay discos Toshiba equivalentes.,
+110,1791996791340,Asus,rog ally z1 extreme,,,rog ally z1 extreme,Sin equivalencia segura,No existe Asus ROG Ally Z1 Extreme.,
+111,1792081337611,Samsung,A31,Samsung,A31,A31,Coincidencia clara,Conservar ID; no fusionar registros.,1783481998423eg0mr3s9vh
+112,1792081664999,Samsung,A26,Samsung,A26 5G,A26,Revisar,El original no especifica 5G.,17834819984234amn2xc64lp
+113,1792081792149,Samsung,A12,Samsung,A12,A12,Coincidencia clara,Conservar ID; no fusionar registros.,1783481998423ki99pztbjp
+114,1792088271352,Motorola,G06 4G,,,G06 4G,Sin equivalencia segura,No existe Moto G06 4G.,
+115,1792089024318,Sony,MANDO PLAY5,,,MANDO PLAY5,Sin equivalencia segura,No hay mandos PS5 en tu catálogo.,
+116,1792091612579,Sony,PS4,,,PS4,Sin equivalencia segura,No hay consola Sony PS4 equivalente.,
+117,1792177254268,,SHAVER KEMEI,,,SHAVER KEMEI,Sin equivalencia segura,Falta modelo exacto y no hay Kemei en tu catálogo.,
+118,1792178469270,,PARLANTE JBL,,,PARLANTE JBL,Sin equivalencia segura,Falta modelo exacto y no hay JBL en tu catálogo.,
+119,1792359266789,Apple,IPHONE 16 PRO MAX,Apple,iPhone 16 Pro Max,iPhone 16 Pro Max,Coincidencia clara,Conservar ID; no fusionar registros.,eq-1779932012883jk5myca7kzg
+120,1792423480426,Xiaomi,redmi note 11,Xiaomi,Redmi Note 11,Redmi Note 11,Coincidencia clara,Conservar ID; no fusionar registros.,1783481998423uog4ag0ijwk
+121,1792438205550,,IPHONE 12 PRO,Apple,iPhone 12 Pro,iPhone 12 Pro,Coincidencia clara,Conservar ID; no fusionar registros.,eq-1779932012883a7hh9xnsno
+122,1792609096459,Samsung,A07 5G,,,A07 5G,Sin equivalencia segura,No existe Samsung A07 5G.,
+123,1792677565186,Apple,iphone 15 plus,Apple,iPhone 15 Plus,iPhone 15 Plus,Coincidencia clara,Conservar ID; no fusionar registros.,eq-1779932012883qujw2p8artl
+124,1792682043631,,X6B,Honor,X6b,X6b,Coincidencia clara,Conservar ID; no fusionar registros.,178348199842396peb4873eo
+125,1792682126372,Honor,X6B 5G,Honor,X6b,X6B 5G,Revisar,El original especifica 5G; no quitar sin confirmar.,178348199842396peb4873eo
+126,1792685762269,Samsung,A50,Samsung,A50,A50,Coincidencia clara,Conservar ID; no fusionar registros.,17834819984235f45qg0khuc
+127,1792687017188,Apple,IPHONE 14,Apple,iPhone 14,iPhone 14,Coincidencia clara,Conservar ID; no fusionar registros.,eq-1779932012883rqscv6za70b
+128,1792761698443,Xiaomi,REDMI 10 5G,,,REDMI 10 5G,Sin equivalencia segura,No existe Redmi 10 5G exacto; no asignar Redmi 12/13/14 5G.,
+129,1792775399724,,IPHONE 13,Apple,iPhone 13,iPhone 13,Coincidencia clara,Conservar ID; no fusionar registros.,eq-177993201288337qfrbxrgsw
+130,1792939718900,Samsung,S23 ULTRA (SM-S918B),Samsung,S23 Ultra,S23 ULTRA (SM-S918B),Revisar,El original incluye SM-S918B; conservar ese código antes de renombrar.,1783481998423ixu6l2nrhca
+131,1792954123378,Xiaomi,REDMI  X5B PLUS,,,REDMI  X5B PLUS,Sin equivalencia segura,Marca y nombre inconsistentes: Xiaomi/Redmi X5B Plus; no hay equivalencia exacta.,
+132,1792959705317,Honor,X5B PLUS,,,X5B PLUS,Sin equivalencia segura,No existe Honor X5b Plus exacto; X5 Plus y X5b son otros nombres.,
+133,1793022386014,Samsung,A25,Samsung,A25 5G,A25,Revisar,El original no especifica 5G.,17834819984236ayrl65g3cj
+134,1793120361966,Xiaomi,REDMI NOTE 13 5G,Xiaomi,Redmi Note 13 5G,Redmi Note 13 5G,Coincidencia clara,Conservar ID; no fusionar registros.,1783481998423ijijjtgta0f
+135,1793133188883,Motorola,G54,Motorola,Moto G54 5G,G54,Revisar,El original no especifica 5G.,17834819984236vnop4e5j8p
+136,1793140070749,Honor,X7B,Honor,X7b,X7b,Coincidencia clara,Conservar ID; no fusionar registros.,1783481998423ttlsack3ora
