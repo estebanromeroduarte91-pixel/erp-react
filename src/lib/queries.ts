@@ -1,3 +1,4 @@
+import { validarDuplicadosEquipos } from './equiposCatalogo'
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { deltasDeStock, stockPorBodega, type StockPorBodega } from '@/lib/stock'
 import { useEffect, useId } from 'react'
@@ -3740,7 +3741,11 @@ export function useGuardarEquipos() {
   const { empresaId } = useAuth()
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (equipos: Equipo[]) => dbSet(empresaId!, 'tp_equipos', equipos),
+    mutationFn: async (equipos: Equipo[]) => {
+      const anteriores = parseArr<Equipo>(await dbGet<Equipo[] | string>(empresaId!, 'tp_equipos'))
+      validarDuplicadosEquipos(equipos, anteriores)
+      await dbSet(empresaId!, 'tp_equipos', equipos)
+    },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['tp_equipos', empresaId] }),
   })
 }

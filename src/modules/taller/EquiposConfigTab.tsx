@@ -1,3 +1,4 @@
+import { claveEquipo, equiposNuevos } from '@/lib/equiposCatalogo'
 import { useEffect, useRef, useState } from 'react'
 import { useCatEquipo, useGuardarCatEquipo, useMarcasEquipo, useGuardarMarcasEquipo, useEquipos, useGuardarEquipos } from '@/lib/queries'
 import { Spinner } from '@/components/shared/Spinner'
@@ -158,7 +159,7 @@ function ExcelImportSection() {
         let skipped = 0
 
         const existingSet = new Set(
-          (equipos ?? []).map(e => `${(e.marca ?? '').toLowerCase()}|${(e.modelo ?? '').toLowerCase()}`)
+          (equipos ?? []).map(claveEquipo)
         )
 
         for (const sheetName of wb.SheetNames) {
@@ -168,7 +169,7 @@ function ExcelImportSection() {
             const marca = String(row['Marca'] ?? row['marca'] ?? '').trim()
             const modelo = String(row['Modelo'] ?? row['modelo'] ?? '').trim()
             if (!marca || !modelo) continue
-            const key = `${marca.toLowerCase()}|${modelo.toLowerCase()}`
+            const key = claveEquipo({ marca, modelo })
             if (existingSet.has(key)) { skipped++; continue }
             existingSet.add(key)
             resultados.push({ id: Date.now().toString() + Math.random().toString(36).slice(2), marca, modelo, categoria: 'Teléfono' })
@@ -196,7 +197,7 @@ function ExcelImportSection() {
   async function confirmar() {
     setEstado('subiendo')
     try {
-      const allEquipos = [...(equipos ?? []), ...nuevos]
+      const allEquipos = [...(equipos ?? []), ...equiposNuevos(equipos ?? [], nuevos)]
       await guardarEquipos.mutateAsync(allEquipos)
       // Sincronizar: todas las marcas presentes en el catálogo completo → tp_marcas_equipo
       const todasLasMarcas = [

@@ -1,3 +1,4 @@
+import { buscarEquipoExistente, equiposNuevos } from '@/lib/equiposCatalogo'
 import { useState, useMemo, useRef } from 'react'
 import { useEquipos, useGuardarEquipos, useCatEquipo, useMarcasEquipo, useGuardarMarcasEquipo } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
@@ -106,6 +107,8 @@ export function EquiposTab() {
 
   // Modal nuevo/editar
   const [modal, setModal] = useState(false)
+  const [saveError, setSaveError] = useState('')
+  const [importOmitidos, setImportOmitidos] = useState(0)
   const [editId, setEditId] = useState<string | null>(null)
   const [form, setForm] = useState<EquipoForm>(EMPTY_FORM)
   const [ignoredDups, setIgnoredDups] = useState<Set<string>>(new Set())
@@ -127,6 +130,8 @@ export function EquiposTab() {
     const dups = buscarDups(form.modelo, form.marca, equipos ?? [], editId ?? undefined)
     return dups.filter(d => !ignoredDups.has(d.equipo.id))
   }, [modal, form.modelo, form.marca, equipos, editId, ignoredDups])
+
+  const duplicadoExacto = buscarEquipoExistente(equipos ?? [], form, editId ?? undefined)
 
   // Pills de marcas
   const marcasPills = useMemo(() => {
@@ -151,9 +156,10 @@ export function EquiposTab() {
     return r
   }, [equipos, filtroMarca, filtroCat, busqueda])
 
-  function abrirNuevo() { setEditId(null); setForm(EMPTY_FORM); setIgnoredDups(new Set()); setModal(true) }
+  function abrirNuevo() { setSaveError(''); setEditId(null); setForm(EMPTY_FORM); setIgnoredDups(new Set()); setModal(true) }
 
   function abrirEditar(e: Equipo) {
+    setSaveError('')
     setEditId(e.id)
     setForm({ marca: e.marca ?? '', modelo: e.modelo ?? '', categoria: e.categoria ?? 'Teléfono', descripcion: e.descripcion ?? '' })
     setIgnoredDups(new Set())
@@ -161,7 +167,8 @@ export function EquiposTab() {
   }
 
   async function guardarEquipo() {
-    if (!form.modelo.trim()) return
+    if (!form.modelo.trim() || (!editId && !form.marca.trim()) || duplicadoExacto) return
+    setSaveError('')
     const datos: Equipo = {
       id: editId ?? Date.now().toString(),
       marca: form.marca.trim(),
@@ -170,8 +177,12 @@ export function EquiposTab() {
       descripcion: form.descripcion.trim() || undefined,
     }
     const nueva = editId ? (equipos ?? []).map(e => e.id === editId ? datos : e) : [...(equipos ?? []), datos]
-    await guardar.mutateAsync(nueva)
-    setModal(false)
+    try {
+      await guardar.mutateAsync(nueva)
+      setModal(false)
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'No se pudo guardar el equipo.')
+    }
   }
 
   function usarExistente(eq: Equipo) {
@@ -216,7 +227,7 @@ export function EquiposTab() {
         const get = (row: Record<string, unknown>, col: string | undefined) =>
           col ? String(Object.entries(row).find(([k]) => k.toLowerCase().trim() === col)?.[1] ?? '').trim() : ''
 
-        const parsed: Equipo[] = rows
+        const candidatos: Equipo[] = rows
           .map(row => ({
             id: '',
             marca: normalizarMarca(get(row, cols.marca), marcas),
@@ -225,6 +236,10 @@ export function EquiposTab() {
             descripcion: get(row, cols.descripcion) || undefined,
           }))
           .filter(e => e.marca && e.modelo)
+
+        const parsed = equiposNuevos(equipos ?? [], candidatos)
+        setImportOmitidos(candidatos.length - parsed.length)
+        if (candidatos.length && !parsed.length) { setImportError('Todos los equipos del archivo ya existen o están repetidos.'); return }
 
         if (!parsed.length) { setImportError('No se encontraron equipos válidos (requiere columnas Marca y Modelo)'); return }
 
@@ -277,7 +292,12 @@ export function EquiposTab() {
         return { ...e, id: `eq-${Date.now()}-${Math.random().toString(36).slice(2)}` }
       })
       .filter(Boolean) as Equipo[]
-    await guardar.mutateAsync([...(equipos ?? []), ...nuevos])
+    try {
+      await guardar.mutateAsync([...(equipos ?? []), ...equiposNuevos(equipos ?? [], nuevos)])
+    } catch (error) {
+      setImportError(error instanceof Error ? error.message : 'No se pudo importar el catálogo.')
+      return
+    }
     if (agregarNuevas) {
       const nuevasMarcas = importMarcas.filter(m => !m.enCatalogo).map(m => m.normalizada)
       if (nuevasMarcas.length) await guardarMarcas.mutateAsync([...marcas, ...nuevasMarcas])
@@ -481,6 +501,12 @@ export function EquiposTab() {
                   </div>
                 )}
               </div>
+              {duplicadoExacto && (
+                <p role="alert" className="text-sm text-red-600">
+                  Ya existe {duplicadoExacto.marca} {duplicadoExacto.modelo}. Usa el registro existente.
+                </p>
+              )}
+              {saveError && <p role="alert" className="text-sm text-red-600">{saveError}</p>}
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Descripción (opcional)</label>
                 <input value={form.descripcion} onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))}
@@ -490,7 +516,7 @@ export function EquiposTab() {
             </div>
             <div className="flex justify-end gap-2 px-5 py-4 border-t border-gray-100">
               <button onClick={() => setModal(false)} className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition">Cancelar</button>
-              <button onClick={guardarEquipo} disabled={!form.modelo.trim() || guardar.isPending}
+              <button onClick={guardarEquipo} disabled={!form.modelo.trim() || (!editId && !form.marca.trim()) || !!duplicadoExacto || guardar.isPending}
                 className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition">
                 {guardar.isPending ? 'Guardando…' : 'Guardar equipo'}
               </button>
@@ -660,6 +686,8 @@ export function EquiposTab() {
 
             <div className="flex items-center justify-between px-5 py-4 border-t border-gray-100 flex-shrink-0">
               <div>
+                {importOmitidos > 0 && <p className="text-xs text-gray-600">{importOmitidos} equipos ya existentes o repetidos omitidos.</p>}
+                {importError && <p role="alert" className="text-xs text-red-600">{importError}</p>}
                 {dupsPendientes.length > 0 && (
                   <span className="text-xs text-amber-600 font-medium">
                     {dupsPendientes.length} duplicado{dupsPendientes.length !== 1 ? 's' : ''} sin resolver

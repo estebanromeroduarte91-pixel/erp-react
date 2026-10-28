@@ -1,3 +1,4 @@
+import { buscarEquipoExistente } from '@/lib/equiposCatalogo'
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { useEquipos, useGuardarEquipos, useCatEquipo, useMarcasEquipo } from '@/lib/queries'
 
@@ -23,7 +24,9 @@ export function EquipoSelector({ value, onChange }: Props) {
   const [q, setQ] = useState('')
   const [activeBrand, setActiveBrand] = useState<string | null>(null)
   const [nuevo, setNuevo] = useState(false)
+  const [saveError, setSaveError] = useState('')
   const [form, setForm] = useState({ marca: '', modelo: '', categoria: 'Teléfono' })
+  const existente = buscarEquipoExistente(equipos ?? [], form)
   const wrapRef = useRef<HTMLDivElement>(null)
   const { ref: fieldRef, rect } = useAnchorRect<HTMLDivElement>(open)
 
@@ -71,14 +74,22 @@ export function EquipoSelector({ value, onChange }: Props) {
   }
 
   async function agregarAlCatalogo() {
-    if (!form.modelo.trim()) return
+    if (!form.modelo.trim() || guardarEquipos.isPending) return
+    if (existente) { seleccionar(existente); setNuevo(false); return }
+    if (!form.marca.trim()) return
+    setSaveError('')
     const nuevoEq: Equipo = {
       id: Date.now().toString(),
       marca: form.marca.trim(),
       modelo: form.modelo.trim(),
       categoria: form.categoria,
     }
-    await guardarEquipos.mutateAsync([...(equipos ?? []), nuevoEq])
+    try {
+      await guardarEquipos.mutateAsync([...(equipos ?? []), nuevoEq])
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'No se pudo guardar el equipo.')
+      return
+    }
     onChange(displayName(nuevoEq))
     setNuevo(false); setOpen(false); setQ(''); setActiveBrand(null)
     setForm({ marca: '', modelo: '', categoria: 'Teléfono' })
@@ -182,7 +193,7 @@ export function EquipoSelector({ value, onChange }: Props) {
                 )}
               </div>
 
-              <button onClick={() => { setNuevo(true); setForm(f => ({ ...f, modelo: q.trim() })) }}
+              <button onClick={() => { setNuevo(true); setSaveError(''); setForm(f => ({ ...f, modelo: q.trim() })) }}
                 className="w-full text-left px-4 py-2.5 text-sm text-blue-600 font-semibold border-t border-gray-100 hover:bg-blue-50 transition flex items-center gap-1.5">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -205,14 +216,16 @@ export function EquipoSelector({ value, onChange }: Props) {
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base md:text-sm bg-gray-50 focus:outline-none focus:border-blue-400">
                 {categorias.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
+              {existente && <p className="text-xs text-blue-700">Ya existe {existente.marca} {existente.modelo}. Puedes seleccionarlo sin crear otro.</p>}
+              {saveError && <p role="alert" className="text-xs text-red-600">{saveError}</p>}
               <div className="flex gap-2 justify-end pt-1">
                 <button onClick={() => setNuevo(false)}
                   className="px-3 py-1.5 text-xs font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-100 transition">
                   Cancelar
                 </button>
-                <button onClick={agregarAlCatalogo} disabled={!form.modelo.trim()}
+                <button onClick={agregarAlCatalogo} disabled={!form.modelo.trim() || (!existente && !form.marca.trim()) || guardarEquipos.isPending}
                   className="px-3 py-1.5 text-xs font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition">
-                  Crear y seleccionar
+                  {guardarEquipos.isPending ? 'Guardando…' : existente ? 'Seleccionar existente' : 'Crear y seleccionar'}
                 </button>
               </div>
             </div>
