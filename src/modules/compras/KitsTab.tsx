@@ -1,3 +1,4 @@
+import { analizarGrupo, normalizarEnlace, productosParaColor } from './coloresKit'
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useKits, useGuardarKits, useProductos } from '@/lib/queries'
@@ -9,101 +10,6 @@ import { productoDeComponente } from './utils'
 
 const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36)
 const today = fechaLocal
-
-// Color words sorted longest-first to avoid partial matches
-const COLOR_WORDS = [
-  'titanio negro', 'titanio blanco', 'titanio natural', 'titanio desierto', 'titanio azul',
-  'verde noche', 'azul pacífico', 'azul pacifico', 'azul sierra', 'verde alpino', 'morado profundo', 'verde agua',
-  'rose gold', 'space gray', 'space black', 'sky blue',
-  'silver', 'gold', 'midnight', 'starlight', 'amarillo', 'azul',
-  'rosado', 'plata', 'verde', 'morado', 'blanco', 'negro',
-  'blanca', 'negra', 'dorado', 'rojo', 'roja', 'coral',
-  'amarilla', 'morada', 'rosada', 'dorada', 'plateada', 'celeste', 'red',
-  'grafito', 'titanio', 'natural', 'desierto', 'black',
-]
-
-// Variantes de género (o idioma) que representan el mismo color — se muestran unificadas
-// bajo una sola forma. (ej. "Tapa Trasera Amarilla" y "Chasis Amarillo" deben contar como el
-// mismo color "Amarillo"; antes solo blanca/negra/roja estaban cubiertas y el resto de las
-// formas femeninas o en inglés se colaban como componentes "genéricos" — se agregaban
-// siempre, sin importar el color elegido).
-const COLOR_CANON: Record<string, string> = {
-  blanca: 'blanco', negra: 'negro', roja: 'rojo', red: 'rojo',
-  amarilla: 'amarillo', morada: 'morado', rosada: 'rosado', dorada: 'dorado', plateada: 'plata',
-}
-
-function canonColor(color: string): string {
-  return color
-    .split(' ')
-    .map(w => {
-      const canon = COLOR_CANON[w.toLowerCase()] ?? w.toLowerCase()
-      return canon.charAt(0).toUpperCase() + canon.slice(1)
-    })
-    .join(' ')
-}
-
-function stripColor(name: string): string {
-  const nl = name.toLowerCase()
-  for (const c of COLOR_WORDS) {
-    if (nl.endsWith(' ' + c)) return name.slice(0, name.length - c.length - 1).trim()
-  }
-  return name
-}
-
-function extractColor(name: string): string {
-  const base = stripColor(name)
-  if (base === name) return ''
-  return name.slice(base.length).trim()
-}
-
-// Returns true if colorA's words are all contained in colorB (A is a subset of B)
-function isColorSubset(colorA: string, colorB: string): boolean {
-  if (colorA.toLowerCase() === colorB.toLowerCase()) return false
-  const wordsA = colorA.toLowerCase().split(' ')
-  const wordsB = new Set(colorB.toLowerCase().split(' '))
-  return wordsA.every(w => wordsB.has(w))
-}
-
-// Returns true if a product's color matches the selected color
-// (exact match OR product color words are all in selected color), comparando
-// formas canónicas para que "Negra"/"Negro" (o "Blanca"/"Blanco", etc.) se traten como el mismo color.
-function colorMatches(productColor: string, selectedColor: string): boolean {
-  const a = canonColor(productColor), b = canonColor(selectedColor)
-  if (a.toLowerCase() === b.toLowerCase()) return true
-  return isColorSubset(a, b)
-}
-
-// From a list of products in an enlace group, find available colors
-// and separate generic (no-color-variant) products
-function analizarGrupo(prods: Producto[]): { colores: string[]; genericos: Producto[] } {
-  const baseMap = new Map<string, Producto[]>()
-  for (const p of prods) {
-    const base = stripColor(p.nombre).toLowerCase()
-    const arr = baseMap.get(base) ?? []
-    arr.push(p)
-    baseMap.set(base, arr)
-  }
-
-  const genericos: Producto[] = []
-  const coloresSet = new Set<string>()
-
-  for (const grupo of baseMap.values()) {
-    if (grupo.length === 1) {
-      genericos.push(grupo[0])
-    } else {
-      for (const p of grupo) {
-        const c = extractColor(p.nombre)
-        if (c) coloresSet.add(canonColor(c))
-      }
-    }
-  }
-
-  // Keep only "maximal" colors — drop any color that is a word-subset of another
-  const todos = [...coloresSet]
-  const canonicos = todos.filter(c => !todos.some(other => isColorSubset(c, other)))
-
-  return { colores: canonicos.sort(), genericos }
-}
 
 // ── Modal crear / editar kit ──────────────────────────────────
 
@@ -141,13 +47,15 @@ function ModalKit({ kit, productos, categoriasExistentes, onSave, onClose }: Mod
 
   // Groups of products by their enlace field
   const enlaceGroups: { enlace: string; count: number }[] = (() => {
-    const map = new Map<string, number>()
+    const map = new Map<string, { enlace: string; count: number }>()
     for (const p of productos) {
-      const e = p.enlace?.trim()
-      if (e) map.set(e, (map.get(e) ?? 0) + 1)
+      const clave = normalizarEnlace(p.enlace)
+      if (!clave) continue
+      const grupo = map.get(clave)
+      if (grupo) grupo.count++
+      else map.set(clave, { enlace: p.enlace!.trim().replace(/\s+/g, ' '), count: 1 })
     }
-    return [...map.entries()]
-      .map(([enlace, count]) => ({ enlace, count }))
+    return [...map.values()]
       .sort((a, b) => a.enlace.localeCompare(b.enlace))
   })()
 
@@ -156,7 +64,7 @@ function ModalKit({ kit, productos, categoriasExistentes, onSave, onClose }: Mod
     : enlaceGroups
 
   function aplicarEnlace(enlace: string) {
-    const prods = productos.filter(p => p.enlace?.trim().toLowerCase() === enlace.trim().toLowerCase())
+    const prods = productos.filter(p => normalizarEnlace(p.enlace) === normalizarEnlace(enlace))
     if (!prods.length) return
     setNombre(enlace)
     setEnlaceOpen(false)
@@ -176,7 +84,7 @@ function ModalKit({ kit, productos, categoriasExistentes, onSave, onClose }: Mod
       setColoresDisponibles([])
       setGenericosEnlace([])
       setColorSeleccionado(null)
-      setComponentes(prods.map(p => ({ id: uid(), nombre: p.nombre, cantidad: 1 })))
+      setComponentes(prods.map(p => ({ id: uid(), producto_id: p.id, nombre: p.nombre, cantidad: 1 })))
     }
   }
 
@@ -184,14 +92,11 @@ function ModalKit({ kit, productos, categoriasExistentes, onSave, onClose }: Mod
     setColorSeleccionado(color)
     if (!enlaceActivo) return
 
-    const prods = productos.filter(p => p.enlace?.trim().toLowerCase() === enlaceActivo.trim().toLowerCase())
+    const prods = productos.filter(p => normalizarEnlace(p.enlace) === normalizarEnlace(enlaceActivo))
     const { genericos } = analizarGrupo(prods)
 
-    // Color-specific products: exact match OR subset match (e.g. "Blanco" matches when "Titanio Blanco" selected)
-    const especificos = prods.filter(p => colorMatches(extractColor(p.nombre), color))
-
-    const todos = [...especificos, ...genericos]
-    setComponentes(todos.map(p => ({ id: uid(), nombre: p.nombre, cantidad: 1 })))
+    const todos = productosParaColor(prods, color)
+    setComponentes(todos.map(p => ({ id: uid(), producto_id: p.id, nombre: p.nombre, cantidad: 1 })))
     // Keep genericos in sync
     setGenericosEnlace(genericos)
   }
@@ -206,7 +111,7 @@ function ModalKit({ kit, productos, categoriasExistentes, onSave, onClose }: Mod
   }
 
   function updateComp(id: string, field: 'nombre' | 'cantidad', value: string | number) {
-    setComponentes(prev => prev.map(c => c.id === id ? { ...c, [field]: value } : c))
+    setComponentes(prev => prev.map(c => c.id === id ? { ...c, [field]: value, ...(field === 'nombre' ? { producto_id: undefined } : {}) } : c))
   }
 
   function handleSave() {
