@@ -1186,74 +1186,78 @@ export function POSTab() {
                 </button>
               )}
             </div>
-            <div className="flex flex-col gap-1.5">
-              {(metodos ?? []).map(m => {
-                const active = metodoActual === m.id
-                return (
-                  <button
-                    key={m.id}
-                    onClick={() => setMetodoSel(m.id)}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 10,
-                      padding: '10px 12px', borderRadius: 10, width: '100%',
-                      textAlign: 'left', cursor: 'pointer', transition: 'all .15s',
-                      border: active ? '2px solid #3b82f6' : '1.5px solid #e5e7eb',
-                      background: active ? '#eff6ff' : '#fff',
-                    }}
-                  >
-                    <span style={{ color: active ? '#2563eb' : '#6b7280', flexShrink: 0 }}>
-                      <IconoMetodo id={m.id} />
-                    </span>
-                    <span style={{ flex: 1 }}>
-                      <span style={{ display: 'block', fontWeight: 600, fontSize: 13, color: active ? '#1d4ed8' : '#111827' }}>{m.label}</span>
-                      {m.desc && <span style={{ display: 'block', fontSize: 11, color: '#9ca3af' }}>{m.desc}</span>}
-                    </span>
-                    {active && (
-                      <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#3b82f6" strokeWidth={2.5} style={{ flexShrink: 0 }}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                    )}
-                  </button>
-                )
-              })}
-            </div>
+            {!pagoDividido && (
+              <div className="flex flex-col gap-1.5">
+                {(metodos ?? []).map(m => {
+                  const active = metodoActual === m.id
+                  return (
+                    <button
+                      key={m.id}
+                      onClick={() => setMetodoSel(m.id)}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 10,
+                        padding: '10px 12px', borderRadius: 10, width: '100%',
+                        textAlign: 'left', cursor: 'pointer', transition: 'all .15s',
+                        border: active ? '2px solid #3b82f6' : '1.5px solid #e5e7eb',
+                        background: active ? '#eff6ff' : '#fff',
+                      }}
+                    >
+                      <span style={{ color: active ? '#2563eb' : '#6b7280', flexShrink: 0 }}>
+                        <IconoMetodo id={m.id} />
+                      </span>
+                      <span style={{ flex: 1 }}>
+                        <span style={{ display: 'block', fontWeight: 600, fontSize: 13, color: active ? '#1d4ed8' : '#111827' }}>{m.label}</span>
+                        {m.desc && <span style={{ display: 'block', fontSize: 11, color: '#9ca3af' }}>{m.desc}</span>}
+                      </span>
+                      {active && (
+                        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#3b82f6" strokeWidth={2.5} style={{ flexShrink: 0 }}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
             {pagoDividido && (
-              <div className="mt-3 rounded-xl border border-blue-200 bg-blue-50 p-3">
-                <p className="mb-2 text-xs font-semibold text-blue-900">¿Cuánto paga con el primer método?</p>
-                <div className="grid grid-cols-2 gap-2">
-                  <label className="block">
-                    <span className="mb-1 block text-[11px] text-blue-700">
-                      {(metodos ?? []).find(m => m.id === metodoActual)?.label ?? 'Primer método'}
-                    </span>
-                    <input
-                      inputMode="numeric"
+              <div className="rounded-xl border border-gray-200 bg-white p-3 space-y-3">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-500">Total a pagar</span>
+                  <strong>{fmt(totalIva)}</strong>
+                </div>
+                <div className="grid grid-cols-[1fr_120px] gap-2 items-end">
+                  <label className="min-w-0">
+                    <span className="mb-1 block text-xs text-gray-500">Paga con</span>
+                    <select value={metodoActual} onChange={e => setMetodoSel(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 bg-white px-2 py-2 text-base md:text-sm">
+                      {(metodos ?? []).map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
+                    </select>
+                  </label>
+                  <label>
+                    <span className="mb-1 block text-xs text-gray-500">Monto</span>
+                    <input inputMode="numeric" aria-label="Monto del pago dividido"
                       value={montoPrimerPago ? Number(montoPrimerPago.replace(/\D/g, '')).toLocaleString('es-CL') : ''}
                       onChange={e => setMontoPrimerPago(e.target.value.replace(/\D/g, ''))}
                       placeholder="$0"
-                      className="w-full rounded-lg border border-blue-200 bg-white px-3 py-2 text-base font-semibold outline-none focus:border-blue-500 md:text-sm"
-                    />
+                      className="w-full rounded-lg border border-blue-300 bg-white px-3 py-2 text-base font-semibold outline-none focus:border-blue-500 md:text-sm" />
                   </label>
-                  <label className="block">
-                    <span className="mb-1 block text-[11px] text-blue-700">Segundo método</span>
-                    <select
-                      value={segundoMetodoActual}
-                      onChange={e => setSegundoMetodo(e.target.value)}
-                      className="w-full rounded-lg border border-blue-200 bg-white px-2 py-2 text-base outline-none focus:border-blue-500 md:text-sm"
-                    >
+                  <label className="min-w-0">
+                    <span className="mb-1 block text-xs text-gray-500">El resto con</span>
+                    <select value={segundoMetodoActual} onChange={e => setSegundoMetodo(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 bg-white px-2 py-2 text-base md:text-sm">
                       {(metodos ?? []).filter(m => m.id !== metodoActual).map(m => (
                         <option key={m.id} value={m.id}>{m.label}</option>
                       ))}
                     </select>
                   </label>
-                </div>
-                <div className="mt-2 flex items-center justify-between rounded-lg bg-white px-3 py-2 text-xs">
-                  <span className="text-gray-500">Resto con el segundo método</span>
-                  <span className={montoPrimero > 0 && montoPrimero < totalIva ? 'font-bold text-blue-700' : 'font-semibold text-gray-400'}>
+                  <div className="rounded-lg bg-gray-50 px-3 py-2 text-right text-sm font-semibold text-gray-800"
+                    aria-label="Monto restante" aria-live="polite">
                     {fmt(montoSegundo)}
-                  </span>
+                  </div>
                 </div>
+                <p className="text-xs text-gray-500">Escribe un monto; el resto se calcula solo.</p>
                 {!pagoDivididoValido && montoPrimerPago && (
-                  <p className="mt-2 text-[11px] text-red-600">El primer monto debe ser mayor a $0 y menor al total.</p>
+                  <p role="alert" className="text-xs text-red-600">Ingresa un monto mayor a $0 y menor al total.</p>
                 )}
               </div>
             )}
