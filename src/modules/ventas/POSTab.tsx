@@ -1225,13 +1225,21 @@ export function POSTab() {
                   <span className="text-gray-500">Total a pagar</span>
                   <strong>{fmt(totalIva)}</strong>
                 </div>
-                <div className="grid grid-cols-[1fr_120px] gap-2 items-end">
+                <div className="grid grid-cols-[minmax(0,1fr)_84px] gap-2 items-end">
                   <label className="min-w-0">
                     <span className="mb-1 block text-xs text-gray-500">Paga con</span>
-                    <select value={metodoActual} onChange={e => setMetodoSel(e.target.value)}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-2 py-2 text-base md:text-sm">
-                      {(metodos ?? []).map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
-                    </select>
+                    <div className="grid">
+                      <select value={metodoActual} onChange={e => setMetodoSel(e.target.value)}
+                        className="col-start-1 row-start-1 h-full min-w-0 w-full appearance-none rounded-lg border border-gray-200 bg-white px-2 py-2 text-base text-transparent md:text-sm [&>option]:text-gray-900">
+                        {(metodos ?? []).map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
+                      </select>
+                      <span aria-hidden="true" className="pointer-events-none col-start-1 row-start-1 min-w-0 break-words py-2 pl-2 pr-6 text-sm text-gray-900">
+                        {(metodos ?? []).find(m => m.id === metodoActual)?.label}
+                      </span>
+                      <svg aria-hidden="true" className="pointer-events-none col-start-1 row-start-1 mr-2 h-3 w-3 self-center justify-self-end text-gray-500" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="m5 7 5 5 5-5H5Z" />
+                      </svg>
+                    </div>
                   </label>
                   <label>
                     <span className="mb-1 block text-xs text-gray-500">Monto</span>
@@ -1239,18 +1247,26 @@ export function POSTab() {
                       value={montoPrimerPago ? Number(montoPrimerPago.replace(/\D/g, '')).toLocaleString('es-CL') : ''}
                       onChange={e => setMontoPrimerPago(e.target.value.replace(/\D/g, ''))}
                       placeholder="$0"
-                      className="w-full rounded-lg border border-blue-300 bg-white px-3 py-2 text-base font-semibold outline-none focus:border-blue-500 md:text-sm" />
+                      className="min-w-0 w-full rounded-lg border border-blue-300 bg-white px-2 py-2 text-base font-semibold outline-none focus:border-blue-500 md:text-sm" />
                   </label>
                   <label className="min-w-0">
                     <span className="mb-1 block text-xs text-gray-500">El resto con</span>
-                    <select value={segundoMetodoActual} onChange={e => setSegundoMetodo(e.target.value)}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-2 py-2 text-base md:text-sm">
-                      {(metodos ?? []).filter(m => m.id !== metodoActual).map(m => (
-                        <option key={m.id} value={m.id}>{m.label}</option>
-                      ))}
-                    </select>
+                    <div className="grid">
+                      <select value={segundoMetodoActual} onChange={e => setSegundoMetodo(e.target.value)}
+                        className="col-start-1 row-start-1 h-full min-w-0 w-full appearance-none rounded-lg border border-gray-200 bg-white px-2 py-2 text-base text-transparent md:text-sm [&>option]:text-gray-900">
+                        {(metodos ?? []).filter(m => m.id !== metodoActual).map(m => (
+                          <option key={m.id} value={m.id}>{m.label}</option>
+                        ))}
+                      </select>
+                      <span aria-hidden="true" className="pointer-events-none col-start-1 row-start-1 min-w-0 break-words py-2 pl-2 pr-6 text-sm text-gray-900">
+                        {(metodos ?? []).find(m => m.id === segundoMetodoActual)?.label}
+                      </span>
+                      <svg aria-hidden="true" className="pointer-events-none col-start-1 row-start-1 mr-2 h-3 w-3 self-center justify-self-end text-gray-500" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="m5 7 5 5 5-5H5Z" />
+                      </svg>
+                    </div>
                   </label>
-                  <div className="rounded-lg bg-gray-50 px-3 py-2 text-right text-sm font-semibold text-gray-800"
+                  <div className="rounded-lg bg-gray-50 px-2 py-2 text-right text-sm font-semibold text-gray-800"
                     aria-label="Monto restante" aria-live="polite">
                     {fmt(montoSegundo)}
                   </div>
