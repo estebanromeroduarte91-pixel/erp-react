@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react'
+import { Fragment, useState, useMemo, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useProductos, useBodegas, useEliminarProducto, useEliminarTodosProductos, useImportarProductos, useFijarStock, useLotes, useCrearLotes, useSincronizarTienda } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
@@ -826,12 +826,13 @@ export function ProductosTab() {
 
       {/* Modal importar Excel */}
       {importModal && (() => {
-        const existingSkus = new Set((productos ?? []).map(p => p.sku ?? '').filter(Boolean))
+        const existingSkus = new Set((productos ?? []).map(p => (p.sku ?? '').toLowerCase()).filter(Boolean))
         const actualiza  = importMode === 'actualizar'
         // En modo "actualizar" un SKU ya existente NO es un problema: actualiza ese producto.
-        const dupRows    = actualiza ? importRows.filter(r => r.sku && existingSkus.has(r.sku)) : []
+        const dupRows    = actualiza ? importRows.filter(r => r.sku && existingSkus.has(r.sku.toLowerCase())) : []
         const noSkuRows  = importRows.filter(r => !r.sku)
-        const okCount    = importRows.length - dupRows.length - noSkuRows.length
+        // Las filas sin SKU también se crean: reciben uno automático al importar.
+        const okCount    = importRows.length - dupRows.length
         const conStock   = importRows.filter(r => Object.keys(r.stockPorBodega).length > 0).length
 
         // Calcular SKUs automáticos para preview
@@ -916,7 +917,12 @@ export function ProductosTab() {
                   {conStock === 0 && (bodegas ?? []).length > 0 && (
                     <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
                       La planilla no trae stock. Para cargarlo, agrega una columna por sucursal
-                      con este nombre exacto: <strong>{(bodegas ?? []).map(b => `Stock ${b.nombre ?? b.name}`).join('</strong>, <strong>')}</strong>.
+                      con este nombre exacto: {(bodegas ?? []).map((b, i) => (
+                        <Fragment key={b.id}>
+                          {i > 0 && ', '}
+                          <strong>Stock {b.nombre ?? b.name}</strong>
+                        </Fragment>
+                      ))}.
                     </p>
                   )}
 
