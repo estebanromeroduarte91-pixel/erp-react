@@ -17,6 +17,10 @@ const raiz = join(dirname(fileURLToPath(import.meta.url)), '..')
 // Marcadores: trozos de texto que SOLO aparecen en la versión vigente de cada
 // función. Sin esto, una función vieja con la misma firma pasa inadvertida.
 const MARCADORES = {
+  fn_editar_oc: {
+    marcadores: ['lotes_inventario', 'oc-edicion-', 'p_original'],
+    porque: 'editar una compra recibida debe ajustar stock, lotes y auditoría en una sola transacción',
+  },
   fn_confirmar_venta: {
     marcadores: ['direccion', 'venta_lote_consumos'],
     porque: 'la versión anterior descuenta stock solo si el navegador le manda los ajustes',

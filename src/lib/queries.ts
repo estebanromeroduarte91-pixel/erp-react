@@ -3335,6 +3335,28 @@ export function useActualizarOC() {
   })
 }
 
+// Edición atómica de la OC, sus capas FIFO y el stock ya recibido.
+export function useEditarOC() {
+  const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ original, cambios }: { original: OC; cambios: Partial<OC> }) => {
+      const { error } = await supabase.rpc('fn_editar_oc', {
+        p_oc_id: original.id,
+        p_original: filaOCParcial(original),
+        p_cambios: filaOCParcial(cambios),
+        p_empresa_id: empresaId,
+      })
+      if (error) throw error
+    },
+    onSuccess: () => {
+      for (const clave of ['ocs', 'productos', 'lotes_inventario', 'movimientos_inventario', 'asientos']) {
+        void qc.invalidateQueries({ queryKey: [clave, empresaId] })
+      }
+    },
+  })
+}
+
 // Registra una recepción (total o parcial) de una OC: une la recepción al
 // array existente + recalcula el estado + inserta lotes/movimiento + ajusta
 // stock, todo en una transacción atómica del servidor (fn_recibir_oc, con

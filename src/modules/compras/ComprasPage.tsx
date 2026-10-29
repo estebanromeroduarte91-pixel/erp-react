@@ -1,9 +1,10 @@
+import { describirError } from '@/lib/errorUtils'
 import { useState, useEffect, useRef, useCallback, memo } from 'react'
 import { useLocation, useSearchParams } from 'react-router-dom'
 import { KitsTab } from './KitsTab'
 import { useAuth } from '@/context/AuthContext'
 import {
-  useOCs, useCrearOC, useActualizarOC, useEliminarOC, useOCLog, useGuardarOCLog,
+  useOCs, useCrearOC, useActualizarOC, useEditarOC, useEliminarOC, useOCLog, useGuardarOCLog,
   useIncrementarContadorOC, useBuscarProductos, useBodegas,
   useProveedores, useGuardarProveedores, useRecibirOC,
 } from '@/lib/queries'
@@ -356,7 +357,7 @@ function ModalNuevaOC({
   ocEdit?: OC
   proveedores: Proveedor[]
   bodegas: Bodega[]
-  onSave: (data: Partial<OC> & { id?: string }) => void
+  onSave: (data: Partial<OC> & { id?: string }) => Promise<void>
   onClose: () => void
   onCrearProveedor: (data: { nombre: string; rut?: string; telefono?: string; email?: string }) => Promise<Proveedor>
 }) {
@@ -366,6 +367,10 @@ function ModalNuevaOC({
   const [fecha, setFecha] = useState(ocEdit?.fecha ?? today())
   const [fechaEntrega, setFechaEntrega] = useState(ocEdit?.fecha_entrega ?? '')
   const [notas, setNotas] = useState(ocEdit?.notas ?? '')
+  const [folio, setFolio] = useState(ocEdit?.folio_factura ?? '')
+  const [metodo, setMetodo] = useState(ocEdit?.metodo_pago ?? 'banco')
+  const [guardando, setGuardando] = useState(false)
+  const [errorGuardar, setErrorGuardar] = useState('')
   const [items, setItems] = useState<OCItem[]>(ocEdit?.items?.length ? ocEdit.items : [newItem()])
 
   const total = items.reduce((s, i) => s + i.subtotal, 0)
@@ -383,24 +388,37 @@ function ModalNuevaOC({
     if (bodId) setItems(prev => prev.map(it => ({ ...it, bodega_id: bodId, bodega_nombre: bodNombre })))
   }
 
-  function handleSave() {
+  async function handleSave() {
+    if (guardando) return
     if (!fecha) return alert('Ingresa una fecha')
     const validItems = items.filter(it => it.producto_nombre.trim())
     if (!validItems.length) return alert('Agrega al menos un producto')
-    const sinProducto = lineasSinProducto(validItems)
-    if (sinProducto.length) return alert(mensajeLineasSinProducto(sinProducto.map(it => it.producto_nombre), 'guardar'))
-    onSave({
-      id: ocEdit?.id,
-      proveedor_id: prov.id,
-      proveedor_nombre: prov.nombre,
-      fecha,
-      fecha_entrega: fechaEntrega || undefined,
-      bodega_id: bodegaDef.id || undefined,
-      bodega_nombre: bodegaDef.nombre || undefined,
-      notas: notas.trim() || undefined,
-      items: validItems,
-      total,
+    const sinProducto = lineasSinProducto(validItems).filter(it => {
+      const anterior = ocEdit?.items.find(original => original.id === it.id)
+      return !anterior || anterior.producto_id !== it.producto_id || anterior.producto_nombre !== it.producto_nombre
     })
+    if (sinProducto.length) return alert(mensajeLineasSinProducto(sinProducto.map(it => it.producto_nombre), 'guardar'))
+    setGuardando(true)
+    setErrorGuardar('')
+    try {
+      await onSave({
+        id: ocEdit?.id,
+        proveedor_id: prov.id,
+        proveedor_nombre: prov.nombre,
+        fecha,
+        fecha_entrega: fechaEntrega || undefined,
+        bodega_id: bodegaDef.id || undefined,
+        bodega_nombre: bodegaDef.nombre || undefined,
+        notas: notas.trim() || undefined,
+        items: validItems,
+        total,
+        ...(ocEdit?.estado === 'confirmada' ? { folio_factura: folio.trim() || 'SIN FACTURA', metodo_pago: metodo } : {}),
+      })
+    } catch (error) {
+      setErrorGuardar(describirError(error).mensaje)
+    } finally {
+      setGuardando(false)
+    }
   }
 
   const labelStyle: React.CSSProperties = { display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--gray-700)', marginBottom: 4 }
@@ -410,10 +428,12 @@ function ModalNuevaOC({
 >
       <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 940, maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,.2)' }}>
         <div style={{ padding: '18px 24px', borderBottom: '1px solid var(--gray-100)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{ocEdit ? 'Editar' : 'Nueva'} Orden de Compra</h3>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: 'var(--gray-500)', lineHeight: 1 }}>×</button>
+          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{ocEdit?.id ? `Editar ${ocEdit.numero}` : 'Nueva Orden de Compra'}</h3>
+          <button onClick={onClose} disabled={guardando} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: 'var(--gray-500)', lineHeight: 1 }}>×</button>
         </div>
         <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1 }}>
+          <fieldset disabled={guardando} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
+          {ocEdit?.id && ocEdit.estado !== 'borrador' && <p style={{ padding: 12, background: '#eff6ff', borderRadius: 8, fontSize: 13 }}>En una OC totalmente recibida, cambiar cantidades o agregar productos ajusta el stock. En una recepción parcial, las cantidades nuevas quedan pendientes. No se pueden retirar unidades ya utilizadas; los costos de ventas anteriores se conservan.</p>}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
             <div>
               <label style={labelStyle}>Proveedor <span style={{ color: 'var(--danger, #dc2626)' }}>*</span></label>
@@ -451,6 +471,22 @@ function ModalNuevaOC({
                 onClick={e => e.currentTarget.showPicker?.()} style={{ width: '100%', cursor: 'pointer' }} />
             </div>
           </div>
+          {ocEdit?.estado === 'confirmada' && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+              <div>
+                <label style={labelStyle} htmlFor="oc-folio-editar">Folio de factura</label>
+                <input id="oc-folio-editar" value={folio} onChange={e => setFolio(e.target.value)} placeholder="SIN FACTURA" style={{ width: '100%' }} />
+              </div>
+              <div>
+                <label style={labelStyle} htmlFor="oc-pago-editar">Método de pago</label>
+                <select id="oc-pago-editar" value={metodo} onChange={e => setMetodo(e.target.value)} style={{ width: '100%' }}>
+                  <option value="banco">Transferencia</option>
+                  <option value="caja">Efectivo</option>
+                  <option value="credito">A crédito</option>
+                </select>
+              </div>
+            </div>
+          )}
           <div style={{ marginBottom: 16 }}>
             <label style={labelStyle}>Notas</label>
             <textarea value={notas} onChange={e => setNotas(e.target.value)} rows={2}
@@ -483,12 +519,14 @@ function ModalNuevaOC({
           <div style={{ textAlign: 'right', marginTop: 12, fontSize: 16, fontWeight: 700, color: 'var(--gray-800)' }}>
             Total: {fmt$(total)}
           </div>
+          </fieldset>
+          {errorGuardar && <p role="alert" style={{ color: '#dc2626', fontSize: 13 }}>{errorGuardar}</p>}
         </div>
         <div style={{ padding: '14px 24px', borderTop: '1px solid var(--gray-100)', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-          <button onClick={onClose} style={{ padding: '9px 20px', border: '1.5px solid var(--gray-300)', borderRadius: 8, background: '#fff', cursor: 'pointer', fontWeight: 600 }}>Cancelar</button>
-          <button onClick={handleSave} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 20px', background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}>
+          <button onClick={onClose} disabled={guardando} style={{ padding: '9px 20px', border: '1.5px solid var(--gray-300)', borderRadius: 8, background: '#fff', cursor: 'pointer', fontWeight: 600 }}>Cancelar</button>
+          <button onClick={handleSave} disabled={guardando} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 20px', background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}>
             <svg style={{ width: 15, height: 15 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 3h11l3 3v13a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2z" /><path strokeLinecap="round" strokeLinejoin="round" d="M8 3v5h7M8 21v-6h8v6" /></svg>
-            {ocEdit ? 'Actualizar' : 'Crear'} OC
+            {guardando ? 'Guardando…' : ocEdit?.id ? 'Actualizar OC' : 'Crear OC'}
           </button>
         </div>
       </div>
@@ -909,7 +947,7 @@ function ModalVerOC({
         <div style={{ padding: '14px 24px', borderTop: '1px solid var(--gray-100)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <button onClick={onClose} style={{ padding: '9px 20px', border: '1.5px solid var(--gray-300)', borderRadius: 8, background: '#fff', cursor: 'pointer', fontWeight: 600 }}>Cerrar</button>
           <div style={{ display: 'flex', gap: 8 }}>
-            {estado === 'borrador' && (
+            {estado !== 'cancelada' && (
               <button onClick={() => { onClose(); onEditar() }} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 16px', border: '1.5px solid var(--gray-300)', borderRadius: 8, background: '#fff', cursor: 'pointer', fontWeight: 600 }}>
                 ✏️ Editar
               </button>
@@ -1054,6 +1092,7 @@ export function ComprasPage() {
   const { data: bodegas = [] } = useBodegas()
   const crearOC = useCrearOC()
   const actualizarOC = useActualizarOC()
+  const editarOC = useEditarOC()
   const eliminarOC = useEliminarOC()
   const guardarOCLog = useGuardarOCLog()
   const incrementarContador = useIncrementarContadorOC()
@@ -1099,7 +1138,9 @@ export function ComprasPage() {
 
   async function handleSaveOC(data: Partial<OC> & { id?: string }) {
     if (data.id) {
-      await actualizarOC.mutateAsync(data as Partial<OC> & { id: string })
+      const original = modal.type === 'nueva' ? modal.oc : undefined
+      if (!original?.id || original.id !== data.id) throw new Error('Vuelve a abrir la OC antes de editarla.')
+      await editarOC.mutateAsync({ original, cambios: data })
       setModal({ type: 'none' })
       showToast('OC actualizada')
     } else {
@@ -1330,6 +1371,7 @@ export function ComprasPage() {
                 <div className="flex items-center justify-between mt-1">
                   <span style={{ fontSize: 11, color: 'var(--gray-400)' }}>{fmtDate(o.fecha)} · {(o.items ?? []).length} ítem(s)</span>
                   <div className="flex gap-1.5" onClick={e => e.stopPropagation()}>
+                    {o.estado !== 'cancelada' && <button onClick={() => setModal({ type: 'nueva', oc: o })} style={{ fontSize: 11, padding: '3px 8px', border: '1px solid var(--gray-200)', borderRadius: 6, background: '#fff' }}>Editar</button>}
                     {(o.estado === 'borrador' || o.estado === 'parcial') && (
                       <button onClick={() => setModal({ type: 'recibir', ocId: o.id })}
                         style={{ fontSize: 11, fontWeight: 600, padding: '3px 8px', background: '#059669', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}>
@@ -1386,6 +1428,7 @@ export function ComprasPage() {
                           <svg style={{ width: 13, height: 13 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                           Ver
                         </button>
+                        {o.estado !== 'cancelada' && <button onClick={() => setModal({ type: 'nueva', oc: o })} style={{ padding: '5px 10px', border: '1.5px solid var(--gray-200)', borderRadius: 7, background: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>Editar</button>}
                         {(o.estado === 'borrador' || o.estado === 'parcial') && (
                           <>
                             <button onClick={() => setModal({ type: 'recibir', ocId: o.id })}
