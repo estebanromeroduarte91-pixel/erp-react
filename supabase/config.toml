@@ -84,3 +84,14 @@ verify_jwt = true
 # folio cualquiera se podría pedir la boleta de otro taller. La puede usar
 # cualquier rol con sesión — reimprimir es tarea de mostrador.
 verify_jwt = true
+
+[functions.correo-entrante-sync]
+# La llaman el cron con `x-cron-token` (todas las empresas con el correo
+# activado) y la app con la sesión de la persona (solo su empresa). El gateway
+# exige JWT; la comprobación real la hace la función, como en woo-push.
+verify_jwt = true
+
+[functions.conversacion-responder]
+# Responde desde la casilla del taller. JWT en el gateway y la conversación se
+# busca filtrando por la empresa de quien llama.
+verify_jwt = true

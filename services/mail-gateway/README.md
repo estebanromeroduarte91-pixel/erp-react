@@ -38,3 +38,16 @@ Pixit. El SMTP del propio taller firma el mensaje con su SPF/DKIM habitual.
 Para la prueba de Steve Docs se configura `mail.stevedocs.cl`, puerto 465,
 SSL/TLS activo, remitente `contacto@stevedocs.cl` y su contraseña. Si el hosting
 mantiene una lista blanca, se autoriza solamente la IPv4 fija del VPS.
+
+## Lectura de casillas (`/v1/fetch`)
+
+Además de enviar, el gateway lee la bandeja de entrada por IMAPS (solo puerto
+993) para la pantalla Conversaciones. La llama la Edge Function
+`correo-entrante-sync` con el mismo HMAC, mandando la credencial de la casilla
+y el último UID ya leído; el gateway devuelve los correos nuevos ya parseados
+(máximo 30 por llamada) y no guarda nada. Al activar una casilla, o si el
+hosting reinicia sus UID, entran solo los últimos 10 correos.
+
+Para actualizar un gateway ya instalado: copiar de nuevo `src/`,
+`package.json` y `package-lock.json` al servidor y ejecutar
+`docker compose up -d --build`. Comprobar con `/health`.

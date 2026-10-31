@@ -8,6 +8,7 @@ import {
   validEmail,
   verifySignature,
 } from './security.mjs'
+import { fetchInbox } from './imap.mjs'
 
 const PORT = Number(process.env.PORT || 3000)
 const MAX_BODY_BYTES = Number(process.env.MAX_BODY_BYTES || 2 * 1024 * 1024)
@@ -57,6 +58,10 @@ function validatePayload(payload) {
   }
   if (!validEmail(message?.to) || !message?.subject || (!message?.html && !message?.text)) throw new Error('Mensaje incompleto')
   if (smtp.replyTo && !validEmail(smtp.replyTo)) throw new Error('Reply-To no válido')
+  for (const key of ['inReplyTo', 'references']) {
+    const value = message[key]
+    if (value != null && (typeof value !== 'string' || value.length > 4000 || /[\r\n]/.test(value))) throw new Error(`${key} no válido`)
+  }
 }
 
 function publicError(error) {
@@ -76,15 +81,51 @@ function publicError(error) {
   return { code: 'SMTP_ERROR', error: 'El servidor SMTP no pudo entregar el correo.' }
 }
 
-function credentialFingerprint(smtp) {
+function credentialFingerprint(creds) {
   return createHash('sha256')
-    .update(`${String(smtp.host).toLowerCase()}\0${String(smtp.user).toLowerCase()}\0${smtp.password}`)
+    .update(`${String(creds.host).toLowerCase()}\0${String(creds.user).toLowerCase()}\0${creds.password}`)
     .digest('hex')
 }
 
 function isAuthenticationError(error) {
   const raw = String(error?.response || error?.message || error)
-  return /\b535\b|authentication|credentials|username and password/i.test(raw)
+  return /\b535\b|authentication|credentials|username and password|AUTHENTICATIONFAILED|invalid credentials/i.test(raw)
+}
+
+// Lectura de la casilla con el mismo cortacircuito que el envío: un login
+// rechazado detiene esa credencial 15 minutos. El cron revisa cada pocos
+// minutos, y sin esto una contraseña cambiada acumularía intentos fallidos
+// hasta que el hosting bloquee la IP fija (lo que ya le pasó a Steve Docs).
+async function fetchWithBreaker(payload) {
+  const credentialId = credentialFingerprint(payload?.imap ?? {})
+  const blockedUntil = blockedCredentials.get(credentialId)
+  if (blockedUntil && blockedUntil > Date.now()) {
+    throw new Error('authentication blocked by Pixit circuit breaker')
+  }
+  blockedCredentials.delete(credentialId)
+  try {
+    return await fetchInbox(payload)
+  } catch (error) {
+    if (isAuthenticationError(error) || error?.authenticationFailed) {
+      blockedCredentials.set(credentialId, Date.now() + 15 * 60_000)
+    }
+    throw error
+  }
+}
+
+function publicFetchError(error) {
+  const raw = String(error?.responseText || error?.response || error?.message || error)
+  if (error?.authenticationFailed || isAuthenticationError(error)) {
+    return { code: 'IMAP_AUTH', error: 'El servidor de correo rechazó el usuario o la contraseña al leer la casilla.' }
+  }
+  if (/timeout|timed out|ETIMEDOUT|ESOCKET|ECONNREFUSED|ECONNRESET/i.test(raw)) {
+    return { code: 'IMAP_TIMEOUT', error: 'El servidor de correo no respondió al leer la casilla (puerto 993).' }
+  }
+  if (/certificate|TLS|SSL/i.test(raw)) {
+    return { code: 'IMAP_TLS', error: 'No se pudo negociar una conexión segura con el servidor IMAP.' }
+  }
+  if (/no válido|incompletas|no permitido|privada/i.test(raw)) return { code: 'IMAP_INVALID', error: raw }
+  return { code: 'IMAP_ERROR', error: 'No se pudo leer la casilla de correo.' }
 }
 
 async function send(payload) {
@@ -121,6 +162,10 @@ async function send(payload) {
       subject: message.subject,
       text: message.text,
       html: message.html,
+      // Con estos dos, la respuesta queda en el mismo hilo del Gmail u
+      // Outlook del cliente en vez de llegarle como un correo suelto.
+      inReplyTo: message.inReplyTo || undefined,
+      references: message.references || undefined,
       headers: {
         'X-Pixit-Tenant': payload.tenantId,
         'X-Pixit-Request': payload.requestId,
@@ -182,7 +227,8 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'GET' && req.url === '/health') {
     return json(res, 200, { ok: true, service: 'pixit-mail-gateway', uptime: Math.round(process.uptime()) })
   }
-  if (req.method !== 'POST' || req.url !== '/v1/send') return json(res, 404, { ok: false, error: 'No encontrado' })
+  const ruta = req.url
+  if (req.method !== 'POST' || (ruta !== '/v1/send' && ruta !== '/v1/fetch')) return json(res, 404, { ok: false, error: 'No encontrado' })
 
   try {
     const rawBody = await readBody(req)
@@ -206,11 +252,14 @@ const server = http.createServer(async (req, res) => {
     if (payload.requestId !== requestId) throw new Error('requestId no coincide con la firma')
     inFlight.add(requestId)
     try {
+      // La lectura no se cachea por requestId: su resultado son correos, que
+      // no tienen por qué quedar en memoria del gateway.
+      if (ruta === '/v1/fetch') return json(res, 200, await fetchWithBreaker(payload))
       const body = await queuedSend(payload)
       processed.set(requestId, { status: 200, body, expiresAt: Date.now() + 10 * 60_000 })
       return json(res, 200, body)
     } catch (error) {
-      const body = { ok: false, ...publicError(error) }
+      const body = { ok: false, ...(ruta === '/v1/fetch' ? publicFetchError(error) : publicError(error)) }
       return json(res, error?.busy ? 503 : 502, body)
     } finally {
       inFlight.delete(requestId)
