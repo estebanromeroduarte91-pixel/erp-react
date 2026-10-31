@@ -96,5 +96,28 @@ await test('los campos opcionales nulos se comparan como los hidrata la aplicaci
  const old=await current();old.recepciones=[];await save([item()],{notas:'Datos corregidos'},old);
  assert.equal((await current()).notas,'Datos corregidos');assert.equal(await stock(),0);
 })
+await test('OC con tres productos: mover dos de Los Dominicos a La Dehesa resta origen, suma destino y conserva el tercero',async()=>{
+ await seed({cantidad:1,recibidas:1});
+ await db.query('insert into productos values ($1,$2)',['p3',empresa]);
+ const lineas=[item({cantidad:1,subtotal:119}),item({id:'i2',producto_id:'p2',producto_nombre:'iPhone 11 Pantalla',cantidad:1,subtotal:119}),item({id:'i3',producto_id:'p3',producto_nombre:'MacBook Air Pantalla',cantidad:1,subtotal:119})];
+ const recs=[{id:'r1',fecha:'2026-10-30',bodega_id:'b1',bodega_nombre:'Los Dominicos',items:lineas.map(i=>({prod_item_id:i.id,producto_id:i.producto_id,producto_nombre:i.producto_nombre,cantidad:1}))}];
+ await db.query('update ocs set items=$1,recepciones=$2,total=357',[JSON.stringify(lineas),JSON.stringify(recs)]);
+ await db.exec("update producto_stock set cantidad=5; insert into producto_stock values ('p2','b1',4),('p3','b1',3),('p1','b2',8),('p2','b2',7); insert into lotes_inventario select 'l2',empresa_id,'p2','b1',1,1,100,'oc','oc1','i2','2026-10-30',now() from ocs; insert into lotes_inventario select 'l3',empresa_id,'p3','b1',1,1,100,'oc','oc1','i3','2026-10-30',now() from ocs;");
+ await save(lineas.map((i,n)=>n<2?{...i,bodega_id:'b2',bodega_nombre:'La Dehesa'}:i),{bodega_id:'b2',bodega_nombre:'La Dehesa'});
+ assert.equal(await stock('p1','b1'),4);assert.equal(await stock('p1','b2'),9);
+ assert.equal(await stock('p2','b1'),3);assert.equal(await stock('p2','b2'),8);
+ assert.equal(await stock('p3','b1'),3);assert.equal(await stock('p3','b2'),0);
+ const movs=(await db.query("select bodega_origen,bodega_destino,productos from movimientos_inventario")).rows;
+ assert.equal(movs.length,4);assert.equal(movs.filter(m=>m.bodega_origen==='b1'&&m.productos[0].direccion==='-').length,2);
+ assert.equal(movs.filter(m=>m.bodega_destino==='b2'&&m.productos[0].direccion==='+').length,2);
+})
+await test('la consulta de diagnóstico identifica la salida y entrada de la última edición',async()=>{
+ await db.exec("create table empresas(id uuid primary key,nombre text)");
+ await db.query('insert into empresas values ($1,$2)',[empresa,'Steve Docs']);
+ const sql=readFileSync(new URL('../supabase/diagnosticos/2026-10-30_cambio_bodega_oc00134.sql',import.meta.url),'utf8').replaceAll("'OC-00134'","'OC-001'");
+ const filas=(await db.query(sql)).rows;
+ assert.equal(filas.length,4);assert.equal(filas.filter(f=>Number(f.variacion_registrada)===-1).length,2);
+ assert.equal(filas.filter(f=>Number(f.variacion_registrada)===1).length,2);
+})
 console.log(`${passed} pruebas SQL aprobadas`)
 await db.close()
