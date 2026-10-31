@@ -1,11 +1,14 @@
-// Responde una conversación de correo desde Pixit.
+// Responde una conversación desde Pixit, por el mismo canal en que llegó.
 //
-// Sale por la casilla del taller (gateway SMTP, igual que send-email) y con
-// In-Reply-To/References del último correo del cliente, así la respuesta le
-// llega en el mismo hilo de su Gmail. Queda guardada en la conversación.
+// Correo: sale por la casilla del taller (gateway SMTP, igual que send-email)
+// y con In-Reply-To/References del último correo del cliente, así la
+// respuesta le llega en el mismo hilo de su Gmail.
+// Messenger: sale por la Graph API con el token de la página conectada.
+// En ambos casos queda guardada en la conversación.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { empresaPermitida } from "../_shared/impersonacion.ts";
 import { credencialCorreo, llamarGateway } from "../_shared/mailGateway.ts";
+import { errorMetaLegible, graph } from "../_shared/meta.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -28,6 +31,48 @@ function asuntoRespuesta(asunto: string | null): string {
   const base = (asunto ?? "").trim();
   if (!base) return "Re: tu mensaje";
   return /^(re|rv|fwd?)\s*:/i.test(base) ? base : `Re: ${base}`;
+}
+
+// deno-lint-ignore no-explicit-any
+async function responderMessenger(admin: any, empresaId: string, userId: string, conv: { id: string; contacto_externo: string }, texto: string) {
+  if (texto.length > 2000) return responder({ ok: false, error: "Messenger acepta hasta 2.000 caracteres por mensaje." }, 400);
+  const { data } = await admin.rpc("fn_canal_meta_credencial", { p_canal: "messenger", p_empresa: empresaId });
+  const cred = data?.[0] as { cuenta_id: string; cuenta_nombre: string | null; token: string } | undefined;
+  if (!cred?.token) return responder({ ok: false, error: "La página de Facebook no está conectada. Conéctala en Conversaciones → Conectar canal." }, 400);
+
+  const r = await graph(`/${cred.cuenta_id}/messages`, cred.token, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    // RESPONSE: respuesta dentro de las 24 h desde el último mensaje del
+    // cliente, que es lo único que Meta permite sin plantillas ni etiquetas.
+    body: JSON.stringify({ recipient: { id: conv.contacto_externo }, messaging_type: "RESPONSE", message: { text: texto } }),
+  });
+  if (!r.ok) {
+    if (r.error?.code === 190) {
+      await admin.from("canales_meta").update({ ultimo_error: errorMetaLegible(r.error) })
+        .eq("canal", "messenger").eq("cuenta_id", cred.cuenta_id);
+    }
+    return responder({ ok: false, error: errorMetaLegible(r.error) }, 502);
+  }
+
+  // El mismo mensaje vuelve después por el webhook como "echo" con este mid;
+  // el índice único por id_externo evita que quede dos veces.
+  const { error } = await admin.rpc("fn_conversacion_registrar_mensaje", {
+    p_empresa: empresaId,
+    p_canal: "messenger",
+    p_contacto: conv.contacto_externo,
+    p_contacto_nombre: "",
+    p_direccion: "saliente",
+    p_mensaje: {
+      id_externo: r.data?.message_id || `<pixit-${crypto.randomUUID()}@pixit>`,
+      de_nombre: cred.cuenta_nombre,
+      de_direccion: cred.cuenta_id,
+      texto,
+      autor_id: userId,
+    },
+  });
+  if (error) return responder({ ok: true, aviso: `Enviado, pero no quedó guardado en la conversación: ${error.message}` });
+  return responder({ ok: true });
 }
 
 Deno.serve(async (req) => {
@@ -61,7 +106,8 @@ Deno.serve(async (req) => {
       .eq("empresa_id", empresaId)
       .maybeSingle();
     if (!conv) return responder({ ok: false, error: "Conversación no encontrada." }, 404);
-    if (conv.canal !== "email") return responder({ ok: false, error: "Por ahora solo se puede responder correo." }, 400);
+    if (conv.canal === "messenger") return await responderMessenger(admin, empresaId, userData.user.id, conv, texto);
+    if (conv.canal !== "email") return responder({ ok: false, error: "Este canal todavía no permite responder desde Pixit." }, 400);
 
     // Mismo tope que send-email: 60 correos por empresa por hora.
     const haceUnaHora = new Date(Date.now() - 60 * 60 * 1000).toISOString();

@@ -95,3 +95,13 @@ verify_jwt = true
 # Responde desde la casilla del taller. JWT en el gateway y la conversación se
 # busca filtrando por la empresa de quien llama.
 verify_jwt = true
+
+[functions.meta-webhook]
+# Lo llama Meta, que no tiene sesión de Supabase. La seguridad está adentro:
+# el GET exige META_VERIFY_TOKEN y cada POST se valida con la firma
+# X-Hub-Signature-256 hecha con el secreto de la app de Meta.
+verify_jwt = false
+
+[functions.meta-conectar]
+# Conectar una página es configuración: JWT en el gateway y rol admin adentro.
+verify_jwt = true

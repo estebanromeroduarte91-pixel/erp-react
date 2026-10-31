@@ -2,8 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { useSmtpConfig } from '@/lib/queries'
+import { ConectarMessenger } from './ConectarMessenger'
 import {
-  useActivarCorreoEntrante, useActualizarConversacion, useConversaciones, useCorreoEntrante,
+  useActivarCorreoEntrante, useCanalesMeta, useActualizarConversacion, useConversaciones, useCorreoEntrante,
   useMensajesConversacion, useResponderConversacion, useSincronizarCorreo,
 } from '@/lib/queries/useConversaciones'
 import {
@@ -40,6 +41,7 @@ const FILTROS: { id: FiltroBandeja; label: string }[] = [
 
 export function ConversacionesPage() {
   const { data: correo } = useCorreoEntrante()
+  const { data: canalesMeta = [] } = useCanalesMeta()
   const { data: conversaciones = [], isLoading } = useConversaciones()
   const [canal, setCanal] = useState<Canal | 'todos'>('todos')
   const [filtro, setFiltro] = useState<FiltroBandeja>('todas')
@@ -48,6 +50,8 @@ export function ConversacionesPage() {
   const [conectar, setConectar] = useState(false)
 
   const correoActivo = !!correo?.activo
+  const messenger = canalesMeta.find(c => c.canal === 'messenger')
+  const hayCanal = correoActivo || !!messenger
   const visibles = useMemo(
     () => filtrarConversaciones(conversaciones, { canal, filtro, busqueda }),
     [conversaciones, canal, filtro, busqueda],
@@ -60,8 +64,10 @@ export function ConversacionesPage() {
       <div>
         <div className="flex items-center gap-2">
           <h1 className="text-xl font-bold text-gray-900">Conversaciones</h1>
-          {correoActivo
-            ? <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700">Correo conectado</span>
+          {hayCanal
+            ? <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700">
+                {[correoActivo && 'Correo', messenger && 'Messenger'].filter(Boolean).join(' y ')} conectado{correoActivo && messenger ? 's' : ''}
+              </span>
             : <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-500">Sin canales conectados</span>}
         </div>
         <p className="mt-1 text-sm text-gray-500">Todos los mensajes de tus clientes en una sola bandeja.</p>
@@ -91,10 +97,21 @@ export function ConversacionesPage() {
               </p>
             </div>
           </button>
-          {CANALES_META.map(c => <div key={c.id} className="flex items-center gap-3 rounded-xl px-3 py-2.5 opacity-55">
-            <ChannelLogo canal={c} size="sm" />
-            <div className="min-w-0"><p className="text-sm font-semibold text-gray-700">{c.nombre}</p><p className="truncate text-[10px] text-gray-400">Próximamente</p></div>
-          </div>)}
+          {CANALES_META.map(c => {
+            const activo = c.id === 'messenger' && !!messenger
+            const disponible = c.id === 'messenger'
+            return <button key={c.id} type="button" disabled={!disponible}
+              onClick={() => activo ? setCanal('messenger') : setConectar(true)}
+              className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left ${canal === c.id ? 'bg-blue-50' : disponible ? 'hover:bg-gray-50' : ''} ${activo ? '' : 'opacity-55'}`}>
+              <ChannelLogo canal={c} size="sm" />
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-gray-700">{c.nombre}</p>
+                <p className={`truncate text-[10px] ${activo && messenger?.ultimo_error ? 'text-red-600' : 'text-gray-400'}`}>
+                  {activo ? (messenger?.ultimo_error ? 'Revisar conexión' : 'Conectado') : disponible ? 'No conectado' : 'Próximamente'}
+                </p>
+              </div>
+            </button>
+          })}
         </div>
       </aside>
 
@@ -115,14 +132,14 @@ export function ConversacionesPage() {
         <div className="min-h-0 flex-1 overflow-y-auto">
           {visibles.length > 0
             ? visibles.map(c => <FilaConversacion key={c.id} c={c} activa={c.id === seleccion} onClick={() => setSeleccion(c.id)} />)
-            : <BandejaVacia cargando={isLoading} conectado={correoActivo} hayConversaciones={conversaciones.length > 0} />}
+            : <BandejaVacia cargando={isLoading} conectado={hayCanal} hayConversaciones={conversaciones.length > 0} />}
         </div>
       </div>
 
       <div className={`min-h-0 flex-col bg-gray-50/40 ${actual ? 'flex' : 'hidden lg:flex'}`}>
         {actual
           ? <Hilo key={actual.id} c={actual} onVolver={() => setSeleccion(null)} />
-          : correoActivo
+          : hayCanal
             ? <div className="grid flex-1 place-items-center p-8 text-center text-sm text-gray-400">Elige una conversación para leerla y responder.</div>
             : <Bienvenida onConectar={() => setConectar(true)} />}
       </div>
@@ -137,7 +154,7 @@ function FilaConversacion({ c, activa, onClick }: { c: Conversacion; activa: boo
   const noLeida = c.no_leidos > 0 && c.estado === 'abierta'
   return <button type="button" onClick={onClick}
     className={`flex w-full gap-3 border-b border-gray-50 px-4 py-3 text-left ${activa ? 'bg-blue-50/70' : 'hover:bg-gray-50'}`}>
-    <Avatar nombre={nombre} />
+    <Avatar nombre={nombre} canal={c.canal} />
     <div className="min-w-0 flex-1">
       <div className="flex items-baseline justify-between gap-2">
         <p className={`truncate text-sm ${noLeida ? 'font-bold text-gray-900' : 'font-semibold text-gray-700'}`}>{nombre}</p>
@@ -188,10 +205,10 @@ function Hilo({ c, onVolver }: { c: Conversacion; onVolver: () => void }) {
       <button type="button" onClick={onVolver} aria-label="Volver a la lista" className="rounded-lg p-1 text-gray-500 hover:bg-gray-100 md:hidden">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m15 18-6-6 6-6"/></svg>
       </button>
-      <Avatar nombre={nombre} />
+      <Avatar nombre={nombre} canal={c.canal} />
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-bold text-gray-900">{nombre}</p>
-        <p className="truncate text-xs text-gray-400">{c.contacto_externo}</p>
+        <p className="truncate text-xs text-gray-400">{c.canal === 'email' ? c.contacto_externo : NOMBRE_CANAL[c.canal]}</p>
       </div>
       <button type="button"
         onClick={() => actualizar.mutate({ id: c.id, cambios: { estado: c.estado === 'abierta' ? 'cerrada' : 'abierta' } })}
@@ -215,8 +232,12 @@ function Hilo({ c, onVolver }: { c: Conversacion; onVolver: () => void }) {
               ? <CorreoHtml html={m.html!} />
               : <p className="whitespace-pre-wrap break-words">{quitarCitado(m.texto ?? '')}</p>}
             {m.adjuntos?.length > 0 && <div className="mt-2 space-y-1">
-              {m.adjuntos.map((a, j) => <p key={j} className={`truncate text-[11px] ${propio ? 'text-blue-100' : 'text-gray-500'}`}>📎 {a.filename || 'Adjunto'}</p>)}
-              {!propio && <p className="text-[10px] text-gray-400">Los adjuntos se abren desde la casilla de correo.</p>}
+              {m.adjuntos.map((a, j) => a.url && /image|sticker/.test(a.contentType ?? '')
+                ? <a key={j} href={a.url} target="_blank" rel="noreferrer noopener"><img src={a.url} alt="" referrerPolicy="no-referrer" className="max-h-64 rounded-lg" /></a>
+                : a.url
+                  ? <a key={j} href={a.url} target="_blank" rel="noreferrer noopener" className={`block truncate text-[11px] underline ${propio ? 'text-blue-100' : 'text-blue-600'}`}>📎 {a.filename || 'Ver adjunto'}</a>
+                  : <p key={j} className={`truncate text-[11px] ${propio ? 'text-blue-100' : 'text-gray-500'}`}>📎 {a.filename || 'Adjunto'}</p>)}
+              {!propio && c.canal === 'email' && <p className="text-[10px] text-gray-400">Los adjuntos se abren desde la casilla de correo.</p>}
             </div>}
             <p className={`mt-1 text-right text-[10px] ${propio ? 'text-blue-100' : 'text-gray-400'}`}>{horaCorta(m.enviado_en)}</p>
           </div>
@@ -237,7 +258,12 @@ function Hilo({ c, onVolver }: { c: Conversacion; onVolver: () => void }) {
           {responder.isPending ? 'Enviando…' : 'Enviar'}
         </button>
       </div>
-      <p className="mt-1 text-[10px] text-gray-400">Sale desde tu casilla, en el mismo hilo del correo del cliente. Ctrl + Enter para enviar.</p>
+      <p className="mt-1 text-[10px] text-gray-400">
+        {c.canal === 'email'
+          ? 'Sale desde tu casilla, en el mismo hilo del correo del cliente.'
+          : 'Sale desde tu página. Meta solo permite responder hasta 24 horas después del último mensaje del cliente.'}
+        {' '}Ctrl + Enter para enviar.
+      </p>
     </div>
   </>
 }
@@ -369,8 +395,10 @@ function ConectarCanal({ onCerrar }: { onCerrar: () => void }) {
         {mensaje && <p className="mt-2 text-xs font-medium text-gray-700">{mensaje}</p>}
       </div>
 
-      <div className="mt-3 grid grid-cols-3 gap-2">
-        {CANALES_META.map(c => <div key={c.id} className="rounded-xl border border-gray-100 p-3 text-center opacity-60">
+      <ConectarMessenger />
+
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        {CANALES_META.filter(c => c.id !== 'messenger').map(c => <div key={c.id} className="rounded-xl border border-gray-100 p-3 text-center opacity-60">
           <ChannelLogo canal={c} />
           <p className="mt-2 text-xs font-semibold text-gray-700">{c.nombre}</p>
           <p className="text-[10px] text-gray-400">Próximamente</p>
@@ -402,7 +430,7 @@ function Bienvenida({ onConectar }: { onConectar: () => void }) {
     <div className="max-w-md">
       <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-blue-50 text-blue-600"><ChatIcon size={29} /></div>
       <h2 className="mt-5 text-xl font-bold text-gray-900">Centraliza la atención</h2>
-      <p className="mt-2 text-sm leading-6 text-gray-500">Conecta tus canales para responder clientes desde un solo lugar. Parte por tu correo: es el único disponible por ahora.</p>
+      <p className="mt-2 text-sm leading-6 text-gray-500">Conecta tus canales para responder clientes desde un solo lugar. Por ahora están disponibles el correo y Messenger.</p>
       <div className="mt-6 grid grid-cols-4 gap-3">
         <div className="rounded-xl border-2 border-blue-200 bg-white p-3">
           <MailLogo />
@@ -413,14 +441,18 @@ function Bienvenida({ onConectar }: { onConectar: () => void }) {
           <p className="mt-2 text-xs font-semibold text-gray-700">{canal.nombre}</p>
         </div>)}
       </div>
-      <button type="button" onClick={onConectar} className="mt-6 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">Conectar correo</button>
+      <button type="button" onClick={onConectar} className="mt-6 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">Conectar primer canal</button>
     </div>
   </div>
 }
 
-function Avatar({ nombre }: { nombre: string }) {
-  return <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-blue-100 text-sm font-bold text-blue-700">
+const NOMBRE_CANAL: Record<Canal, string> = { email: 'Correo', messenger: 'Messenger', instagram: 'Instagram', whatsapp: 'WhatsApp' }
+
+function Avatar({ nombre, canal }: { nombre: string; canal?: Canal }) {
+  const logo = canal && canal !== 'email' ? CANALES_META.find(c => c.id === canal)?.logo : null
+  return <span className="relative grid h-9 w-9 shrink-0 place-items-center rounded-full bg-blue-100 text-sm font-bold text-blue-700">
     {nombre.trim().charAt(0).toUpperCase() || '?'}
+    {logo && <img src={logo} alt={NOMBRE_CANAL[canal!]} width={14} height={14} className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-white" />}
   </span>
 }
 

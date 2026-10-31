@@ -135,3 +135,64 @@ export function useActivarCorreoEntrante() {
     onSettled: () => qc.invalidateQueries({ queryKey: ['correo_entrante', empresaId] }),
   })
 }
+
+export interface CanalMeta {
+  id: string
+  canal: 'messenger' | 'instagram'
+  cuenta_id: string
+  cuenta_nombre: string | null
+  activo: boolean
+  ultimo_evento: string | null
+  ultimo_error: string | null
+}
+
+export function useCanalesMeta() {
+  const { empresaId } = useAuth()
+  return useQuery({
+    queryKey: ['canales_meta', empresaId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('canales_meta')
+        .select('id,canal,cuenta_id,cuenta_nombre,activo,ultimo_evento,ultimo_error')
+        .eq('empresa_id', empresaId!)
+        .eq('activo', true)
+      if (error) throw error
+      return (data ?? []) as CanalMeta[]
+    },
+    enabled: !!empresaId,
+    refetchInterval: REFRESCO_MS,
+  })
+}
+
+/** Llama a la Edge Function meta-conectar (config, paginas, conectar). */
+export function useMetaConectar() {
+  const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  async function llamar<T>(body: Record<string, unknown>): Promise<T> {
+    const { data, error } = await supabase.functions.invoke('meta-conectar', { body: { ...body, empresa_id: empresaId } })
+    if (error) throw new Error(await extraerMensajeError(error, 'No se pudo conectar con Meta'))
+    if (!data?.ok) throw new Error(data?.error || 'No se pudo conectar con Meta')
+    return data as T
+  }
+  return {
+    config: () => llamar<{ app_id: string; config_id: string | null }>({ accion: 'config' }),
+    paginas: (userToken: string) => llamar<{ paginas: { id: string; nombre: string }[] }>({ accion: 'paginas', user_token: userToken }),
+    conectar: async (userToken: string, paginaId: string) => {
+      const r = await llamar<{ pagina: { id: string; nombre: string } }>({ accion: 'conectar', user_token: userToken, pagina_id: paginaId })
+      qc.invalidateQueries({ queryKey: ['canales_meta', empresaId] })
+      return r
+    },
+  }
+}
+
+export function useDesconectarCanalMeta() {
+  const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.rpc('fn_canal_meta_desconectar', { p_id: id, p_empresa_id: empresaId })
+      if (error) throw error
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ['canales_meta', empresaId] }),
+  })
+}

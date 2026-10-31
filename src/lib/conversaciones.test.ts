@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { filtrarConversaciones, horaCorta, prepararHtmlCorreo, quitarCitado, type Conversacion } from './conversaciones'
+import { filtrarConversaciones, horaCorta, nombreContacto, prepararHtmlCorreo, quitarCitado, type Conversacion } from './conversaciones'
 
 const conv = (p: Partial<Conversacion>): Conversacion => ({
   id: 'c', canal: 'email', contacto_externo: 'ana@gmail.com', contacto_nombre: 'Ana', asunto: 'Pantalla',
@@ -87,5 +87,13 @@ describe('prepararHtmlCorreo', () => {
   it('corta el historial citado de Gmail, salvo que quede vacío', () => {
     expect(cuerpo('<div>Gracias!</div><div class="gmail_quote">El jue escribió: hola</div>').body.textContent).not.toContain('escribió')
     expect(cuerpo('<div class="gmail_quote">Solo reenviado</div>').body.textContent).toContain('Solo reenviado')
+  })
+})
+
+describe('nombreContacto', () => {
+  it('usa el nombre; si falta, el correo o un texto legible para Meta', () => {
+    expect(nombreContacto(conv({ contacto_nombre: ' Ana ' }))).toBe('Ana')
+    expect(nombreContacto(conv({ contacto_nombre: null }))).toBe('ana@gmail.com')
+    expect(nombreContacto(conv({ canal: 'messenger', contacto_nombre: null, contacto_externo: '2493817' }))).toBe('Cliente de Messenger')
   })
 })

@@ -24,7 +24,7 @@ export interface MensajeConversacion {
   asunto: string | null
   texto: string | null
   html: string | null
-  adjuntos: { filename: string | null; contentType: string | null; size: number | null }[]
+  adjuntos: { filename: string | null; contentType: string | null; size: number | null; url?: string | null }[]
   enviado_en: string
 }
 
@@ -68,8 +68,12 @@ export function quitarCitado(texto: string): string {
   return util || texto.trim()
 }
 
-export function nombreContacto(c: Pick<Conversacion, 'contacto_nombre' | 'contacto_externo'>): string {
-  return c.contacto_nombre?.trim() || c.contacto_externo
+export function nombreContacto(c: Pick<Conversacion, 'contacto_nombre' | 'contacto_externo'> & { canal?: Canal }): string {
+  if (c.contacto_nombre?.trim()) return c.contacto_nombre.trim()
+  // En Meta el contacto es un id numérico que no le dice nada a nadie.
+  if (c.canal === 'messenger') return 'Cliente de Messenger'
+  if (c.canal === 'instagram') return 'Cliente de Instagram'
+  return c.contacto_externo
 }
 
 export function horaCorta(iso: string, ahora = new Date()): string {
