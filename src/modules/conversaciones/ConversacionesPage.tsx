@@ -7,7 +7,7 @@ import {
   useMensajesConversacion, useResponderConversacion, useSincronizarCorreo,
 } from '@/lib/queries/useConversaciones'
 import {
-  filtrarConversaciones, horaCorta, nombreContacto, quitarCitado,
+  filtrarConversaciones, horaCorta, nombreContacto, prepararHtmlCorreo, quitarCitado,
   type Canal, type Conversacion, type FiltroBandeja,
 } from '@/lib/conversaciones'
 
@@ -205,10 +205,15 @@ function Hilo({ c, onVolver }: { c: Conversacion; onVolver: () => void }) {
       {mensajes.map((m, i) => {
         const propio = m.direccion === 'saliente'
         const cambioAsunto = m.asunto && m.asunto.replace(/^(re|rv|fwd?)\s*:\s*/i, '') !== (mensajes[i - 1]?.asunto ?? '').replace(/^(re|rv|fwd?)\s*:\s*/i, '')
+        // Lo que llega con diseño (bancos, tiendas, la firma de un cliente) se
+        // muestra como en el teléfono. Las respuestas de Pixit son texto.
+        const conHtml = !propio && !!m.html
         return <div key={m.id} className={`flex ${propio ? 'justify-end' : 'justify-start'}`}>
-          <div className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm shadow-sm ${propio ? 'rounded-br-md bg-blue-600 text-white' : 'rounded-bl-md border border-gray-100 bg-white text-gray-800'}`}>
+          <div className={`${conHtml ? 'w-full max-w-[680px]' : 'max-w-[85%]'} rounded-2xl px-3.5 py-2.5 text-sm shadow-sm ${propio ? 'rounded-br-md bg-blue-600 text-white' : 'rounded-bl-md border border-gray-100 bg-white text-gray-800'}`}>
             {cambioAsunto && <p className={`mb-1 text-[11px] font-semibold ${propio ? 'text-blue-100' : 'text-gray-500'}`}>{m.asunto}</p>}
-            <p className="whitespace-pre-wrap break-words">{quitarCitado(m.texto ?? '')}</p>
+            {conHtml
+              ? <CorreoHtml html={m.html!} />
+              : <p className="whitespace-pre-wrap break-words">{quitarCitado(m.texto ?? '')}</p>}
             {m.adjuntos?.length > 0 && <div className="mt-2 space-y-1">
               {m.adjuntos.map((a, j) => <p key={j} className={`truncate text-[11px] ${propio ? 'text-blue-100' : 'text-gray-500'}`}>📎 {a.filename || 'Adjunto'}</p>)}
               {!propio && <p className="text-[10px] text-gray-400">Los adjuntos se abren desde la casilla de correo.</p>}
@@ -235,6 +240,52 @@ function Hilo({ c, onVolver }: { c: Conversacion; onVolver: () => void }) {
       <p className="mt-1 text-[10px] text-gray-400">Sale desde tu casilla, en el mismo hilo del correo del cliente. Ctrl + Enter para enviar.</p>
     </div>
   </>
+}
+
+/**
+ * El correo tal como lo diseñó quien lo mandó, en un iframe aislado: sin
+ * `allow-scripts` no corre nada, y sin `allow-forms` no se puede enviar nada.
+ * `allow-same-origin` solo está para poder medir el alto desde afuera; sin
+ * scripts adentro, no le da al correo ningún acceso a Pixit.
+ */
+function CorreoHtml({ html }: { html: string }) {
+  const ref = useRef<HTMLIFrameElement>(null)
+  const [alto, setAlto] = useState(120)
+  const doc = useMemo(() => prepararHtmlCorreo(html), [html])
+
+  useEffect(() => {
+    const iframe = ref.current
+    if (!iframe) return
+    let observador: ResizeObserver | null = null
+    const medir = () => {
+      const body = iframe.contentDocument?.body
+      if (body) setAlto(Math.min(Math.max(body.scrollHeight, 60), 4000))
+    }
+    const alCargar = () => {
+      medir()
+      // Las imágenes llegan después del load del documento y cambian el alto.
+      const body = iframe.contentDocument?.body
+      if (body && typeof ResizeObserver !== 'undefined') {
+        observador = new ResizeObserver(medir)
+        observador.observe(body)
+      }
+    }
+    iframe.addEventListener('load', alCargar)
+    return () => {
+      iframe.removeEventListener('load', alCargar)
+      observador?.disconnect()
+    }
+  }, [doc])
+
+  return <iframe
+    ref={ref}
+    title="Contenido del correo"
+    srcDoc={doc}
+    sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+    referrerPolicy="no-referrer"
+    style={{ height: alto }}
+    className="-mx-1.5 block w-[calc(100%+0.75rem)] rounded-lg border-0 bg-white"
+  />
 }
 
 function ConectarCanal({ onCerrar }: { onCerrar: () => void }) {

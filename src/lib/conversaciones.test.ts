@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { filtrarConversaciones, horaCorta, quitarCitado, type Conversacion } from './conversaciones'
+import { filtrarConversaciones, horaCorta, prepararHtmlCorreo, quitarCitado, type Conversacion } from './conversaciones'
 
 const conv = (p: Partial<Conversacion>): Conversacion => ({
   id: 'c', canal: 'email', contacto_externo: 'ana@gmail.com', contacto_nombre: 'Ana', asunto: 'Pantalla',
@@ -57,5 +57,35 @@ describe('horaCorta', () => {
   it('hoy muestra la hora, ayer dice "Ayer"', () => {
     expect(horaCorta('2026-10-31T09:05:00', ahora)).toMatch(/09:05/)
     expect(horaCorta('2026-10-30T09:05:00', ahora)).toBe('Ayer')
+  })
+})
+
+describe('prepararHtmlCorreo', () => {
+  const cuerpo = (html: string) => new DOMParser().parseFromString(prepararHtmlCorreo(html), 'text/html')
+
+  it('quita scripts, formularios, eventos y enlaces javascript:', () => {
+    const d = cuerpo('<p onclick="x()">Hola</p><script>alert(1)</script><form><input></form><a href="javascript:alert(1)">x</a><iframe src="https://x"></iframe>')
+    expect(d.querySelector('script, form, iframe')).toBeNull()
+    expect(d.querySelector('p')?.getAttribute('onclick')).toBeNull()
+    expect(d.querySelector('a')?.getAttribute('href')).toBeNull()
+    expect(d.body.textContent).toContain('Hola')
+  })
+
+  it('agrega la política de contenido y abre los enlaces aparte', () => {
+    const d = cuerpo('<a href="https://bancochile.cl">Banco</a>')
+    expect(d.querySelector('meta[http-equiv="Content-Security-Policy"]')?.getAttribute('content')).toContain("default-src 'none'")
+    expect(d.querySelector('base')?.getAttribute('target')).toBe('_blank')
+  })
+
+  it('una meta del remitente no puede reemplazar la política de Pixit', () => {
+    const d = cuerpo('<head><meta http-equiv="Content-Security-Policy" content="default-src *"><meta http-equiv="refresh" content="0;url=https://x"></head><p>Hola</p>')
+    const metas = [...d.querySelectorAll('meta')]
+    expect(metas).toHaveLength(1)
+    expect(metas[0].getAttribute('content')).toContain("default-src 'none'")
+  })
+
+  it('corta el historial citado de Gmail, salvo que quede vacío', () => {
+    expect(cuerpo('<div>Gracias!</div><div class="gmail_quote">El jue escribió: hola</div>').body.textContent).not.toContain('escribió')
+    expect(cuerpo('<div class="gmail_quote">Solo reenviado</div>').body.textContent).toContain('Solo reenviado')
   })
 })

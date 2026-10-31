@@ -23,6 +23,7 @@ export interface MensajeConversacion {
   de_direccion: string | null
   asunto: string | null
   texto: string | null
+  html: string | null
   adjuntos: { filename: string | null; contentType: string | null; size: number | null }[]
   enviado_en: string
 }
@@ -79,4 +80,46 @@ export function horaCorta(iso: string, ahora = new Date()): string {
   ayer.setDate(ahora.getDate() - 1)
   if (d.toDateString() === ayer.toDateString()) return 'Ayer'
   return d.toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })
+}
+
+// Lo que puede cargar un correo dentro de Pixit: imágenes y estilos, nada que
+// ejecute código ni mande datos. Es la segunda barrera; la primera es el
+// `sandbox` del iframe, que ya bloquea scripts y formularios.
+const CSP_CORREO = "default-src 'none'; img-src https: http: data:; style-src 'unsafe-inline' https:; font-src https: data:"
+
+/**
+ * Prepara el HTML de un correo para mostrarlo tal como se ve en el teléfono,
+ * dentro de un iframe aislado. Quita lo que no debe correr (scripts, frames,
+ * formularios, redirecciones) y el historial citado de las respuestas, que en
+ * el hilo ya está como mensaje propio. Los enlaces abren en otra pestaña.
+ */
+export function prepararHtmlCorreo(html: string): string {
+  const doc = new DOMParser().parseFromString(html, 'text/html')
+  doc.querySelectorAll('script, iframe, frame, frameset, object, embed, form, base, meta, link:not([rel~="stylesheet"])')
+    .forEach(n => n.remove())
+  for (const el of doc.querySelectorAll('*')) {
+    for (const attr of [...el.attributes]) {
+      if (/^on/i.test(attr.name)) el.removeAttribute(attr.name)
+      else if (/^(href|src|action|formaction)$/i.test(attr.name) && /^\s*javascript:/i.test(attr.value)) el.removeAttribute(attr.name)
+    }
+  }
+
+  // Historial citado: Gmail, Apple Mail, Outlook. Si cortarlo deja el correo
+  // vacío (alguien que solo reenvió), se conserva entero.
+  const respaldo = doc.body.innerHTML
+  doc.querySelectorAll('.gmail_quote, .gmail_extra, blockquote[type="cite"], #appendonsend, #divRplyFwdMsg, .moz-cite-prefix, .yahoo_quoted')
+    .forEach(n => n.remove())
+  if (!doc.body.textContent?.trim() && !doc.body.querySelector('img')) doc.body.innerHTML = respaldo
+
+  const head = doc.head
+  const csp = doc.createElement('meta')
+  csp.setAttribute('http-equiv', 'Content-Security-Policy')
+  csp.setAttribute('content', CSP_CORREO)
+  const base = doc.createElement('base')
+  base.setAttribute('target', '_blank')
+  const estilo = doc.createElement('style')
+  // Los correos vienen pensados para ~600 px: que nunca desborden la burbuja.
+  estilo.textContent = 'html{overflow-y:hidden}html,body{margin:0;padding:0;background:#fff}body{overflow-x:auto;padding:12px;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#111;word-wrap:break-word}img{max-width:100%;height:auto}table{max-width:100%}'
+  head.prepend(csp, base, estilo)
+  return '<!doctype html>' + doc.documentElement.outerHTML
 }

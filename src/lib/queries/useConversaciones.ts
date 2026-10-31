@@ -59,7 +59,7 @@ export function useMensajesConversacion(conversacionId: string | null) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('conversacion_mensajes')
-        .select('id,conversacion_id,direccion,de_nombre,de_direccion,asunto,texto,adjuntos,enviado_en')
+        .select('id,conversacion_id,direccion,de_nombre,de_direccion,asunto,texto,html,adjuntos,enviado_en')
         .eq('empresa_id', empresaId!)
         .eq('conversacion_id', conversacionId!)
         .order('enviado_en', { ascending: true })
