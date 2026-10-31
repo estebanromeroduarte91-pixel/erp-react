@@ -1,3 +1,4 @@
+import { accesoComisiones, comisionVisible } from './accesoComisiones'
 import { Link } from 'react-router-dom'
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -45,8 +46,9 @@ function diasDesde(fecha?: string | null) {
  */
 export function ComisionesTab() {
   const { data: bodegas = [] } = useBodegas()
-  const { rol, session, esAdmin, esPlatformAdmin, empresaId } = useAuth()
-  const puedeGestionar = esAdmin || esPlatformAdmin || rol === 'admin'
+  const { rol, session, esAdmin, esPlatformAdmin, empresaId, branchId } = useAuth()
+  const acceso = accesoComisiones({ rol, esAdmin, esPlatformAdmin, branchId })
+  const { puedeGestionar, puedeVerEquipo, sucursal, requiereSucursal } = acceso
   const [tecnicoSeleccionado, setTecnicoSeleccionado] = useState('')
   // El mes arranca en el actual y filtra por FECHA DE PAGO, así que solo afecta
   // a las comisiones ya pagadas. Lo pendiente es deuda viva y se muestra
@@ -58,8 +60,8 @@ export function ComisionesTab() {
   const [pagando, setPagando] = useState<{ id: string; tecnico: string; monto: number } | null>(null)
   const pagarComision = usePagarComisionTecnica()
   const { data: ordenes = [], isLoading, error } = useQuery({
-    queryKey: ['comisiones-tecnicas', empresaId, session?.user?.id, puedeGestionar],
-    enabled: !!empresaId && !!session?.user?.id,
+    queryKey: ['comisiones-tecnicas', empresaId, session?.user?.id, puedeGestionar, puedeVerEquipo, sucursal],
+    enabled: !!empresaId && !!session?.user?.id && !requiereSucursal,
     queryFn: async () => {
       let query = supabase
         .from('ordenes')
@@ -67,7 +69,8 @@ export function ComisionesTab() {
         .eq('empresa_id', empresaId!)
         .eq('is_draft', false)
         .eq('comision_tecnica_activa', true)
-      if (!puedeGestionar) query = query.eq('tecnico_id', session!.user.id)
+      if (!puedeVerEquipo) query = query.eq('tecnico_id', session!.user.id)
+      if (sucursal) query = query.eq('branch_id', sucursal)
       const { data, error: queryError } = await query.order('fecha', { ascending: false })
       if (queryError) throw queryError
       const ventaIds = [...new Set((data ?? []).map(row => row.venta_id).filter((id): id is string => !!id))]
@@ -103,9 +106,9 @@ export function ComisionesTab() {
 
   const filas = useMemo(() => ordenes
     .filter(o => o.comisionTecnicaActiva && (o.comisionTecnicaMonto ?? 0) > 0)
-    .filter(o => puedeGestionar || o.tecnicoId === session?.user?.id)
+    .filter(o => comisionVisible(o, { puedeGestionar, puedeVerEquipo, sucursal, requiereSucursal }, session?.user?.id))
     .sort((a, b) => Number(a.comisionTecnicaPagada) - Number(b.comisionTecnicaPagada) || b.fecha.localeCompare(a.fecha)),
-  [ordenes, puedeGestionar, session?.user?.id])
+  [ordenes, puedeGestionar, puedeVerEquipo, sucursal, requiereSucursal, session?.user?.id])
 
   const mesClave = `${mes.getFullYear()}-${String(mes.getMonth() + 1).padStart(2, '0')}`
   const mesEtiqueta = `${MESES[mes.getMonth()]} ${mes.getFullYear()}`
@@ -144,6 +147,9 @@ export function ComisionesTab() {
     ? soloFecha(b.comisionTecnicaPagadaAt).localeCompare(soloFecha(a.comisionTecnicaPagadaAt))
     : a.fecha.localeCompare(b.fecha))
 
+  if (requiereSucursal) return <div className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-800">
+    Necesitas una sucursal asignada para consultar las comisiones. Pide al administrador que la configure en tu acceso.
+  </div>
   if (isLoading) return <div className="py-16 flex justify-center"><Spinner /></div>
   if (error) return (
     <div className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-800">
@@ -157,7 +163,7 @@ export function ComisionesTab() {
         <div>
           <h2 className="text-xl font-bold text-gray-900">Comisiones</h2>
           <p className="text-sm text-gray-500 mt-1">
-            {puedeGestionar ? 'Qué debes pagar, qué ya pagaste y el detalle de cada orden.' : 'Tus comisiones y su estado de pago.'}
+            {puedeGestionar ? 'Qué debes pagar, qué ya pagaste y el detalle de cada orden.' : puedeVerEquipo ? 'Comisiones de los técnicos de tu sucursal y su estado de pago.' : 'Tus comisiones y su estado de pago.'}
           </p>
         </div>
         <div className="flex items-center gap-1.5">
@@ -182,7 +188,7 @@ export function ComisionesTab() {
           detalle={plural(anuladas.length, 'orden', 'órdenes')} alcance="no se pueden pagar" />
       </div>
 
-      {puedeGestionar && porTecnico.length > 0 && (
+      {puedeVerEquipo && porTecnico.length > 0 && (
         <div className="rounded-xl border border-gray-200 bg-white overflow-hidden mb-6">
           <div className="px-5 py-4 border-b border-gray-100">
             <h3 className="font-semibold text-gray-900">Por empleado</h3>
@@ -236,7 +242,7 @@ export function ComisionesTab() {
             <p className="text-xs text-gray-500 mt-0.5">El pago se registra desde la orden y crea el gasto automáticamente.</p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            {puedeGestionar && porTecnico.length > 1 && <select value={tecnicoSeleccionado} onChange={e => setTecnicoSeleccionado(e.target.value)} className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-700">
+            {puedeVerEquipo && porTecnico.length > 1 && <select value={tecnicoSeleccionado} onChange={e => setTecnicoSeleccionado(e.target.value)} className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-700">
               <option value="">Todos los empleados</option>
               {porTecnico.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
             </select>}
@@ -269,7 +275,7 @@ export function ComisionesTab() {
               <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-400">
                 <tr>
                   <th className="text-left font-semibold px-5 py-3">Orden</th>
-                  {puedeGestionar && <th className="text-left font-semibold px-4 py-3">Técnico</th>}
+                  {puedeVerEquipo && <th className="text-left font-semibold px-4 py-3">Técnico</th>}
                   <th className="text-left font-semibold px-4 py-3">Sucursal</th>
                   <th className="text-left font-semibold px-4 py-3">{estado === 'pagada' ? 'Pagada el' : 'Fecha de la orden'}</th>
                   <th className="text-right font-semibold px-4 py-3">Bruto cobrado</th>
@@ -285,7 +291,7 @@ export function ComisionesTab() {
                       <Link to={`/taller?abrir=${encodeURIComponent(o.num)}`} className="font-semibold text-blue-600 hover:text-blue-700">OT #{o.num}</Link>
                       <div className="text-xs text-gray-500 mt-0.5 truncate max-w-[210px]">{o.modelo || o.trabajo || fechaCorta(o.fecha)}</div>
                     </td>
-                    {puedeGestionar && <td className="px-4 py-3.5 text-gray-700">{o.tecnico || 'Sin técnico'}</td>}
+                    {puedeVerEquipo && <td className="px-4 py-3.5 text-gray-700">{o.tecnico || 'Sin técnico'}</td>}
                     <td className="px-4 py-3.5 text-gray-600">{sucursal}</td>
                     <td className="px-4 py-3.5 text-gray-600 tabular-nums whitespace-nowrap">
                       {estado === 'pagada' ? fechaCorta(o.comisionTecnicaPagadaAt) : fechaCorta(o.fecha)}
