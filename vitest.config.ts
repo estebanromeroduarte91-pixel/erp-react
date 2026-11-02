@@ -1,4 +1,4 @@
-import { defineConfig } from 'vitest/config'
+import { configDefaults, defineConfig } from 'vitest/config'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -17,6 +17,6 @@ export default defineConfig({
     // Los archivos de `e2e/` son de Playwright, que tiene su propia API y su
     // propio runner (`npm run test:e2e`). Sin esta exclusión, vitest los toma
     // como suyos y falla al no encontrar sus hooks.
-    exclude: ['node_modules', 'dist', 'e2e'],
+    exclude: [...configDefaults.exclude, 'dist/**', 'e2e/**'],
   },
 })

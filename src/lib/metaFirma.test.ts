@@ -1,15 +1,11 @@
-import { describe, expect, it, beforeAll } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { createHmac } from 'node:crypto'
 
-// _shared/meta.ts es código de Deno (lee Deno.env al cargar). Se simula ese
-// global para probar la verificación de firma del webhook con el formato
-// exacto que usa Meta: "sha256=" + HMAC-SHA256(secreto de la app, cuerpo crudo).
-let firmaMetaValida: (raw: Uint8Array, cabecera: string | null) => Promise<boolean>
+import { hmacHex, verificarFirmaMeta } from '../../supabase/functions/_shared/metaFirma'
 
-beforeAll(async () => {
-  ;(globalThis as unknown as { Deno: unknown }).Deno = { env: { get: (k: string) => (k === 'META_APP_SECRET' ? 'secreto-de-prueba' : undefined) } }
-  ;({ firmaMetaValida } = await import('../../supabase/functions/_shared/meta'))
-})
+// Probar la misma criptografía del servidor sin importar Deno ni sus secretos.
+const secreto = 'secreto-de-prueba'
+const firmaMetaValida = (raw: Uint8Array, cabecera: string | null) => verificarFirmaMeta(secreto, raw, cabecera)
 
 describe('firma del webhook de Meta', () => {
   const cuerpo = new TextEncoder().encode('{"object":"page","entry":[]}')
@@ -25,4 +21,20 @@ describe('firma del webhook de Meta', () => {
     expect(await firmaMetaValida(cuerpo, null)).toBe(false)
     expect(await firmaMetaValida(cuerpo, firma.slice(7))).toBe(false)
   })
+
+  it('rechaza mensajes cuando el secreto no está configurado', async () => {
+    expect(await verificarFirmaMeta('', cuerpo, firma)).toBe(false)
+  })
+
+  it('firma solo los bytes de una vista, sin incluir datos anteriores o posteriores', async () => {
+    const bytes = new TextEncoder().encode('antes-mensaje-después')
+    const vista = bytes.subarray(6, 13)
+    expect(await hmacHex(secreto, vista)).toBe(createHmac('sha256', secreto).update(vista).digest('hex'))
+  })
+
+  it('mantiene appsecret_proof compatible con HMAC-SHA256', async () => {
+    const token = 'token-ficticio-de-prueba'
+    expect(await hmacHex(secreto, token)).toBe(createHmac('sha256', secreto).update(token).digest('hex'))
+  })
+
 })

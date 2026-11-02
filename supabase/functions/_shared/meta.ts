@@ -1,3 +1,5 @@
+import { hmacHex, verificarFirmaMeta } from "./metaFirma.ts";
+
 // Utilidades compartidas para hablar con la Graph API de Meta (Messenger y,
 // después, Instagram). Las credenciales de la app viven en secretos de
 // Supabase: META_APP_ID, META_APP_SECRET y META_VERIFY_TOKEN.
@@ -7,33 +9,13 @@ export const GRAPH = "https://graph.facebook.com/v23.0";
 export const META_APP_ID = Deno.env.get("META_APP_ID") ?? "";
 export const META_APP_SECRET = Deno.env.get("META_APP_SECRET") ?? "";
 
-function bytesAHex(bytes: ArrayBuffer): string {
-  return [...new Uint8Array(bytes)].map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-
-async function hmacHex(secret: string, data: string | Uint8Array): Promise<string> {
-  const key = await crypto.subtle.importKey(
-    "raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"],
-  );
-  const bytes = typeof data === "string" ? new TextEncoder().encode(data) : data;
-  return bytesAHex(await crypto.subtle.sign("HMAC", key, bytes));
-}
-
-function igualesSinFiltrarTiempo(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return diff === 0;
-}
-
 /**
  * Meta firma cada evento del webhook con el secreto de la app
  * (X-Hub-Signature-256). Sin esta comprobación, cualquiera que conozca la URL
  * podría inyectar mensajes falsos en la bandeja de un taller.
  */
 export async function firmaMetaValida(rawBody: Uint8Array, cabecera: string | null): Promise<boolean> {
-  if (!META_APP_SECRET || !cabecera?.startsWith("sha256=")) return false;
-  return igualesSinFiltrarTiempo(cabecera.slice(7).toLowerCase(), await hmacHex(META_APP_SECRET, rawBody));
+  return verificarFirmaMeta(META_APP_SECRET, rawBody, cabecera);
 }
 
 /**
