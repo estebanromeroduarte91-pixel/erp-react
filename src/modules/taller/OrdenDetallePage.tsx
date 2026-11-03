@@ -18,6 +18,7 @@ import { formatHorario, resolverCategoriaEquipo } from './utils'
 import { Spinner } from '@/components/shared/Spinner'
 import type { EstadoOrden, Inspeccion, CheckItem, Producto } from '@/types'
 import { comprimirImagenADataUrl } from '@/lib/imagen'
+import { checklistOrden } from './checklistOrden'
 
 const PIPELINE: EstadoOrden[] = ['Chequeo', 'Reparación', 'Listo', 'Entregado']
 
@@ -53,7 +54,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
   const { data: terminos } = useTerminos()
 
   const { data: checklistPorCategoria } = useChecklist()
-  const { data: equipos = [] } = useEquipos()
+  const { data: equipos = [], isSuccess: equiposCargados } = useEquipos()
   const { data: bodegas = [] } = useBodegas()
   const { data: traslados = [] } = useTraslados()
   const { data: usuarios = [] } = useUserProfiles()
@@ -143,25 +144,25 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
     setInspecSyncedId(o.id)
     setInspecNotas(o.inspeccion?.notas ?? '')
     setInspecFotos(o.inspeccion?.fotos ?? [])
-    // Merge template (según la categoría del equipo de ESTA orden) con el
-    // estado ya guardado en la orden. El checklist de salida usa los MISMOS
-    // ítems que el de ingreso (misma categoría) — se vuelven a revisar los
-    // mismos componentes antes de entregar, no una lista aparte.
-    const categoriaEquipo = resolverCategoriaEquipo(o.modelo, equipos)
-    const checklistTemplate = checklistPorCategoria?.[categoriaEquipo] ?? []
-    const saved = o.checkIngreso ?? []
-    const merged: CheckItem[] = checklistTemplate.map(label => {
-      const s = saved.find(s => s.label === label)
-      return { label, checked: s?.checked ?? false, estado: s?.estado }
-    })
-    setCheckItems(merged.length ? merged : saved)
+  }
 
-    const savedSalida = o.checkSalida ?? []
-    const mergedSalida: CheckItem[] = checklistTemplate.map(label => {
-      const s = savedSalida.find(s => s.label === label)
-      return { label, checked: s?.checked ?? false, estado: s?.estado }
-    })
-    setCheckItemsSalida(mergedSalida.length ? mergedSalida : savedSalida)
+  // Esperar el catálogo y la configuración solo cuando se necesita una
+  // plantilla. Sin esa espera una carga fría podía fijar la lista de teléfono.
+  const plantillaChecklist = checklistPorCategoria && equiposCargados
+    ? checklistPorCategoria[resolverCategoriaEquipo(o?.modelo, equipos)] ?? []
+    : undefined
+  const etiquetasIngreso = o?.checkIngreso?.length
+    ? o.checkIngreso.map(item => item.label)
+    : plantillaChecklist
+  const fuenteChecklist = o ? JSON.stringify([
+    o.id, o.checkIngreso, o.checkSalida, etiquetasIngreso,
+  ]) : null
+  const [checklistSynced, setChecklistSynced] = useState<string | null>(null)
+  if (o && etiquetasIngreso && fuenteChecklist !== checklistSynced) {
+    setChecklistSynced(fuenteChecklist)
+    setCheckItems(checklistOrden(o.checkIngreso, etiquetasIngreso))
+    // La revisión de salida parte de los componentes realmente recibidos.
+    setCheckItemsSalida(checklistOrden(o.checkSalida, etiquetasIngreso))
   }
 
   // Sumar en vivo las fotos que llegan por QR a la inspección (realtime),
