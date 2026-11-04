@@ -24,7 +24,7 @@ const uds = (n: number) => Math.round(n).toLocaleString('es-CL')
 export function ReportesTab() {
   const { esAdmin, branchId: userBranchId } = useAuth()
   const { data: bodegas } = useBodegas()
-  const { data: productos } = useProductos()
+  const { data: productos, isLoading: productosCargando } = useProductos()
   const rangoMesActual = useMemo(() => rangoPeriodo('mes'), [])
   const [periodo, setPeriodo] = useState<Periodo>('mes')
   const [desdePersonalizado, setDesdePersonalizado] = useState(rangoMesActual.desde)
@@ -99,6 +99,22 @@ export function ReportesTab() {
     return Object.fromEntries([...tipos].map(([tipo, productos]) => [tipo, [...productos.values()].sort((a, b) => b.unidades - a.unidades)]))
   }, [rentabilidad.data, productosPorId])
 
+  const detalleCategoria = useMemo(() => {
+    const grupos = new Map<string, FilaRentabilidadVista[]>()
+    for (const f of rentabilidad.data?.filas ?? []) {
+      // Mismo criterio que fn_reporte_serie, incluido el producto eliminado.
+      const categoria = productosPorId.get(f.producto_id)?.categoria?.trim() || 'Sin categoría'
+      const filas = grupos.get(categoria) ?? []
+      filas.push({
+        id: f.producto_id, nombre: f.nombre, unidades: +f.unidades || 0,
+        neto: +f.neto || 0, costo: +f.costo || 0, margen: +f.margen || 0,
+      })
+      grupos.set(categoria, filas)
+    }
+    for (const filas of grupos.values()) filas.sort((a, b) => b.margen - a.margen)
+    return Object.fromEntries(grupos)
+  }, [rentabilidad.data, productosPorId])
+
   const secciones: { id: SeccionReporte; label: string }[] = [
     { id: 'general', label: 'Vista general' }, { id: 'ventas', label: 'Ventas' },
     { id: 'rentabilidad', label: 'Rentabilidad' }, { id: 'gastos', label: 'Gastos' },
@@ -129,7 +145,7 @@ export function ReportesTab() {
       <div><h2 className="text-lg font-extrabold text-gray-900 m-0">Rentabilidad de productos</h2><p className="text-xs text-gray-500 mt-1 mb-0">Unidades, venta neta y margen bruto generado. El margen no descuenta gastos operacionales.</p></div>
       <Campo label="Agrupar por"><Seg valor={agrupacion} onChange={setAgrupacion} opciones={[['producto', 'Producto'], ['categoria', 'Categoría'], ['reparacion', 'Reparación']]} /></Campo>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3"><Tile label="Unidades vendidas" valor={uds(totalesRentabilidad.unidades)} /><Tile label="Venta neta" valor={clp(totalesRentabilidad.neto)} /><Tile label="Margen bruto" valor={clp(totalesRentabilidad.margen)} /><Tile label="Margen %" valor={`${totalesRentabilidad.neto ? Math.round(totalesRentabilidad.margen / totalesRentabilidad.neto * 100) : 0}%`} /></div>
-      {rentabilidad.isLoading || (agrupacion === 'categoria' && serieCategorias.isLoading) ? <div className="py-12"><Spinner /></div> : <TablaRentabilidad key={agrupacion} filas={filasRentabilidad} agrupacion={agrupacion} detalles={agrupacion === 'reparacion' ? detalleReparacion : undefined} />}
+      {rentabilidad.isLoading || (agrupacion === 'categoria' && (serieCategorias.isLoading || productosCargando)) ? <div className="py-12"><Spinner /></div> : <TablaRentabilidad key={agrupacion} filas={filasRentabilidad} agrupacion={agrupacion} detalles={agrupacion === 'reparacion' ? detalleReparacion : agrupacion === 'categoria' ? detalleCategoria : undefined} />}
     </>}
   </div>
 }
@@ -152,7 +168,7 @@ function TablaRentabilidad({ filas, agrupacion, detalles }: { filas: FilaRentabi
   const descripcion = agrupacion === 'producto'
     ? 'Cuántos salieron y cuánto margen bruto dejaron.'
     : agrupacion === 'categoria'
-      ? 'Venta, costo y margen bruto consolidado por categoría.'
+      ? 'Venta, costo y margen bruto consolidado por categoría. Haz clic en una fila para ver sus productos.'
       : 'Cuántas pantallas, baterías y otras reparaciones se realizaron. Haz clic en una fila para ver sus productos.'
   return <div className="bg-white rounded-xl border border-gray-200 p-4">
     <div className="flex flex-wrap items-start justify-between gap-3 mb-3"><div><h3 className="text-sm font-extrabold text-gray-900 m-0">Rentabilidad por {etiqueta}</h3><p className="text-[11px] text-gray-400 mt-1 mb-0">{descripcion}</p></div><div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto"><input type="search" value={busqueda} onChange={e => { setBusqueda(e.target.value); setMostrarTodos(false) }} placeholder={`Buscar ${etiqueta}…`} aria-label={`Buscar por ${etiqueta}`} className="w-full sm:w-64 text-sm px-3 py-2 border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-blue-500" /><span className={`text-sm font-extrabold tabular-nums text-right ${margenTotal >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{clp(margenTotal)}</span></div></div>
