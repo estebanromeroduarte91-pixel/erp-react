@@ -4,6 +4,7 @@ import { useAuth } from '@/context/AuthContext'
 import { Spinner } from '@/components/shared/Spinner'
 import { clasificarTipoReparacion, coincideBusqueda, rangoPeriodo, type Periodo } from '@/lib/reportes'
 import { useIsMobile } from '@/lib/useIsMobile'
+import { rangoMes } from '@/lib/cierre'
 import { ResumenTab } from './ResumenTab'
 import { VentasBI } from './VentasBI'
 import { VistaGeneralBI } from './VistaGeneralBI'
@@ -13,7 +14,7 @@ type SeccionReporte = 'general' | 'ventas' | 'rentabilidad' | 'gastos' | 'compra
 type FilaRentabilidadVista = { id: string; nombre: string; unidades: number; neto: number; costo: number; margen: number }
 
 const PERIODO_LABEL: Record<Periodo, string> = {
-  mes: 'Este mes',
+  mes: 'Por mes',
   '6m': 'Últimos 6 meses', '12m': 'Últimos 12 meses', '24m': 'Últimos 24 meses',
   'año': 'Este año', 'anterior': 'Año anterior', 'todo': 'Todo el histórico', 'rango': 'Rango de fechas',
 }
@@ -27,6 +28,7 @@ export function ReportesTab() {
   const { data: productos, isLoading: productosCargando } = useProductos()
   const rangoMesActual = useMemo(() => rangoPeriodo('mes'), [])
   const [periodo, setPeriodo] = useState<Periodo>('mes')
+  const [mesSeleccionado, setMesSeleccionado] = useState(rangoMesActual.desde.slice(0, 7))
   const [desdePersonalizado, setDesdePersonalizado] = useState(rangoMesActual.desde)
   const [hastaPersonalizado, setHastaPersonalizado] = useState(rangoMesActual.hasta)
   const [agrupacion, setAgrupacion] = useState<Agrupacion>('producto')
@@ -34,11 +36,18 @@ export function ReportesTab() {
   const [seccion, setSeccion] = useState<SeccionReporte>('general')
 
   const { desde, hasta } = useMemo(() => {
+    if (periodo === 'mes') return rangoMes(mesSeleccionado)
     if (periodo !== 'rango') return rangoPeriodo(periodo)
     return desdePersonalizado <= hastaPersonalizado
       ? { desde: desdePersonalizado, hasta: hastaPersonalizado }
       : { desde: hastaPersonalizado, hasta: desdePersonalizado }
-  }, [periodo, desdePersonalizado, hastaPersonalizado])
+  }, [periodo, mesSeleccionado, desdePersonalizado, hastaPersonalizado])
+
+  function moverMes(delta: number) {
+    const [a, m] = mesSeleccionado.split('-').map(Number)
+    const fecha = new Date(a, m - 1 + delta, 1)
+    setMesSeleccionado(`${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}`)
+  }
 
   const branchPropio = esAdmin || !userBranchId ? null : userBranchId
   const branchId = branchPropio ?? (sucursal || null)
@@ -130,6 +139,11 @@ export function ReportesTab() {
     <div><h2 className="text-xl font-extrabold text-gray-900 m-0">Reportes BI</h2><p className="text-xs text-gray-400 mt-1 mb-0">Análisis ejecutivo y detalle de la operación.</p></div>
     <div className="flex flex-wrap gap-2.5 items-end">
       <Campo label="Período"><select value={periodo} onChange={e => setPeriodo(e.target.value as Periodo)} className={SELECT}>{(Object.keys(PERIODO_LABEL) as Periodo[]).map(p => <option key={p} value={p}>{PERIODO_LABEL[p]}</option>)}</select></Campo>
+      {periodo === 'mes' && <div className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-2 py-1">
+        <button type="button" onClick={() => moverMes(-1)} aria-label="Mes anterior" className="rounded-lg px-2.5 py-1.5 text-gray-500 hover:bg-gray-100">‹</button>
+        <span className="min-w-[140px] text-center text-sm font-semibold text-gray-800 capitalize">{new Date(`${mesSeleccionado}-01T12:00:00`).toLocaleDateString('es-CL', { month: 'long' })} {mesSeleccionado.slice(0, 4)}</span>
+        <button type="button" onClick={() => moverMes(1)} aria-label="Mes siguiente" className="rounded-lg px-2.5 py-1.5 text-gray-500 hover:bg-gray-100">›</button>
+      </div>}
       {camposRango}
       {!branchPropio && (bodegas ?? []).length > 1 && <Campo label="Sucursal"><select value={sucursal} onChange={e => setSucursal(e.target.value)} className={SELECT}><option value="">Todas</option>{(bodegas ?? []).map(b => <option key={b.id} value={b.id}>{b.nombre ?? b.name}</option>)}</select></Campo>}
     </div>
