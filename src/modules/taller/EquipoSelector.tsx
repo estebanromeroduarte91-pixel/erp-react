@@ -128,7 +128,9 @@ export function EquipoSelector({ value, onChange }: Props) {
       </div>
 
       {/* Dropdown */}
-      {open && (
+      {/* Montar el buscador cuando el desplegable ya tiene posición visible:
+          autoFocus no puede enfocar un input dentro de display: none. */}
+      {open && rect && (
         <div style={fixedDropdownStyle(rect, { maxHeight: 420 })} className="bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden">
           {!nuevo ? (
             <>
