@@ -5,7 +5,7 @@ import {
   useOrdenesEntregadasEnRango, useRentabilidadSucursales, useVentasEnRango,
 } from '@/lib/queries'
 import {
-  useCerrarMes, useCierreGuardado, useDtesCierre, usePedidosOnlineCierre, useReabrirMes, useStockNegativo, useVentasCierre,
+  useCerrarMes, useCierreGuardado, useCierreRevisados, useDtesCierre, useMarcarRevisado, usePedidosOnlineCierre, useReabrirMes, useStockNegativo, useVentasCierre,
   type CierreGuardado,
 } from '@/lib/queries/useCierre'
 import {
@@ -52,6 +52,7 @@ export function CierresTab() {
   const { data: metodos = [] } = useMetodosPago()
   const { data: bodegas = [] } = useBodegas()
   const { data: guardado = null } = useCierreGuardado(mes)
+  const { data: revisados } = useCierreRevisados()
   // Ventas completas (con caja) solo si hay cajas olvidadas que cerrar: son
   // las que dan los totales de cada sesión, igual que el cierre normal.
   const hayCajasAbiertas = sesiones.some(x => x.estado === 'abierta' && x.fecha >= desde && x.fecha <= hasta)
@@ -87,10 +88,10 @@ export function CierresTab() {
       revision: revisionCierre({
         caja, dtes, compras, gastos: gastos.data, stockNegativo,
         ordenesEntregadas: ordenes.map((o): OrdenEntregadaCierre => ({ id: o.id, num: o.num ?? null, cliente: [o.nombre, o.apellido].filter(Boolean).join(' '), venta_id: o.venta_id ?? null, numero_boleta: o.numero_boleta, presup: o.presup })), pedidosOnline,
-        nombreBodega,
+        nombreBodega, revisados,
       }),
     }
-  }, [ventas.data, gastos.data, ocs.data, configNaturaleza, sesiones, pedidosOnline, dtes, stockNegativo, ordenes, desde, hasta, nombreBodega])
+  }, [ventas.data, gastos.data, ocs.data, configNaturaleza, sesiones, pedidosOnline, dtes, stockNegativo, ordenes, desde, hasta, nombreBodega, revisados])
 
   const foto = useMemo(() => {
     if (!datos || !rentabilidad.data) return null
@@ -256,6 +257,10 @@ function Revision({ puntos, onCerrarCajas }: { puntos: ReturnType<typeof revisio
   const [abierto, setAbierto] = useState<string | null>(null)
   const [cerrando, setCerrando] = useState(false)
   const [error, setError] = useState('')
+  const [verRevisados, setVerRevisados] = useState(false)
+  const marcar = useMarcarRevisado()
+  const alternar = (punto: string, clave: string, revisado: boolean) =>
+    marcar.mutate({ punto, clave, revisado }, { onError: e => setError((e as Error).message) })
 
   async function cerrar(ids: string[]) {
     const n = ids.length
@@ -281,7 +286,7 @@ function Revision({ puntos, onCerrarCajas }: { puntos: ReturnType<typeof revisio
         const ok = p.cantidad === 0
         const expandido = abierto === p.id
         return <div key={p.id} className={`rounded-xl border ${ok ? 'border-gray-100' : 'border-amber-200 bg-amber-50/50'}`}>
-          <button type="button" disabled={ok || p.cantidad == null} onClick={() => setAbierto(expandido ? null : p.id)}
+          <button type="button" disabled={(ok && !p.revisados.length) || p.cantidad == null} onClick={() => setAbierto(expandido ? null : p.id)}
             aria-expanded={expandido}
             className="flex w-full items-start gap-3 px-3 py-2.5 text-left disabled:cursor-default">
             <span aria-hidden="true" className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full text-[11px] font-bold ${ok ? 'bg-blue-100 text-blue-700' : 'bg-amber-200 text-amber-900'}`}>
@@ -292,9 +297,10 @@ function Revision({ puntos, onCerrarCajas }: { puntos: ReturnType<typeof revisio
               {!ok && <span className="block text-xs leading-5 text-gray-500">{p.cantidad == null ? 'No se pudo revisar.' : p.detalle}</span>}
             </span>
             {!ok && p.cantidad != null && <span className="shrink-0 text-xs font-semibold text-blue-600">{expandido ? 'Ocultar' : 'Ver cuáles'}</span>}
+            {ok && p.revisados.length > 0 && <span className="shrink-0 text-xs font-semibold text-gray-500">{expandido ? 'Ocultar' : `${p.revisados.length} revisadas`}</span>}
           </button>
-          {expandido && <div className="border-t border-amber-200 px-3 pb-3 pt-2">
-            <p className="mb-2 text-xs font-medium text-amber-900">{p.comoCorregir}</p>
+          {expandido && <div className={`border-t px-3 pb-3 pt-2 ${ok ? 'border-gray-100' : 'border-amber-200'}`}>
+            {!ok && <p className="mb-2 text-xs font-medium text-amber-900">{p.comoCorregir}</p>}
             {p.items.filter(it => it.accion).length > 1 && <button type="button" disabled={cerrando}
               onClick={() => cerrar(p.items.flatMap(it => it.accion ? [it.accion.sesionId] : []))}
               className="mb-2 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50">
@@ -312,15 +318,36 @@ function Revision({ puntos, onCerrarCajas }: { puntos: ReturnType<typeof revisio
                       <button type="button" disabled={cerrando} onClick={() => cerrar([it.accion!.sesionId])}
                         className="shrink-0 text-xs font-semibold text-blue-600 hover:underline disabled:opacity-50">Cerrar</button>
                     </div>
-                  : <Link to={it.enlace} className="flex items-center justify-between gap-3 px-3 py-2 hover:bg-gray-50">
-                      <span className="min-w-0">
-                        <span className="block truncate text-sm text-gray-800">{it.titulo}</span>
-                        {it.detalle && <span className="block truncate text-xs text-gray-500">{it.detalle}</span>}
-                      </span>
-                      <span className="shrink-0 text-xs font-semibold text-blue-600">Corregir →</span>
-                    </Link>}
+                  : <div className="flex items-center gap-2 pr-3">
+                      <Link to={it.enlace} className="flex min-w-0 flex-1 items-center justify-between gap-3 px-3 py-2 hover:bg-gray-50">
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm text-gray-800">{it.titulo}</span>
+                          {it.detalle && <span className="block truncate text-xs text-gray-500">{it.detalle}</span>}
+                        </span>
+                        <span className="shrink-0 text-xs font-semibold text-blue-600">Corregir →</span>
+                      </Link>
+                      {p.permiteRevisar && <button type="button" onClick={() => alternar(p.id, it.clave, true)}
+                        title="Está bien así: no volver a marcarlo"
+                        className="shrink-0 rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-semibold text-gray-600 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700">
+                        ✓ Revisado
+                      </button>}
+                    </div>}
               </li>)}
             </ul>
+            {p.revisados.length > 0 && <div className="mt-2">
+              <button type="button" onClick={() => setVerRevisados(v => !v)} className="text-xs font-semibold text-gray-500 hover:text-gray-700">
+                {verRevisados || ok ? '▾' : '▸'} Revisadas ({p.revisados.length})
+              </button>
+              {(verRevisados || ok) && <ul className="mt-1 divide-y divide-gray-100 rounded-lg bg-white/70">
+                {p.revisados.map(it => <li key={it.clave} className="flex items-center justify-between gap-3 px-3 py-2">
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm text-gray-500 line-through decoration-gray-300">{it.titulo}</span>
+                    {it.detalle && <span className="block truncate text-xs text-gray-400">{it.detalle}</span>}
+                  </span>
+                  <button type="button" onClick={() => alternar(p.id, it.clave, false)} className="shrink-0 text-xs font-semibold text-gray-500 hover:underline">Desmarcar</button>
+                </li>)}
+              </ul>}
+            </div>}
           </div>}
         </div>
       })}

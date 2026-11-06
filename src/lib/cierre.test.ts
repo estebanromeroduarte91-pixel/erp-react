@@ -212,3 +212,28 @@ describe('folio de factura', () => {
     expect(r.sinFactura.map(x => x.id)).toEqual(['b'])
   })
 })
+
+describe('ítems revisados', () => {
+  const base = {
+    caja: cajaDelMes([], [], OCT.desde, OCT.hasta), dtes: [], gastos: [], stockNegativo: [], pedidosOnline: [],
+    compras: comprasDelMes([
+      oc({ id: 'kit', items: [{ id: 'l1', producto_id: 'x', producto_nombre: 'Kit', cantidad: 1, precio_neto: 0, precio_iva: 0, precio_unitario: 0, subtotal: 0, bodega_id: 'b', bodega_nombre: 'B' }], fecha_recepcion: '2026-10-05' }),
+      oc({ id: 'otra', items: [{ id: 'l1', producto_id: 'x', producto_nombre: 'Pieza', cantidad: 1, precio_neto: 0, precio_iva: 0, precio_unitario: 0, subtotal: 0, bodega_id: 'b', bodega_nombre: 'B' }], fecha_recepcion: '2026-10-06' }),
+    ], OCT.desde, OCT.hasta),
+    ordenesEntregadas: [{ id: 'o1', num: '1', venta_id: null, presup: 1000 }],
+  }
+
+  it('lo marcado sale de los pendientes y queda en revisados', () => {
+    const p = revisionCierre({ ...base, revisados: new Set(['oc_costo|kit', 'ordenes|o1']) })
+    const costo = p.find(x => x.id === 'oc_costo')!
+    expect(costo.items.map(i => i.clave)).toEqual(['otra'])
+    expect(costo.revisados.map(i => i.clave)).toEqual(['kit'])
+    expect(costo.cantidad).toBe(1)
+    expect(p.find(x => x.id === 'ordenes')!.cantidad).toBe(0)
+  })
+
+  it('solo los puntos que pueden estar bien a propósito aceptan revisado', () => {
+    const p = revisionCierre({ ...base, revisados: new Set(['stock|p1|b1']) })
+    expect(p.filter(x => x.permiteRevisar).map(x => x.id)).toEqual(['oc_costo', 'ordenes'])
+  })
+})

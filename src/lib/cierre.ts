@@ -285,7 +285,17 @@ export interface PuntoRevision {
   /** Cómo se corrige, en una frase. */
   comoCorregir: string
   items: ItemRevision[]
+  /**
+   * Puntos donde un caso puede estar bien a propósito (OC de kit a $0, orden
+   * de garantía sin cobrar): el dueño lo marca como revisado y deja de contar.
+   */
+  permiteRevisar: boolean
+  /** Los que el dueño ya marcó; no cuentan como pendientes. */
+  revisados: ItemRevision[]
 }
+
+/** Puntos que aceptan "Revisado" (ver PuntoRevision.permiteRevisar). */
+export const PUNTOS_REVISABLES = new Set(['oc_costo', 'ordenes'])
 
 /** Un DTE de producción que todavía no llegó al SII o que el SII no aceptó. */
 export function dteConProblema(d: DteCierre): boolean {
@@ -302,8 +312,11 @@ const diaMes = (f: string) => f.slice(0, 10).split('-').reverse().slice(0, 2).jo
 const TIPO_DTE: Record<number, string> = { 33: 'Factura', 34: 'Factura exenta', 39: 'Boleta', 41: 'Boleta exenta', 61: 'Nota de crédito', 56: 'Nota de débito' }
 const ESTADO_DTE: Record<string, string> = { generado: 'sin enviar', en_sobre: 'esperando envío', rechazado: 'rechazada por el SII', error: 'con error' }
 
-function punto(id: string, titulo: string, detalle: string, comoCorregir: string, items: ItemRevision[]): PuntoRevision {
-  return { id, titulo, detalle, comoCorregir, items, cantidad: items.length }
+function punto(id: string, titulo: string, detalle: string, comoCorregir: string, items: ItemRevision[], revisados?: Set<string>): PuntoRevision {
+  const permiteRevisar = PUNTOS_REVISABLES.has(id)
+  const marcados = permiteRevisar && revisados ? items.filter(it => revisados.has(`${id}|${it.clave}`)) : []
+  const pendientes = marcados.length ? items.filter(it => !marcados.includes(it)) : items
+  return { id, titulo, detalle, comoCorregir, items: pendientes, cantidad: pendientes.length, permiteRevisar, revisados: marcados }
 }
 
 export function revisionCierre(o: {
@@ -316,7 +329,10 @@ export function revisionCierre(o: {
   ordenesEntregadas: OrdenEntregadaCierre[]
   pedidosOnline: PedidoOnlineCierre[]
   nombreBodega?: (id: string) => string
+  /** Claves "punto|clave" que el dueño marcó como revisadas. */
+  revisados?: Set<string>
 }): PuntoRevision[] {
+  const rev = o.revisados
   const bodega = o.nombreBodega ?? ((id: string) => id)
   const stock = punto('stock', 'Productos con stock negativo',
     'Se vendió más de lo que el sistema tenía: falta registrar una compra o hacer un conteo.',
@@ -351,13 +367,13 @@ export function revisionCierre(o: {
       }))),
     punto('oc_costo', 'Compras recibidas sin costo',
       'Productos que entraron a precio $0: el inventario y el margen del mes quedan mal valorizados.',
-      'Edita la orden de compra y pon el precio neto de cada producto.',
+      'Edita la orden de compra y pon el precio neto de cada producto. Si el $0 es a propósito (por ejemplo, partes de un kit), márcala como revisada.',
       o.compras.sinCosto.map(c => ({
         clave: c.id,
         titulo: `${c.numero} · ${c.proveedor}`,
         detalle: `${c.lineas} ${c.lineas === 1 ? 'producto' : 'productos'} a $0`,
         enlace: `/compras?abrir=${encodeURIComponent(c.id)}`,
-      }))),
+      })), rev),
     punto('oc_factura', 'Compras recibidas sin folio de factura',
       'El campo de folio quedó vacío: no se sabe si hubo factura, así que su IVA no se cuenta como crédito fiscal.',
       'Edita la orden de compra y escribe el folio de la factura, o "SIN FACTURA" si se compró sin ella.',
@@ -379,13 +395,13 @@ export function revisionCierre(o: {
     stock,
     punto('ordenes', 'Órdenes entregadas sin venta',
       'Equipos entregados con presupuesto que no tienen una venta registrada en Pixit.',
-      'Abre la orden y cóbrala, o si fue garantía, deja el presupuesto en $0.',
+      'Abre la orden y cóbrala. Si no correspondía cobrarla (por ejemplo, una garantía), márcala como revisada.',
       o.ordenesEntregadas.filter(ordenSinCobrar).map(ord => ({
         clave: ord.id,
         titulo: `Orden N° ${ord.num ?? ''}${ord.cliente ? ` · ${ord.cliente}` : ''}`,
         detalle: `Presupuesto ${pesos(Number(ord.presup) || 0)}`,
         enlace: `/taller?abrir=${encodeURIComponent(String(ord.num ?? ''))}`,
-      }))),
+      })), rev),
     punto('online', 'Pedidos de la tienda online sin gestionar',
       'Pedidos pagados del mes que siguen como "nuevo".',
       'Abre el pedido y cámbiale el estado (preparando, despachado o entregado).',

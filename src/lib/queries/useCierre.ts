@@ -170,3 +170,46 @@ export function useReabrirMes() {
     onSettled: (_d, _e, mes) => qc.invalidateQueries({ queryKey: ['cierre-guardado', empresaId, mes] }),
   })
 }
+
+/** Claves "punto|clave" que el dueño marcó como revisadas (migración 69). */
+export function useCierreRevisados() {
+  const { empresaId } = useAuth()
+  return useQuery({
+    queryKey: ['cierre-revisados', empresaId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('cierre_revisados')
+        .select('punto,clave')
+        .eq('empresa_id', empresaId!)
+      // Sin la migración 69 no hay nada marcado: la revisión sigue igual.
+      if (error) return new Set<string>()
+      return new Set((data ?? []).map(r => `${r.punto}|${r.clave}`))
+    },
+    enabled: !!empresaId,
+  })
+}
+
+export function useMarcarRevisado() {
+  const { empresaId, session } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ punto, clave, revisado }: { punto: string; clave: string; revisado: boolean }) => {
+      const consulta = revisado
+        ? supabase.from('cierre_revisados').insert({ empresa_id: empresaId!, punto, clave, revisado_por: session?.user.id })
+        : supabase.from('cierre_revisados').delete().eq('empresa_id', empresaId!).eq('punto', punto).eq('clave', clave)
+      const { error } = await consulta
+      if (error) throw new Error(/cierre_revisados/.test(error.message)
+        ? 'Falta aplicar la migración 69 en Supabase.'
+        : error.message)
+    },
+    onMutate: async ({ punto, clave, revisado }) => {
+      qc.setQueryData<Set<string>>(['cierre-revisados', empresaId], prev => {
+        const next = new Set(prev)
+        if (revisado) next.add(`${punto}|${clave}`)
+        else next.delete(`${punto}|${clave}`)
+        return next
+      })
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ['cierre-revisados', empresaId] }),
+  })
+}
