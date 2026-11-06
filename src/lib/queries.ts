@@ -682,7 +682,9 @@ export function ordenarPorRelevancia(consulta: string, productos: Producto[]): P
         secundarios: [producto.categoria, producto.subcategoria, producto.modelos_compatibles],
       }) ?? -1,
     }))
-    .sort((a, b) => b.puntaje - a.puntaje || a.posicion - b.posicion)
+    // En un empate gana el nombre más corto: es el más específico ("iPhone
+    // 12/12 Pro Batería" antes que "iPad Pro 12,9“ 2G A1584 Batería").
+    .sort((a, b) => b.puntaje - a.puntaje || a.producto.nombre.length - b.producto.nombre.length || a.posicion - b.posicion)
     .map(item => item.producto)
 }
 
