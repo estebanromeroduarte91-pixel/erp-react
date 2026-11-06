@@ -10,6 +10,7 @@ import {
 } from '@/lib/queries'
 import { formatRut } from '@/lib/rut'
 import { rangoMes } from '@/lib/cierre'
+import { grupoFactura, resumenFactura, type GrupoFactura } from '@/lib/facturaOC'
 import { ymd } from '@/lib/reportes'
 import { calcularEstadoOC, getCantRecibida, lineasSinProducto, mensajeLineasSinProducto } from './utils'
 import type { OC, OCItem, OCRecepcion, OCLogEntry, EstadoOC, Producto, Bodega, Proveedor, Movimiento, LoteInventario } from '@/types'
@@ -1058,6 +1059,7 @@ export function ComprasPage() {
   const setSection = (s: Section) => setSearchParams(s === 'ocs' ? {} : { section: s }, { replace: true })
 
   const [filtro, setFiltro] = useState<FiltroTab>('todas')
+  const [factura, setFactura] = useState<'todas' | GrupoFactura>('todas')
   const [modal, setModal] = useState<ModalState>({ type: 'none' })
   const [search, setSearch] = useState('')
   const [periodo, setPeriodo] = useState<'mes' | 'rango' | 'todo'>('mes')
@@ -1160,8 +1162,13 @@ export function ComprasPage() {
     log: logPeriodo.length,
   }
 
+  // Con factura / Sin factura se cruza con el estado: las tarjetas suman lo
+  // que muestra la pestaña de estado elegida, en el período elegido.
+  const ocsPorEstado = filtro === 'todas' || filtro === 'log' ? ocsPeriodo : ocsPeriodo.filter(o => o.estado === filtro)
+  const totalesFactura = resumenFactura(ocsPorEstado)
+
   const displayedOCs = (() => {
-    let base = filtro === 'todas' ? ocsPeriodo : ocsPeriodo.filter(o => o.estado === filtro)
+    let base = factura === 'todas' ? ocsPorEstado : ocsPorEstado.filter(o => grupoFactura(o) === factura)
     if (search.trim()) {
       const q = search.toLowerCase()
       base = base.filter(o => (o.numero ?? '').toLowerCase().includes(q) || (o.proveedor_nombre ?? '').toLowerCase().includes(q))
@@ -1339,6 +1346,8 @@ export function ComprasPage() {
         </>}
         {rangoInvalido && <p role="alert" className="text-xs text-red-600">La fecha Desde debe ser anterior o igual a Hasta.</p>}
       </div>
+
+      {filtro !== 'log' && <ResumenFacturas totales={totalesFactura} seleccion={factura} onSeleccion={setFactura} />}
 
       <div style={{ background: '#fff', borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,.06)', border: '1px solid var(--gray-100)', overflow: 'hidden' }}>
         {/* Filter tabs */}
@@ -1566,4 +1575,42 @@ export function ComprasPage() {
       </>)}
     </div>
   )
+}
+
+// ── Con factura / Sin factura ─────────────────────────────────────
+
+const GRUPOS_FACTURA: { id: 'todas' | GrupoFactura; label: string }[] = [
+  { id: 'todas', label: 'Todas' },
+  { id: 'con', label: 'Con factura' },
+  { id: 'sin', label: 'Sin factura' },
+  { id: 'vacio', label: 'Folio vacío' },
+]
+
+function ResumenFacturas({ totales, seleccion, onSeleccion }: {
+  totales: ReturnType<typeof resumenFactura>
+  seleccion: 'todas' | GrupoFactura
+  onSeleccion: (g: 'todas' | GrupoFactura) => void
+}) {
+  const t = totales[seleccion]
+  const pct = totales.todas.total ? Math.round((t.total / totales.todas.total) * 100) : 0
+  return <div className="mb-4">
+    <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+      {GRUPOS_FACTURA.filter(g => g.id !== 'vacio' || totales.vacio.cantidad > 0).map(g => {
+        const activo = seleccion === g.id
+        return <button key={g.id} type="button" onClick={() => onSeleccion(g.id)} aria-pressed={activo}
+          className={`rounded-xl border px-4 py-3 text-left transition ${activo ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-500' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>
+          <span className={`block text-xs font-semibold ${activo ? 'text-blue-700' : g.id === 'vacio' ? 'text-amber-700' : 'text-gray-500'}`}>{g.label}</span>
+          <span className={`block text-lg font-bold ${activo ? 'text-blue-700' : 'text-gray-900'}`}>{fmt$(totales[g.id].total)}</span>
+          <span className="block text-[11px] text-gray-400">{totales[g.id].cantidad} {totales[g.id].cantidad === 1 ? 'orden' : 'órdenes'}</span>
+        </button>
+      })}
+    </div>
+    {seleccion !== 'todas' && <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 rounded-xl bg-white px-4 py-2.5 text-sm shadow-sm">
+      <span className="text-gray-500">Neto <b className="text-gray-900">{fmt$(t.neto)}</b></span>
+      {seleccion === 'con' && <span className="text-gray-500">IVA crédito fiscal <b className="text-blue-700">{fmt$(t.iva)}</b></span>}
+      <span className="text-gray-500">Total <b className="text-gray-900">{fmt$(t.total)}</b></span>
+      <span className="text-gray-400">{pct}% de lo comprado en el período</span>
+      {seleccion === 'vacio' && <span className="text-amber-700">Edita cada orden y escribe el folio de la factura, o "SIN FACTURA".</span>}
+    </div>}
+  </div>
 }

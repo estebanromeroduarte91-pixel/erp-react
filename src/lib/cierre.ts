@@ -11,6 +11,9 @@
  */
 import type { CajaSesion, Gasto, MetodoPago, NaturalezaGasto, OC, Venta } from '@/types'
 import { calcularTotalesCaja } from '@/lib/caja'
+import { folioConFactura } from '@/lib/facturaOC'
+
+export { folioConFactura }
 import { naturalezaEfectiva, type ConfigNaturaleza } from '@/lib/naturalezaGasto'
 import { pagosDeVenta } from '@/lib/metodoPago'
 
@@ -91,16 +94,6 @@ export interface ComprasMes {
   sinFactura: { id: string; numero: string; proveedor: string; total: number }[]
   /** Líneas recibidas a precio cero: inventario que entró sin costo. */
   sinCosto: { id: string; numero: string; proveedor: string; lineas: number }[]
-}
-
-/**
- * El folio es texto libre: además de números, Steve Docs escribe "SIN
- * FACTURA" cuando compra sin factura a propósito (51 de 126 OC al
- * 2026-11-05). Solo un folio con números da crédito fiscal.
- */
-export function folioConFactura(folio: string | null | undefined): boolean {
-  const f = (folio ?? '').trim()
-  return /\d/.test(f) && !/^(sin|s\/f|no)\b/i.test(f)
 }
 
 /**
