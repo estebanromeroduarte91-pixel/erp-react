@@ -29,16 +29,31 @@ export interface DteCierre {
   estado: 'generado' | 'en_sobre' | 'enviado' | 'aceptado' | 'rechazado' | 'error'
   ambiente: 'certificacion' | 'produccion'
   creado_en: string
+  venta_id?: string | null
+  folio?: number | null
+  tipo_dte?: number | null
+  ultimo_error?: string | null
 }
 
 export interface PedidoOnlineCierre {
+  id?: string
+  numero?: string | null
+  cliente_nombre?: string | null
   total: number
   estado_gestion: string
+}
+
+export interface StockNegativoCierre {
+  producto_id: string
+  nombre: string
+  bodega_id: string
+  cantidad: number
 }
 
 export interface OrdenEntregadaCierre {
   id: string
   num: string | number | null
+  cliente?: string
   venta_id: string | null
   numero_boleta?: string | null
   presup?: number | string | null
@@ -213,7 +228,7 @@ export function ivaDelMes(o: { ventas: VentaCierre[]; gastos: Gasto[]; ivaCompra
 
 export interface CajaMes {
   cerradas: number
-  abiertas: { id: string; fecha: string; responsable: string; branchId: string }[]
+  abiertas: { id: string; fecha: string; responsable: string; branchId: string; cajaId: string }[]
   faltantes: { cantidad: number; monto: number }
   sobrantes: { cantidad: number; monto: number }
   /** Cierres con diferencia, de la más grande a la más chica (en valor absoluto). */
@@ -227,7 +242,7 @@ export function cajaDelMes(sesiones: CajaSesion[], ventas: VentaCierre[], desde:
     if (!enRango(s.fecha, desde, hasta)) continue
     const responsable = s.apertura?.responsable ?? ''
     if (s.estado === 'abierta' || !s.cierre) {
-      r.abiertas.push({ id: s.id, fecha: s.fecha, responsable, branchId: s.branchId })
+      r.abiertas.push({ id: s.id, fecha: s.fecha, responsable, branchId: s.branchId, cajaId: s.cajaId })
       continue
     }
     r.cerradas++
@@ -247,14 +262,23 @@ export function cajaDelMes(sesiones: CajaSesion[], ventas: VentaCierre[], desde:
 
 // ── Revisión antes de cerrar ────────────────────────────────────────
 
+/** Un registro concreto que hay que corregir, con el enlace que lo abre. */
+export interface ItemRevision {
+  clave: string
+  titulo: string
+  detalle?: string
+  enlace: string
+}
+
 export interface PuntoRevision {
   id: string
   titulo: string
   /** 0 = todo bien. null = no se pudo revisar. */
   cantidad: number | null
   detalle: string
-  /** Dónde se corrige. */
-  enlace: string
+  /** Cómo se corrige, en una frase. */
+  comoCorregir: string
+  items: ItemRevision[]
 }
 
 /** Un DTE de producción que todavía no llegó al SII o que el SII no aceptó. */
@@ -267,60 +291,103 @@ export function ordenSinCobrar(o: OrdenEntregadaCierre): boolean {
   return !o.venta_id && !o.numero_boleta?.toString().trim() && (Number(o.presup) || 0) > 0
 }
 
+const pesos = (n: number) => (n < 0 ? '−$' : '$') + Math.abs(Math.round(n)).toLocaleString('es-CL')
+const diaMes = (f: string) => f.slice(0, 10).split('-').reverse().slice(0, 2).join('/')
+const TIPO_DTE: Record<number, string> = { 33: 'Factura', 34: 'Factura exenta', 39: 'Boleta', 41: 'Boleta exenta', 61: 'Nota de crédito', 56: 'Nota de débito' }
+const ESTADO_DTE: Record<string, string> = { generado: 'sin enviar', en_sobre: 'esperando envío', rechazado: 'rechazada por el SII', error: 'con error' }
+
+function punto(id: string, titulo: string, detalle: string, comoCorregir: string, items: ItemRevision[]): PuntoRevision {
+  return { id, titulo, detalle, comoCorregir, items, cantidad: items.length }
+}
+
 export function revisionCierre(o: {
   caja: CajaMes
   dtes: DteCierre[]
   compras: ComprasMes
   gastos: Gasto[]
-  stockNegativo: number | null
+  /** null = no se pudo revisar. */
+  stockNegativo: StockNegativoCierre[] | null
   ordenesEntregadas: OrdenEntregadaCierre[]
   pedidosOnline: PedidoOnlineCierre[]
+  nombreBodega?: (id: string) => string
 }): PuntoRevision[] {
-  const dtes = o.dtes.filter(dteConProblema)
-  const gastosIncompletos = o.gastos.filter(g => !g.categoria?.trim() || !g.bodega_id)
-  const sinCobrar = o.ordenesEntregadas.filter(ordenSinCobrar)
-  const pedidosSinGestionar = o.pedidosOnline.filter(p => p.estado_gestion === 'nuevo')
+  const bodega = o.nombreBodega ?? ((id: string) => id)
+  const stock = punto('stock', 'Productos con stock negativo',
+    'Se vendió más de lo que el sistema tenía: falta registrar una compra o hacer un conteo.',
+    'Abre el producto y corrige el stock de esa sucursal, o registra la compra que falta.',
+    (o.stockNegativo ?? []).map(sn => ({
+      clave: `${sn.producto_id}|${sn.bodega_id}`,
+      titulo: sn.nombre,
+      detalle: `${bodega(sn.bodega_id)}: ${sn.cantidad} u.`,
+      enlace: `/inventario?abrir=${encodeURIComponent(sn.producto_id)}`,
+    })))
+  if (o.stockNegativo == null) stock.cantidad = null
+
   return [
-    {
-      id: 'cajas', titulo: 'Cajas sin cerrar', cantidad: o.caja.abiertas.length,
-      detalle: 'Mientras una caja siga abierta, sus ventas y su diferencia de efectivo no están confirmadas.',
-      enlace: '/ventas',
-    },
-    {
-      id: 'dte', titulo: 'Boletas y facturas pendientes o rechazadas por el SII', cantidad: dtes.length,
-      detalle: 'Documentos del mes que no llegaron al SII o que el SII rechazó.',
-      enlace: '/ventas',
-    },
-    {
-      id: 'oc_costo', titulo: 'Compras recibidas sin costo', cantidad: o.compras.sinCosto.length,
-      detalle: 'Productos que entraron a precio $0: el inventario y el margen del mes quedan mal valorizados.',
-      enlace: '/compras',
-    },
-    {
-      id: 'oc_factura', titulo: 'Compras recibidas sin factura del proveedor', cantidad: o.compras.sinFactura.length,
-      detalle: 'Sin folio de factura, su IVA no se cuenta como crédito fiscal.',
-      enlace: '/compras',
-    },
-    {
-      id: 'gastos', titulo: 'Gastos sin categoría o sin sucursal', cantidad: gastosIncompletos.length,
-      detalle: 'No se pueden asignar bien al resultado de cada tienda.',
-      enlace: '/contabilidad',
-    },
-    {
-      id: 'stock', titulo: 'Productos con stock negativo', cantidad: o.stockNegativo,
-      detalle: 'Se vendió más de lo que el sistema tenía: falta registrar una compra o hacer un conteo.',
-      enlace: '/inventario',
-    },
-    {
-      id: 'ordenes', titulo: 'Órdenes entregadas sin venta', cantidad: sinCobrar.length,
-      detalle: 'Equipos entregados con presupuesto que no tienen una venta registrada en Pixit.',
-      enlace: '/taller',
-    },
-    {
-      id: 'online', titulo: 'Pedidos de la tienda online sin gestionar', cantidad: pedidosSinGestionar.length,
-      detalle: 'Pedidos pagados del mes que siguen como "nuevo".',
-      enlace: '/ecommerce',
-    },
+    punto('cajas', 'Cajas sin cerrar',
+      'Mientras una caja siga abierta, sus ventas y su diferencia de efectivo no están confirmadas.',
+      'Abre la caja en Ventas → Punto de venta y ciérrala con el conteo de efectivo.',
+      o.caja.abiertas.map(a => ({
+        clave: a.id,
+        titulo: `Caja abierta el ${diaMes(a.fecha)}`,
+        detalle: `${bodega(a.branchId)} · ${a.responsable || 'sin responsable'}`,
+        enlace: `/ventas?tab=pos&caja=${encodeURIComponent(a.cajaId)}`,
+      }))),
+    punto('dte', 'Boletas y facturas pendientes o rechazadas por el SII',
+      'Documentos del mes que no llegaron al SII o que el SII rechazó.',
+      'Abre la venta para ver el error y volver a emitir el documento.',
+      o.dtes.filter(dteConProblema).map((d, i) => ({
+        clave: `${d.tipo_dte}-${d.folio ?? i}`,
+        titulo: `${TIPO_DTE[d.tipo_dte ?? 0] ?? 'Documento'} ${d.folio ? `N° ${d.folio}` : ''} · ${ESTADO_DTE[d.estado] ?? d.estado}`.trim(),
+        detalle: d.ultimo_error ?? undefined,
+        enlace: d.venta_id ? `/ventas?abrir=${encodeURIComponent(d.venta_id)}` : '/ventas',
+      }))),
+    punto('oc_costo', 'Compras recibidas sin costo',
+      'Productos que entraron a precio $0: el inventario y el margen del mes quedan mal valorizados.',
+      'Edita la orden de compra y pon el precio neto de cada producto.',
+      o.compras.sinCosto.map(c => ({
+        clave: c.id,
+        titulo: `${c.numero} · ${c.proveedor}`,
+        detalle: `${c.lineas} ${c.lineas === 1 ? 'producto' : 'productos'} a $0`,
+        enlace: `/compras?abrir=${encodeURIComponent(c.id)}`,
+      }))),
+    punto('oc_factura', 'Compras recibidas sin factura del proveedor',
+      'Sin folio de factura, su IVA no se cuenta como crédito fiscal.',
+      'Edita la orden de compra y escribe el folio de la factura del proveedor.',
+      o.compras.sinFactura.map(c => ({
+        clave: c.id,
+        titulo: `${c.numero} · ${c.proveedor}`,
+        detalle: pesos(c.total),
+        enlace: `/compras?abrir=${encodeURIComponent(c.id)}`,
+      }))),
+    punto('gastos', 'Gastos sin categoría o sin sucursal',
+      'No se pueden asignar bien al resultado de cada tienda.',
+      'Edita el gasto y elige su categoría y sucursal (o "General" si es de todas).',
+      o.gastos.filter(g => !g.categoria?.trim() || !g.bodega_id).map(g => ({
+        clave: g.id,
+        titulo: `${diaMes(g.fecha)} · ${g.descripcion || 'Sin descripción'}`,
+        detalle: `${pesos(Number(g.monto) || 0)} · falta ${!g.categoria?.trim() ? 'categoría' : 'sucursal'}`,
+        enlace: `/contabilidad?abrir=${encodeURIComponent(g.id)}`,
+      }))),
+    stock,
+    punto('ordenes', 'Órdenes entregadas sin venta',
+      'Equipos entregados con presupuesto que no tienen una venta registrada en Pixit.',
+      'Abre la orden y cóbrala, o si fue garantía, deja el presupuesto en $0.',
+      o.ordenesEntregadas.filter(ordenSinCobrar).map(ord => ({
+        clave: ord.id,
+        titulo: `Orden N° ${ord.num ?? ''}${ord.cliente ? ` · ${ord.cliente}` : ''}`,
+        detalle: `Presupuesto ${pesos(Number(ord.presup) || 0)}`,
+        enlace: `/taller?abrir=${encodeURIComponent(String(ord.num ?? ''))}`,
+      }))),
+    punto('online', 'Pedidos de la tienda online sin gestionar',
+      'Pedidos pagados del mes que siguen como "nuevo".',
+      'Abre el pedido y cámbiale el estado (preparando, despachado o entregado).',
+      o.pedidosOnline.filter(p => p.estado_gestion === 'nuevo').map((p, i) => ({
+        clave: p.id ?? String(i),
+        titulo: `Pedido ${p.numero ? `#${p.numero}` : ''}${p.cliente_nombre ? ` · ${p.cliente_nombre}` : ''}`.trim(),
+        detalle: pesos(p.total),
+        enlace: p.id ? `/ecommerce?abrir=${encodeURIComponent(p.id)}` : '/ecommerce',
+      }))),
   ]
 }
 

@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/context/AuthContext'
-import type { DteCierre, FotoCierre, PedidoOnlineCierre, VentaCierre } from '@/lib/cierre'
+import type { DteCierre, FotoCierre, PedidoOnlineCierre, StockNegativoCierre, VentaCierre } from '@/lib/cierre'
 
 // Datos del mes que no tienen hook propio en queries.ts. Los demás (gastos,
 // OC, cajas, órdenes entregadas, rentabilidad) se reutilizan desde ahí.
@@ -44,7 +44,7 @@ export function useDtesCierre(desde: string, hasta: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('dte_documentos')
-        .select('estado,ambiente,creado_en')
+        .select('estado,ambiente,creado_en,venta_id,folio,tipo_dte,ultimo_error')
         .eq('empresa_id', empresaId!)
         .gte('creado_en', `${desde}T00:00:00`)
         .lte('creado_en', `${hasta}T23:59:59.999`)
@@ -62,7 +62,7 @@ export function usePedidosOnlineCierre(desde: string, hasta: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('ecommerce_pedidos')
-        .select('total,estado_gestion')
+        .select('id,numero,cliente_nombre,total,estado_gestion')
         .eq('empresa_id', empresaId!)
         .gte('pagado_en', `${desde}T00:00:00`)
         .lte('pagado_en', `${hasta}T23:59:59.999`)
@@ -75,22 +75,28 @@ export function usePedidosOnlineCierre(desde: string, hasta: string) {
 }
 
 /**
- * Cuántas filas de stock hay bajo cero. producto_stock no tiene empresa_id,
- * así que se filtra por la del producto: un platform admin impersonando ve
- * por RLS el stock de todas las empresas. null = no se pudo revisar.
+ * Stock bajo cero, con el producto y la sucursal. producto_stock no tiene
+ * empresa_id, así que se filtra por la del producto: un platform admin
+ * impersonando ve por RLS el stock de todas las empresas. null = no se pudo
+ * revisar.
  */
 export function useStockNegativo() {
   const { empresaId } = useAuth()
   return useQuery({
     queryKey: ['cierre-stock-negativo', empresaId],
     queryFn: async () => {
-      const { count, error } = await supabase
+      const { data, error } = await supabase
         .from('producto_stock')
-        .select('producto_id, productos!inner(empresa_id)', { count: 'exact', head: true })
+        .select('producto_id, bodega_id, cantidad, productos!inner(empresa_id, nombre)')
         .eq('productos.empresa_id', empresaId!)
         .lt('cantidad', 0)
+        .order('cantidad')
+        .limit(500)
       if (error) return null
-      return count ?? 0
+      return (data ?? []).map((r): StockNegativoCierre => {
+        const prod = (Array.isArray(r.productos) ? r.productos[0] : r.productos) as { nombre?: string } | null
+        return { producto_id: r.producto_id, bodega_id: r.bodega_id, cantidad: Number(r.cantidad) || 0, nombre: prod?.nombre || 'Producto sin nombre' }
+      })
     },
     enabled: !!empresaId,
   })

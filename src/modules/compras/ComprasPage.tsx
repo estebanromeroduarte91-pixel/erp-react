@@ -1104,7 +1104,20 @@ export function ComprasPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- setSection omitida a propósito, ver comentario arriba
   }, [location.state])
 
-  const { data: rawOcs = [] } = useOCs()
+  const { data: rawOcs = [], isSuccess: ocsCargadas } = useOCs()
+
+  // Deep-link desde Estadísticas → Cierres: ?abrir=<id de OC> abre su edición
+  // (para ponerle el costo o el folio de la factura que faltan).
+  const [abrirSynced, setAbrirSynced] = useState(false)
+  const abrirParam = searchParams.get('abrir')
+  if (!abrirSynced && abrirParam && ocsCargadas) {
+    setAbrirSynced(true)
+    const oc = rawOcs.find(o => o.id === abrirParam)
+    if (oc) setModal({ type: 'nueva', oc })
+    const next = new URLSearchParams(searchParams)
+    next.delete('abrir')
+    setSearchParams(next, { replace: true })
+  }
   const { data: log = [] } = useOCLog()
   const { data: proveedores = [] } = useProveedores()
   const { data: bodegas = [] } = useBodegas()
@@ -1317,7 +1330,7 @@ export function ComprasPage() {
         </label>
         {periodo === 'mes' && <div className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-2 py-1">
           <button type="button" onClick={() => cambiarMes(-1)} aria-label="Mes anterior" className="rounded-lg px-3 py-1.5 text-gray-500 hover:bg-gray-100">‹</button>
-          <span className="min-w-[140px] text-center text-sm font-semibold text-gray-800 capitalize">{new Date(`${mes}-01T12:00:00`).toLocaleDateString('es-CL', { month: 'long', year: 'numeric' })}</span>
+          <span className="min-w-[140px] text-center text-sm font-semibold text-gray-800 capitalize">{new Date(`${mes}-01T12:00:00`).toLocaleDateString('es-CL', { month: 'long' })} {mes.slice(0, 4)}</span>
           <button type="button" onClick={() => cambiarMes(1)} aria-label="Mes siguiente" className="rounded-lg px-3 py-1.5 text-gray-500 hover:bg-gray-100">›</button>
         </div>}
         {periodo === 'rango' && <>

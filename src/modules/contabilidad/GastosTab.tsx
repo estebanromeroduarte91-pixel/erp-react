@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
+import { useSearchParams } from 'react-router-dom'
 import { useGastos, useCrearGasto, useActualizarGasto, useEliminarGasto, useGastoCats, useGuardarGastoCats, useBodegas, useUserProfiles, useGastoCategoriaConfig, useGastoComportamientoConfig } from '@/lib/queries'
 import { separarIva } from '@/lib/metricas'
 import { GASTO_GENERAL_ID } from '@/lib/gastos'
@@ -105,6 +106,20 @@ export function GastosTab() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editando, setEditando] = useState<Gasto | null>(null)
   const listaRef = useRef<HTMLDivElement>(null)
+
+  // Deep-link desde Estadísticas → Cierres: ?abrir=<id de gasto> abre su
+  // edición (para completar la categoría o la sucursal que faltan).
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [abrirSynced, setAbrirSynced] = useState(false)
+  const abrirParam = searchParams.get('abrir')
+  if (!abrirSynced && abrirParam && gastos) {
+    setAbrirSynced(true)
+    const g = gastos.find(x => x.id === abrirParam)
+    if (g) { setEditando(g); setModalOpen(true) }
+    const next = new URLSearchParams(searchParams)
+    next.delete('abrir')
+    setSearchParams(next, { replace: true })
+  }
 
   // Drag & drop de pills. `dragIdx` afecta el render (resalta el destino), así
   // que es estado real, no un ref — leerlo durante el render no está permitido para refs.

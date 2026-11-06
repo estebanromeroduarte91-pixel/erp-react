@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createPortal } from 'react-dom'
+import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { Spinner } from '@/components/shared/Spinner'
@@ -162,6 +163,39 @@ export function EcommercePage() {
   const [desde, setDesde] = useState(inicioMes)
   const [hasta, setHasta] = useState(hoy)
   const [detalle, setDetalle] = useState<PedidoEcommerce | null>(null)
+
+  // Deep-link desde Estadísticas → Cierres: ?abrir=<id de pedido> abre su
+  // detalle aunque sea de otro mes que el que muestra la lista.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [abrirId] = useState(() => searchParams.get('abrir'))
+  const [abrirHecho, setAbrirHecho] = useState(false)
+  const pedidoAbrir = useQuery({
+    queryKey: ['ecommerce-pedido', empresaId, abrirId],
+    enabled: !!empresaId && !!abrirId && !abrirHecho,
+    queryFn: async () => {
+      const { data, error } = await supabase.from('ecommerce_pedidos')
+        .select('id,pedido_externo_id,numero,estado_origen,estado_gestion,moneda,total,subtotal_productos,costo_envio,metodo_pago_titulo,cliente_nombre,cliente_email,cliente_telefono,facturacion,envio,items,nota_cliente,pagado_en,creado_en_origen,recibido_en,stock_resultado')
+        .eq('empresa_id', empresaId!)
+        .eq('id', abrirId!)
+        .maybeSingle()
+      if (error) throw error
+      return data
+    },
+  })
+  if (abrirId && !abrirHecho && (pedidoAbrir.isSuccess || pedidoAbrir.isError)) {
+    setAbrirHecho(true)
+    const p = pedidoAbrir.data
+    if (p) setDetalle({
+      ...p,
+      total: Number(p.total ?? 0),
+      subtotal_productos: Number(p.subtotal_productos ?? p.total ?? 0),
+      costo_envio: Number(p.costo_envio ?? 0),
+      items: (p.items ?? []) as unknown as ItemPedido[],
+    } as PedidoEcommerce)
+    const next = new URLSearchParams(searchParams)
+    next.delete('abrir')
+    setSearchParams(next, { replace: true })
+  }
   const [plataformaSeleccionada, setPlataformaSeleccionada] = useState<PlataformaEcommerce | null>(null)
   const [mensajeConexion, setMensajeConexion] = useState<string | null>(null)
   const limites = useMemo(() => limitesPeriodo(periodo, desde, hasta), [periodo, desde, hasta])

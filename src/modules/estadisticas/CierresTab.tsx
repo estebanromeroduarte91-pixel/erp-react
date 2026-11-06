@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   useBodegas, useCajaSesiones, useGastoCategoriaConfig, useGastosEnRango, useMetodosPago, useOCs,
@@ -56,6 +56,11 @@ export function CierresTab() {
   const cargando = ventas.isLoading || gastos.isLoading || ocs.isLoading || rentabilidad.isLoading
   const error = ventas.error || gastos.error || ocs.error || rentabilidad.error
 
+  const nombreBodega = useCallback((id: string) => {
+    const b = bodegas.find(x => x.id === id)
+    return b?.nombre || b?.name || 'Sin sucursal'
+  }, [bodegas])
+
   const datos = useMemo(() => {
     if (!ventas.data || !gastos.data || !ocs.data) return null
     const compras = comprasDelMes(ocs.data, desde, hasta)
@@ -68,10 +73,11 @@ export function CierresTab() {
       iva: ivaDelMes({ ventas: ventas.data, gastos: gastos.data, ivaCompras: compras.ivaConFactura }),
       revision: revisionCierre({
         caja, dtes, compras, gastos: gastos.data, stockNegativo,
-        ordenesEntregadas: ordenes.map((o): OrdenEntregadaCierre => ({ id: o.id, num: o.num ?? null, venta_id: o.venta_id ?? null, numero_boleta: o.numero_boleta, presup: o.presup })), pedidosOnline,
+        ordenesEntregadas: ordenes.map((o): OrdenEntregadaCierre => ({ id: o.id, num: o.num ?? null, cliente: [o.nombre, o.apellido].filter(Boolean).join(' '), venta_id: o.venta_id ?? null, numero_boleta: o.numero_boleta, presup: o.presup })), pedidosOnline,
+        nombreBodega,
       }),
     }
-  }, [ventas.data, gastos.data, ocs.data, configNaturaleza, sesiones, pedidosOnline, dtes, stockNegativo, ordenes, desde, hasta])
+  }, [ventas.data, gastos.data, ocs.data, configNaturaleza, sesiones, pedidosOnline, dtes, stockNegativo, ordenes, desde, hasta, nombreBodega])
 
   const foto = useMemo(() => {
     if (!datos || !rentabilidad.data) return null
@@ -79,10 +85,6 @@ export function CierresTab() {
     return fotoCierre({ ventasNetas: c.ventasNetas, resultado: c.resultado, flujo: datos.flujo, iva: datos.iva, revision: datos.revision })
   }, [datos, rentabilidad.data])
 
-  const nombreBodega = (id: string) => {
-    const b = bodegas.find(x => x.id === id)
-    return b?.nombre || b?.name || 'Sin sucursal'
-  }
 
   return <div className="space-y-4">
     <div className="flex flex-wrap items-center justify-between gap-3">
@@ -238,6 +240,7 @@ function BarraCierre({ mes, foto, guardado }: { mes: string; foto: FotoCierre; g
 
 function Revision({ puntos }: { puntos: ReturnType<typeof revisionCierre> }) {
   const pendientes = puntos.filter(p => p.cantidad == null || p.cantidad > 0)
+  const [abierto, setAbierto] = useState<string | null>(null)
   return <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
     <div className="flex items-center justify-between gap-2">
       <div>
@@ -250,18 +253,37 @@ function Revision({ puntos }: { puntos: ReturnType<typeof revisionCierre> }) {
         {puntos.length - pendientes.length}/{puntos.length}
       </span>
     </div>
-    <div className="mt-3 grid gap-2 md:grid-cols-2">
+    <div className="mt-3 space-y-2">
       {puntos.map(p => {
         const ok = p.cantidad === 0
-        return <div key={p.id} className={`flex items-start gap-3 rounded-xl border px-3 py-2.5 ${ok ? 'border-gray-100' : 'border-amber-200 bg-amber-50/50'}`}>
-          <span aria-hidden="true" className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full text-[11px] font-bold ${ok ? 'bg-blue-100 text-blue-700' : 'bg-amber-200 text-amber-900'}`}>
-            {ok ? '✓' : '!'}
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-gray-800">{p.titulo}{p.cantidad ? ` (${p.cantidad})` : ''}</p>
-            {!ok && <p className="text-xs leading-5 text-gray-500">{p.cantidad == null ? 'No se pudo revisar.' : p.detalle}</p>}
-          </div>
-          {!ok && <Link to={p.enlace} className="shrink-0 text-xs font-semibold text-blue-600 hover:underline">Revisar</Link>}
+        const expandido = abierto === p.id
+        return <div key={p.id} className={`rounded-xl border ${ok ? 'border-gray-100' : 'border-amber-200 bg-amber-50/50'}`}>
+          <button type="button" disabled={ok || p.cantidad == null} onClick={() => setAbierto(expandido ? null : p.id)}
+            aria-expanded={expandido}
+            className="flex w-full items-start gap-3 px-3 py-2.5 text-left disabled:cursor-default">
+            <span aria-hidden="true" className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full text-[11px] font-bold ${ok ? 'bg-blue-100 text-blue-700' : 'bg-amber-200 text-amber-900'}`}>
+              {ok ? '✓' : '!'}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-semibold text-gray-800">{p.titulo}{p.cantidad ? ` (${p.cantidad})` : ''}</span>
+              {!ok && <span className="block text-xs leading-5 text-gray-500">{p.cantidad == null ? 'No se pudo revisar.' : p.detalle}</span>}
+            </span>
+            {!ok && p.cantidad != null && <span className="shrink-0 text-xs font-semibold text-blue-600">{expandido ? 'Ocultar' : 'Ver cuáles'}</span>}
+          </button>
+          {expandido && <div className="border-t border-amber-200 px-3 pb-3 pt-2">
+            <p className="mb-2 text-xs font-medium text-amber-900">{p.comoCorregir}</p>
+            <ul className="divide-y divide-amber-100 rounded-lg bg-white">
+              {p.items.map(it => <li key={it.clave}>
+                <Link to={it.enlace} className="flex items-center justify-between gap-3 px-3 py-2 hover:bg-gray-50">
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm text-gray-800">{it.titulo}</span>
+                    {it.detalle && <span className="block truncate text-xs text-gray-500">{it.detalle}</span>}
+                  </span>
+                  <span className="shrink-0 text-xs font-semibold text-blue-600">Corregir →</span>
+                </Link>
+              </li>)}
+            </ul>
+          </div>}
         </div>
       })}
     </div>

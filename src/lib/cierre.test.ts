@@ -130,9 +130,39 @@ describe('caja y revisión', () => {
     const puntos = revisionCierre({
       caja: cajaDelMes([], [], OCT.desde, OCT.hasta),
       dtes: [], compras: comprasDelMes([], OCT.desde, OCT.hasta), gastos: [gasto({})],
-      stockNegativo: 0, ordenesEntregadas: [], pedidosOnline: [],
+      stockNegativo: [], ordenesEntregadas: [], pedidosOnline: [],
     })
     expect(puntos.every(p => p.cantidad === 0)).toBe(true)
+  })
+
+  it('cada punto pendiente trae sus registros con el enlace que los abre', () => {
+    const puntos = revisionCierre({
+      caja: cajaDelMes([sesion({ id: 's1', cajaId: 'caja-ld', estado: 'abierta', cierre: null })], [], OCT.desde, OCT.hasta),
+      dtes: [{ estado: 'rechazado', ambiente: 'produccion', creado_en: '', venta_id: 'v9', folio: 120, tipo_dte: 39, ultimo_error: 'RUT inválido' }],
+      compras: comprasDelMes([], OCT.desde, OCT.hasta),
+      gastos: [gasto({ id: 'g7', categoria: '', descripcion: 'Luz', monto: 30_000 })],
+      stockNegativo: [{ producto_id: 'p1', nombre: 'Pantalla A12', bodega_id: 'b1', cantidad: -2 }],
+      ordenesEntregadas: [{ id: 'o1', num: '0042', cliente: 'Ana', venta_id: null, presup: 45000 }],
+      pedidosOnline: [{ id: 'pe1', numero: '1001', cliente_nombre: 'Luis', total: 59_500, estado_gestion: 'nuevo' }],
+      nombreBodega: id => (id === 'b1' ? 'Los Dominicos' : id),
+    })
+    const enlaces = Object.fromEntries(puntos.map(p => [p.id, p.items.map(i => i.enlace)]))
+    expect(enlaces.cajas).toEqual(['/ventas?tab=pos&caja=caja-ld'])
+    expect(enlaces.dte).toEqual(['/ventas?abrir=v9'])
+    expect(enlaces.gastos).toEqual(['/contabilidad?abrir=g7'])
+    expect(enlaces.stock).toEqual(['/inventario?abrir=p1'])
+    expect(enlaces.ordenes).toEqual(['/taller?abrir=0042'])
+    expect(enlaces.online).toEqual(['/ecommerce?abrir=pe1'])
+    expect(puntos.find(p => p.id === 'stock')!.items[0].detalle).toBe('Los Dominicos: -2 u.')
+    expect(puntos.find(p => p.id === 'dte')!.items[0].titulo).toBe('Boleta N° 120 · rechazada por el SII')
+  })
+
+  it('el stock que no se pudo revisar queda como pendiente sin cantidad', () => {
+    const puntos = revisionCierre({
+      caja: cajaDelMes([], [], OCT.desde, OCT.hasta), dtes: [], compras: comprasDelMes([], OCT.desde, OCT.hasta),
+      gastos: [], stockNegativo: null, ordenesEntregadas: [], pedidosOnline: [],
+    })
+    expect(puntos.find(p => p.id === 'stock')!.cantidad).toBeNull()
   })
 })
 
