@@ -83,3 +83,14 @@ input, select, textarea, button {
     box-shadow: 0 0 0 3px var(--accent-ring);
   }
 }
+
+/* Fechas con ícono propio (Dashboard → Rango): se oculta el ícono nativo del
+   navegador, que aparecía junto al dibujado y se veía duplicado. El campo
+   entero sigue abriendo el calendario (showPicker en escritorio, toque en
+   el celular). */
+input[type="date"].fecha-icono-propio::-webkit-calendar-picker-indicator {
+  opacity: 0;
+  width: 0;
+  margin: 0;
+  padding: 0;
+}

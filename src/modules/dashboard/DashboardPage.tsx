@@ -121,11 +121,12 @@ function DateField({ value, onChange, label, isMobile }: { value: string; onChan
     <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
       <input
         type="date"
+        className="fecha-icono-propio"
         value={value}
         onChange={e => onChange(e.target.value)}
         onClick={e => { if (!isMobile) { try { (e.target as HTMLInputElement).showPicker() } catch { /* showPicker no soportado en este navegador — ignorar */ } } }}
         style={{
-          width: '100%', fontSize: 16, padding: '8px 10px',
+          width: '100%', fontSize: 16, padding: '8px 32px 8px 10px',
           border: `0.5px solid ${C.border}`, borderRadius: 10,
           background: C.card, fontFamily: 'inherit', outline: 'none',
           WebkitAppearance: 'none', appearance: 'none',
@@ -133,18 +134,16 @@ function DateField({ value, onChange, label, isMobile }: { value: string; onChan
           boxSizing: 'border-box',
         }}
       />
-      {!value && (
-        <div style={{
-          position: 'absolute', inset: 0, display: 'flex', alignItems: 'center',
-          padding: '0 10px', pointerEvents: 'none', gap: 4,
-        }}>
-          <span style={{ fontSize: 13, color: C.textMuted, flex: 1 }}>{label}</span>
-          <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
-            <rect x="1" y="2.5" width="13" height="11.5" rx="2" stroke={C.textMuted} strokeWidth="1.1"/>
-            <path d="M1 6h13M5 1v3M10 1v3" stroke={C.textMuted} strokeWidth="1.1" strokeLinecap="round"/>
-          </svg>
-        </div>
-      )}
+      <div style={{
+        position: 'absolute', inset: 0, display: 'flex', alignItems: 'center',
+        padding: '0 10px', pointerEvents: 'none', gap: 4,
+      }}>
+        <span style={{ fontSize: 13, color: C.textMuted, flex: 1 }}>{value ? '' : label}</span>
+        <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
+          <rect x="1" y="2.5" width="13" height="11.5" rx="2" stroke={C.textMuted} strokeWidth="1.1"/>
+          <path d="M1 6h13M5 1v3M10 1v3" stroke={C.textMuted} strokeWidth="1.1" strokeLinecap="round"/>
+        </svg>
+      </div>
     </div>
   )
 }
