@@ -86,7 +86,7 @@ export function ReportesTab() {
     for (const f of rentabilidad.data?.filas ?? []) {
       const producto = productosPorId.get(f.producto_id)
       const tipo = clasificarTipoReparacion(f.nombre, producto?.categoria, producto?.tipo)
-      const clave = f.nombre.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('es-CL').trim().replace(/\s+/g, ' ')
+      const clave = (f.nombre ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('es-CL').trim().replace(/\s+/g, ' ')
       const productos = tipos.get(tipo) ?? new Map<string, FilaRentabilidadVista>()
       const actual = productos.get(clave) ?? { id: `${tipo}:${clave}`, nombre: f.nombre, unidades: 0, neto: 0, costo: 0, margen: 0 }
       actual.unidades += +f.unidades || 0

@@ -24,6 +24,18 @@ describe('coincideBusqueda', () => {
 })
 
 describe('clasificarTipoReparacion', () => {
+  it('admite categorías nulas de productos vendidos sin romper Reportes BI', () => {
+    expect(clasificarTipoReparacion('iPhone 13 Batería', null)).toBe('Baterías')
+    expect(clasificarTipoReparacion('Diagnóstico general', null, 'servicio')).toBe('Otros servicios')
+    expect(clasificarTipoReparacion('Repuesto genérico', null)).toBe('Otros productos')
+    expect(clasificarTipoReparacion('Repuesto genérico', undefined)).toBe('Otros productos')
+  })
+
+  it('tolera nombres ausentes sin inventar un tipo de reparación', () => {
+    expect(clasificarTipoReparacion(null, null)).toBe('Otros productos')
+    expect(clasificarTipoReparacion(undefined, 'Accesorios')).toBe('Accesorios')
+  })
+
   it('agrupa modelos distintos por el repuesto o trabajo realizado', () => {
     expect(clasificarTipoReparacion('iPhone 15 Pro Pantalla Original')).toBe('Pantallas')
     expect(clasificarTipoReparacion('Samsung A05 Display OLED')).toBe('Pantallas')

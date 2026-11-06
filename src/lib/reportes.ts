@@ -52,14 +52,14 @@ export function coincideBusqueda(texto: string, consulta: string): boolean {
 }
 
 /** Agrupa nombres comerciales por el trabajo o repuesto que representan. */
-export function clasificarTipoReparacion(nombre: string, categoria = '', tipo?: 'producto' | 'servicio'): string {
-  const n = nombre
+export function clasificarTipoReparacion(nombre: string | null | undefined, categoria?: string | null, tipo?: 'producto' | 'servicio'): string {
+  const n = (nombre ?? '')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLocaleLowerCase('es-CL')
     .replace(/[^a-z0-9]+/g, ' ')
     .trim()
-  const cat = categoria.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('es-CL').trim()
+  const cat = (categoria ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('es-CL').trim()
 
   if (/\b(face id|touch id|sensor|proximidad)\b/.test(n)) return 'Sensores y biometría'
   if (/\b(pantalla|display|lcd|oled|glass|touch)\b/.test(n)) return 'Pantallas'
