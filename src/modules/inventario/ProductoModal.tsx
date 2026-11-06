@@ -423,7 +423,7 @@ export function ProductoModal({ producto, productos, bodegas, onClose, onGuardad
               </div>}
               {verSecundarios && !esServicio && <div className="col-span-2">
                 <label className="text-xs font-medium text-gray-600 mb-1 block">Sirve también para (opcional)</label>
-                <div className="flex flex-wrap items-center gap-1.5 w-full border border-gray-200 rounded-lg px-2 py-1.5 bg-gray-50 focus-within:border-blue-400">
+                <div className="flex flex-wrap items-center gap-1.5 w-full border border-gray-200 rounded-lg px-2 py-1.5 bg-gray-50 focus-within:border-blue-400 focus-within:ring-[3px] focus-within:ring-blue-100">
                   {modelos.map((m) => (
                     <span key={m} className="inline-flex items-center gap-1 rounded-md bg-blue-50 text-blue-700 text-xs font-medium pl-2 pr-1 py-1">
                       {m}
@@ -447,7 +447,7 @@ export function ProductoModal({ producto, productos, bodegas, onClose, onGuardad
                     }}
                     onBlur={() => { if (modeloNuevo.trim()) { setModelos(agregarModelos(modelos, modeloNuevo)); setModeloNuevo('') } }}
                     placeholder={modelos.length ? 'Agregar otro…' : 'Ej: iPhone 12 Pro'}
-                    className="flex-1 min-w-[8rem] bg-transparent px-1 py-0.5 text-base md:text-sm focus:outline-none" />
+                    className="flex-1 min-w-[8rem] !border-0 !bg-transparent !px-1 !py-0.5 !rounded-none focus:!shadow-none text-base md:text-sm focus:outline-none" />
                 </div>
                 <p className="text-[11px] text-gray-400 mt-1">
                   Otros equipos que usan este mismo repuesto. Es un solo producto con un solo stock:

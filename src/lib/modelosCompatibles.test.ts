@@ -26,3 +26,26 @@ describe('modelos compatibles', () => {
     expect(puntuarBusqueda('bateria 13', campos)).toBeNull()
   })
 })
+
+describe('palabras de búsqueda de productos', () => {
+  it('quedan sin tildes ni comodines, igual que texto_busqueda', async () => {
+    const { palabrasBusquedaProducto } = await import('./texto')
+    expect(palabrasBusquedaProducto('  Batería  iPhone 12%_ ')).toEqual(['bateria', 'iphone', '12'])
+    expect(palabrasBusquedaProducto('PANTALLA Niño')).toEqual(['pantalla', 'nino'])
+    expect(palabrasBusquedaProducto('   ')).toEqual([])
+  })
+})
+
+describe('orden de la búsqueda de productos', () => {
+  it('pone primero el que calza por número completo y deja los demás al final', async () => {
+    const { ordenarPorRelevancia } = await import('./queries')
+    const p = (id: string, nombre: string, extra = {}) => ({ id, nombre, categoria: 'Batería', ...extra })
+    const orden = ordenarPorRelevancia('bateria 12 pro', [
+      p('a', 'MacBook Pro A3112 Batería'),
+      p('b', 'iPhone 12 Pro Max Batería'),
+      p('c', 'iPhone 12', { modelos_compatibles: 'iPhone 12 Pro' }),
+    ]).map(x => x.id)
+    expect(orden.slice(0, 2).sort()).toEqual(['b', 'c'])
+    expect(orden[2]).toBe('a')
+  })
+})

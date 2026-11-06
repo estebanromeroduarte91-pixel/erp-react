@@ -17,6 +17,7 @@ import { errorEnResultadosDte, type ResultadoProcesoDte } from './dteProceso'
 import { DEFAULT_PLAN_LIMITS, type PlanTier } from './queries/usePlanLimits'
 import { useAuth } from '@/context/AuthContext'
 import type { Orden, Repuesto, Cliente, Producto, Bodega, Movimiento, Proveedor, Venta, VentaItem, MetodoPago, Caja, CajaSesion, Gasto, GastoCat, NaturalezaGasto, ComportamientoGasto, CuentaContable, Asiento, SeguimientoConfig, SmtpConfig, MsgTemplates, Cargo, UserProfile, UserConfig, PendingInvite, EmailDomain, OC, OCLogEntry, OCRecepcion, Categoria, Kit, Traslado, TrasladoInternoOrden, TecnicoExterno, Equipo, FichaUsuario, LoteInventario, ConteoInventario, Cotizacion } from '@/types'
+import { palabrasBusquedaProducto, puntuarBusqueda } from './texto'
 
 // ── Órdenes de Taller ─────────────────────────────────────────
 // Tabla relacional `ordenes` (migrada desde el blob erp_data/tp_orders).
@@ -661,28 +662,48 @@ export function useCostosProductos(productoIds: string[]) {
   })
 }
 
-// Búsqueda del lado del servidor por nombre o SKU (ilike + índice pg_trgm), limitada.
-// Reemplaza el patrón `productos.filter(...).slice(0, N)` que corría en el navegador.
+// Búsqueda del lado del servidor, limitada. Reemplaza el patrón
+// `productos.filter(...).slice(0, N)` que corría en el navegador.
+//
+// Busca en `texto_busqueda`, una columna generada en Postgres que junta
+// nombre, SKU, categoría, subcategoría y modelos compatibles sin tildes y en
+// minúsculas (supabase/71). Lo escrito pasa por el mismo filtro, así que
+// "bateria 12 pro" encuentra la "Batería iPhone 12" que sirve para el 12 Pro.
+// Cada palabra debe aparecer (en cualquier orden): encadenar filtros los
+// combina con AND.
+export function ordenarPorRelevancia(consulta: string, productos: Producto[]): Producto[] {
+  return productos
+    .map((producto, posicion) => ({
+      producto,
+      posicion,
+      puntaje: puntuarBusqueda(consulta, {
+        principal: producto.nombre,
+        codigo: producto.sku,
+        secundarios: [producto.categoria, producto.subcategoria, producto.modelos_compatibles],
+      }) ?? -1,
+    }))
+    .sort((a, b) => b.puntaje - a.puntaje || a.posicion - b.posicion)
+    .map(item => item.producto)
+}
+
 export function useBuscarProductos(query: string) {
   const { empresaId } = useAuth()
-  const safe = query.replace(/[%,()]/g, ' ').trim()
+  const palabras = palabrasBusquedaProducto(query)
+  const clave = palabras.join(' ')
   return useQuery({
-    queryKey: ['productos', empresaId, 'buscar', safe],
+    queryKey: ['productos', empresaId, 'buscar', clave],
     queryFn: async () => {
-      // Match por palabras sueltas: cada término debe aparecer en nombre o sku
-      // (encadenar .or() los combina con AND). Así "iphone 11 pantalla" encuentra
-      // "Pantalla iPhone 11" aunque el orden de las palabras sea distinto —antes
-      // se exigía la frase completa como substring contiguo y no calzaba.
-      // También busca en los modelos compatibles: "batería 12 pro" encuentra
-      // la "Batería iPhone 12" que sirve para el 12 Pro.
-      const palabras = safe.split(/\s+/).filter(Boolean)
       let q = supabase.from('productos').select(PRODUCTO_COLS).eq('empresa_id', empresaId!)
-      for (const p of palabras) q = q.or(`nombre.ilike.%${p}%,sku.ilike.%${p}%,modelos_compatibles.ilike.%${p}%`)
-      const { data, error } = await q.limit(20)
+      for (const p of palabras) q = q.ilike('texto_busqueda', `%${p}%`)
+      // El ilike no sabe de relevancia: "12" también calza dentro de A3112.
+      // Se traen más candidatos y se ordenan como en Inventario (número como
+      // palabra completa, nombre antes que categoría). Los que no puntúan no
+      // se descartan, van al final: así un SKU a medio escribir sigue saliendo.
+      const { data, error } = await q.limit(100)
       if (error) throw error
-      return (data ?? []).map(hidratarProducto)
+      return ordenarPorRelevancia(clave, (data ?? []).map(hidratarProducto)).slice(0, 20)
     },
-    enabled: !!empresaId && safe.length > 0,
+    enabled: !!empresaId && palabras.length > 0,
   })
 }
 

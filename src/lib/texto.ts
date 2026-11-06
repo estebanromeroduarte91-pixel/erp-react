@@ -124,3 +124,12 @@ export function buscarSimilar(texto: string, existentes: string[]): string | und
   if (exacto) return undefined
   return existentes.find(e => esCasiIgual(e, limpio))
 }
+
+/**
+ * Palabras para la búsqueda de productos del servidor, en el mismo formato que
+ * la columna `productos.texto_busqueda` (minúsculas, sin tildes). Se quitan
+ * `%`, `_` y `\`, que en un ilike son comodines o escapes.
+ */
+export function palabrasBusquedaProducto(consulta: string): string[] {
+  return normalizar(consulta).replace(/[%_\\]/g, ' ').split(' ').filter(Boolean)
+}
