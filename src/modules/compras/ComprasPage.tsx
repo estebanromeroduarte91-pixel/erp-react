@@ -1330,20 +1330,29 @@ export function ComprasPage() {
       {section === 'ocs' && (<>
 
       <div className="flex flex-wrap items-end gap-3 mb-4">
-        <label className="flex flex-col gap-1 text-xs text-gray-500">Fecha de la OC
-          <select value={periodo} onChange={e => setPeriodo(e.target.value as typeof periodo)} className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800">
-            <option value="mes">Por mes</option><option value="rango">Rango de fechas</option><option value="todo">Todas las fechas</option>
-          </select>
-        </label>
-        {periodo === 'mes' && <div className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-2 py-1">
-          <button type="button" onClick={() => cambiarMes(-1)} aria-label="Mes anterior" className="rounded-lg px-3 py-1.5 text-gray-500 hover:bg-gray-100">‹</button>
-          <span className="min-w-[140px] text-center text-sm font-semibold text-gray-800 capitalize">{new Date(`${mes}-01T12:00:00`).toLocaleDateString('es-CL', { month: 'long' })} {mes.slice(0, 4)}</span>
-          <button type="button" onClick={() => cambiarMes(1)} aria-label="Mes siguiente" className="rounded-lg px-3 py-1.5 text-gray-500 hover:bg-gray-100">›</button>
-        </div>}
-        {periodo === 'rango' && <>
-          <label className="flex flex-col gap-1 text-xs text-gray-500">Desde<input type="date" value={desde} max={hasta || undefined} onChange={e => setDesde(e.target.value)} className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800" /></label>
-          <label className="flex flex-col gap-1 text-xs text-gray-500">Hasta<input type="date" value={hasta} min={desde || undefined} onChange={e => setHasta(e.target.value)} className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800" /></label>
-        </>}
+        {/* Una sola fila de controles a la misma altura (40 px), con la
+            etiqueta arriba del grupo y no solo del selector. */}
+        <div className="flex flex-col gap-1.5">
+          <span className="text-xs font-medium text-gray-500">Fecha de la OC</span>
+          <div className="flex flex-wrap items-center gap-2">
+            <select value={periodo} onChange={e => setPeriodo(e.target.value as typeof periodo)} aria-label="Período"
+              className="h-10 rounded-xl border border-gray-200 bg-white pl-3 pr-8 text-sm font-medium text-gray-800 outline-none focus:border-blue-400">
+              <option value="mes">Por mes</option><option value="rango">Rango de fechas</option><option value="todo">Todas las fechas</option>
+            </select>
+            {periodo === 'mes' && <div className="inline-flex h-10 items-center rounded-xl border border-gray-200 bg-white px-1">
+              <button type="button" onClick={() => cambiarMes(-1)} aria-label="Mes anterior" className="grid h-8 w-8 place-items-center rounded-lg text-lg leading-none text-gray-500 hover:bg-gray-100">‹</button>
+              <span className="w-36 text-center text-sm font-semibold text-gray-800 capitalize">{new Date(`${mes}-01T12:00:00`).toLocaleDateString('es-CL', { month: 'long' })} {mes.slice(0, 4)}</span>
+              <button type="button" onClick={() => cambiarMes(1)} aria-label="Mes siguiente" className="grid h-8 w-8 place-items-center rounded-lg text-lg leading-none text-gray-500 hover:bg-gray-100">›</button>
+            </div>}
+            {periodo === 'rango' && <>
+              <input type="date" value={desde} max={hasta || undefined} onChange={e => setDesde(e.target.value)} aria-label="Desde"
+                className="h-10 rounded-xl border border-gray-200 bg-white px-3 text-sm text-gray-800 outline-none focus:border-blue-400" />
+              <span className="text-xs text-gray-400">a</span>
+              <input type="date" value={hasta} min={desde || undefined} onChange={e => setHasta(e.target.value)} aria-label="Hasta"
+                className="h-10 rounded-xl border border-gray-200 bg-white px-3 text-sm text-gray-800 outline-none focus:border-blue-400" />
+            </>}
+          </div>
+        </div>
         {rangoInvalido && <p role="alert" className="text-xs text-red-600">La fecha Desde debe ser anterior o igual a Hasta.</p>}
       </div>
 
