@@ -1,15 +1,15 @@
 import { useCallback, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  useBodegas, useCajaSesiones, useGastoCategoriaConfig, useGastosEnRango, useMetodosPago, useOCs,
-  useOrdenesEntregadasEnRango, useRentabilidadSucursales,
+  useBodegas, useCajaSesiones, useGastoCategoriaConfig, useGastosEnRango, useGuardarCajaSesiones, useMetodosPago, useOCs,
+  useOrdenesEntregadasEnRango, useRentabilidadSucursales, useVentasEnRango,
 } from '@/lib/queries'
 import {
   useCerrarMes, useCierreGuardado, useDtesCierre, usePedidosOnlineCierre, useReabrirMes, useStockNegativo, useVentasCierre,
   type CierreGuardado,
 } from '@/lib/queries/useCierre'
 import {
-  cajaDelMes, cambiosDesdeCierre, comprasDelMes, flujoDeCaja, fotoCierre, gastosPorNaturaleza, ivaDelMes, mesAnterior, rangoMes, revisionCierre,
+  cajaDelMes, cambiosDesdeCierre, cerrarSesionSinConteo, comprasDelMes, flujoDeCaja, fotoCierre, gastosPorNaturaleza, ivaDelMes, mesAnterior, rangoMes, revisionCierre,
   type FotoCierre, type OrdenEntregadaCierre,
 } from '@/lib/cierre'
 import { cascada } from '@/lib/rentabilidad'
@@ -52,6 +52,19 @@ export function CierresTab() {
   const { data: metodos = [] } = useMetodosPago()
   const { data: bodegas = [] } = useBodegas()
   const { data: guardado = null } = useCierreGuardado(mes)
+  // Ventas completas (con caja) solo si hay cajas olvidadas que cerrar: son
+  // las que dan los totales de cada sesión, igual que el cierre normal.
+  const hayCajasAbiertas = sesiones.some(x => x.estado === 'abierta' && x.fecha >= desde && x.fecha <= hasta)
+  const ventasCompletas = useVentasEnRango(desde, hasta, hayCajasAbiertas)
+  const guardarSesiones = useGuardarCajaSesiones()
+
+  async function cerrarCajas(ids: string[]) {
+    if (!ventasCompletas.data) throw new Error('Todavía se están cargando las ventas del mes.')
+    const porCerrar = new Set(ids)
+    const ventasMes = ventasCompletas.data
+    await guardarSesiones.mutateAsync(sesiones.map(x =>
+      porCerrar.has(x.id) && x.estado === 'abierta' ? cerrarSesionSinConteo(x, ventasMes, metodos) : x))
+  }
 
   const cargando = ventas.isLoading || gastos.isLoading || ocs.isLoading || rentabilidad.isLoading
   const error = ventas.error || gastos.error || ocs.error || rentabilidad.error
@@ -109,7 +122,7 @@ export function CierresTab() {
 
     {datos && <>
       {foto && mes < mesActual && <BarraCierre mes={mes} foto={foto} guardado={guardado} />}
-      <Revision puntos={datos.revision} />
+      <Revision puntos={datos.revision} onCerrarCajas={cerrarCajas} />
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Tarjeta titulo="Resultado del mes" ayuda="¿Ganó plata el negocio? Resta el costo de lo vendido, no lo comprado.">
@@ -238,9 +251,19 @@ function BarraCierre({ mes, foto, guardado }: { mes: string; foto: FotoCierre; g
   </section>
 }
 
-function Revision({ puntos }: { puntos: ReturnType<typeof revisionCierre> }) {
+function Revision({ puntos, onCerrarCajas }: { puntos: ReturnType<typeof revisionCierre>; onCerrarCajas: (ids: string[]) => Promise<void> }) {
   const pendientes = puntos.filter(p => p.cantidad == null || p.cantidad > 0)
   const [abierto, setAbierto] = useState<string | null>(null)
+  const [cerrando, setCerrando] = useState(false)
+  const [error, setError] = useState('')
+
+  async function cerrar(ids: string[]) {
+    const n = ids.length
+    if (!window.confirm(`¿Cerrar ${n === 1 ? 'esta caja' : `estas ${n} cajas`}? Quedan sin diferencia de efectivo, con una nota de que nadie las contó ese día.`)) return
+    setCerrando(true)
+    setError('')
+    try { await onCerrarCajas(ids) } catch (e) { setError((e as Error).message) } finally { setCerrando(false) }
+  }
   return <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
     <div className="flex items-center justify-between gap-2">
       <div>
@@ -272,15 +295,30 @@ function Revision({ puntos }: { puntos: ReturnType<typeof revisionCierre> }) {
           </button>
           {expandido && <div className="border-t border-amber-200 px-3 pb-3 pt-2">
             <p className="mb-2 text-xs font-medium text-amber-900">{p.comoCorregir}</p>
+            {p.items.filter(it => it.accion).length > 1 && <button type="button" disabled={cerrando}
+              onClick={() => cerrar(p.items.flatMap(it => it.accion ? [it.accion.sesionId] : []))}
+              className="mb-2 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50">
+              {cerrando ? 'Cerrando…' : `Cerrar las ${p.items.filter(it => it.accion).length}`}
+            </button>}
+            {error && <p className="mb-2 text-xs text-red-600">{error}</p>}
             <ul className="divide-y divide-amber-100 rounded-lg bg-white">
               {p.items.map(it => <li key={it.clave}>
-                <Link to={it.enlace} className="flex items-center justify-between gap-3 px-3 py-2 hover:bg-gray-50">
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm text-gray-800">{it.titulo}</span>
-                    {it.detalle && <span className="block truncate text-xs text-gray-500">{it.detalle}</span>}
-                  </span>
-                  <span className="shrink-0 text-xs font-semibold text-blue-600">Corregir →</span>
-                </Link>
+                {it.accion
+                  ? <div className="flex items-center justify-between gap-3 px-3 py-2">
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm text-gray-800">{it.titulo}</span>
+                        {it.detalle && <span className="block truncate text-xs text-gray-500">{it.detalle}</span>}
+                      </span>
+                      <button type="button" disabled={cerrando} onClick={() => cerrar([it.accion!.sesionId])}
+                        className="shrink-0 text-xs font-semibold text-blue-600 hover:underline disabled:opacity-50">Cerrar</button>
+                    </div>
+                  : <Link to={it.enlace} className="flex items-center justify-between gap-3 px-3 py-2 hover:bg-gray-50">
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm text-gray-800">{it.titulo}</span>
+                        {it.detalle && <span className="block truncate text-xs text-gray-500">{it.detalle}</span>}
+                      </span>
+                      <span className="shrink-0 text-xs font-semibold text-blue-600">Corregir →</span>
+                    </Link>}
               </li>)}
             </ul>
           </div>}

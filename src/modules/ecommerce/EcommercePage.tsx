@@ -429,7 +429,11 @@ export function EcommercePage() {
         )}
       </div>
 
-      {detalle && <DetallePedido pedido={detalle} siteUrl={conexionQuery.data?.site_url} onClose={() => setDetalle(null)} />}
+      {detalle && <DetallePedido pedido={detalle} siteUrl={conexionQuery.data?.site_url} onClose={() => setDetalle(null)}
+        onEstado={estadoGestion => {
+          actualizarEstado.mutate({ id: detalle.id, estadoGestion })
+          setDetalle({ ...detalle, estado_gestion: estadoGestion })
+        }} />}
     </div>
   )
 }
@@ -641,12 +645,14 @@ function TarjetaPedido({ pedido, onOpen, onEstado }: { pedido: PedidoEcommerce; 
   </div>
 }
 
-function DetallePedido({ pedido, siteUrl, onClose }: { pedido: PedidoEcommerce; siteUrl?: string | null; onClose: () => void }) {
+// El estado también se cambia desde acá: un pedido abierto por enlace (desde
+// Cierres) puede ser de otro mes y no estar en la lista de abajo.
+function DetallePedido({ pedido, siteUrl, onClose, onEstado }: { pedido: PedidoEcommerce; siteUrl?: string | null; onClose: () => void; onEstado: (estado: EstadoGestion) => void }) {
   const alertas = pedido.stock_resultado?.ignorados ?? []
   const urlWoo = siteUrl ? `${siteUrl.replace(/\/+$/, '')}/wp-admin/post.php?post=${encodeURIComponent(pedido.pedido_externo_id)}&action=edit` : null
   return createPortal(<div className="fixed inset-0 z-[300] bg-black/45 p-3 md:p-8 flex justify-end" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
     <div className="w-full max-w-xl h-full overflow-y-auto rounded-2xl bg-white shadow-2xl">
-      <div className="sticky top-0 z-10 flex items-start justify-between border-b border-gray-100 bg-white px-5 py-4"><div><h2 className="text-lg font-bold text-gray-900">Pedido #{pedido.numero}</h2><p className="text-xs text-gray-400 mt-1">Recibido {fecha(pedido.creado_en_origen ?? pedido.recibido_en)}</p></div><button onClick={onClose} className="text-xl text-gray-400">×</button></div>
+      <div className="sticky top-0 z-10 flex items-start justify-between border-b border-gray-100 bg-white px-5 py-4"><div><h2 className="text-lg font-bold text-gray-900">Pedido #{pedido.numero}</h2><p className="text-xs text-gray-400 mt-1">Recibido {fecha(pedido.creado_en_origen ?? pedido.recibido_en)}</p></div><div className="flex items-center gap-3"><SelectorEstado pedido={pedido} onEstado={onEstado} /><button onClick={onClose} className="text-xl text-gray-400">×</button></div></div>
       <div className="p-5 space-y-5">
         <section><h3 className="text-xs font-bold uppercase tracking-wide text-gray-400 mb-3">Productos</h3><div className="rounded-xl border border-gray-200 divide-y divide-gray-100">{pedido.items.map((i, index) => <div key={i.id ?? index} className="flex gap-3 p-3"><div className="h-12 w-12 shrink-0 rounded-lg bg-gray-50 overflow-hidden">{i.imagen && <img src={i.imagen} alt="" className="h-full w-full object-cover" />}</div><div className="min-w-0 flex-1"><p className="text-sm font-semibold text-gray-800">{i.nombre || 'Producto'}</p><p className="text-xs text-gray-400 mt-1">SKU {i.sku || 'sin SKU'} · Cant. {i.cantidad ?? 1}</p></div><p className="text-sm font-bold text-gray-800">{dinero(Number(i.total ?? 0), pedido.moneda)}</p></div>)}</div></section>
         {alertas.length > 0 && <section className="rounded-xl border border-amber-200 bg-amber-50 p-4"><h3 className="text-sm font-bold text-amber-800">Productos que no movieron stock</h3>{alertas.map((a, i) => <p key={i} className="text-xs text-amber-700 mt-2">{a.sku || a.nombre || 'Producto'}: {a.motivo}</p>)}</section>}

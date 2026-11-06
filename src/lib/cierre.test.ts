@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import type { CajaSesion, Gasto, OC } from '@/types'
 import {
-  cajaDelMes, cambiosDesdeCierre, comprasDelMes, dteConProblema, flujoDeCaja, gastosPorNaturaleza, ivaDelMes,
-  mesAnterior, ordenSinCobrar, rangoMes, revisionCierre, type VentaCierre,
+  cajaDelMes, cambiosDesdeCierre, cerrarSesionSinConteo, comprasDelMes, dteConProblema, flujoDeCaja, gastosPorNaturaleza, ivaDelMes,
+  folioConFactura, mesAnterior, ordenSinCobrar, rangoMes, revisionCierre, type VentaCierre,
 } from './cierre'
 
 const OCT = rangoMes('2026-10')
@@ -174,5 +174,41 @@ describe('foto del cierre', () => {
   it('reporta lo que cambió después de cerrar', () => {
     expect(cambiosDesdeCierre(foto, { ...foto, resultado: 100_000, pendientes: 2 }))
       .toEqual([{ etiqueta: 'Resultado de la operación', antes: 125_077, ahora: 100_000 }])
+  })
+})
+
+describe('cerrar una caja olvidada', () => {
+  it('toma las ventas de esa caja ese día y deja diferencia 0 con una nota', () => {
+    const sesion: CajaSesion = {
+      id: 's1', branchId: 'b1', cajaId: 'c1', fecha: '2026-10-01', estado: 'abierta',
+      apertura: { hora: '09:00', responsable: 'Candela', montoInicial: 20_000 }, cierre: null,
+    }
+    const v = (p: Record<string, unknown>) => ({ id: 'v', numero: '', fecha: '2026-10-01', estado: 'pagada', cliente: '', metodo_pago: 'efectivo', branchId: 'b1', branchNombre: '', bodega_id: 'b1', cajaId: 'c1', otId: null, otNum: null, items: [], total: 0, total_iva: 10_000, fecha_creacion: '', ...p }) as unknown as import('@/types').Venta
+    const cerrada = cerrarSesionSinConteo(sesion, [v({}), v({ fecha: '2026-10-02' }), v({ cajaId: 'otra' })], [{ id: 'efectivo', label: 'Efectivo' } as import('@/types').MetodoPago])
+    expect(cerrada.estado).toBe('cerrada')
+    expect(cerrada.cierre?.diferencia).toBe(0)
+    expect(cerrada.cierre?.conteo).toBe(1)
+    expect(cerrada.cierre?.conteoEfectivo).toBe(30_000)
+    expect(cerrada.cierre?.observaciones).toMatch(/no se contó/)
+  })
+})
+
+describe('folio de factura', () => {
+  it('solo un folio con números da crédito fiscal', () => {
+    expect(folioConFactura('5521')).toBe(true)
+    expect(folioConFactura('F-5521')).toBe(true)
+    expect(folioConFactura('SIN FACTURA')).toBe(false)
+    expect(folioConFactura('sin factura 2')).toBe(false)
+    expect(folioConFactura('')).toBe(false)
+    expect(folioConFactura(null)).toBe(false)
+  })
+
+  it('"SIN FACTURA" no suma IVA ni queda como pendiente; vacío sí queda pendiente', () => {
+    const r = comprasDelMes([
+      oc({ id: 'a', fecha_recepcion: '2026-10-10', folio_factura: 'SIN FACTURA' }),
+      oc({ id: 'b', fecha_recepcion: '2026-10-10', folio_factura: '' }),
+    ], OCT.desde, OCT.hasta)
+    expect(r.ivaConFactura).toBe(0)
+    expect(r.sinFactura.map(x => x.id)).toEqual(['b'])
   })
 })

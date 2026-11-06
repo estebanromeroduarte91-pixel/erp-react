@@ -109,7 +109,11 @@ function AppRoutes() {
 
   return (
     <Shell>
-      <ErrorBoundary key={location.pathname + location.search}>
+      {/* Se reinicia al cambiar de página o de pestaña, no con cualquier
+          parámetro: los enlaces ?abrir=<id> (Buscar, Cierres) abren un diálogo
+          y luego borran el parámetro de la URL, y con la URL completa como key
+          ese borrado desmontaba la página y cerraba el diálogo recién abierto. */}
+      <ErrorBoundary key={location.pathname + '|' + (new URLSearchParams(location.search).get('tab') ?? '')}>
       <Suspense fallback={
         <div className="flex min-h-screen items-center justify-center">
           <Spinner className="w-8 h-8" />

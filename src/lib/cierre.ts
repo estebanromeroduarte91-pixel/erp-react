@@ -9,7 +9,8 @@
  * - La revisión previa: lo que, si queda pendiente, hace que los números del
  *   mes todavía puedan cambiar.
  */
-import type { CajaSesion, Gasto, NaturalezaGasto, OC } from '@/types'
+import type { CajaSesion, Gasto, MetodoPago, NaturalezaGasto, OC, Venta } from '@/types'
+import { calcularTotalesCaja } from '@/lib/caja'
 import { naturalezaEfectiva, type ConfigNaturaleza } from '@/lib/naturalezaGasto'
 import { pagosDeVenta } from '@/lib/metodoPago'
 
@@ -86,10 +87,20 @@ export interface ComprasMes {
   /** IVA de lo recibido con factura del proveedor: el que da crédito fiscal. */
   ivaConFactura: number
   ocs: number
-  /** Recibidas en el mes sin folio de factura: su IVA no se puede usar. */
+  /** Recibidas en el mes con el folio vacío: falta anotar la factura (o "SIN FACTURA"). */
   sinFactura: { id: string; numero: string; proveedor: string; total: number }[]
   /** Líneas recibidas a precio cero: inventario que entró sin costo. */
   sinCosto: { id: string; numero: string; proveedor: string; lineas: number }[]
+}
+
+/**
+ * El folio es texto libre: además de números, Steve Docs escribe "SIN
+ * FACTURA" cuando compra sin factura a propósito (51 de 126 OC al
+ * 2026-11-05). Solo un folio con números da crédito fiscal.
+ */
+export function folioConFactura(folio: string | null | undefined): boolean {
+  const f = (folio ?? '').trim()
+  return /\d/.test(f) && !/^(sin|s\/f|no)\b/i.test(f)
 }
 
 /**
@@ -133,9 +144,9 @@ export function comprasDelMes(ocs: OC[], desde: string, hasta: string): ComprasM
     r.ocs++
     r.neto += neto
     r.total += conIva
-    const conFactura = !!oc.folio_factura?.trim()
-    if (conFactura) r.ivaConFactura += conIva - neto
-    else r.sinFactura.push({ id: oc.id, numero: oc.numero, proveedor: oc.proveedor_nombre, total: conIva })
+    if (folioConFactura(oc.folio_factura)) r.ivaConFactura += conIva - neto
+    // "SIN FACTURA" escrito es una decisión, no un olvido: no se pide revisar.
+    else if (!oc.folio_factura?.trim()) r.sinFactura.push({ id: oc.id, numero: oc.numero, proveedor: oc.proveedor_nombre, total: conIva })
     if (lineasSinCosto) r.sinCosto.push({ id: oc.id, numero: oc.numero, proveedor: oc.proveedor_nombre, lineas: lineasSinCosto })
   }
   return r
@@ -268,6 +279,8 @@ export interface ItemRevision {
   titulo: string
   detalle?: string
   enlace: string
+  /** Se corrige desde Cierres mismo, sin ir a otra pantalla. */
+  accion?: { tipo: 'cerrar_caja'; sesionId: string }
 }
 
 export interface PuntoRevision {
@@ -326,12 +339,13 @@ export function revisionCierre(o: {
   return [
     punto('cajas', 'Cajas sin cerrar',
       'Mientras una caja siga abierta, sus ventas y su diferencia de efectivo no están confirmadas.',
-      'Abre la caja en Ventas → Punto de venta y ciérrala con el conteo de efectivo.',
+      'El punto de venta solo muestra la caja del día, así que estas se cierran desde aquí. Como nadie contó el efectivo esos días, quedan sin diferencia y con una nota que lo dice.',
       o.caja.abiertas.map(a => ({
         clave: a.id,
         titulo: `Caja abierta el ${diaMes(a.fecha)}`,
         detalle: `${bodega(a.branchId)} · ${a.responsable || 'sin responsable'}`,
         enlace: `/ventas?tab=pos&caja=${encodeURIComponent(a.cajaId)}`,
+        accion: { tipo: 'cerrar_caja' as const, sesionId: a.id },
       }))),
     punto('dte', 'Boletas y facturas pendientes o rechazadas por el SII',
       'Documentos del mes que no llegaron al SII o que el SII rechazó.',
@@ -351,9 +365,9 @@ export function revisionCierre(o: {
         detalle: `${c.lineas} ${c.lineas === 1 ? 'producto' : 'productos'} a $0`,
         enlace: `/compras?abrir=${encodeURIComponent(c.id)}`,
       }))),
-    punto('oc_factura', 'Compras recibidas sin factura del proveedor',
-      'Sin folio de factura, su IVA no se cuenta como crédito fiscal.',
-      'Edita la orden de compra y escribe el folio de la factura del proveedor.',
+    punto('oc_factura', 'Compras recibidas sin folio de factura',
+      'El campo de folio quedó vacío: no se sabe si hubo factura, así que su IVA no se cuenta como crédito fiscal.',
+      'Edita la orden de compra y escribe el folio de la factura, o "SIN FACTURA" si se compró sin ella.',
       o.compras.sinFactura.map(c => ({
         clave: c.id,
         titulo: `${c.numero} · ${c.proveedor}`,
@@ -389,6 +403,31 @@ export function revisionCierre(o: {
         enlace: p.id ? `/ecommerce?abrir=${encodeURIComponent(p.id)}` : '/ecommerce',
       }))),
   ]
+}
+
+/**
+ * Cierra una sesión de caja que quedó abierta un día anterior. El punto de
+ * venta solo muestra la sesión de hoy, así que esa sesión no tenía cómo
+ * cerrarse. Los totales salen de las ventas de esa caja ese día, igual que el
+ * cierre normal; el efectivo contado se toma como el esperado (diferencia 0)
+ * porque nadie lo contó, y la observación lo deja dicho.
+ */
+export function cerrarSesionSinConteo(sesion: CajaSesion, ventas: Venta[], metodos: MetodoPago[]): CajaSesion {
+  const delDia = ventas.filter(v => v.fecha === sesion.fecha && v.cajaId === sesion.cajaId)
+  const totales = calcularTotalesCaja(delDia, metodos)
+  return {
+    ...sesion,
+    estado: 'cerrada',
+    cierre: {
+      hora: '—',
+      conteoEfectivo: totales.efectivo + (sesion.apertura?.montoInicial ?? 0),
+      diferencia: 0,
+      observaciones: 'Cerrada desde Cierres de mes: la caja quedó abierta ese día y no se contó el efectivo.',
+      totalVentas: totales._total,
+      conteo: totales._count,
+      desgloseMetodos: totales.desgloseMetodos,
+    },
+  }
 }
 
 // ── Foto del cierre ─────────────────────────────────────────────────

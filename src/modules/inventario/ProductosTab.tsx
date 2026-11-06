@@ -159,7 +159,7 @@ function stockSucursal(p: Producto, bodegaId: string): number {
 }
 
 export function ProductosTab() {
-  const { data: productos, isLoading } = useProductos()
+  const { data: productos, isLoading, isFetching: cargandoProductos } = useProductos()
   const { data: bodegas } = useBodegas()
   const eliminarProducto = useEliminarProducto()
   const eliminarTodosProductos = useEliminarTodosProductos()
@@ -275,11 +275,14 @@ export function ProductosTab() {
   function abrirNuevo()         { setEditando(null);  setModalOpen(true) }
   function abrirEditar(p: Producto) { setEditando(p); setModalOpen(true) }
 
-  // Deep-link desde Buscar: ?abrir=<id de producto> abre su edición directo.
+  // Deep-link desde Buscar y Cierres: ?abrir=<id de producto> abre su edición
+  // directo. Espera a que termine de cargar el catálogo: antes de eso la
+  // lista puede venir incompleta (la siembra el Realtime con un solo
+  // producto) y el enlace se consumía sin encontrar nada.
   const [searchParams, setSearchParams] = useSearchParams()
   const [abrirSynced, setAbrirSynced] = useState(false)
   const abrirParam = searchParams.get('abrir')
-  if (!abrirSynced && abrirParam && productos) {
+  if (!abrirSynced && abrirParam && productos && !cargandoProductos) {
     setAbrirSynced(true)
     const p = productos.find(x => x.id === abrirParam)
     if (p) abrirEditar(p)
