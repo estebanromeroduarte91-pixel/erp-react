@@ -513,7 +513,7 @@ export function useChecklist() {
 // se rehidrata desde `producto_stock` para que los consumidores mantengan la misma forma.
 // Todas las claves de caché cuelgan de ['productos', empresaId] para que una sola
 // invalidación cubra tanto la lista como las búsquedas.
-const PRODUCTO_COLS = 'id,nombre,sku,unidad,precio_compra,precio_venta,stock_min,categoria,subcategoria,enlace,descripcion,tipo,vender_online, producto_stock(bodega_id,cantidad)'
+const PRODUCTO_COLS = 'id,nombre,sku,unidad,precio_compra,precio_venta,stock_min,categoria,subcategoria,enlace,modelos_compatibles,descripcion,tipo,vender_online, producto_stock(bodega_id,cantidad)'
 
 function hidratarProducto(row: Record<string, unknown>): Producto {
   const stock_sucursales: Record<string, number> = {}
@@ -543,6 +543,9 @@ function filaProducto(p: Producto, empresaId: string) {
     categoria: p.categoria ?? null,
     subcategoria: p.subcategoria ?? null,
     enlace: p.enlace ?? null,
+    // Solo si el producto lo trae: la importación desde Excel no tiene esta
+    // columna y no debe borrar los modelos que ya estaban cargados.
+    ...(p.modelos_compatibles !== undefined && { modelos_compatibles: p.modelos_compatibles || null }),
     descripcion: p.descripcion ?? null,
     tipo: p.tipo === 'servicio' ? 'servicio' : 'producto',
     vender_online: p.vender_online === true,
@@ -670,9 +673,11 @@ export function useBuscarProductos(query: string) {
       // (encadenar .or() los combina con AND). Así "iphone 11 pantalla" encuentra
       // "Pantalla iPhone 11" aunque el orden de las palabras sea distinto —antes
       // se exigía la frase completa como substring contiguo y no calzaba.
+      // También busca en los modelos compatibles: "batería 12 pro" encuentra
+      // la "Batería iPhone 12" que sirve para el 12 Pro.
       const palabras = safe.split(/\s+/).filter(Boolean)
       let q = supabase.from('productos').select(PRODUCTO_COLS).eq('empresa_id', empresaId!)
-      for (const p of palabras) q = q.or(`nombre.ilike.%${p}%,sku.ilike.%${p}%`)
+      for (const p of palabras) q = q.or(`nombre.ilike.%${p}%,sku.ilike.%${p}%,modelos_compatibles.ilike.%${p}%`)
       const { data, error } = await q.limit(20)
       if (error) throw error
       return (data ?? []).map(hidratarProducto)

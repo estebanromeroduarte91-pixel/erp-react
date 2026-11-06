@@ -241,7 +241,7 @@ export function ProductosTab() {
           puntaje: puntuarBusqueda(busqueda, {
             principal: producto.nombre,
             codigo: producto.sku,
-            secundarios: [producto.categoria, producto.subcategoria],
+            secundarios: [producto.categoria, producto.subcategoria, producto.modelos_compatibles],
           }),
         }))
         .filter((item): item is typeof item & { puntaje: number } => item.puntaje !== null)
@@ -702,6 +702,7 @@ export function ProductosTab() {
                 <div className="flex items-start justify-between gap-3 mb-2">
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-gray-900 truncate mb-1">{p.nombre}</p>
+                    {p.modelos_compatibles && <p className="text-xs text-gray-400 truncate -mt-0.5 mb-1">Sirve para: {p.modelos_compatibles}</p>}
                     <div className="flex items-center gap-1.5">
                       {p.categoria && (
                         <span className="text-xs border border-blue-300 text-blue-600 px-1.5 py-0.5 rounded">
@@ -768,6 +769,7 @@ export function ProductosTab() {
                       <td className="px-4 py-3 font-mono text-xs text-gray-500">{p.sku || '—'}</td>
                       <td className="px-4 py-3">
                         <p className="font-medium text-gray-800">{p.nombre}</p>
+                        {p.modelos_compatibles && <p className="text-xs text-gray-500 truncate max-w-64">Sirve para: {p.modelos_compatibles}</p>}
                         {p.descripcion && <p className="text-xs text-gray-400 truncate max-w-48">{p.descripcion}</p>}
                       </td>
                       <td className="px-4 py-3">

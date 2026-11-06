@@ -113,6 +113,10 @@ export interface Producto {
   subcategoria?: string
   descripcion?: string
   enlace?: string
+  // Otros equipos para los que sirve el mismo repuesto, separados por coma:
+  // "iPhone 12, iPhone 12 Pro". Un solo producto y un solo stock; esto solo
+  // sirve para que la búsqueda lo encuentre por cualquiera de esos modelos.
+  modelos_compatibles?: string
   tipo?: 'producto' | 'servicio'
   // Publica el producto en la tienda online (WooCommerce) y mantiene su precio
   // y stock sincronizados. Por defecto false: que algo aparezca en la tienda

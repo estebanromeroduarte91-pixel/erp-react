@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { useGuardarProducto, useCategorias, useGuardarCategorias } from '@/lib/queries'
 import { tipoSugeridoPorCategoria } from '@/lib/tipoProducto'
 import { buscarSimilar } from '@/lib/texto'
+import { agregarModelos, escribirModelos, leerModelos } from '@/lib/modelosCompatibles'
 import type { Producto, Bodega } from '@/types'
 
 interface Props {
@@ -91,6 +92,8 @@ export function ProductoModal({ producto, productos, bodegas, onClose, onGuardad
   const [enlace, setEnlace] = useState(producto?.enlace ?? '')
   const [enlaceOpen, setEnlaceOpen] = useState(false)
   const [descripcion, setDescripcion] = useState(producto?.descripcion ?? '')
+  const [modelos, setModelos] = useState<string[]>(() => leerModelos(producto?.modelos_compatibles))
+  const [modeloNuevo, setModeloNuevo] = useState('')
   const [error, setError] = useState('')
   const [guardando, setGuardando] = useState(false)
 
@@ -223,6 +226,8 @@ export function ProductoModal({ producto, productos, bodegas, onClose, onGuardad
       categoria: categoria.trim() || undefined,
       subcategoria: subcategoria.trim() || undefined,
       enlace: enlace.trim() || undefined,
+      // Lo que quedó escrito sin apretar Enter también cuenta.
+      modelos_compatibles: escribirModelos(agregarModelos(modelos, modeloNuevo)),
       descripcion: descripcion.trim() || undefined,
       tipo,
       // Un servicio no tiene stock que publicar ni despachar.
@@ -415,6 +420,39 @@ export function ProductoModal({ producto, productos, bodegas, onClose, onGuardad
                       className="font-semibold underline underline-offset-2">Usar esa</button>
                   </p>
                 )}
+              </div>}
+              {verSecundarios && !esServicio && <div className="col-span-2">
+                <label className="text-xs font-medium text-gray-600 mb-1 block">Sirve también para (opcional)</label>
+                <div className="flex flex-wrap items-center gap-1.5 w-full border border-gray-200 rounded-lg px-2 py-1.5 bg-gray-50 focus-within:border-blue-400">
+                  {modelos.map((m) => (
+                    <span key={m} className="inline-flex items-center gap-1 rounded-md bg-blue-50 text-blue-700 text-xs font-medium pl-2 pr-1 py-1">
+                      {m}
+                      <button type="button" aria-label={`Quitar ${m}`}
+                        onClick={() => setModelos(modelos.filter((x) => x !== m))}
+                        className="rounded p-0.5 hover:bg-blue-100">
+                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" d="M6 6l12 12M18 6L6 18" /></svg>
+                      </button>
+                    </span>
+                  ))}
+                  <input value={modeloNuevo}
+                    onChange={(e) => setModeloNuevo(e.target.value)}
+                    onKeyDown={(e) => {
+                      if ((e.key === 'Enter' || e.key === ',') && modeloNuevo.trim()) {
+                        e.preventDefault()
+                        setModelos(agregarModelos(modelos, modeloNuevo))
+                        setModeloNuevo('')
+                      } else if (e.key === 'Backspace' && !modeloNuevo && modelos.length) {
+                        setModelos(modelos.slice(0, -1))
+                      }
+                    }}
+                    onBlur={() => { if (modeloNuevo.trim()) { setModelos(agregarModelos(modelos, modeloNuevo)); setModeloNuevo('') } }}
+                    placeholder={modelos.length ? 'Agregar otro…' : 'Ej: iPhone 12 Pro'}
+                    className="flex-1 min-w-[8rem] bg-transparent px-1 py-0.5 text-base md:text-sm focus:outline-none" />
+                </div>
+                <p className="text-[11px] text-gray-400 mt-1">
+                  Otros equipos que usan este mismo repuesto. Es un solo producto con un solo stock:
+                  al buscar cualquiera de estos modelos en el punto de venta, taller o inventario, aparece este producto.
+                </p>
               </div>}
               {verSecundarios && <div className="col-span-2 relative">
                 <label className="text-xs font-medium text-gray-600 mb-1 block">Enlace (opcional)</label>
