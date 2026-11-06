@@ -9,6 +9,8 @@ import {
   useProveedores, useGuardarProveedores, useRecibirOC,
 } from '@/lib/queries'
 import { formatRut } from '@/lib/rut'
+import { rangoMes } from '@/lib/cierre'
+import { ymd } from '@/lib/reportes'
 import { calcularEstadoOC, getCantRecibida, lineasSinProducto, mensajeLineasSinProducto } from './utils'
 import type { OC, OCItem, OCRecepcion, OCLogEntry, EstadoOC, Producto, Bodega, Proveedor, Movimiento, LoteInventario } from '@/types'
 
@@ -1058,7 +1060,23 @@ export function ComprasPage() {
   const [filtro, setFiltro] = useState<FiltroTab>('todas')
   const [modal, setModal] = useState<ModalState>({ type: 'none' })
   const [search, setSearch] = useState('')
+  const [periodo, setPeriodo] = useState<'mes' | 'rango' | 'todo'>('mes')
+  const [mes, setMes] = useState(() => ymd(new Date()).slice(0, 7))
+  const [desde, setDesde] = useState(() => rangoMes(ymd(new Date()).slice(0, 7)).desde)
+  const [hasta, setHasta] = useState(() => rangoMes(ymd(new Date()).slice(0, 7)).hasta)
   const [toast, setToast] = useState<string | null>(null)
+
+  function cambiarMes(delta: number) {
+    const [a, m] = mes.split('-').map(Number)
+    setMes(ymd(new Date(a, m - 1 + delta, 1)).slice(0, 7))
+  }
+  const rango = periodo === 'mes' ? rangoMes(mes) : { desde, hasta }
+  const rangoInvalido = periodo === 'rango' && !!desde && !!hasta && desde > hasta
+  function coincideFecha(fecha?: string) {
+    if (periodo === 'todo') return true
+    const f = (fecha ?? '').slice(0, 10)
+    return !rangoInvalido && !!f && (!rango.desde || f >= rango.desde) && (!rango.hasta || f <= rango.hasta)
+  }
 
   // Auto-open new OC modal when navigated from Kits (e.g. "Crear OC" button).
   // Efecto legítimo (no solo ajuste de estado): también limpia el historial del
@@ -1117,18 +1135,20 @@ export function ComprasPage() {
     return nuevo
   }
 
+  const ocsPeriodo = ocs.filter(o => coincideFecha(o.fecha))
+  const logPeriodo = log.filter(o => coincideFecha(o.fecha))
   const counts: Partial<Record<FiltroTab, number>> = {
-    todas: ocs.length,
-    borrador: ocs.filter(o => o.estado === 'borrador').length,
-    parcial: ocs.filter(o => o.estado === 'parcial').length,
-    recibida: ocs.filter(o => o.estado === 'recibida').length,
-    confirmada: ocs.filter(o => o.estado === 'confirmada').length,
-    cancelada: ocs.filter(o => o.estado === 'cancelada').length,
-    log: log.length,
+    todas: ocsPeriodo.length,
+    borrador: ocsPeriodo.filter(o => o.estado === 'borrador').length,
+    parcial: ocsPeriodo.filter(o => o.estado === 'parcial').length,
+    recibida: ocsPeriodo.filter(o => o.estado === 'recibida').length,
+    confirmada: ocsPeriodo.filter(o => o.estado === 'confirmada').length,
+    cancelada: ocsPeriodo.filter(o => o.estado === 'cancelada').length,
+    log: logPeriodo.length,
   }
 
   const displayedOCs = (() => {
-    let base = filtro === 'todas' ? ocs : ocs.filter(o => o.estado === filtro)
+    let base = filtro === 'todas' ? ocsPeriodo : ocsPeriodo.filter(o => o.estado === filtro)
     if (search.trim()) {
       const q = search.toLowerCase()
       base = base.filter(o => (o.numero ?? '').toLowerCase().includes(q) || (o.proveedor_nombre ?? '').toLowerCase().includes(q))
@@ -1289,6 +1309,24 @@ export function ComprasPage() {
       {/* OCs section */}
       {section === 'ocs' && (<>
 
+      <div className="flex flex-wrap items-end gap-3 mb-4">
+        <label className="flex flex-col gap-1 text-xs text-gray-500">Fecha de la OC
+          <select value={periodo} onChange={e => setPeriodo(e.target.value as typeof periodo)} className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800">
+            <option value="mes">Por mes</option><option value="rango">Rango de fechas</option><option value="todo">Todas las fechas</option>
+          </select>
+        </label>
+        {periodo === 'mes' && <div className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-2 py-1">
+          <button type="button" onClick={() => cambiarMes(-1)} aria-label="Mes anterior" className="rounded-lg px-3 py-1.5 text-gray-500 hover:bg-gray-100">‹</button>
+          <span className="min-w-[140px] text-center text-sm font-semibold text-gray-800 capitalize">{new Date(`${mes}-01T12:00:00`).toLocaleDateString('es-CL', { month: 'long', year: 'numeric' })}</span>
+          <button type="button" onClick={() => cambiarMes(1)} aria-label="Mes siguiente" className="rounded-lg px-3 py-1.5 text-gray-500 hover:bg-gray-100">›</button>
+        </div>}
+        {periodo === 'rango' && <>
+          <label className="flex flex-col gap-1 text-xs text-gray-500">Desde<input type="date" value={desde} max={hasta || undefined} onChange={e => setDesde(e.target.value)} className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800" /></label>
+          <label className="flex flex-col gap-1 text-xs text-gray-500">Hasta<input type="date" value={hasta} min={desde || undefined} onChange={e => setHasta(e.target.value)} className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800" /></label>
+        </>}
+        {rangoInvalido && <p role="alert" className="text-xs text-red-600">La fecha Desde debe ser anterior o igual a Hasta.</p>}
+      </div>
+
       <div style={{ background: '#fff', borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,.06)', border: '1px solid var(--gray-100)', overflow: 'hidden' }}>
         {/* Filter tabs */}
         <div style={{ display: 'flex', borderBottom: '1px solid var(--gray-100)', flexWrap: 'wrap' }}>
@@ -1317,18 +1355,18 @@ export function ComprasPage() {
             }}>
             <svg style={{ width: 15, height: 15 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" /></svg>
             Historial
-            {log.length > 0 && (
-              <span style={{ marginLeft: 6, background: 'var(--gray-100)', color: 'var(--gray-500)', borderRadius: 20, padding: '1px 7px', fontSize: 11, fontWeight: 700 }}>{log.length}</span>
+            {logPeriodo.length > 0 && (
+              <span style={{ marginLeft: 6, background: 'var(--gray-100)', color: 'var(--gray-500)', borderRadius: 20, padding: '1px 7px', fontSize: 11, fontWeight: 700 }}>{logPeriodo.length}</span>
             )}
           </button>
         </div>
 
         {/* Count + search bar */}
-        <div style={{ padding: '10px 20px', color: 'var(--gray-500)', fontSize: 13, borderBottom: '1px solid var(--gray-100)', display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ padding: '10px 20px', color: 'var(--gray-500)', fontSize: 13, borderBottom: '1px solid var(--gray-100)', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12 }}>
           {filtro !== 'log' ? (
             <>
               <span>
-                <strong style={{ color: 'var(--gray-700)' }}>{filtro === 'todas' ? ocs.length : (counts[filtro] ?? 0)}</strong> orden(es)
+                <strong style={{ color: 'var(--gray-700)' }}>{displayedOCs.length}</strong> orden(es)
               </span>
               <input type="text" value={search} onChange={e => setSearch(e.target.value)}
                 placeholder="Buscar por N° o proveedor..."
@@ -1337,20 +1375,20 @@ export function ComprasPage() {
             </>
           ) : (
             <span>
-              <strong style={{ color: 'var(--gray-700)' }}>{log.length}</strong> registro{log.length !== 1 ? 's' : ''} eliminados (registro inmutable)
+              <strong style={{ color: 'var(--gray-700)' }}>{logPeriodo.length}</strong> registro{logPeriodo.length !== 1 ? 's' : ''} eliminados (registro inmutable)
             </span>
           )}
         </div>
 
         {/* Content */}
         {filtro === 'log' ? (
-          <OCLogTable log={log} />
+          <OCLogTable log={logPeriodo} />
         ) : displayedOCs.length === 0 ? (
           <div style={{ padding: '48px 24px', textAlign: 'center' }}>
             <svg style={{ width: 40, height: 40, margin: '0 auto 12px', color: 'var(--gray-300)', display: 'block' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
             <h3 style={{ margin: '0 0 6px', color: 'var(--gray-600)' }}>Sin órdenes de compra</h3>
             <p style={{ color: 'var(--gray-400)', margin: 0 }}>
-              {search ? 'No se encontraron resultados para tu búsqueda' : 'Crea tu primera orden de compra para comenzar'}
+              {ocs.length ? 'No se encontraron órdenes con los filtros seleccionados.' : 'Crea tu primera orden de compra para comenzar'}
             </p>
           </div>
         ) : (
