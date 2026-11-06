@@ -4,6 +4,7 @@ import { useAuth } from '@/context/AuthContext'
 import { useCargos, usePuedeUsarModulo } from '@/lib/queries'
 import { useTour } from '@/modules/onboarding/TourContext'
 import { useDeliveryHabilitado } from '@/modules/delivery/deliveryQueries'
+import { usePuedeCerrarMes } from '@/lib/queries/useCierre'
 
 // ── Tipos ─────────────────────────────────────────────────────
 interface SubItem { to: string; label: string; icon: React.ReactNode; id?: string; roles?: string[]; complemento?: 'delivery' }
@@ -275,6 +276,7 @@ function SingleLink({ item, active }: { item: NavSingle; active: boolean }) {
 // ── Sidebar ────────────────────────────────────────────────────
 export function Sidebar() {
   const { nombre, empresaNombre, rol, cargoId, esPlatformAdmin, empresaId, session } = useAuth()
+  const { data: puedeCerrarMes = false } = usePuedeCerrarMes()
   const { isHelpMenuOpen, setHelpMenuOpen } = useTour()
   const location = useLocation()
   // Platform admin sin empresa propia: solo administra la plataforma, no opera
@@ -354,6 +356,11 @@ export function Sidebar() {
     }
     if ((si.item as NavGroup).id === 'contabilidad') return puedeCompras || puedeGastos
     return true
+  }).map(si => {
+    // Cierres es solo del dueño de la empresa (y de Pixit), no de todo admin.
+    if (si.type !== 'group' || (si.item as NavGroup).id !== 'estadisticas' || puedeCerrarMes) return si
+    const grupo = si.item as NavGroup
+    return { ...si, item: { ...grupo, sub: grupo.sub.filter(s => !s.to.includes('tab=cierres')) } }
   })
 
   const allGroups = [...OP_ITEMS, ...ADMIN_ITEMS].filter(si => si.type === 'group').map(si => si.item as NavGroup)

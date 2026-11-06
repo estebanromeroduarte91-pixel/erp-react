@@ -3,6 +3,7 @@ import { ResumenTab } from './ResumenTab'
 import { ReportesTab } from './ReportesTab'
 import { MetaVentasTab } from './MetaVentasTab'
 import { CierresTab } from './CierresTab'
+import { usePuedeCerrarMes } from '@/lib/queries/useCierre'
 
 type Tab = 'resumen' | 'metas' | 'reportes' | 'cierres'
 
@@ -12,7 +13,10 @@ function resolveTab(param: string | null): Tab {
 
 export function EstadisticasPage() {
   const [searchParams, setSearchParams] = useSearchParams()
-  const tab = resolveTab(searchParams.get('tab'))
+  const { data: puedeCerrar = false } = usePuedeCerrarMes()
+  const pedida = resolveTab(searchParams.get('tab'))
+  // Cierres es solo del dueño de la empresa (y de Pixit): el resto vuelve al resumen.
+  const tab = pedida === 'cierres' && !puedeCerrar ? 'resumen' : pedida
 
   // Cáscara delgada con pestañas, mismo patrón que VentasPage. El permiso que
   // deja entrar acá (`permisos.estadisticas`) cubre las dos pestañas: admin
@@ -21,7 +25,7 @@ export function EstadisticasPage() {
     { id: 'resumen', label: 'Resumen ejecutivo' },
     { id: 'metas', label: 'Metas' },
     { id: 'reportes', label: 'Reportes BI' },
-    { id: 'cierres', label: 'Cierres' },
+    ...(puedeCerrar ? [{ id: 'cierres' as Tab, label: 'Cierres' }] : []),
   ]
 
   return (

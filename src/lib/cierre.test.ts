@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { CajaSesion, Gasto, OC } from '@/types'
 import {
-  cajaDelMes, comprasDelMes, dteConProblema, flujoDeCaja, gastosPorNaturaleza, ivaDelMes,
+  cajaDelMes, cambiosDesdeCierre, comprasDelMes, dteConProblema, flujoDeCaja, gastosPorNaturaleza, ivaDelMes,
   mesAnterior, ordenSinCobrar, rangoMes, revisionCierre, type VentaCierre,
 } from './cierre'
 
@@ -133,5 +133,16 @@ describe('caja y revisión', () => {
       stockNegativo: 0, ordenesEntregadas: [], pedidosOnline: [],
     })
     expect(puntos.every(p => p.cantidad === 0)).toBe(true)
+  })
+})
+
+describe('foto del cierre', () => {
+  const foto = { ventasNetas: 9_520_795, resultado: 125_077, entro: 11_389_250, salio: 10_138_129, ivaAPagar: 1_319_344, pendientes: 5 }
+  it('sin cambios no reporta nada', () => {
+    expect(cambiosDesdeCierre(foto, { ...foto })).toEqual([])
+  })
+  it('reporta lo que cambió después de cerrar', () => {
+    expect(cambiosDesdeCierre(foto, { ...foto, resultado: 100_000, pendientes: 2 }))
+      .toEqual([{ etiqueta: 'Resultado de la operación', antes: 125_077, ahora: 100_000 }])
   })
 })

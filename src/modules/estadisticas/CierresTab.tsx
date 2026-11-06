@@ -4,10 +4,13 @@ import {
   useBodegas, useCajaSesiones, useGastoCategoriaConfig, useGastosEnRango, useMetodosPago, useOCs,
   useOrdenesEntregadasEnRango, useRentabilidadSucursales,
 } from '@/lib/queries'
-import { useDtesCierre, usePedidosOnlineCierre, useStockNegativo, useVentasCierre } from '@/lib/queries/useCierre'
 import {
-  cajaDelMes, comprasDelMes, flujoDeCaja, gastosPorNaturaleza, ivaDelMes, mesAnterior, rangoMes, revisionCierre,
-  type OrdenEntregadaCierre,
+  useCerrarMes, useCierreGuardado, useDtesCierre, usePedidosOnlineCierre, useReabrirMes, useStockNegativo, useVentasCierre,
+  type CierreGuardado,
+} from '@/lib/queries/useCierre'
+import {
+  cajaDelMes, cambiosDesdeCierre, comprasDelMes, flujoDeCaja, fotoCierre, gastosPorNaturaleza, ivaDelMes, mesAnterior, rangoMes, revisionCierre,
+  type FotoCierre, type OrdenEntregadaCierre,
 } from '@/lib/cierre'
 import { cascada } from '@/lib/rentabilidad'
 import { nombreMetodoPago } from '@/lib/metodoPago'
@@ -48,6 +51,7 @@ export function CierresTab() {
   const { data: ordenes = [] } = useOrdenesEntregadasEnRango(desde, hasta)
   const { data: metodos = [] } = useMetodosPago()
   const { data: bodegas = [] } = useBodegas()
+  const { data: guardado = null } = useCierreGuardado(mes)
 
   const cargando = ventas.isLoading || gastos.isLoading || ocs.isLoading || rentabilidad.isLoading
   const error = ventas.error || gastos.error || ocs.error || rentabilidad.error
@@ -68,6 +72,12 @@ export function CierresTab() {
       }),
     }
   }, [ventas.data, gastos.data, ocs.data, configNaturaleza, sesiones, pedidosOnline, dtes, stockNegativo, ordenes, desde, hasta])
+
+  const foto = useMemo(() => {
+    if (!datos || !rentabilidad.data) return null
+    const c = cascada(rentabilidad.data, null)
+    return fotoCierre({ ventasNetas: c.ventasNetas, resultado: c.resultado, flujo: datos.flujo, iva: datos.iva, revision: datos.revision })
+  }, [datos, rentabilidad.data])
 
   const nombreBodega = (id: string) => {
     const b = bodegas.find(x => x.id === id)
@@ -96,6 +106,7 @@ export function CierresTab() {
     {cargando && <div className="flex justify-center py-16"><Spinner className="h-8 w-8" /></div>}
 
     {datos && <>
+      {foto && mes < mesActual && <BarraCierre mes={mes} foto={foto} guardado={guardado} />}
       <Revision puntos={datos.revision} />
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -162,6 +173,67 @@ export function CierresTab() {
       </div>
     </>}
   </div>
+}
+
+function BarraCierre({ mes, foto, guardado }: { mes: string; foto: FotoCierre; guardado: CierreGuardado | null }) {
+  const cerrar = useCerrarMes()
+  const reabrir = useReabrirMes()
+  const [error, setError] = useState('')
+  const ocupado = cerrar.isPending || reabrir.isPending
+
+  async function alCerrar() {
+    const aviso = foto.pendientes
+      ? `Quedan ${foto.pendientes} puntos pendientes en la revisión. Si cierras igual, los números pueden no estar completos.\n\n`
+      : ''
+    if (!window.confirm(`${aviso}¿Cerrar ${nombreMes(mes)}? Desde ahora solo tú (el dueño) podrás crear, editar o anular ventas y gastos de ese mes.`)) return
+    setError('')
+    try { await cerrar.mutateAsync({ mes, resumen: foto }) } catch (e) { setError((e as Error).message) }
+  }
+  async function alReabrir() {
+    if (!window.confirm(`¿Reabrir ${nombreMes(mes)}? Tu equipo volverá a poder editar ventas y gastos de ese mes.`)) return
+    setError('')
+    try { await reabrir.mutateAsync(mes) } catch (e) { setError((e as Error).message) }
+  }
+
+  if (!guardado) {
+    return <section className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
+      <div>
+        <p className="text-sm font-bold text-gray-900">{nombreMes(mes)} está abierto</p>
+        <p className="text-xs text-gray-500">Al cerrarlo se guarda una foto de los números y tu equipo ya no puede cambiar ventas ni gastos de ese mes.</p>
+      </div>
+      <button type="button" onClick={alCerrar} disabled={ocupado}
+        className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50">
+        {cerrar.isPending ? 'Cerrando…' : 'Cerrar mes'}
+      </button>
+      {error && <p className="w-full text-xs text-red-600">{error}</p>}
+    </section>
+  }
+
+  const cambios = cambiosDesdeCierre(guardado.resumen ?? {}, foto)
+  return <section className={`rounded-2xl border px-4 py-3 shadow-sm ${cambios.length ? 'border-amber-200 bg-amber-50' : 'border-blue-200 bg-blue-50'}`}>
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <p className="text-sm font-bold text-gray-900">🔒 {nombreMes(mes)} está cerrado</p>
+        <p className="text-xs text-gray-600">
+          Lo cerró {guardado.cerrado_por_nombre || 'el dueño'} el {new Date(guardado.cerrado_en).toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' })}.
+          {' '}Solo el dueño puede modificar ventas y gastos de este mes.
+        </p>
+      </div>
+      <div className="flex gap-2">
+        {cambios.length > 0 && <button type="button" onClick={() => cerrar.mutateAsync({ mes, resumen: foto }).catch(e => setError((e as Error).message))} disabled={ocupado}
+          className="rounded-xl bg-white px-3 py-2 text-xs font-semibold text-gray-700 shadow-sm hover:bg-gray-50 disabled:opacity-50">Actualizar foto</button>}
+        <button type="button" onClick={alReabrir} disabled={ocupado}
+          className="rounded-xl px-3 py-2 text-xs font-semibold text-gray-600 hover:bg-white/60 disabled:opacity-50">Reabrir</button>
+      </div>
+    </div>
+    {cambios.length > 0 && <div className="mt-2 border-t border-amber-200 pt-2">
+      <p className="text-xs font-semibold text-amber-900">Cambió desde que se cerró:</p>
+      {cambios.map(c => <p key={c.etiqueta} className="text-xs text-amber-900">
+        {c.etiqueta}: {fmt(c.antes)} → <b>{fmt(c.ahora)}</b> ({c.ahora - c.antes > 0 ? '+' : ''}{fmt(c.ahora - c.antes)})
+      </p>)}
+    </div>}
+    {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
+  </section>
 }
 
 function Revision({ puntos }: { puntos: ReturnType<typeof revisionCierre> }) {

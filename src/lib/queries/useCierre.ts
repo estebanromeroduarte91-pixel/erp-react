@@ -1,7 +1,7 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/context/AuthContext'
-import type { DteCierre, PedidoOnlineCierre, VentaCierre } from '@/lib/cierre'
+import type { DteCierre, FotoCierre, PedidoOnlineCierre, VentaCierre } from '@/lib/cierre'
 
 // Datos del mes que no tienen hook propio en queries.ts. Los demás (gastos,
 // OC, cajas, órdenes entregadas, rentabilidad) se reutilizan desde ahí.
@@ -93,5 +93,74 @@ export function useStockNegativo() {
       return count ?? 0
     },
     enabled: !!empresaId,
+  })
+}
+
+/**
+ * Cierres es solo del dueño de la empresa y de los platform admin de Pixit
+ * (fn_puede_cerrar_mes). La misma regla decide en el servidor quién puede
+ * editar un mes cerrado; acá solo se usa para mostrar u ocultar la pantalla.
+ */
+export function usePuedeCerrarMes() {
+  const { empresaId } = useAuth()
+  return useQuery({
+    queryKey: ['puede-cerrar-mes', empresaId],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('fn_puede_cerrar_mes', { p_empresa_id: empresaId })
+      // Sin la migración 68 la función no existe: nadie ve Cierres todavía.
+      if (error) return false
+      return data === true
+    },
+    enabled: !!empresaId,
+    staleTime: 5 * 60_000,
+  })
+}
+
+export interface CierreGuardado {
+  mes: string
+  cerrado_por_nombre: string | null
+  cerrado_en: string
+  resumen: FotoCierre
+}
+
+export function useCierreGuardado(mes: string) {
+  const { empresaId } = useAuth()
+  return useQuery({
+    queryKey: ['cierre-guardado', empresaId, mes],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('cierres_mes')
+        .select('mes,cerrado_por_nombre,cerrado_en,resumen')
+        .eq('empresa_id', empresaId!)
+        .eq('mes', mes)
+        .maybeSingle()
+      if (error) return null
+      return data as CierreGuardado | null
+    },
+    enabled: !!empresaId && !!mes,
+  })
+}
+
+export function useCerrarMes() {
+  const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ mes, resumen }: { mes: string; resumen: FotoCierre }) => {
+      const { error } = await supabase.rpc('fn_cerrar_mes', { p_mes: mes, p_resumen: resumen, p_empresa_id: empresaId })
+      if (error) throw error
+    },
+    onSettled: (_d, _e, { mes }) => qc.invalidateQueries({ queryKey: ['cierre-guardado', empresaId, mes] }),
+  })
+}
+
+export function useReabrirMes() {
+  const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (mes: string) => {
+      const { error } = await supabase.rpc('fn_reabrir_mes', { p_mes: mes, p_empresa_id: empresaId })
+      if (error) throw error
+    },
+    onSettled: (_d, _e, mes) => qc.invalidateQueries({ queryKey: ['cierre-guardado', empresaId, mes] }),
   })
 }

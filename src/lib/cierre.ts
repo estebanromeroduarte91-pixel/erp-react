@@ -323,3 +323,41 @@ export function revisionCierre(o: {
     },
   ]
 }
+
+// ── Foto del cierre ─────────────────────────────────────────────────
+
+/** Lo que se guarda al cerrar el mes, para comparar si después algo cambió. */
+export interface FotoCierre {
+  ventasNetas: number
+  resultado: number
+  entro: number
+  salio: number
+  ivaAPagar: number
+  pendientes: number
+}
+
+export function fotoCierre(o: { ventasNetas: number; resultado: number; flujo: FlujoCaja; iva: IvaMes; revision: PuntoRevision[] }): FotoCierre {
+  return {
+    ventasNetas: Math.round(o.ventasNetas),
+    resultado: Math.round(o.resultado),
+    entro: Math.round(o.flujo.entradas.total),
+    salio: Math.round(o.flujo.salidas.total),
+    ivaAPagar: Math.round(o.iva.aPagar),
+    pendientes: o.revision.filter(p => p.cantidad == null || p.cantidad > 0).length,
+  }
+}
+
+const ETIQUETAS_FOTO: Record<keyof Omit<FotoCierre, 'pendientes'>, string> = {
+  ventasNetas: 'Ventas netas',
+  resultado: 'Resultado de la operación',
+  entro: 'Plata que entró',
+  salio: 'Plata que salió',
+  ivaAPagar: 'IVA estimado',
+}
+
+/** Qué cifras cambiaron desde el cierre (diferencias de menos de $1 no cuentan). */
+export function cambiosDesdeCierre(antes: Partial<FotoCierre>, ahora: FotoCierre): { etiqueta: string; antes: number; ahora: number }[] {
+  return (Object.keys(ETIQUETAS_FOTO) as (keyof typeof ETIQUETAS_FOTO)[])
+    .filter(k => typeof antes[k] === 'number' && Math.abs((antes[k] as number) - ahora[k]) >= 1)
+    .map(k => ({ etiqueta: ETIQUETAS_FOTO[k], antes: antes[k] as number, ahora: ahora[k] }))
+}
