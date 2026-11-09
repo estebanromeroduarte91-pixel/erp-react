@@ -91,6 +91,7 @@ const SECTION_ICONS: Record<string, { bg: string; file: string }> = {
   fotos:     { bg: '#f0f4ff', file: 'camera.svg' },
   orden:     { bg: '#ecefff', file: 'order.svg' },
   presupuesto: { bg: '#fffbeb', file: 'bag.svg' },
+  compra:    { bg: '#fffbeb', file: 'bag.svg' },
 }
 
 function secIcon(titulo: string): string {
@@ -512,4 +513,91 @@ export function urlCotizacion(token: string): string {
 // en la tabla `ordenes`; el realtime de useOrdenes/OrdenModal las recibe.
 export function urlFotosQR(empresaId: string, ordenId: string, tipo: 'ingreso' | 'inspeccion' | 'salida' | 'traslado' = 'ingreso'): string {
   return `${window.location.origin}/foto-orden.html?e=${empresaId}&o=${ordenId}&tipo=${tipo}`
+}
+
+// ── Email: Boleta / factura / comprobante de una venta del POS ────────────────
+// Antes el POS pedía el email del cliente pero no le mandaba nada: la boleta
+// solo iba al SII y el cliente se quedaba con el papel. Este correo lleva el
+// detalle de la compra y el folio. No adjunta el PDF: un correo liviano y sin
+// adjuntos tiene menos riesgo de terminar en no deseados (Outlook/Office 365
+// es estricto con adjuntos de remitentes de hosting compartido) y se puede
+// reenviar tal cual desde el historial.
+export interface CompraEmailData {
+  tallerNombre: string
+  logoUrl?: string
+  clienteNombre?: string
+  documento: 'boleta' | 'factura' | 'comprobante'
+  folio?: number | null
+  ventaNumero: string
+  fecha: string
+  items: { nombre: string; cantidad: number; total: number }[]
+  total: number
+  formaPago: string
+  branchNombre?: string
+  branchDir?: string
+  branchTel?: string
+  branchEmail?: string
+  puedeResponder?: boolean
+}
+
+function esc(texto: string | number | null | undefined): string {
+  return String(texto ?? '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
+function pesos(n: number): string {
+  return '$' + Math.round(n).toLocaleString('es-CL')
+}
+
+export function tituloDocumentoCompra(d: Pick<CompraEmailData, 'documento' | 'folio' | 'ventaNumero'>): string {
+  if (d.documento === 'boleta') return `Boleta electrónica${d.folio ? ` N° ${d.folio}` : ''}`
+  if (d.documento === 'factura') return `Factura electrónica${d.folio ? ` N° ${d.folio}` : ''}`
+  return `Comprobante de compra ${d.ventaNumero}`
+}
+
+export function asuntoCompra(d: CompraEmailData): string {
+  return `Tu ${tituloDocumentoCompra(d).replace(/^\w/, c => c.toLowerCase())} — ${d.tallerNombre}`
+}
+
+export function buildEmailCompra(d: CompraEmailData): string {
+  const saludo = d.clienteNombre && d.clienteNombre !== 'Cliente genérico'
+    ? `Hola ${esc(d.clienteNombre.split(' ')[0])},`
+    : 'Hola,'
+  const filas = d.items.map(it => `
+        <tr>
+          <td style="padding:8px 0;border-bottom:1px solid #eef0f5;font-size:13px;color:#111827">${esc(it.nombre)}${it.cantidad > 1 ? ` <span style="color:#6b7280">× ${esc(it.cantidad)}</span>` : ''}</td>
+          <td style="padding:8px 0;border-bottom:1px solid #eef0f5;font-size:13px;color:#111827;text-align:right;white-space:nowrap">${pesos(it.total)}</td>
+        </tr>`).join('')
+  const fecha = new Date(d.fecha.length === 10 ? d.fecha + 'T12:00:00' : d.fecha)
+    .toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' })
+
+  const body = `
+    <p style="font-size:14px;color:#374151;line-height:1.7;margin:0 0 24px">${saludo}<br>gracias por tu compra en <b>${esc(d.tallerNombre)}</b>. Te dejamos el detalle${d.documento === 'comprobante' ? '' : ` de tu ${d.documento}`}.</p>
+    <div style="background:#f8fafc;border-radius:12px;padding:20px 24px;margin-bottom:24px;border:1px solid #eef0f5">
+      ${secIcon('Detalle de la compra')}
+      ${campo2col(['Documento', esc(tituloDocumentoCompra(d))], ['Fecha', esc(fecha)])}
+      <table cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:collapse;margin-top:6px">
+        ${filas}
+        <tr>
+          <td style="padding:12px 0 0;font-size:14px;font-weight:800;color:#111827">Total</td>
+          <td style="padding:12px 0 0;font-size:14px;font-weight:800;color:#111827;text-align:right">${pesos(d.total)}</td>
+        </tr>
+      </table>
+      <p style="font-size:12px;color:#6b7280;margin:10px 0 0">Pagado con: ${esc(d.formaPago)} · Venta ${esc(d.ventaNumero)}</p>
+    </div>
+    ${d.branchNombre ? `<div style="background:#f8fafc;border-radius:12px;padding:20px 24px;margin-bottom:24px;border:1px solid #eef0f5">
+      ${secIcon('Sucursal')}
+      ${campo('Sucursal', esc(d.branchNombre))}
+      ${d.branchDir ? campo('Dirección', esc(d.branchDir)) : ''}
+      ${contactPills(d.branchTel, d.branchEmail)}
+    </div>` : ''}
+    ${d.documento === 'boleta' || d.documento === 'factura'
+      ? '<p style="font-size:12px;color:#6b7280;margin:0 0 12px">El documento tributario quedó emitido ante el SII; puedes verificarlo en sii.cl con el folio indicado.</p>'
+      : ''}
+    <p style="font-size:13px;color:#6b7280;margin:0">${
+      d.puedeResponder === false
+        ? '¿Tienes alguna pregunta? Contáctanos por WhatsApp o en la sucursal — este correo es solo informativo.'
+        : '¿Tienes alguna pregunta? Responde directamente a este correo.'
+    }</p>`
+  return emailShell(d.tallerNombre, d.logoUrl, body)
 }

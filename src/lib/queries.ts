@@ -18,6 +18,7 @@ import { DEFAULT_PLAN_LIMITS, type PlanTier } from './queries/usePlanLimits'
 import { useAuth } from '@/context/AuthContext'
 import type { Orden, Repuesto, Cliente, Producto, Bodega, Movimiento, Proveedor, Venta, VentaItem, MetodoPago, Caja, CajaSesion, Gasto, GastoCat, NaturalezaGasto, ComportamientoGasto, CuentaContable, Asiento, SeguimientoConfig, SmtpConfig, MsgTemplates, Cargo, UserProfile, UserConfig, PendingInvite, EmailDomain, OC, OCLogEntry, OCRecepcion, Categoria, Kit, Traslado, TrasladoInternoOrden, TecnicoExterno, Equipo, FichaUsuario, LoteInventario, ConteoInventario, Cotizacion } from '@/types'
 import { palabrasBusquedaProducto, puntuarBusqueda } from './texto'
+import { sendEmail } from './email'
 
 // ── Órdenes de Taller ─────────────────────────────────────────
 // Tabla relacional `ordenes` (migrada desde el blob erp_data/tp_orders).
@@ -4010,6 +4011,8 @@ export interface CorreoEnviado {
   ok: boolean
   error: string | null
   creado_en: string
+  /** Guardó el contenido del correo, así que se puede reenviar (supabase/73). */
+  tiene_html: boolean
 }
 
 export function useEmailLog(limite = 20) {
@@ -4019,7 +4022,7 @@ export function useEmailLog(limite = 20) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('email_log')
-        .select('id,canal,destinatario,asunto,ok,error,creado_en')
+        .select('id,canal,destinatario,asunto,ok,error,creado_en,tiene_html')
         .eq('empresa_id', empresaId!)
         .order('creado_en', { ascending: false })
         .limit(limite)
@@ -4030,6 +4033,29 @@ export function useEmailLog(limite = 20) {
     // Los envíos automáticos ocurren desde otras pantallas. Al volver a
     // Configuración, el historial debe reflejarlos sin recargar toda la app.
     refetchInterval: 15_000,
+  })
+}
+
+// Reenvía un correo del historial tal cual salió: mismo destinatario, asunto
+// y contenido. El reenvío queda como un intento nuevo en el historial.
+export function useReenviarCorreo() {
+  const { empresaId } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { data, error } = await supabase
+        .from('email_log')
+        .select('destinatario,asunto,html')
+        .eq('id', id)
+        .eq('empresa_id', empresaId!)
+        .maybeSingle()
+      if (error) throw error
+      if (!data?.html) throw new Error('Este correo se envió antes de que Pixit guardara su contenido; no se puede reenviar.')
+      const res = await sendEmail(empresaId!, data.destinatario, data.asunto, data.html, { notifyError: false })
+      if (!res.ok) throw new Error(res.error ?? 'No se pudo reenviar')
+      return res
+    },
+    onSettled: () => void qc.invalidateQueries({ queryKey: ['email_log', empresaId] }),
   })
 }
 

@@ -2,7 +2,8 @@ import { useState, useMemo, useRef, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { TIPO_DTE, abrirPdfBase64, lineaParaDte } from '@/lib/dte'
 import { ProductoModal } from '@/modules/inventario/ProductoModal'
-import { useProductos, useBuscarProductos, useBodegas, useVentasEnRango, useConfirmarVenta, useMetodosPago, useCajaSesiones, useCajas, useGuardarCajaSesiones, useIncrementarContadorVenta, useOrdenesLite, useUserProfiles, useUserCargoMap, useCargos, fetchOrdenCompletaPorId, useClientes, useBuscarClientes, useCrearCliente, useVentasConfig, CARGOS_DEFAULT, useEmitirDte, useImprimirDte, useEnviarDte } from '@/lib/queries'
+import { useProductos, useBuscarProductos, useBodegas, useVentasEnRango, useConfirmarVenta, useMetodosPago, useCajaSesiones, useCajas, useGuardarCajaSesiones, useIncrementarContadorVenta, useOrdenesLite, useUserProfiles, useUserCargoMap, useCargos, fetchOrdenCompletaPorId, useClientes, useBuscarClientes, useCrearCliente, useVentasConfig, CARGOS_DEFAULT, useEmitirDte, useImprimirDte, useEnviarDte, useSeguimientoConfig } from '@/lib/queries'
+import { sendEmail, buildEmailCompra, asuntoCompra, puedeResponderCorreo, type CompraEmailData } from '@/lib/email'
 import { useAuth } from '@/context/AuthContext'
 
 import { useAnchorRect, fixedDropdownStyle } from '@/lib/useAnchorRect'
@@ -46,7 +47,8 @@ function lineNeto(it: VentaItem) {
 }
 
 export function POSTab() {
-  const { nombre: nombreUsuario, branchId, empresaId, esAdmin } = useAuth()
+  const { nombre: nombreUsuario, branchId, empresaId, esAdmin, empresaNombre } = useAuth()
+  const { data: segCfg } = useSeguimientoConfig()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const { data: productos } = useProductos()
@@ -471,6 +473,37 @@ export function POSTab() {
     clienteNombre: string
     metodoPago: string
     items: VentaItem[]
+    /** Email del cliente, si lo dejó: se le manda el detalle de la compra. */
+    email: string
+  }
+
+  // El detalle de la compra por correo, después de que el documento quedó
+  // emitido (con su folio) o del comprobante "Sin doc.". Si falla, la venta
+  // sigue bien: se avisa y se puede reenviar desde Configuración → Correo.
+  async function enviarCompraPorCorreo(
+    venta: Venta, email: string, documento: CompraEmailData['documento'], folio: number | null, formaPago: string,
+  ): Promise<string | null> {
+    if (!empresaId || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return null
+    const sucursal = bodegasTodas.find(b => b.id === venta.branchId)
+    const datos: CompraEmailData = {
+      tallerNombre: empresaNombre || 'tu tienda',
+      logoUrl: segCfg?.logoUrl,
+      clienteNombre: venta.cliente,
+      documento,
+      folio,
+      ventaNumero: venta.numero,
+      fecha: venta.fecha_creacion ?? venta.fecha,
+      items: venta.items.map(it => ({ nombre: it.producto_nombre, cantidad: it.cantidad, total: it.precio_iva * it.cantidad })),
+      total: venta.total_iva ?? venta.total,
+      formaPago,
+      branchNombre: sucursal?.nombre ?? sucursal?.name,
+      branchDir: sucursal?.direccion,
+      branchTel: sucursal?.tel,
+      branchEmail: sucursal?.email,
+      puedeResponder: await puedeResponderCorreo(empresaId),
+    }
+    const res = await sendEmail(empresaId, email, asuntoCompra(datos), buildEmailCompra(datos), { notifyError: false })
+    return res.ok ? null : `no se pudo enviar el correo a ${email}: ${res.error ?? 'error desconocido'}`
   }
 
   async function procesarDocumentoTributario(p: DocumentoPendiente) {
@@ -513,6 +546,11 @@ export function POSTab() {
         // a intentar el envío, sin gastar otro folio ni duplicar la venta.
         avisosDocumento.push(`el folio ${emitido.folio} quedó pendiente de envío al SII: ${mensajeDeError(error, 'error desconocido')}`)
       }
+
+      if (p.email) {
+        const fallo = await enviarCompraPorCorreo(p.venta, p.email, p.tipo, emitido.folio, p.metodoPago)
+        if (fallo) avisosDocumento.push(fallo)
+      }
     }
 
     if (avisosDocumento.length) {
@@ -537,12 +575,16 @@ export function POSTab() {
   // "Sin doc." en el POS: la venta no lleva ningún documento tributario, pero
   // el cliente igual se lleva un respaldo. Mismo PDF que una boleta, sin
   // folio ni envío al SII — no compite con la cola de emisión de verdad.
-  async function imprimirComprobante(venta: Venta, metodoPago: string) {
+  async function imprimirComprobante(venta: Venta, metodoPago: string, email: string) {
     ultimoDteRef.current = venta.id
     setProcesandoDte(`Venta ${venta.numero} registrada. Generando comprobante…`)
     try {
       const pdf = await imprimirDte.mutateAsync({ comprobante: true, venta_id: venta.id, forma_pago: metodoPago })
       abrirPdfBase64(pdf.pdf_base64, true)
+      if (email) {
+        const fallo = await enviarCompraPorCorreo(venta, email, 'comprobante', null, metodoPago)
+        if (fallo) setAvisoDte(`La venta ${venta.numero} se guardó correctamente, pero ${fallo}`)
+      }
     } catch (error) {
       setAvisoDte(`La venta ${venta.numero} se guardó correctamente, pero no se pudo generar el comprobante: ${mensajeDeError(error, 'error desconocido')}`)
     } finally {
@@ -653,9 +695,10 @@ export function POSTab() {
           clienteNombre: cliente.trim(),
           metodoPago: formaPagoImpresion,
           items: [...items],
+          email: clienteEmail.trim(),
         })
       } else {
-        void imprimirComprobante(venta, formaPagoImpresion)
+        void imprimirComprobante(venta, formaPagoImpresion, clienteEmail.trim())
       }
 
       if (otSeleccionada) setOtSeleccionada(null)

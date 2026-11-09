@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { useSmtpConfig, useGuardarSmtpConfig, useEmailLog } from '@/lib/queries'
+import { useSmtpConfig, useGuardarSmtpConfig, useEmailLog, useReenviarCorreo } from '@/lib/queries'
 import { useAuth } from '@/context/AuthContext'
 import { sendEmail } from '@/lib/email'
 import { diagnosticarRemitente, diagnosticarConexion } from '@/lib/correoDiagnostico'
@@ -37,6 +37,9 @@ export function SmtpTab() {
   const prov = proveedorPorId(proveedor)
 
   const { data: correos, refetch: refetchCorreos } = useEmailLog(20)
+  const reenviar = useReenviarCorreo()
+  // Resultado del último reenvío, junto a la fila que se reenvió.
+  const [reenvio, setReenvio] = useState<{ id: string; ok: boolean; msg: string } | null>(null)
   // Se calcula sobre `form` y no sobre lo guardado: así el aviso aparece
   // mientras se escribe, antes de guardar una configuración que no va a andar.
   // Primero los de conexión: un puerto/cifrado incompatible impide cualquier
@@ -482,7 +485,32 @@ export function SmtpTab() {
                   {!c.ok && c.error && (
                     <p className="text-xs text-red-600 mt-1 break-words">{c.error}</p>
                   )}
+                  {reenvio?.id === c.id && (
+                    <p className={`text-xs mt-1 ${reenvio.ok ? 'text-green-700' : 'text-red-600'}`}>{reenvio.msg}</p>
+                  )}
                 </div>
+                {/* Solo los correos que guardaron su contenido (desde supabase/73).
+                    Destacado si falló; discreto si salió, para cuando el cliente
+                    dice que no le llegó (spam, cuarentena). */}
+                {c.tiene_html && (
+                  <button type="button"
+                    disabled={reenviar.isPending}
+                    onClick={() => {
+                      setReenvio(null)
+                      reenviar.mutate(c.id, {
+                        onSuccess: () => setReenvio({ id: c.id, ok: true, msg: `Reenviado a ${c.destinatario}` }),
+                        onError: (e) => setReenvio({ id: c.id, ok: false, msg: e instanceof Error ? e.message : 'No se pudo reenviar' }),
+                      })
+                    }}
+                    className={[
+                      'flex-shrink-0 text-xs font-semibold rounded-lg px-2.5 py-1.5 transition disabled:opacity-50',
+                      c.ok
+                        ? 'text-gray-500 hover:text-blue-700 hover:bg-blue-50'
+                        : 'text-white bg-blue-600 hover:bg-blue-700',
+                    ].join(' ')}>
+                    {reenviar.isPending && reenviar.variables === c.id ? 'Enviando…' : 'Reenviar'}
+                  </button>
+                )}
               </div>
             ))}
           </div>

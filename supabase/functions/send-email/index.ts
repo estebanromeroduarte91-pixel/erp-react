@@ -309,6 +309,8 @@ Deno.serve(async (req) => {
       asunto: subject,
       ok: !sendError,
       error: sendError,
+      // Para el botón Reenviar de Configuración → Correo (supabase/73).
+      html: html || null,
     });
     if (errorLog) console.error("email_log: no se pudo registrar el envío", errorLog.message);
 
