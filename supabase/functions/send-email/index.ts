@@ -297,8 +297,11 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 5) Log de auditoría (siempre, éxito o error)
-    await admin.from("email_log").insert({
+    // 5) Log de auditoría (siempre, éxito o error). Si el registro falla, el
+    // correo igual salió: no se cambia la respuesta, pero queda en los logs
+    // de la función. Entre agosto y noviembre de 2026 una regla de la tabla
+    // rechazó cada registro sin que nada lo mostrara (supabase/72).
+    const { error: errorLog } = await admin.from("email_log").insert({
       empresa_id: empresaId,
       user_id: userData.user.id,
       canal: usedChannel,
@@ -307,6 +310,7 @@ Deno.serve(async (req) => {
       ok: !sendError,
       error: sendError,
     });
+    if (errorLog) console.error("email_log: no se pudo registrar el envío", errorLog.message);
 
     if (sendError) {
       return new Response(JSON.stringify({ ok: false, error: sendError }), {
