@@ -238,6 +238,10 @@ export function useOrdenesLite() {
           .select(ORDEN_LITE_COLS)
           .eq('empresa_id', empresaId!)
           .eq('is_draft', false)
+          // Orden fijo obligatorio al paginar: sin ORDER BY, Postgres puede
+          // devolver una fila en dos páginas y saltarse otra (filas repetidas
+          // y otras que no aparecen hasta recargar).
+          .order('id')
           .range(from, from + PAGE - 1)
         if (error) throw error
         filas.push(...(data ?? []))
@@ -626,6 +630,12 @@ export function useProductos() {
           .from('productos')
           .select(PRODUCTO_COLS)
           .eq('empresa_id', empresaId!)
+          // Orden fijo obligatorio al paginar: sin ORDER BY, Postgres puede
+          // devolver una fila en dos páginas y saltarse otra (filas repetidas
+          // y otras que no aparecen hasta recargar).
+          // Por fecha de creación (como se veían antes) y el id para desempatar.
+          .order('created_at')
+          .order('id')
           .range(from, from + PAGE - 1)
         if (error) throw error
         filas.push(...(data ?? []))
@@ -1074,6 +1084,10 @@ export function useLotes() {
           .from('lotes_inventario')
           .select('*')
           .eq('empresa_id', empresaId!)
+          // Orden fijo obligatorio al paginar: sin ORDER BY, Postgres puede
+          // devolver una fila en dos páginas y saltarse otra (filas repetidas
+          // y otras que no aparecen hasta recargar).
+          .order('id')
           .range(from, from + PAGE - 1)
         if (error) throw error
         filas.push(...(data ?? []))
@@ -1321,6 +1335,12 @@ export function useClientes() {
           .from('clientes')
           .select('*')
           .eq('empresa_id', empresaId!)
+          // Orden fijo obligatorio al paginar: sin ORDER BY, Postgres puede
+          // devolver una fila en dos páginas y saltarse otra (filas repetidas
+          // y otras que no aparecen hasta recargar).
+          // Por fecha de creación (como se veían antes) y el id para desempatar.
+          .order('created_at')
+          .order('id')
           .range(from, from + PAGE - 1)
         if (error) throw error
         filas.push(...(data ?? []))
@@ -2638,6 +2658,10 @@ export function useAsientos() {
           .from('asientos_contables')
           .select('datos')
           .eq('empresa_id', empresaId!)
+          // Orden fijo obligatorio al paginar: sin ORDER BY, Postgres puede
+          // devolver una fila en dos páginas y saltarse otra (filas repetidas
+          // y otras que no aparecen hasta recargar).
+          .order('id')
           .range(from, from + PAGE - 1)
         if (error) throw error
         lista.push(...(data ?? []).map((row) => row.datos as Asiento))
