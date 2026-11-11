@@ -203,12 +203,20 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
       id: o.id, aprobacion_estado: data.estado as 'aprobado' | 'rechazado', aprobacion_fecha: data.aprobado_en,
     })
   }, [o, actualizarOrden])
+  const pollRef = useRef(pollAprobacion)
+  useEffect(() => { pollRef.current = pollAprobacion }, [pollAprobacion])
 
   useEffect(() => {
     if (o?.aprobacion_estado !== 'pendiente') return
-    const id = setInterval(() => void pollAprobacion(), 30_000)
+    // Al abrir la orden se revisa de inmediato; después, cada 30 segundos.
+    // La base ya actualiza la orden cuando el cliente responde (supabase/74),
+    // esto es para que una ficha que quedó abierta se refresque sola.
+    // pollAprobacion cambia en cada render (depende de la mutación): se lee
+    // desde un ref para no volver a consultar en cada render.
+    void pollRef.current()
+    const id = setInterval(() => void pollRef.current(), 30_000)
     return () => clearInterval(id)
-  }, [o?.aprobacion_estado, pollAprobacion])
+  }, [o?.aprobacion_estado, o?.id])
 
   useEffect(() => {
     if (!aprobMsg) return
