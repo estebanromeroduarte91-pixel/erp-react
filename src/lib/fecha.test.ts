@@ -27,3 +27,16 @@ describe('fechaLocal', () => {
     expect(fechaLocal()).toBe(esperado)
   })
 })
+
+describe('horaReal', () => {
+  it('muestra la hora de una orden creada en Pixit', async () => {
+    const { horaReal } = await import('./fecha')
+    expect(horaReal('2026-11-09T15:03:33.791+00:00')).toMatch(/^\d{2}:\d{2}$/)
+  })
+  it('no inventa hora para las órdenes importadas solo con fecha', async () => {
+    const { horaReal } = await import('./fecha')
+    expect(horaReal('2024-07-12T00:00:00+00:00')).toBeNull()
+    expect(horaReal('2024-07-12')).toBeNull()
+    expect(horaReal(undefined)).toBeNull()
+  })
+})

@@ -19,6 +19,7 @@ import { Spinner } from '@/components/shared/Spinner'
 import type { EstadoOrden, Inspeccion, CheckItem, Producto } from '@/types'
 import { comprimirImagenADataUrl } from '@/lib/imagen'
 import { checklistOrden } from './checklistOrden'
+import { horaReal } from '@/lib/fecha'
 
 const PIPELINE: EstadoOrden[] = ['Chequeo', 'Reparación', 'Listo', 'Entregado']
 
@@ -898,6 +899,16 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
               </svg>
               {fmtFecha(o.fecha)}
             </p>
+            {/* Hora de ingreso: solo si la orden la guardó (las importadas
+                traen solo la fecha). */}
+            {horaReal(o.fecha) && (
+              <p className="text-xs text-gray-400 flex items-center gap-1 mt-1.5">
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <circle cx="12" cy="12" r="9" /><path strokeLinecap="round" d="M12 7v5l3 2" />
+                </svg>
+                Ingresó a las {horaReal(o.fecha)}
+              </p>
+            )}
           </div>
         </div>
 

@@ -9,7 +9,7 @@ import { QrFotosModal } from './QrFotosModal'
 import { totalOrden } from './utils'
 import type { Orden, EstadoOrden, Inspeccion } from '@/types'
 import { comprimirImagenADataUrl } from '@/lib/imagen'
-import { fechaLocal } from '@/lib/fecha'
+import { fechaLocal, horaReal } from '@/lib/fecha'
 
 const PIPELINE: EstadoOrden[] = ['Chequeo', 'Reparación', 'Listo', 'Entregado']
 
@@ -378,7 +378,7 @@ export function OrdenDetalle({ orden: o, onClose, onEditar }: Props) {
             <div>
               <h2 className="text-xl font-bold text-gray-900">{[o.nombre, o.apellido].filter(Boolean).join(' ')}</h2>
               <div className="flex items-center gap-3 mt-1">
-                <span className="text-sm text-gray-400">{fmtFecha(o.fecha)}</span>
+                <span className="text-sm text-gray-400">{fmtFecha(o.fecha)}{horaReal(o.fecha) ? ` · ${horaReal(o.fecha)}` : ''}</span>
                 {total > 0 && <span className="text-sm font-semibold text-gray-800"><Money value={total} /></span>}
               </div>
             </div>

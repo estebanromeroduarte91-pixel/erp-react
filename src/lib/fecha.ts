@@ -14,3 +14,18 @@
 export function fechaLocal(d: Date = new Date()): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
+
+/**
+ * Hora local ("15:03") de un timestamp, o null si no trae una hora real.
+ *
+ * Las órdenes antiguas se importaron solo con la fecha y quedaron guardadas a
+ * las 00:00:00 UTC exactas; mostrarles "21:00" sería inventar una hora. Las
+ * creadas en Pixit guardan la hora con milisegundos.
+ */
+export function horaReal(iso?: string | null): string | null {
+  if (!iso || !iso.includes('T')) return null
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return null
+  if (d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0 && d.getUTCMilliseconds() === 0) return null
+  return d.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false })
+}
