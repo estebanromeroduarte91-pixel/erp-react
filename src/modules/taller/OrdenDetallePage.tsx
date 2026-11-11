@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { etiquetaHtml } from '@/lib/etiqueta'
+import { etiquetaHtml, qrSvg } from '@/lib/etiqueta'
 import { createPortal } from 'react-dom'
 import { PagoComisionModal } from './PagoComisionModal'
 import { baseComisionable, montoComision } from '@/lib/comision'
@@ -429,11 +429,14 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
     e.target.value = ''
   }
 
-  function printLabel() {
+  async function printLabel() {
     if (!o) return
     const branch = bodegas.find(b => b.id === o.branchId)
+    // La ventana se abre antes de cualquier await: si no, el navegador la
+    // bloquea por no venir directo del clic.
     const w = window.open('', '_blank')
     if (!w) return
+    const url = `${window.location.origin}${window.location.pathname}?orden=${encodeURIComponent(o.id)}`
     w.document.write(etiquetaHtml({
       num: String(o.num ?? ''),
       modelo: o.modelo,
@@ -441,8 +444,8 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
       trabajo: o.trabajo,
       pin: o.pin,
       pie: [empresaNombre || 'tu taller', branch?.nombre ?? branch?.name ?? ''].filter(Boolean).join(' — '),
-      url: `${window.location.origin}${window.location.pathname}?orden=${encodeURIComponent(o.id)}`,
-    }))
+      url,
+    }, await qrSvg(url)))
     w.document.close()
   }
 
@@ -723,7 +726,7 @@ export function OrdenDetallePage({ num: numProp, onClose }: { num?: string; onCl
               </button>
             )
           })()}
-          <button onClick={printLabel}
+          <button onClick={() => void printLabel()}
             className="hidden md:flex items-center gap-1.5 text-sm font-semibold text-gray-600 border border-gray-200 rounded-lg px-3 py-1.5 hover:bg-gray-50 transition">
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>

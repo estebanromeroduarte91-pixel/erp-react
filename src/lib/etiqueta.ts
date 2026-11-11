@@ -17,6 +17,22 @@ export interface DatosEtiqueta {
   url: string
 }
 
+/**
+ * El QR como SVG, generado en Pixit antes de abrir la etiqueta.
+ *
+ * Antes lo dibujaba qrcodejs (CDN) dentro de la ventana de impresión: pintaba
+ * un canvas y después lo cambiaba por una imagen de 120 px con estilo en
+ * línea, que le ganaba al CSS. La imagen quedaba en un recuadro de 13 mm con
+ * overflow:hidden y se imprimía solo el centro del QR, sin los tres cuadrados
+ * de las esquinas: ningún teléfono lo podía leer. Según quién ganara la
+ * carrera contra window.print(), a veces salía bien y a veces no.
+ * Un SVG no tiene esa carrera y queda nítido en la impresora térmica.
+ */
+export async function qrSvg(url: string): Promise<string> {
+  const QRCode = (await import('qrcode')).default
+  return QRCode.toString(url, { type: 'svg', margin: 0, errorCorrectionLevel: 'M', color: { dark: '#000000', light: '#ffffff' } })
+}
+
 /** Escapa el texto del cliente: va dentro de HTML que se escribe con document.write. */
 function esc(v: string | undefined): string {
   return String(v ?? '').replace(/[&<>"']/g, c => (
@@ -24,10 +40,9 @@ function esc(v: string | undefined): string {
   ))
 }
 
-export function etiquetaHtml(d: DatosEtiqueta): string {
+export function etiquetaHtml(d: DatosEtiqueta, qr: string): string {
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Etiqueta OT #${esc(d.num)}</title>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
   /* Una sola hoja de 60 × 40 mm, sin márgenes: así Chrome no imprime
      encabezado ni pie, y el papel calza con el rollo de la etiquetera. */
@@ -47,11 +62,9 @@ export function etiquetaHtml(d: DatosEtiqueta): string {
   .row b{font-weight:700}
   .footer{font-size:4.5pt;color:#999;font-weight:500;margin-top:auto;padding-top:1mm;white-space:nowrap;overflow:hidden}
   .right{display:flex;flex-direction:column;align-items:center;justify-content:center;width:17mm;border-left:.3px solid #ddd;padding-left:2.5mm;flex-shrink:0;overflow:hidden}
-  /* qrcodejs dibuja el QR dos veces (canvas + img). Se muestra uno solo: los
-     dos juntos hacen crecer la columna y empujan la etiqueta a otra hoja. */
-  #qr{width:13mm;height:13mm;display:flex;align-items:center;justify-content:center;overflow:hidden}
-  #qr img{display:none}
-  #qr canvas{width:13mm!important;height:13mm!important}
+  /* El SVG se escala completo al recuadro: nunca se recorta. */
+  #qr{width:13mm;height:13mm}
+  #qr svg{display:block;width:13mm;height:13mm;shape-rendering:crispEdges}
   .qr-lbl{font-size:4pt;color:#aaa;margin-top:1mm;text-align:center;font-weight:500}
 </style></head><body>
 <div class="left">
@@ -66,12 +79,11 @@ export function etiquetaHtml(d: DatosEtiqueta): string {
   <div class="footer">${esc(d.pie)}</div>
 </div>
 <div class="right">
-  <div id="qr"></div>
+  <div id="qr">${qr}</div>
   <div class="qr-lbl">Abrir OT</div>
 </div>
 <script>
-  new QRCode(document.getElementById('qr'),{text:${JSON.stringify(d.url)},width:120,height:120,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.M});
-  // Se imprime apenas están la tipografía y el QR, sin esperas fijas.
+  // Se imprime apenas está la tipografía; el QR ya viene dibujado.
   (document.fonts ? document.fonts.ready : Promise.resolve()).then(function () {
     requestAnimationFrame(function () { setTimeout(function () { window.print() }, 120) })
   });
