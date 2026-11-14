@@ -1,5 +1,5 @@
 import React from 'react'
-import { AbsoluteFill, Img, interpolate, Sequence, spring, staticFile, useCurrentFrame, useVideoConfig } from 'remotion'
+import { AbsoluteFill, Audio, Img, interpolate, Sequence, spring, staticFile, useCurrentFrame, useVideoConfig } from 'remotion'
 import QRCode from 'qrcode'
 import { C, fontFamily } from './marca'
 import { Entra, Subtitulos, Telefono, Toque, type Frase } from './piezas'
@@ -10,38 +10,47 @@ import { CelularCliente, CelularTrizado, Persona } from './personas'
 // guardar + etiqueta → aviso al cliente → seguimiento → llamado a comentar.
 // Ritmo pausado: cada paso tiene tiempo para leerse antes del siguiente.
 const E = {
-  gancho: [0, 120],
-  inicio: [120, 270],
-  datos: [270, 570],
-  fotos: [570, 1050],
-  checklist: [1050, 1290],
-  guardar: [1290, 1500],
-  aviso: [1500, 1680],
-  estados: [1680, 1890],
-  cierre: [1890, 2100],
+  gancho: [0, 100],
+  inicio: [100, 230],
+  datos: [230, 430],
+  fotos: [430, 910],
+  checklist: [910, 1090],
+  guardar: [1090, 1250],
+  aviso: [1250, 1390],
+  estados: [1390, 1550],
+  cierre: [1550, 1720],
 } as const
 
 export const DURACION = E.cierre[1]
 
 const FRASES: Frase[] = [
-  { desde: 10, hasta: 120, texto: 'Así se recibe un equipo con Pixit' },
-  { desde: 125, hasta: 270, texto: 'Abres Pixit y tocas Nueva orden' },
-  { desde: 275, hasta: 570, texto: 'Anotas el cliente, el equipo, la falla y la clave' },
-  { desde: 575, hasta: 680, texto: 'Escaneas el QR de la orden con tu celular' },
-  { desde: 685, hasta: 890, texto: 'Y le sacas fotos al equipo cuando llega' },
-  { desde: 895, hasta: 1050, texto: 'Las fotos llegan solas a la orden' },
-  { desde: 1055, hasta: 1290, texto: 'Y revisas el checklist frente al cliente' },
-  { desde: 1295, hasta: 1500, texto: 'Guardas y sale la etiqueta con QR' },
-  { desde: 1505, hasta: 1680, texto: 'Al cliente le llega el aviso al tiro' },
-  { desde: 1685, hasta: 1890, texto: 'Y lo sigues paso a paso hasta entregarlo' },
-  { desde: 1895, hasta: 2095, texto: 'Comenta PIXIT y te mostramos cómo' },
+  { desde: 8, hasta: 100, texto: 'Así se recibe un equipo con Pixit' },
+  { desde: 105, hasta: 230, texto: 'Abres Pixit y tocas Nueva orden' },
+  { desde: 235, hasta: 430, texto: 'Anotas el cliente, el equipo, la falla y la clave' },
+  { desde: 435, hasta: 515, texto: 'Escaneas el QR de la orden con tu celular' },
+  { desde: 520, hasta: 680, texto: 'Y le sacas fotos al equipo cuando llega' },
+  { desde: 685, hasta: 910, texto: 'Las fotos llegan solas a la orden' },
+  { desde: 915, hasta: 1090, texto: 'Y revisas el checklist frente al cliente' },
+  { desde: 1095, hasta: 1250, texto: 'Guardas y sale la etiqueta con QR' },
+  { desde: 1255, hasta: 1390, texto: 'Al cliente le llega el aviso enseguida' },
+  { desde: 1395, hasta: 1550, texto: 'Y lo sigues paso a paso hasta entregarlo' },
+  { desde: 1555, hasta: 1715, texto: 'Comenta PIXIT y te mostramos cómo' },
 ]
 
 const dur = (k: keyof typeof E) => E[k][1] - E[k][0]
 
+// Música de fondo bajo la narración: entra con un fade suave y se apaga al final.
+const volumenMusica = (frame: number) => interpolate(
+  frame,
+  [0, 20, DURACION - 40, DURACION],
+  [0, 0.16, 0.16, 0],
+  { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' },
+)
+
 export const RecibirEquipo: React.FC = () => (
   <AbsoluteFill style={{ background: C.fondo, fontFamily }}>
     <Fondo />
+    <Audio src={staticFile('audio/musica-fondo.mp3')} volume={volumenMusica} />
     {(Object.keys(E) as (keyof typeof E)[]).map(k => {
       const Escena = ESCENAS[k]
       return <Sequence key={k} from={E[k][0]} durationInFrames={dur(k)}><Escena /></Sequence>
@@ -78,23 +87,60 @@ const ConTelefono: React.FC<{ titulo: string; duracion: number; children: React.
 const saleAl = (frame: number, d: number) => interpolate(frame, [d - 14, d], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' })
 
 // ── 1. Gancho ────────────────────────────────────────────────────────────────
+// Portada: el mostrador del taller, el cliente deja el equipo y el técnico lo recibe.
+const Mostrador: React.FC = () => (
+  <div style={{ position: 'absolute', left: 0, right: 0, bottom: 150, height: 90 }}>
+    <div style={{ position: 'absolute', left: 0, right: 0, top: 30, bottom: 0, background: C.g700 }} />
+    <div style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 34, background: C.g800, borderRadius: 14 }} />
+    <div style={{
+      position: 'absolute', left: 60, top: -36, transform: 'rotate(-2deg)',
+      background: C.azul, color: '#fff', fontSize: 24, fontWeight: 800, letterSpacing: 1.5, textTransform: 'uppercase',
+      borderRadius: 10, padding: '9px 22px', boxShadow: '0 8px 18px rgba(21,24,31,.22)',
+    }}>Recepción</div>
+  </div>
+)
+
+/** Antebrazo y mano del cliente entrando desde el borde, entregando el equipo. */
+const ManoCliente: React.FC<{ frame: number }> = ({ frame }) => {
+  const llega = interpolate(frame, [0, 16], [1, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' })
+  const opacity = 1 - interpolate(frame, [24, 32], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' })
+  return (
+    <svg width={260} height={220} viewBox="0 0 260 220" style={{ position: 'absolute', right: -40, bottom: 330, opacity, transform: `translateX(${llega * 220}px)` }}>
+      <polygon points="260,180 110,150 116,118 260,128" fill="#e9b98f" />
+      <circle cx="104" cy="134" r="30" fill="#e9b98f" />
+      <g transform="translate(26 82) rotate(-10)">
+        <rect width="92" height="182" rx="18" fill={C.g800} />
+        <rect x="7" y="9" width="78" height="164" rx="12" fill="#3a4152" />
+        <path d="M54 32 l-13 44 l24 24 l-30 50" stroke="#e8ecf5" strokeWidth="3.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      </g>
+    </svg>
+  )
+}
+
 const Gancho: React.FC = () => {
   const frame = useCurrentFrame()
   const { fps } = useVideoConfig()
-  const titulo = spring({ frame: frame - 6, fps, config: { damping: 12 } })
-  const levanta = spring({ frame: frame - 20, fps, config: { damping: 14, stiffness: 70 } })
+  const titulo = Math.max(spring({ frame: frame - 6, fps, config: { damping: 12 } }), 0.6)
+  const levanta = Math.max(spring({ frame: frame - 24, fps, config: { damping: 14, stiffness: 70 } }), 0.2)
+  // El primer cuadro del video se usa como miniatura al compartirlo (Mensajes,
+  // Finder, etc.), así que la escena ya se ve completa desde el cuadro 0, sin
+  // depender de que la animación de entrada haya avanzado.
+  const sPersona = Math.max(spring({ frame: frame - 4, fps, config: { damping: 14, stiffness: 120 } }), 0.75)
   return (
     <AbsoluteFill style={{ alignItems: 'center', opacity: 1 - saleAl(frame, dur('gancho')) }}>
+      <Audio src={staticFile('audio/gancho.mp3')} />
       <div style={{
-        marginTop: 250, transform: `rotate(-4deg) scale(${titulo})`,
+        marginTop: 170, transform: `rotate(-4deg) scale(${titulo})`,
         background: '#fff', border: `8px solid ${C.g800}`, borderRadius: 18, padding: '22px 46px',
         fontSize: 92, fontWeight: 800, color: C.g800, letterSpacing: -2, boxShadow: `14px 14px 0 ${C.azul}`,
       }}>RECIBIR UN EQUIPO</div>
-      <div style={{ position: 'absolute', bottom: 420 }}>
-        <Entra desde={4} y={160}>
-          <Persona delantal levanta={levanta} expresion="feliz" objeto={<CelularTrizado />} ancho={700} />
-        </Entra>
+      <div style={{ position: 'absolute', bottom: 390 }}>
+        <div style={{ opacity: sPersona, transform: `translateY(${(1 - sPersona) * 160}px) scale(${0.96 + sPersona * 0.04})` }}>
+          <Persona delantal levanta={levanta} expresion="feliz" objeto={<CelularTrizado />} ancho={680} />
+        </div>
       </div>
+      <ManoCliente frame={frame} />
+      <Mostrador />
     </AbsoluteFill>
   )
 }
@@ -109,9 +155,11 @@ const Tarjeta: React.FC<{ n: string; label: string; color: string; fondo: string
 
 const Inicio: React.FC = () => {
   const frame = useCurrentFrame()
-  const presionado = frame >= 95 && frame < 104
+  const presionado = frame >= 72 && frame < 81
   return (
-    <ConTelefono titulo="Inicio" duracion={dur('inicio')} toques={[{ x: 380, y: 640, en: 95 }]}>
+    <>
+    <Audio src={staticFile('audio/inicio.mp3')} />
+    <ConTelefono titulo="Inicio" duracion={dur('inicio')} toques={[{ x: 380, y: 640, en: 72 }]}>
       <Entra desde={10}><div style={{ fontSize: 50, fontWeight: 800, color: C.g800 }}>Taller</div>
         <div style={{ fontSize: 30, fontWeight: 600, color: C.g500 }}>Hoy · 3 equipos en el taller</div></Entra>
       <Entra desde={18}><div style={{ display: 'flex', gap: 24 }}>
@@ -131,20 +179,21 @@ const Inicio: React.FC = () => {
         </div></Entra>
       ))}
     </ConTelefono>
+    </>
   )
 }
 
 // ── 3. Datos de la orden ─────────────────────────────────────────────────────
 const CAMPOS = [
-  { label: 'Cliente', valor: 'Ana Pérez', en: 24 },
-  { label: 'Equipo', valor: 'iPhone 13', en: 90 },
-  { label: 'Falla', valor: 'No carga', en: 156 },
-  { label: 'Clave', valor: '650224', en: 222 },
+  { label: 'Cliente', valor: 'Carla Soto', en: 12 },
+  { label: 'Equipo', valor: 'iPhone 13', en: 52 },
+  { label: 'Falla', valor: 'No carga', en: 92 },
+  { label: 'Clave', valor: '650224', en: 132 },
 ]
 
 const Campo: React.FC<{ label: string; valor: string; en: number }> = ({ label, valor, en }) => {
   const frame = useCurrentFrame()
-  const letras = Math.max(0, Math.min(valor.length, Math.floor((frame - en) / 3.5)))
+  const letras = Math.max(0, Math.min(valor.length, Math.floor((frame - en) / 2)))
   const listo = letras === valor.length
   const activo = frame >= en - 6 && !listo
   return (
@@ -168,9 +217,12 @@ const Campo: React.FC<{ label: string; valor: string; en: number }> = ({ label, 
 }
 
 const Datos: React.FC = () => (
-  <ConTelefono titulo="Nueva orden" duracion={dur('datos')} toques={CAMPOS.map((c, i) => ({ x: 380, y: 300 + i * 166, en: c.en - 10 }))}>
-    {CAMPOS.map((c, i) => <Entra key={c.label} desde={6 + i * 5}><Campo {...c} /></Entra>)}
-  </ConTelefono>
+  <>
+    <Audio src={staticFile('audio/datos.mp3')} />
+    <ConTelefono titulo="Nueva orden" duracion={dur('datos')} toques={CAMPOS.map((c, i) => ({ x: 380, y: 300 + i * 166, en: c.en - 10 }))}>
+      {CAMPOS.map((c, i) => <Entra key={c.label} desde={4 + i * 3}><Campo {...c} /></Entra>)}
+    </ConTelefono>
+  </>
 )
 
 // ── 4. Fotos de ingreso ──────────────────────────────────────────────────────
@@ -203,9 +255,9 @@ const IPhoneLado: React.FC<{ s?: number }> = ({ s = 1 }) => (
   </svg>
 )
 const TOMAS = [
-  { nombre: 'Frente', Dibujo: IPhoneFrente, en: 50 },
-  { nombre: 'Atrás', Dibujo: IPhoneAtras, en: 100 },
-  { nombre: 'Lado', Dibujo: IPhoneLado, en: 150 },
+  { nombre: 'Frente', Dibujo: IPhoneFrente, en: 35 },
+  { nombre: 'Atrás', Dibujo: IPhoneAtras, en: 75 },
+  { nombre: 'Lado', Dibujo: IPhoneLado, en: 115 },
 ]
 
 const CamaraFotos: React.FC<{ duracion: number }> = ({ duracion }) => {
@@ -216,6 +268,8 @@ const CamaraFotos: React.FC<{ duracion: number }> = ({ duracion }) => {
   const tomadas = TOMAS.filter(t => frame >= t.en + 4)
   const Visor = visible.Dibujo
   return (
+    <>
+    <Audio src={staticFile('audio/camara.mp3')} />
     <ConTelefono titulo="Fotos de ingreso" duracion={duracion} toques={TOMAS.map(t => ({ x: 629, y: 976, en: t.en }))}>
       <div style={{ position: 'relative', flex: 1, borderRadius: 30, background: '#1b1f27', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         {[0, 1, 2, 3].map(i => (
@@ -244,14 +298,15 @@ const CamaraFotos: React.FC<{ duracion: number }> = ({ duracion }) => {
       </div>
       <div style={{ fontSize: 32, fontWeight: 800, color: C.verde, textAlign: 'center', opacity: tomadas.length === 3 ? 1 : 0 }}>✓ 3 fotos guardadas en la orden</div>
     </ConTelefono>
+    </>
   )
 }
 
 // Las fotos de ingreso se sacan con el celular escaneando el QR de la orden:
 // llegan solas al computador, sin descargarlas ni volver a subirlas.
 // Tres tiempos: escanear el QR → sacar las fotos → ver que llegaron solas.
-const QR_FIN = 110
-const CAMARA_FIN = 320
+const QR_FIN = 85
+const CAMARA_FIN = 250
 
 const Fotos: React.FC = () => (
   <>
@@ -289,12 +344,13 @@ const EscaneaQr: React.FC = () => {
   const frame = useCurrentFrame()
   const { fps } = useVideoConfig()
   const entra = spring({ frame, fps, config: { damping: 20, stiffness: 80 } })
-  const cel = spring({ frame: frame - 18, fps, config: { damping: 16, stiffness: 70 } })
-  const barrido = interpolate(frame, [40, 70], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' })
-  const listo = spring({ frame: frame - 72, fps, config: { damping: 12 } })
+  const cel = spring({ frame: frame - 14, fps, config: { damping: 16, stiffness: 70 } })
+  const barrido = interpolate(frame, [28, 52], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' })
+  const listo = spring({ frame: frame - 56, fps, config: { damping: 12 } })
   const sale = saleAl(frame, QR_FIN)
   return (
     <AbsoluteFill style={{ alignItems: 'center', paddingTop: 230, opacity: 1 - sale }}>
+      <Audio src={staticFile('audio/qr.mp3')} />
       <div style={{ transform: `translateY(${(1 - entra) * 500}px)` }}>
         <Monitor>
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 16 }}>
@@ -341,6 +397,7 @@ const FotosLlegan: React.FC<{ duracion: number }> = ({ duracion }) => {
   const sale = saleAl(frame, duracion)
   return (
     <AbsoluteFill style={{ alignItems: 'center', paddingTop: 200, opacity: 1 - sale }}>
+      <Audio src={staticFile('audio/fotosllegan.mp3')} />
       <div style={{ transform: `translateY(${(1 - entra) * 500}px) scale(.92)`, transformOrigin: 'top center' }}>
         <Monitor>
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 22 }}>
@@ -387,22 +444,24 @@ const FotosLlegan: React.FC<{ duracion: number }> = ({ duracion }) => {
 
 // ── 5. Checklist ─────────────────────────────────────────────────────────────
 const CHECK = [
-  { item: '¿Llegó apagado?', estado: 'No', tipo: 'neutro', en: 30 },
-  { item: '¿Llegó mojado?', estado: 'No', tipo: 'neutro', en: 55 },
-  { item: 'Pantalla', estado: 'Funciona', tipo: 'ok', en: 85 },
-  { item: 'Cámara', estado: 'Funciona', tipo: 'ok', en: 110 },
-  { item: 'Wi‑Fi', estado: 'Funciona', tipo: 'ok', en: 135 },
-  { item: 'Carga', estado: 'No funciona', tipo: 'mal', en: 160 },
-  { item: 'Face ID', estado: 'Funciona', tipo: 'ok', en: 185 },
+  { item: '¿Llegó apagado?', estado: 'No', tipo: 'neutro', en: 20 },
+  { item: '¿Llegó mojado?', estado: 'No', tipo: 'neutro', en: 38 },
+  { item: 'Pantalla', estado: 'Funciona', tipo: 'ok', en: 56 },
+  { item: 'Cámara', estado: 'Funciona', tipo: 'ok', en: 74 },
+  { item: 'Wi‑Fi', estado: 'Funciona', tipo: 'ok', en: 92 },
+  { item: 'Carga', estado: 'No funciona', tipo: 'mal', en: 110 },
+  { item: 'Face ID', estado: 'Funciona', tipo: 'ok', en: 128 },
 ] as const
 
 const Checklist: React.FC = () => {
   const frame = useCurrentFrame()
   const hechos = CHECK.filter(c => frame >= c.en).length
   return (
+    <>
+    <Audio src={staticFile('audio/checklist.mp3')} />
     <ConTelefono titulo="Checklist de ingreso" duracion={dur('checklist')} toques={CHECK.map((c, i) => ({ x: 626, y: 336 + i * 126, en: c.en }))}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span style={{ fontSize: 34, fontWeight: 800, color: C.g800 }}>iPhone 13 · Ana Pérez</span>
+        <span style={{ fontSize: 34, fontWeight: 800, color: C.g800 }}>iPhone 13 · Carla Soto</span>
         <span style={{ fontSize: 30, fontWeight: 800, color: hechos === CHECK.length ? C.verde : C.g400 }}>{hechos}/{CHECK.length}</span>
       </div>
       {CHECK.map(c => {
@@ -424,6 +483,7 @@ const Checklist: React.FC = () => {
         )
       })}
     </ConTelefono>
+    </>
   )
 }
 
@@ -442,16 +502,17 @@ const Qr: React.FC<{ tam: number }> = ({ tam }) => {
 const Guardar: React.FC = () => {
   const frame = useCurrentFrame()
   const { fps } = useVideoConfig()
-  const telefonoSale = interpolate(frame, [70, 92], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' })
-  const toast = spring({ frame: frame - 36, fps, config: { damping: 14 } })
-  const imprime = interpolate(frame, [96, 160], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' })
+  const telefonoSale = interpolate(frame, [53, 70], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' })
+  const toast = spring({ frame: frame - 27, fps, config: { damping: 14 } })
+  const imprime = interpolate(frame, [73, 122], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' })
   return (
     <AbsoluteFill style={{ opacity: 1 - saleAl(frame, dur('guardar')) }}>
+      <Audio src={staticFile('audio/guardar.mp3')} />
       <AbsoluteFill style={{ alignItems: 'center', paddingTop: 190, opacity: 1 - telefonoSale, transform: `translateX(${-telefonoSale * 600}px)` }}>
         <div style={{ position: 'relative' }}>
           <Telefono titulo="Nueva orden">
             <div style={{ background: '#fff', borderRadius: 26, border: `3px solid ${C.g100}`, padding: 34, display: 'flex', flexDirection: 'column', gap: 18 }}>
-              {[['Cliente', 'Ana Pérez'], ['Equipo', 'iPhone 13'], ['Falla', 'No carga'], ['Clave', '650224']].map(([k, v]) => (
+              {[['Cliente', 'Carla Soto'], ['Equipo', 'iPhone 13'], ['Falla', 'No carga'], ['Clave', '650224']].map(([k, v]) => (
                 <div key={k} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 36 }}>
                   <span style={{ fontWeight: 600, color: C.g400 }}>{k}</span><span style={{ fontWeight: 800, color: C.g800 }}>{v}</span>
                 </div>
@@ -462,10 +523,10 @@ const Guardar: React.FC = () => {
             </div>
             <div style={{
               marginTop: 'auto', background: C.azul, color: '#fff', borderRadius: 30, textAlign: 'center',
-              fontSize: 54, fontWeight: 800, padding: '40px 0', transform: `scale(${frame >= 26 && frame < 35 ? 0.95 : 1})`,
+              fontSize: 54, fontWeight: 800, padding: '40px 0', transform: `scale(${frame >= 20 && frame < 27 ? 0.95 : 1})`,
             }}>Guardar orden</div>
           </Telefono>
-          <Toque x={380} y={1010} en={26} />
+          <Toque x={380} y={1010} en={20} />
           <div style={{
             position: 'absolute', left: 90, right: 90, top: 660, background: C.g800, color: '#fff', borderRadius: 28,
             padding: '30px 36px', fontSize: 40, fontWeight: 800, textAlign: 'center',
@@ -487,7 +548,7 @@ const Guardar: React.FC = () => {
         }}>
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
             <div style={{ fontSize: 40, fontWeight: 800, color: C.g800 }}>iPhone 13</div>
-            <div style={{ fontSize: 34, fontWeight: 600, color: C.g800 }}>Ana Pérez</div>
+            <div style={{ fontSize: 34, fontWeight: 600, color: C.g800 }}>Carla Soto</div>
             <div style={{ fontSize: 80, fontWeight: 800, color: C.g800, marginTop: 14 }}>#4343</div>
             <div style={{ fontSize: 28, fontWeight: 600, color: C.g800, marginTop: 'auto' }}><b>Falla:</b> No carga</div>
           </div>
@@ -505,14 +566,15 @@ const Guardar: React.FC = () => {
 const Aviso: React.FC = () => {
   const frame = useCurrentFrame()
   const { fps } = useVideoConfig()
-  const burbuja = spring({ frame: frame - 30, fps, config: { damping: 13 } })
+  const burbuja = spring({ frame: frame - 23, fps, config: { damping: 13 } })
   const levanta = spring({ frame: frame - 6, fps, config: { damping: 14, stiffness: 70 } })
   return (
     <AbsoluteFill style={{ alignItems: 'center', opacity: 1 - saleAl(frame, dur('aviso')) }}>
+      <Audio src={staticFile('audio/aviso.mp3')} />
       <div style={{ position: 'absolute', bottom: 420 }}>
         <Entra desde={0} y={160}>
           <Persona pelo="largo" colorPelo="#5a3825" piel="#e9b98f" sombraPiel="#cf9a70" ropa="#e2564b" sombraRopa="#b8433a"
-            expresion={frame > 40 ? 'feliz' : 'sorpresa'} levanta={levanta} objeto={<CelularCliente />} ancho={660} />
+            expresion={frame > 31 ? 'feliz' : 'sorpresa'} levanta={levanta} objeto={<CelularCliente />} ancho={660} />
         </Entra>
       </div>
       <div style={{
@@ -536,18 +598,20 @@ const Aviso: React.FC = () => {
 
 // ── 8. Estados ───────────────────────────────────────────────────────────────
 const PASOS = [
-  { label: 'Chequeo', en: 24, color: C.ambar, fondo: C.ambarClaro },
-  { label: 'Reparación', en: 70, color: C.azul, fondo: C.azulClaro },
-  { label: 'Listo', en: 116, color: C.verde, fondo: C.verdeClaro },
+  { label: 'Chequeo', en: 18, color: C.ambar, fondo: C.ambarClaro },
+  { label: 'Reparación', en: 53, color: C.azul, fondo: C.azulClaro },
+  { label: 'Listo', en: 88, color: C.verde, fondo: C.verdeClaro },
 ]
 
 const Estados: React.FC = () => {
   const frame = useCurrentFrame()
   const { fps } = useVideoConfig()
-  const aviso = spring({ frame: frame - 140, fps, config: { damping: 13 } })
+  const aviso = spring({ frame: frame - 106, fps, config: { damping: 13 } })
   return (
+    <>
+    <Audio src={staticFile('audio/estados.mp3')} />
     <ConTelefono titulo="Orden #4343" duracion={dur('estados')} toques={PASOS.map((p, i) => ({ x: 380, y: 300 + i * 190, en: p.en }))}>
-      <div style={{ fontSize: 40, fontWeight: 800, color: C.g800 }}>iPhone 13 · Ana Pérez</div>
+      <div style={{ fontSize: 40, fontWeight: 800, color: C.g800 }}>iPhone 13 · Carla Soto</div>
       {PASOS.map(p => {
         const activo = frame >= p.en
         return (
@@ -562,6 +626,7 @@ const Estados: React.FC = () => {
         padding: '30px 0', opacity: aviso, transform: `scale(${0.85 + aviso * 0.15})`,
       }}>Aviso enviado al cliente</div>
     </ConTelefono>
+    </>
   )
 }
 
@@ -570,11 +635,12 @@ const Cierre: React.FC = () => {
   const frame = useCurrentFrame()
   const { fps } = useVideoConfig()
   const logo = spring({ frame: frame - 6, fps, config: { damping: 13 } })
-  const caja = spring({ frame: frame - 40, fps, config: { damping: 15 } })
-  const escrito = 'PIXIT'.slice(0, Math.max(0, Math.floor((frame - 70) / 7)))
-  const enviado = frame >= 118
+  const caja = spring({ frame: frame - 32, fps, config: { damping: 15 } })
+  const escrito = 'PIXIT'.slice(0, Math.max(0, Math.floor((frame - 57) / 6)))
+  const enviado = frame >= 96
   return (
     <AbsoluteFill style={{ background: C.azul, alignItems: 'center' }}>
+      <Audio src={staticFile('audio/cierre.mp3')} />
       <div style={{ marginTop: 230, transform: `scale(${logo})`, background: '#fff', borderRadius: 48, padding: '50px 70px' }}>
         <Img src={staticFile('logo-pixit.png')} style={{ height: 150 }} />
       </div>
