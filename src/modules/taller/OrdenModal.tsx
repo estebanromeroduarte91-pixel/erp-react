@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { formatRut } from '@/lib/rut'
-import { useCrearOrden, useActualizarOrden, useClientes, useBuscarClientes, useCrearCliente, useActualizarCliente, useBuscarProductos, useChecklist, useEquipos, useUserProfiles, useMsgTemplates, useSeguimientoConfig, useBodegas, useTerminos } from '@/lib/queries'
+import { useCrearOrden, useActualizarOrden, useClientes, useCrearCliente, useActualizarCliente, useBuscarProductos, useChecklist, useEquipos, useUserProfiles, useMsgTemplates, useSeguimientoConfig, useBodegas, useTerminos } from '@/lib/queries'
+import { coincideCliente } from '@/lib/busquedaCliente'
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { capFirst, capWords } from '@/lib/formatters'
@@ -62,7 +63,7 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId, prefill, 
   const { empresaId, empresaNombre, branchId: userBranchId } = useAuth()
   const crearOrden = useCrearOrden()
   const actualizarOrden = useActualizarOrden()
-  const { data: clientes } = useClientes()
+  const { data: clientes, isLoading: clientesCargando } = useClientes()
   const crearCliente = useCrearCliente()
   const actualizarCliente = useActualizarCliente()
   const { data: checklistPorCategoria } = useChecklist()
@@ -181,12 +182,10 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId, prefill, 
 
   const clienteSeleccionado = form.nombre.trim() || form.apellido.trim()
 
-  // Búsqueda server-side mientras se escribe (evita esperar el directorio
-  // completo de clientes); sin texto, muestra los primeros del directorio ya
-  // cargado (que igual se mantiene en memoria para la validación de RUT duplicado).
-  const { data: clientesBuscados = [] } = useBuscarClientes(busquedaCliente)
+  // El directorio ya se carga para validar RUT duplicados. Buscar sobre el
+  // nombre completo permite combinar nombre y apellido e ignorar tildes.
   const clientesFiltrados = busquedaCliente.trim()
-    ? clientesBuscados
+    ? (clientes ?? []).filter(c => coincideCliente(c, busquedaCliente)).slice(0, 8)
     : (clientes ?? []).slice(0, 6)
 
   // El checklist depende de la categoría del equipo elegido (iPhone y MacBook
@@ -618,7 +617,7 @@ export function OrdenModal({ orden, ordenes, onClose, defaultBranchId, prefill, 
                     {clienteAbierto && (
                       <div style={fixedDropdownStyle(clienteRect)} className="bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
                         {clientesFiltrados.length === 0 ? (
-                          <p className="text-xs text-gray-400 text-center py-4">Sin resultados</p>
+                          <p className="text-xs text-gray-400 text-center py-4">{clientesCargando ? 'Cargando clientes…' : 'Sin resultados'}</p>
                         ) : (
                           clientesFiltrados.map((c) => (
                             <button key={c.id} onMouseDown={() => selectCliente(c)}

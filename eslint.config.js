@@ -10,7 +10,7 @@ export default defineConfig([
   // URL, sin el tsconfig ni los globals del navegador). Se versionan en el
   // repo como respaldo/histórico del código desplegado, pero no son parte del
   // build del frontend — pasarlas por este ESLint solo genera errores falsos.
-  globalIgnores(['dist', 'supabase/functions']),
+  globalIgnores(['dist', 'supabase/functions', 'video']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
