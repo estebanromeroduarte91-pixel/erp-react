@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom'
 import { resumenProductos, nombresProductos } from '@/lib/venta'
 import { useVentasEnRango, useUltimasVentas, useRentabilidadSucursales, useBodegas, useMetodosPago, useOCsEnRango, useCostosProductos } from '@/lib/queries'
 import { cascada, resultadoPorSucursal } from '@/lib/rentabilidad'
-import { calcularResumenVentas, fechaEfectivaOC, filtrarVentasPagadas, periodoAnteriorEquivalente, restarDias, MARGEN_OC_DIAS } from '@/lib/metricas'
+import { calcularResumenVentas, costoPorProducto, fechaEfectivaOC, filtrarVentasPagadas, periodoAnteriorEquivalente, restarDias, MARGEN_OC_DIAS } from '@/lib/metricas'
+import type { CostoProducto } from '@/lib/metricas'
 import { descripcionPagoVenta, nombreMetodoPago, pagosDeVenta } from '@/lib/metodoPago'
 import { Spinner } from '@/components/shared/Spinner'
 import { useIsMobile } from '@/lib/useIsMobile'
@@ -81,6 +82,7 @@ type DashboardStats = {
   // rechaza): se muestra "—" en vez de un $0 que parecería real.
   totalGastos: number | null
   totalCosto: number
+  costoProductos: CostoProducto[]
   totalSalida: number | null
   utilidad: number | null
   fueraOperacion: number | null
@@ -328,12 +330,53 @@ function MetodosPagoCard({ tienesSucs, bodegas, tabMp, setTabMp, expandedMp, set
   )
 }
 
-function GastosCard({ stats }: { stats: DashboardStats }) {
+function GastosCard({ stats, bodegas }: { stats: DashboardStats; bodegas: Bodega[] }) {
+  const [verCosto, setVerCosto] = useState(false)
+  const nombreSucursal = (id: string | null) => {
+    if (!id) return null
+    const b = bodegas.find(b => b.id === id)
+    return b ? (b.nombre ?? b.name ?? 'Sucursal') : null
+  }
   return (
     <div style={{ background: C.card, border: `0.5px solid ${C.border}`, borderRadius: 12, padding: '12px 14px' }}>
       <SectionLabel text="Costos y gastos" />
+      <button onClick={() => setVerCosto(v => !v)} style={{
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%',
+        padding: '8px 0', borderTop: 'none', borderLeft: 'none', borderRight: 'none',
+        borderBottom: verCosto ? 'none' : `0.5px solid ${C.border}`,
+        background: 'transparent', cursor: 'pointer', fontFamily: 'inherit',
+      }}>
+        <span style={{ fontSize: 13, color: '#2563eb', display: 'flex', alignItems: 'center', gap: 6 }}>
+          Costo de productos vendidos
+          <svg width="10" height="10" viewBox="0 0 12 12" fill="none" style={{ transition: 'transform .2s', transform: verCosto ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+            <path d="M2 4l4 4 4-4" stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </span>
+        <span style={{ fontSize: 13, fontWeight: 600, color: C.textPrimary }}>{stats.totalCosto == null ? '—' : fmt(stats.totalCosto)}</span>
+      </button>
+      {verCosto && (
+        <div style={{ background: C.bg, borderRadius: 8, margin: '4px 0 8px', padding: '0 10px', border: `0.5px solid ${C.border}` }}>
+          {stats.costoProductos.length === 0
+            ? <p style={{ textAlign: 'center', color: C.textMuted, fontSize: 12, padding: '12px 0', margin: 0 }}>Sin ventas con costo en este período</p>
+            : stats.costoProductos.map((p, i) => {
+              const suc = nombreSucursal(p.sucursalId)
+              return (
+                <div key={`${p.sucursalId ?? 'sin-sucursal'}::${p.productoId ?? p.nombre}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '8px 0', borderBottom: i < stats.costoProductos.length - 1 ? `0.5px solid ${C.border}` : 'none' }}>
+                  <div style={{ minWidth: 0 }}>
+                    <p style={{ fontSize: 12, fontWeight: 600, color: C.textPrimary, margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.nombre}</p>
+                    <p style={{ fontSize: 11, color: C.textMuted, margin: 0 }}>
+                      {p.cantidad} unidad{p.cantidad === 1 ? '' : 'es'}
+                      {suc && <> · <span style={{ fontWeight: 600 }}>{suc}</span></>}
+                    </p>
+                  </div>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: C.textPrimary, flexShrink: 0 }}>{fmt(p.costo)}</span>
+                </div>
+              )
+            })
+          }
+        </div>
+      )}
       {[
-        { label: 'Costo de productos vendidos', value: stats.totalCosto, to: '/ventas' },
         { label: 'Gastos operacionales', value: stats.totalGastos, to: '/contabilidad' },
       ].map((row, i, arr) => (
         <Link key={row.label} to={row.to} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: i < arr.length - 1 ? `0.5px solid ${C.border}` : 'none', textDecoration: 'none' }}>
@@ -444,6 +487,7 @@ export function DashboardPage() {
     const totalOC          = ocPer.reduce((s, o) => s + (+o.total || 0), 0)
     const totalGastos      = resultado ? resultado.gastosTienda + resultado.corporativo : null
     const totalCosto       = resumen.costoVentas
+    const costoProductos   = costoPorProducto(vPer, prodCostoMap)
     const totalSalida      = totalGastos == null ? null : totalCosto + totalGastos
     const utilidad         = resultado ? resultado.resultado : null
     const fueraOperacion   = resultado?.fueraDeOperacion ?? null
@@ -493,7 +537,7 @@ export function DashboardPage() {
     }))
     const mpGlobalSorted = Object.entries(mpGlobal).sort((a, b) => b[1] - a[1])
 
-    return { ventasBrutas, ventasBrutasPrev, ventasNetas, totalOC, totalGastos, totalCosto, totalSalida, utilidad, fueraOperacion, margen, txCount, ticketProm, sucursales, mpPorSuc, mpGlobalSorted }
+    return { ventasBrutas, ventasBrutasPrev, ventasNetas, totalOC, totalGastos, totalCosto, costoProductos, totalSalida, utilidad, fueraOperacion, margen, txCount, ticketProm, sucursales, mpPorSuc, mpGlobalSorted }
   }, [ventas, rentabilidad, ocs, costosProductos, bodegas, desde, hasta, pDesde, pHasta])
   // Actividad reciente: siempre las últimas ventas reales, sin importar el
   // período seleccionado (consulta chica aparte, no depende del rango visible).
@@ -591,7 +635,7 @@ export function DashboardPage() {
         )}
 
         <MetodosPagoCard tienesSucs={tienesSucs} bodegas={bodegas} tabMp={tabMp} setTabMp={setTabMp} expandedMp={expandedMp} setExpandedMp={setExpandedMp} mpActivos={mpActivos} getMpLabel={getMpLabel} drillVentas={drillVentas} sucActiva={sucActiva} />
-        <GastosCard stats={stats} />
+        <GastosCard stats={stats} bodegas={bodegas} />
 
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
@@ -655,7 +699,7 @@ export function DashboardPage() {
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <MetodosPagoCard tienesSucs={tienesSucs} bodegas={bodegas} tabMp={tabMp} setTabMp={setTabMp} expandedMp={expandedMp} setExpandedMp={setExpandedMp} mpActivos={mpActivos} getMpLabel={getMpLabel} drillVentas={drillVentas} sucActiva={sucActiva} />
-        <GastosCard stats={stats} />
+        <GastosCard stats={stats} bodegas={bodegas} />
       </div>
 
       <div style={{ background: C.card, border: `0.5px solid ${C.border}`, borderRadius: 12, overflow: 'hidden' }}>

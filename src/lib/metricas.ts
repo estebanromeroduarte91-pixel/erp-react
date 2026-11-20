@@ -11,6 +11,14 @@ export interface ResumenVentas {
   ticketPromedio: number
 }
 
+export interface CostoProducto {
+  productoId: string | null
+  nombre: string
+  sucursalId: string | null
+  cantidad: number
+  costo: number
+}
+
 /** Sólo una venta pagada representa un ingreso realizado. */
 export function esVentaPagada(venta: Venta): boolean {
   return venta.estado === 'pagada'
@@ -34,6 +42,39 @@ export function calcularCostoVentas(
     if (!item.producto_id) return subtotal
     return subtotal + (+item.cantidad || 0) * (costosActuales.get(item.producto_id) ?? 0)
   }, 0), 0)
+}
+
+/**
+ * Mismo costo que calcularCostoVentas, pero desglosado por producto y
+ * sucursal — para el drill-down de "Costo de productos vendidos" en el
+ * Dashboard. Se agrupa por producto_id (o nombre si no hay id) cruzado con
+ * la sucursal de la venta: el mismo producto vendido en dos locales aparece
+ * como dos líneas, para poder mostrar a qué sucursal corresponde cada costo.
+ */
+export function costoPorProducto(
+  ventas: Venta[],
+  costosActuales: ReadonlyMap<string, number> = new Map(),
+): CostoProducto[] {
+  const porClave = new Map<string, CostoProducto>()
+
+  for (const venta of filtrarVentasPagadas(ventas)) {
+    const sucursalId = venta.branchId ?? null
+    for (const item of venta.items ?? []) {
+      const costo = item.costo_total != null
+        ? (+item.costo_total || 0)
+        : item.producto_id
+          ? (+item.cantidad || 0) * (costosActuales.get(item.producto_id) ?? 0)
+          : 0
+      const nombre = item.producto_nombre?.trim() || 'Sin nombre'
+      const clave = `${sucursalId ?? 'sin-sucursal'}::${item.producto_id ?? `nombre:${nombre}`}`
+      const actual = porClave.get(clave) ?? { productoId: item.producto_id, nombre, sucursalId, cantidad: 0, costo: 0 }
+      actual.cantidad += +item.cantidad || 0
+      actual.costo += costo
+      porClave.set(clave, actual)
+    }
+  }
+
+  return [...porClave.values()].sort((a, b) => b.costo - a.costo)
 }
 
 /**
