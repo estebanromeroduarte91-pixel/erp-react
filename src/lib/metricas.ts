@@ -1,4 +1,4 @@
-import type { Venta } from '@/types'
+import type { Gasto, Venta } from '@/types'
 import { fechaLocal } from './fecha'
 
 export type RangoComparacion = 'hoy' | 'mes' | 'año' | 'rango'
@@ -17,6 +17,14 @@ export interface CostoProducto {
   sucursalId: string | null
   cantidad: number
   costo: number
+}
+
+export interface GastoCategoria {
+  categoria: string
+  sucursalId: string | null
+  sucursalNombre: string | null
+  cantidad: number
+  monto: number
 }
 
 /** Sólo una venta pagada representa un ingreso realizado. */
@@ -75,6 +83,28 @@ export function costoPorProducto(
   }
 
   return [...porClave.values()].sort((a, b) => b.costo - a.costo)
+}
+
+/**
+ * Gastos operacionales agrupados por categoría y sucursal — mismo propósito
+ * que costoPorProducto, para el drill-down de "Gastos operacionales" en el
+ * Dashboard. `bodega_id` vale 'general' para gastos compartidos entre todas
+ * las sucursales (ej. sueldo del dueño); esos quedan sin sucursalId.
+ */
+export function gastosPorCategoria(gastos: Gasto[]): GastoCategoria[] {
+  const porClave = new Map<string, GastoCategoria>()
+
+  for (const g of gastos) {
+    const categoria = g.categoria?.trim() || 'Sin categoría'
+    const sucursalId = g.bodega_id && g.bodega_id !== 'general' ? g.bodega_id : null
+    const clave = `${sucursalId ?? 'general'}::${categoria}`
+    const actual = porClave.get(clave) ?? { categoria, sucursalId, sucursalNombre: g.bodega_nombre ?? null, cantidad: 0, monto: 0 }
+    actual.cantidad += 1
+    actual.monto += +g.monto || 0
+    porClave.set(clave, actual)
+  }
+
+  return [...porClave.values()].sort((a, b) => b.monto - a.monto)
 }
 
 /**

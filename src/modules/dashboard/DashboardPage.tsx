@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { resumenProductos, nombresProductos } from '@/lib/venta'
-import { useVentasEnRango, useUltimasVentas, useRentabilidadSucursales, useBodegas, useMetodosPago, useOCsEnRango, useCostosProductos } from '@/lib/queries'
+import { useVentasEnRango, useUltimasVentas, useRentabilidadSucursales, useBodegas, useMetodosPago, useOCsEnRango, useCostosProductos, useGastosEnRango } from '@/lib/queries'
 import { cascada, resultadoPorSucursal } from '@/lib/rentabilidad'
-import { calcularResumenVentas, costoPorProducto, fechaEfectivaOC, filtrarVentasPagadas, periodoAnteriorEquivalente, restarDias, MARGEN_OC_DIAS } from '@/lib/metricas'
-import type { CostoProducto } from '@/lib/metricas'
+import { calcularResumenVentas, costoPorProducto, gastosPorCategoria, fechaEfectivaOC, filtrarVentasPagadas, periodoAnteriorEquivalente, restarDias, MARGEN_OC_DIAS } from '@/lib/metricas'
+import type { CostoProducto, GastoCategoria } from '@/lib/metricas'
 import { descripcionPagoVenta, nombreMetodoPago, pagosDeVenta } from '@/lib/metodoPago'
 import { Spinner } from '@/components/shared/Spinner'
 import { useIsMobile } from '@/lib/useIsMobile'
@@ -83,6 +83,7 @@ type DashboardStats = {
   totalGastos: number | null
   totalCosto: number
   costoProductos: CostoProducto[]
+  gastosCategorias: GastoCategoria[]
   totalSalida: number | null
   utilidad: number | null
   fueraOperacion: number | null
@@ -332,6 +333,7 @@ function MetodosPagoCard({ tienesSucs, bodegas, tabMp, setTabMp, expandedMp, set
 
 function GastosCard({ stats, bodegas }: { stats: DashboardStats; bodegas: Bodega[] }) {
   const [verCosto, setVerCosto] = useState(false)
+  const [verGastos, setVerGastos] = useState(false)
   const nombreSucursal = (id: string | null) => {
     if (!id) return null
     const b = bodegas.find(b => b.id === id)
@@ -376,14 +378,43 @@ function GastosCard({ stats, bodegas }: { stats: DashboardStats; bodegas: Bodega
           }
         </div>
       )}
-      {[
-        { label: 'Gastos operacionales', value: stats.totalGastos, to: '/contabilidad' },
-      ].map((row, i, arr) => (
-        <Link key={row.label} to={row.to} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: i < arr.length - 1 ? `0.5px solid ${C.border}` : 'none', textDecoration: 'none' }}>
-          <span style={{ fontSize: 13, color: '#2563eb' }}>{row.label}</span>
-          <span style={{ fontSize: 13, fontWeight: 600, color: C.textPrimary }}>{row.value == null ? '—' : fmt(row.value)}</span>
-        </Link>
-      ))}
+      <button onClick={() => stats.totalGastos != null && setVerGastos(v => !v)} style={{
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%',
+        padding: '8px 0', border: 'none',
+        background: 'transparent', cursor: stats.totalGastos != null ? 'pointer' : 'default', fontFamily: 'inherit',
+      }}>
+        <span style={{ fontSize: 13, color: '#2563eb', display: 'flex', alignItems: 'center', gap: 6 }}>
+          Gastos operacionales
+          {stats.totalGastos != null && (
+            <svg width="10" height="10" viewBox="0 0 12 12" fill="none" style={{ transition: 'transform .2s', transform: verGastos ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+              <path d="M2 4l4 4 4-4" stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          )}
+        </span>
+        <span style={{ fontSize: 13, fontWeight: 600, color: C.textPrimary }}>{stats.totalGastos == null ? '—' : fmt(stats.totalGastos)}</span>
+      </button>
+      {verGastos && (
+        <div style={{ background: C.bg, borderRadius: 8, margin: '4px 0 8px', padding: '0 10px', border: `0.5px solid ${C.border}` }}>
+          {stats.gastosCategorias.length === 0
+            ? <p style={{ textAlign: 'center', color: C.textMuted, fontSize: 12, padding: '12px 0', margin: 0 }}>Sin gastos registrados en este período</p>
+            : stats.gastosCategorias.map((g, i) => {
+              const suc = nombreSucursal(g.sucursalId) ?? g.sucursalNombre
+              return (
+                <div key={`${g.sucursalId ?? 'general'}::${g.categoria}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '8px 0', borderBottom: i < stats.gastosCategorias.length - 1 ? `0.5px solid ${C.border}` : 'none' }}>
+                  <div style={{ minWidth: 0 }}>
+                    <p style={{ fontSize: 12, fontWeight: 600, color: C.textPrimary, margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{g.categoria}</p>
+                    <p style={{ fontSize: 11, color: C.textMuted, margin: 0 }}>
+                      {g.cantidad} gasto{g.cantidad === 1 ? '' : 's'}
+                      {suc ? <> · <span style={{ fontWeight: 600 }}>{suc}</span></> : <> · <span>Todas las sucursales</span></>}
+                    </p>
+                  </div>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: C.textPrimary, flexShrink: 0 }}>{fmt(g.monto)}</span>
+                </div>
+              )
+            })
+          }
+        </div>
+      )}
       <div style={{ marginTop: 10, paddingTop: 10, borderTop: `0.5px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
         <span style={{ fontSize: 13, color: C.textSecondary }}>Costos + gastos</span>
         <span style={{ fontSize: 17, fontWeight: 700, color: C.red }}>{stats.totalSalida == null ? '—' : fmt(stats.totalSalida)}</span>
@@ -436,6 +467,7 @@ export function DashboardPage() {
   // que se recibieron, no por la de creación: una creada en junio y recibida
   // en agosto tiene que aparecer en agosto, y el servidor filtra por creación.
   const { data: ocs,     isLoading: loadOC } = useOCsEnRango(restarDias(rangoDesde, MARGEN_OC_DIAS), rangoHasta)
+  const { data: gastosPeriodo = [] } = useGastosEnRango(desde, hasta)
   const { data: bodegasRaw = [] } = useBodegas()
   const bodegas = useMemo(() => [...bodegasRaw].sort((a, b) => (b.nombre ?? b.name ?? '').localeCompare(a.nombre ?? a.name ?? '', 'es')), [bodegasRaw])
   const { data: metodos  = [] } = useMetodosPago()
@@ -488,6 +520,7 @@ export function DashboardPage() {
     const totalGastos      = resultado ? resultado.gastosTienda + resultado.corporativo : null
     const totalCosto       = resumen.costoVentas
     const costoProductos   = costoPorProducto(vPer, prodCostoMap)
+    const gastosCategorias = gastosPorCategoria(gastosPeriodo)
     const totalSalida      = totalGastos == null ? null : totalCosto + totalGastos
     const utilidad         = resultado ? resultado.resultado : null
     const fueraOperacion   = resultado?.fueraDeOperacion ?? null
@@ -537,8 +570,8 @@ export function DashboardPage() {
     }))
     const mpGlobalSorted = Object.entries(mpGlobal).sort((a, b) => b[1] - a[1])
 
-    return { ventasBrutas, ventasBrutasPrev, ventasNetas, totalOC, totalGastos, totalCosto, costoProductos, totalSalida, utilidad, fueraOperacion, margen, txCount, ticketProm, sucursales, mpPorSuc, mpGlobalSorted }
-  }, [ventas, rentabilidad, ocs, costosProductos, bodegas, desde, hasta, pDesde, pHasta])
+    return { ventasBrutas, ventasBrutasPrev, ventasNetas, totalOC, totalGastos, totalCosto, costoProductos, gastosCategorias, totalSalida, utilidad, fueraOperacion, margen, txCount, ticketProm, sucursales, mpPorSuc, mpGlobalSorted }
+  }, [ventas, rentabilidad, ocs, costosProductos, gastosPeriodo, bodegas, desde, hasta, pDesde, pHasta])
   // Actividad reciente: siempre las últimas ventas reales, sin importar el
   // período seleccionado (consulta chica aparte, no depende del rango visible).
   const ultimasVentas = useMemo(
