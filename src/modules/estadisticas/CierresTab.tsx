@@ -375,6 +375,24 @@ function Resultado({ r, previo, nombreBodega }: {
     <Linea etiqueta={`Margen bruto (${margenPct}%)`} monto={c.margenBruto} fuerte />
     <Linea etiqueta="Gastos de las tiendas" monto={-c.gastosTienda} />
     <Linea etiqueta="Gastos corporativos" ayuda="Repartidos entre tiendas según sus ventas" monto={-c.corporativo} />
+    {r.sucursales.length > 1 && <div className="mt-3">
+      <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-gray-400">Gastos por sucursal</p>
+      {r.sucursales.map(s => {
+        const propio = +s.gastos_tienda || 0
+        const corporativo = +s.corporativo_asignado || 0
+        return <div key={s.branch_id} className="flex items-center justify-between border-b border-gray-50 py-1.5 text-xs">
+          <span className="min-w-0 text-gray-600">
+            {s.nombre || nombreBodega(s.branch_id)}
+            <span className="block text-[11px] text-gray-400">Propios {fmt(propio)} · Corporativo {fmt(corporativo)}</span>
+          </span>
+          <span className="shrink-0 font-semibold text-gray-800">{fmt(propio + corporativo)}</span>
+        </div>
+      })}
+      {r.no_asignado && Math.round(r.no_asignado.gastos_tienda) !== 0 && <div className="flex items-center justify-between border-b border-gray-50 py-1.5 text-xs">
+        <span className="text-gray-500">Gastos sin sucursal asignada</span>
+        <span className="font-semibold text-gray-800">{fmt(r.no_asignado.gastos_tienda)}</span>
+      </div>}
+    </div>}
     <div className="mt-3 flex items-center justify-between rounded-xl bg-gray-50 px-4 py-3">
       <span className="text-sm font-semibold text-gray-700">Resultado de la operación</span>
       <span className="text-right">
